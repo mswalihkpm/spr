@@ -23,6 +23,8 @@ import {
   Sparkles,
   Award,
 } from 'lucide-react';
+import VideoLoader from '@/components/ui/VideoLoader';
+
 
 interface DynamicActivity {
   id: string;
@@ -586,8 +588,8 @@ export default function ProgramsPage() {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-slate-400">
-                      Loading records...
+                    <td colSpan={7} className="py-10 text-center">
+                      <VideoLoader size="md" text="Loading program records..." subtext="Accessing competition data" />
                     </td>
                   </tr>
                 ) : recentRecords.length === 0 ? (

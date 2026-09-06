@@ -21,8 +21,11 @@ import {
   Star,
   Layers,
   FileText,
+  ChevronRight,
+  Percent,
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
+import VideoLoader from '@/components/ui/VideoLoader';
 
 export default function PublicStudentScorecardPage() {
   const params = useParams();
@@ -34,6 +37,7 @@ export default function PublicStudentScorecardPage() {
   const [libraryRecords, setLibraryRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!studentId) return;
@@ -56,6 +60,95 @@ export default function PublicStudentScorecardPage() {
       })
       .finally(() => setLoading(false));
   }, [studentId]);
+
+  // Set default category on profile load
+  useEffect(() => {
+    if (profile && !selectedCategoryId) {
+      const cats = profile.categoryBreakdown || profile.categoryScores || [];
+      const firstWithData = cats.find(
+        (c: any) => (c.records && c.records.length > 0) || (c.recordsCount && c.recordsCount > 0) || c.percentage > 0
+      );
+      if (firstWithData) {
+        setSelectedCategoryId(firstWithData.categoryId || firstWithData.categoryCode);
+      } else if (cats.length > 0) {
+        setSelectedCategoryId(cats[0].categoryId || cats[0].categoryCode);
+      }
+    }
+  }, [profile, selectedCategoryId]);
+
+  const getCategoryIcon = (code?: string) => {
+    switch (code) {
+      case 'ISLAMIC':
+        return BookOpen;
+      case 'SCHOOL':
+        return GraduationCap;
+      case 'PROGRAMS':
+        return Trophy;
+      case 'CREATIVE_HUB':
+        return Sparkles;
+      case 'LITERARY':
+        return Feather;
+      case 'LIBRARY':
+        return Library;
+      default:
+        return Award;
+    }
+  };
+
+  const getCategoryRecords = (cat: any) => {
+    if (!cat) return [];
+    if (cat.records && cat.records.length > 0) return cat.records;
+
+    if (cat.categoryCode === 'ISLAMIC' || cat.categoryCode === 'SCHOOL') {
+      const records = (profile?.subjectWiseRecords || []).filter(
+        (r: any) => r.categoryCode === cat.categoryCode || r.categoryName === cat.categoryName
+      );
+      if (records.length > 0) return records;
+    }
+
+    if (cat.categoryCode === 'PROGRAMS' || cat.categoryCode === 'LITERARY') {
+      const records = (profile?.programmeWiseRecords || []).filter(
+        (r: any) => r.categoryCode === cat.categoryCode || r.categoryName === cat.categoryName
+      );
+      if (records.length > 0) return records;
+    }
+
+    if (cat.categoryCode === 'CREATIVE_HUB' && creativeWorks.length > 0) {
+      return creativeWorks.map((w) => ({
+        id: w.id,
+        title: w.title,
+        name: w.title,
+        subCategoryName: w.category?.name || 'Creative Submission',
+        type: 'CREATIVE',
+        publicationStatus: w.publicationStatus,
+        rating: w.rating,
+        percentage: w.percentage,
+        obtainedScore: w.rating ?? w.percentage,
+        maxScore: 100,
+        remarks: w.description || w.feedback,
+        date: w.date,
+      }));
+    }
+
+    if (cat.categoryCode === 'LIBRARY' && libraryRecords.length > 0) {
+      return libraryRecords.map((lib) => ({
+        id: lib.id,
+        name: lib.readingPeriod || 'Reading Period Milestone',
+        readingPeriod: lib.readingPeriod,
+        booksRead: lib.booksRead,
+        pagesRead: lib.pagesRead,
+        type: 'LIBRARY',
+        percentage: lib.readingScore,
+        readingScore: lib.readingScore,
+        obtainedScore: lib.booksRead,
+        maxScore: 10,
+        remarks: lib.remarks,
+        date: lib.createdAt,
+      }));
+    }
+
+    return [];
+  };
 
   // Auto-launch print dialog if opened with ?print=true
   useEffect(() => {
@@ -83,10 +176,7 @@ export default function PublicStudentScorecardPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4">
-        <div className="text-center space-y-3 animate-fade-in">
-          <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
-          <div className="text-sm font-bold text-slate-700">Loading Student Performance Dossier...</div>
-        </div>
+        <VideoLoader size="xl" text="Loading Student Performance Dossier..." subtext="Accessing SPR Academic Records" />
       </div>
     );
   }
@@ -115,6 +205,17 @@ export default function PublicStudentScorecardPage() {
   const overallSprScore = formatScore(profile.overallScore ?? profile.overallSPR);
   const numericScore = parseFloat(overallSprScore);
 
+  const categoriesList = profile.categoryBreakdown || profile.categoryScores || [];
+  const activeCategory =
+    categoriesList.find((c: any) => c.categoryId === selectedCategoryId || c.categoryCode === selectedCategoryId) ||
+    categoriesList[0];
+  const activeRecords = getCategoryRecords(activeCategory);
+  const ActiveIcon = getCategoryIcon(activeCategory?.categoryCode);
+
+  const activeRawScore = activeCategory ? parseFloat(formatScore(activeCategory.score ?? activeCategory.percentage)) : 0;
+  const activeWeight = activeCategory?.weight || 0;
+  const activeContribution = ((activeRawScore * activeWeight) / 100).toFixed(2);
+
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans py-6 px-4 sm:px-6 lg:px-8 print:p-0 print:bg-white">
       {/* Global CSS for Strict 1-Page A4 Print */}
@@ -135,7 +236,7 @@ export default function PublicStudentScorecardPage() {
             padding: 0 !important;
             background: white !important;
             color: #0f172a !important;
-            overflow: hidden !important;
+            overflow: visible !important;
           }
           .print\\:hidden {
             display: none !important;
@@ -147,12 +248,9 @@ export default function PublicStudentScorecardPage() {
             box-shadow: none !important;
             max-width: 100% !important;
             width: 100% !important;
-            max-height: 285mm !important;
             display: flex !important;
             flex-direction: column !important;
-            justify-content: space-between !important;
             box-sizing: border-box !important;
-            overflow: hidden !important;
           }
           .page-break-avoid {
             break-inside: avoid !important;
@@ -162,7 +260,7 @@ export default function PublicStudentScorecardPage() {
       `}</style>
 
       <div className="max-w-4xl mx-auto space-y-4 print:space-y-0 print:m-0 print:p-0">
-        {/* Navigation & Action Bar (Hidden on print, in SAME tab) */}
+        {/* Navigation & Action Bar (Hidden on print) */}
         <div className="flex items-center justify-between print:hidden animate-slide-down">
           <Link
             href="/"
@@ -201,9 +299,9 @@ export default function PublicStudentScorecardPage() {
           </div>
         </div>
 
-        {/* Official Scorecard Paper Container (Strictly 1-Page A4 Print Sized) */}
+        {/* Official Scorecard Paper Container */}
         <div className="scorecard-container bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden p-6 sm:p-8 space-y-4 print:p-0 print:border-none print:shadow-none print:space-y-1.5 animate-zoom-up">
-          {/* Top Decreased Header Banner Image Card (Sleek, Compact & Print-Optimized) */}
+          {/* Top Header Banner Card */}
           <div className="relative rounded-2xl bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-900 text-white overflow-hidden p-4 sm:p-5 flex items-center justify-between shadow-md print:p-2.5 print:rounded-xl page-break-avoid">
             <div className="relative z-10 flex items-center space-x-3 print:space-x-2.5">
               <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white p-1 flex items-center justify-center shrink-0 shadow print:w-8 print:h-8 print:rounded-lg">
@@ -310,13 +408,57 @@ export default function PublicStudentScorecardPage() {
             </div>
           </div>
 
-          {/* Multi-Wing Category Breakdown Table */}
-          <div className="space-y-1.5 print:space-y-1 page-break-avoid">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 print:text-[9.5px]">
-              Performance Wing Analysis
-            </h3>
+          {/* Multi-Wing Category Breakdown Table (Interactive: Click any row to reveal score breakdown below) */}
+          <div className="space-y-2 print:space-y-1 page-break-avoid">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 print:text-[9.5px]">
+                  Performance Wing Analysis
+                </h3>
+                <p className="text-[10px] text-slate-500 print:hidden font-medium">
+                  Click on any category below to view how the student earned their score and points:
+                </p>
+              </div>
+              <span className="hidden sm:inline-flex items-center space-x-1 text-[10px] font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200 print:hidden">
+                <span>Interactive Breakdown</span>
+              </span>
+            </div>
 
-            <div className="overflow-x-auto rounded-xl border border-slate-200 print:rounded-lg">
+            {/* Category selection quick pills (for quick tapping on mobile & tablet) */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 print:hidden scrollbar-none">
+              {categoriesList.map((cat: any) => {
+                const isSelected =
+                  (selectedCategoryId && cat.categoryId === selectedCategoryId) ||
+                  cat.categoryCode === selectedCategoryId ||
+                  (!selectedCategoryId && activeCategory?.categoryId === cat.categoryId);
+                const IconComp = getCategoryIcon(cat.categoryCode);
+                const catScore = parseFloat(formatScore(cat.score ?? cat.percentage));
+
+                return (
+                  <button
+                    key={cat.categoryId}
+                    onClick={() => setSelectedCategoryId(cat.categoryId || cat.categoryCode)}
+                    className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-blue-600 text-white shadow-md scale-102'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200/80 hover:text-slate-900 border border-slate-200/70'
+                    }`}
+                  >
+                    <IconComp className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-blue-600'}`} />
+                    <span>{cat.categoryName}</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded-md font-mono ${
+                        isSelected ? 'bg-blue-800 text-blue-100' : 'bg-slate-200/80 text-slate-800'
+                      }`}
+                    >
+                      {catScore.toFixed(1)}%
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 print:rounded-lg overflow-hidden shadow-xs">
               <table className="w-full text-left text-xs print:text-[9.5px]">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
                   <tr>
@@ -324,24 +466,63 @@ export default function PublicStudentScorecardPage() {
                     <th className="py-2.5 px-3 text-center print:py-1 print:px-2">SPR Weight</th>
                     <th className="py-2.5 px-3 text-right print:py-1 print:px-2">Raw Benchmark %</th>
                     <th className="py-2.5 px-3 text-right print:py-1 print:px-2">Weighted Contribution</th>
+                    <th className="py-2.5 px-2 text-center w-8 print:hidden"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {(profile.categoryBreakdown || profile.categoryScores || []).map((cat: any) => {
+                  {categoriesList.map((cat: any) => {
                     const rawScore = parseFloat(formatScore(cat.score ?? cat.percentage));
                     const weightVal = cat.weight || 0;
                     const weightedContrib = ((rawScore * weightVal) / 100).toFixed(1);
+                    const isSelected =
+                      (selectedCategoryId && cat.categoryId === selectedCategoryId) ||
+                      cat.categoryCode === selectedCategoryId ||
+                      (!selectedCategoryId && activeCategory?.categoryId === cat.categoryId);
+                    const IconComp = getCategoryIcon(cat.categoryCode);
+
                     return (
-                      <tr key={cat.categoryId} className="hover:bg-slate-50">
-                        <td className="py-2 px-3 print:py-0.5 print:px-2 font-bold text-slate-900">{cat.categoryName}</td>
-                        <td className="py-2 px-3 print:py-0.5 print:px-2 text-center font-semibold text-slate-600">
+                      <tr
+                        key={cat.categoryId}
+                        onClick={() => setSelectedCategoryId(cat.categoryId || cat.categoryCode)}
+                        className={`cursor-pointer transition-all duration-150 ${
+                          isSelected
+                            ? 'bg-blue-50/90 font-semibold text-blue-950 ring-1 ring-inset ring-blue-300'
+                            : 'hover:bg-slate-50 text-slate-800'
+                        }`}
+                        title="Click to inspect exact score origin below"
+                      >
+                        <td className="py-2.5 px-3 print:py-0.5 print:px-2">
+                          <div className="flex items-center space-x-2">
+                            <div
+                              className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 print:hidden ${
+                                isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'
+                              }`}
+                            >
+                              <IconComp className="w-3.5 h-3.5" />
+                            </div>
+                            <span className="font-bold text-slate-900">{cat.categoryName}</span>
+                            {isSelected && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-blue-200/80 text-blue-900 font-bold uppercase tracking-wider print:hidden">
+                                Selected
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-3 print:py-0.5 print:px-2 text-center font-semibold text-slate-600">
                           {weightVal}%
                         </td>
-                        <td className="py-2 px-3 print:py-0.5 print:px-2 text-right font-bold text-slate-800">
+                        <td className="py-2.5 px-3 print:py-0.5 print:px-2 text-right font-bold text-slate-800">
                           {rawScore.toFixed(1)}%
                         </td>
-                        <td className="py-2 px-3 print:py-0.5 print:px-2 text-right font-extrabold text-blue-700">
-                          {weightedContrib}%
+                        <td className="py-2.5 px-3 print:py-0.5 print:px-2 text-right font-extrabold text-blue-700">
+                          +{weightedContrib}%
+                        </td>
+                        <td className="py-2.5 px-2 text-center print:hidden">
+                          <ChevronRight
+                            className={`w-4 h-4 transition-transform ${
+                              isSelected ? 'text-blue-600 rotate-90' : 'text-slate-300'
+                            }`}
+                          />
                         </td>
                       </tr>
                     );
@@ -350,6 +531,182 @@ export default function PublicStudentScorecardPage() {
               </table>
             </div>
           </div>
+
+          {/* Dedicated Category Score Origin & Calculation Breakdown Section */}
+          {activeCategory && (
+            <div className="rounded-2xl border-2 border-blue-200/80 bg-gradient-to-b from-blue-50/40 via-white to-white p-4 sm:p-5 space-y-4 shadow-sm animate-fade-in page-break-avoid">
+              {/* Category Score Origin Header */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-blue-100">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md shrink-0">
+                    <ActiveIcon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <h4 className="text-sm sm:text-base font-black text-slate-900">
+                        {activeCategory.categoryName} Assessment Breakdown
+                      </h4>
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-100 text-blue-900 border border-blue-200 font-mono">
+                        Weight: {activeWeight}%
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-600 font-medium mt-0.5">
+                      Itemized score origin and marks logged under this assessment wing
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2 self-end sm:self-center">
+                  <div className="text-right bg-white px-3 py-1.5 rounded-xl border border-blue-200 shadow-2xs">
+                    <div className="text-[9px] uppercase font-bold text-slate-500">Benchmark Score</div>
+                    <div className="text-base font-black text-blue-700 font-mono leading-none mt-0.5">
+                      {activeRawScore.toFixed(1)}%
+                    </div>
+                  </div>
+                  <div className="text-right bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 shadow-2xs">
+                    <div className="text-[9px] uppercase font-bold text-emerald-800">SPR Contribution</div>
+                    <div className="text-base font-black text-emerald-700 font-mono leading-none mt-0.5">
+                      +{activeContribution}%
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Mathematical Explanation Banner */}
+              <div className="p-3 bg-blue-50/80 rounded-xl border border-blue-200/90 text-xs text-blue-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <div className="flex items-start sm:items-center space-x-2">
+                  <div className="font-bold flex items-center space-x-1 shrink-0">
+                    <span>📐 Mathematical Formula:</span>
+                  </div>
+                  <span className="font-mono text-[11px] text-blue-900">
+                    {activeCategory.categoryName} Contribution = {activeRawScore.toFixed(1)}% (Raw Score) × {activeWeight}% (Weight) = +{activeContribution}% towards Cumulative SPR
+                  </span>
+                </div>
+                <div className="text-[10px] font-semibold text-blue-800 shrink-0">
+                  {activeRecords.length} Record{activeRecords.length === 1 ? '' : 's'} Evaluated
+                </div>
+              </div>
+
+              {/* Itemized Records List / Table */}
+              <div className="space-y-2">
+                {activeRecords.length === 0 ? (
+                  <div className="p-6 text-center rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                    <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center mx-auto text-sm font-bold">
+                      ℹ️
+                    </div>
+                    <div className="text-xs font-bold text-slate-700">
+                      No assessment records logged yet for {activeCategory.categoryName}.
+                    </div>
+                    <p className="text-[11px] text-slate-500 max-w-md mx-auto">
+                      The benchmark score for this evaluation wing is currently 0.0%, contributing +0.00% towards the student&apos;s overall SPR.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-slate-200">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
+                        <tr>
+                          <th className="py-2.5 px-3">Subject / Event Record</th>
+                          <th className="py-2.5 px-3">Assessment / Fest / Context</th>
+                          <th className="py-2.5 px-3 text-center">Score / Marks</th>
+                          <th className="py-2.5 px-3 text-right">Percentage</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white">
+                        {activeRecords.map((r: any, idx: number) => {
+                          const recordPct = typeof r.percentage === 'number' ? r.percentage : parseFloat(r.percentage || '0');
+                          const displayName =
+                            r.subjectName ||
+                            r.competitionName ||
+                            r.literaryCompetitionName ||
+                            r.title ||
+                            r.readingPeriod ||
+                            r.name ||
+                            'Assessment Item';
+
+                          const displayContext =
+                            r.examName ||
+                            r.termName ||
+                            r.festName ||
+                            r.programName ||
+                            r.eventName ||
+                            r.subCategoryName ||
+                            r.categoryName ||
+                            'Standard Assessment';
+
+                          const extraDetail =
+                            r.institutionName ||
+                            (r.levelName ? `Level: ${r.levelName}` : null) ||
+                            (r.booksRead !== undefined ? `${r.booksRead} Books Read` : null) ||
+                            (r.publicationStatus ? `Status: ${r.publicationStatus}` : null);
+
+                          return (
+                            <tr key={r.id || idx} className="hover:bg-blue-50/40 transition">
+                              <td className="py-2.5 px-3">
+                                <div className="space-y-0.5">
+                                  <div className="font-bold text-slate-900 text-xs sm:text-sm">
+                                    {displayName}
+                                  </div>
+                                  {r.remarks && (
+                                    <div className="text-[10px] text-emerald-700 italic font-medium">
+                                      {r.remarks}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+
+                              <td className="py-2.5 px-3 text-slate-600">
+                                <div className="space-y-0.5">
+                                  <div className="font-semibold text-slate-800 text-xs">
+                                    {displayContext}
+                                  </div>
+                                  {extraDetail && (
+                                    <div className="text-[10px] text-blue-700 font-medium">
+                                      {extraDetail}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+
+                              <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-700">
+                                {r.obtainedScore !== undefined && r.maxScore ? (
+                                  <span>
+                                    {r.obtainedScore} <span className="text-slate-400 font-normal">/ {r.maxScore}</span>
+                                  </span>
+                                ) : r.booksRead !== undefined ? (
+                                  <span>{r.booksRead} Books</span>
+                                ) : (
+                                  <span>{recordPct.toFixed(1)}%</span>
+                                )}
+                              </td>
+
+                              <td className="py-2.5 px-3 text-right">
+                                <div className="inline-flex items-center space-x-1.5">
+                                  <span
+                                    className={`px-2 py-0.5 rounded-md font-mono font-extrabold text-xs ${
+                                      recordPct >= 85
+                                        ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                                        : recordPct >= 70
+                                        ? 'bg-blue-100 text-blue-900 border border-blue-200'
+                                        : recordPct >= 50
+                                        ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                                        : 'bg-slate-100 text-slate-700'
+                                    }`}
+                                  >
+                                    {recordPct.toFixed(1)}%
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Published Creative Works & Library Achievements (if available) */}
           {(creativeWorks.length > 0 || libraryRecords.length > 0) && (

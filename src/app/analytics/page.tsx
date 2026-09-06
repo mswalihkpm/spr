@@ -32,6 +32,7 @@ import {
   Radar,
   Legend,
 } from 'recharts';
+import VideoLoader from '@/components/ui/VideoLoader';
 
 export default function AnalyticsPage() {
   const [data, setData] = useState<any>(null);
@@ -119,7 +120,9 @@ export default function AnalyticsPage() {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-xs text-slate-400">Loading chart...</div>
+                <div className="h-full flex items-center justify-center">
+                  <VideoLoader size="md" text="Loading class comparison..." subtext="Analyzing academic cohorts" />
+                </div>
               )}
             </div>
           </div>
@@ -146,7 +149,9 @@ export default function AnalyticsPage() {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-xs text-slate-400">Loading chart...</div>
+                <div className="h-full flex items-center justify-center">
+                  <VideoLoader size="md" text="Loading school comparison..." subtext="Analyzing participating schools" />
+                </div>
               )}
             </div>
           </div>
@@ -159,17 +164,23 @@ export default function AnalyticsPage() {
             <p className="text-xs text-slate-500">Average scores across Islamic, School, Programs, Creative, Literary, and Reading</p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-2">
-            {data?.categoryPerformance?.map((cat: any) => (
-              <div key={cat.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 text-center space-y-1">
-                <div className="text-[11px] font-bold text-slate-500 truncate">{cat.name}</div>
-                <div className="text-xl font-black text-slate-900">{cat.averagePercentage}%</div>
-                <div className="text-[10px] font-semibold text-gold-700 bg-gold-50 py-0.5 rounded">
-                  {cat.defaultWeight}% Weight
+          {loading || !data?.categoryPerformance ? (
+            <div className="py-8 flex items-center justify-center">
+              <VideoLoader size="md" text="Loading category distributions..." subtext="Computing evaluation weights" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-2">
+              {data?.categoryPerformance?.map((cat: any) => (
+                <div key={cat.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 text-center space-y-1">
+                  <div className="text-[11px] font-bold text-slate-500 truncate">{cat.name}</div>
+                  <div className="text-xl font-black text-slate-900">{cat.averagePercentage}%</div>
+                  <div className="text-[10px] font-semibold text-gold-700 bg-gold-50 py-0.5 rounded">
+                    {cat.defaultWeight}% Weight
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </AdminLayout>

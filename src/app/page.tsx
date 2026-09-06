@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import {
   Search,
   Award,
@@ -23,8 +24,10 @@ import {
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import StudentReportModal from '@/components/modals/StudentReportModal';
 import PwaFooterInstall from '@/components/pwa/PwaFooterInstall';
+import VideoLoader from '@/components/ui/VideoLoader';
 
 export default function PublicHomePage() {
+  const router = useRouter();
   const [categories, setCategories] = useState<any[]>([]);
   const [schools, setSchools] = useState<any[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
@@ -53,6 +56,10 @@ export default function PublicHomePage() {
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportingStudent, setReportingStudent] = useState<any | null>(null);
 
+// Global client caches for instantaneous loading
+const homeLeaderboardMemory = new Map<string, any[]>();
+let homeAcademicMemory: any = null;
+
   // Track scroll position for header blur effect
   useEffect(() => {
     const handleScroll = () => {
@@ -73,11 +80,17 @@ export default function PublicHomePage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch initial master data
+  // Fetch initial master data with cache
   useEffect(() => {
+    if (homeAcademicMemory) {
+      if (homeAcademicMemory.categories) setCategories(homeAcademicMemory.categories);
+      if (homeAcademicMemory.classes) setClasses(homeAcademicMemory.classes);
+      if (homeAcademicMemory.schools) setSchools(homeAcademicMemory.schools);
+    }
     fetch('/api/academic')
       .then((res) => res.json())
       .then((data) => {
+        homeAcademicMemory = data;
         if (data.categories) setCategories(data.categories);
         if (data.classes) setClasses(data.classes);
         if (data.schools) setSchools(data.schools);
@@ -85,16 +98,27 @@ export default function PublicHomePage() {
       .catch((err) => console.error('Error fetching academic master data:', err));
   }, []);
 
-  // Fetch Overall SPR leaderboard (Overview only)
+  // Fetch Overall SPR leaderboard (Overview only) with instant cache
   useEffect(() => {
-    setLoadingLeaderboard(true);
     const params = new URLSearchParams();
     if (selectedClass) params.append('classId', selectedClass);
+    const cacheKey = params.toString() || 'overview';
+
+    const cached = homeLeaderboardMemory.get(cacheKey);
+    if (cached) {
+      setLeaderboard(cached);
+      setLoadingLeaderboard(false);
+    } else {
+      setLoadingLeaderboard(true);
+    }
 
     fetch(`/api/leaderboard?${params.toString()}`)
       .then((res) => res.json())
       .then((data) => {
-        if (data.leaderboard) setLeaderboard(data.leaderboard);
+        if (data.leaderboard) {
+          homeLeaderboardMemory.set(cacheKey, data.leaderboard);
+          setLeaderboard(data.leaderboard);
+        }
       })
       .catch((err) => console.error('Error fetching leaderboard:', err))
       .finally(() => setLoadingLeaderboard(false));
@@ -127,6 +151,13 @@ export default function PublicHomePage() {
 
     return () => clearTimeout(timeout);
   }, [searchQuery]);
+
+  // Direct Navigation to Student Profile
+  const handleStudentClick = (studentId: string) => {
+    if (!studentId) return;
+    setShowSearchDropdown(false);
+    router.push(`/student/${studentId}`);
+  };
 
   // Open Student Modal Dossier
   const openStudentDossier = (studentId: string) => {
@@ -353,7 +384,7 @@ export default function PublicHomePage() {
                   onKeyDown={(e) => {
                     if (e.key === 'Escape') setShowSearchDropdown(false);
                     if (e.key === 'Enter' && searchResults.length > 0) {
-                      openStudentDossier(searchResults[0].id);
+                      handleStudentClick(searchResults[0].id);
                     }
                   }}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -381,9 +412,8 @@ export default function PublicHomePage() {
               {showSearchDropdown && searchQuery.trim().length >= 1 && (
                 <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-[100] max-h-80 overflow-y-auto animate-slide-up">
                   {searching ? (
-                    <div className="py-6 px-4 text-center flex items-center justify-center space-x-2 text-xs text-slate-500">
-                      <div className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                      <span>Searching students directory...</span>
+                    <div className="py-6 px-4 flex items-center justify-center">
+                      <VideoLoader size="sm" text="Searching students..." subtext="SPR Registry" />
                     </div>
                   ) : searchResults.length > 0 ? (
                     <>
@@ -400,7 +430,7 @@ export default function PublicHomePage() {
                         {searchResults.map((st) => (
                           <button
                             key={st.id}
-                            onClick={() => openStudentDossier(st.id)}
+                            onClick={() => handleStudentClick(st.id)}
                             className="w-full px-3.5 py-2.5 text-left bg-white hover:bg-blue-50/80 flex items-center justify-between group transition-colors duration-150"
                           >
                             <div className="flex items-center space-x-2.5 min-w-0">
@@ -462,7 +492,7 @@ export default function PublicHomePage() {
               <div className="grid grid-cols-3 gap-2 sm:gap-5 max-w-4xl mx-auto items-end">
                 {/* Rank 2 (★ 2nd Rank ★) */}
                 <div
-                  onClick={() => openStudentDossier(top3[1]?.studentId)}
+                  onClick={() => handleStudentClick(top3[1]?.studentId)}
                   className="cursor-pointer bg-white rounded-2xl sm:rounded-3xl p-2.5 sm:p-6 border-2 border-slate-200 shadow-lg hover:shadow-xl hover:border-slate-400 transition-all duration-300 text-center relative order-1 group animate-slide-left delay-200 hover:-translate-y-1"
                 >
                   <div className="flex justify-center mb-1.5 sm:mb-2">
@@ -492,7 +522,7 @@ export default function PublicHomePage() {
 
                 {/* Rank 1 (★ 1st Rank ★ - Center & Elevated) */}
                 <div
-                  onClick={() => openStudentDossier(top3[0]?.studentId)}
+                  onClick={() => handleStudentClick(top3[0]?.studentId)}
                   className="cursor-pointer bg-gradient-to-b from-amber-50/95 via-white to-white rounded-2xl sm:rounded-3xl p-3 sm:p-7 border-2 border-amber-400 shadow-xl hover:shadow-2xl hover:border-amber-500 transition-all duration-300 text-center relative order-2 -translate-y-2 sm:-translate-y-4 group animate-zoom-up delay-100 hover:-translate-y-5"
                 >
                   <div className="flex justify-center mb-1.5 sm:mb-2">
@@ -522,7 +552,7 @@ export default function PublicHomePage() {
 
                 {/* Rank 3 (★ 3rd Rank ★) */}
                 <div
-                  onClick={() => openStudentDossier(top3[2]?.studentId)}
+                  onClick={() => handleStudentClick(top3[2]?.studentId)}
                   className="cursor-pointer bg-white rounded-2xl sm:rounded-3xl p-2.5 sm:p-6 border-2 border-amber-200 shadow-lg hover:shadow-xl hover:border-amber-300 transition-all duration-300 text-center relative order-3 group animate-slide-right delay-200 hover:-translate-y-1"
                 >
                   <div className="flex justify-center mb-1.5 sm:mb-2">
@@ -624,9 +654,8 @@ export default function PublicHomePage() {
               <tbody className="divide-y divide-slate-100">
                 {loadingLeaderboard ? (
                   <tr>
-                    <td colSpan={5} className="py-10 text-center text-slate-400">
-                      <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                      Loading live standings...
+                    <td colSpan={5} className="py-10 text-center">
+                      <VideoLoader size="md" text="Loading live standings..." subtext="SPR Evaluation Platform" />
                     </td>
                   </tr>
                 ) : displayedLeaderboard.length === 0 ? (
@@ -648,12 +677,12 @@ export default function PublicHomePage() {
                     return (
                       <tr
                         key={row.studentId}
-                        onClick={() => openStudentDossier(row.studentId)}
+                        onClick={() => handleStudentClick(row.studentId)}
                         style={{ animationDelay: `${Math.min(idx * 20, 350)}ms` }}
                         className={`animate-row hover:bg-blue-50/50 cursor-pointer transition-all duration-200 group ${
                           isTop1 ? 'bg-amber-50/20' : ''
                         }`}
-                        title="Click row to view complete student dossier"
+                        title="Click to view full student profile and score origin breakdown"
                       >
                         <td className="py-2 sm:py-3.5 px-1.5 sm:px-4 text-center">
                           {isTop1 ? (
@@ -754,23 +783,26 @@ export default function PublicHomePage() {
             <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-blue-600 transition-all duration-300 card-interactive space-y-3 relative group animate-slide-up delay-100 flex flex-col justify-between">
               {/* Overlapped Subcategory Badges on Top-Right */}
               <div className="absolute top-4 right-4 flex items-center -space-x-2 z-10 bg-white/95 backdrop-blur-xs p-1 rounded-full border border-slate-200 shadow-2xs" title="Subcategories: Jamiathul Hind & Ma'din Academy">
-                <div className="w-6 h-6 rounded-full bg-white border border-slate-200 p-0.5 overflow-hidden shadow-xs hover:scale-110 hover:z-20 transition" title="Jamiathul Hind Al-Islamiyya">
+                <Link href="/leaderboard?stream=JAMIATHUL_HIND" className="w-6 h-6 rounded-full bg-white border border-slate-200 p-0.5 overflow-hidden shadow-xs hover:scale-110 hover:z-20 transition" title="Jamiathul Hind Al-Islamiyya">
                   <Image src="/jamiathul-hind.png" alt="Jamiathul Hind" width={24} height={24} className="w-full h-full object-contain" />
-                </div>
-                <div className="w-6 h-6 rounded-full bg-white border border-slate-200 p-0.5 overflow-hidden shadow-xs hover:scale-110 hover:z-20 transition" title="Ma'din Academy">
+                </Link>
+                <Link href="/leaderboard?stream=MADIN_ACADEMY" className="w-6 h-6 rounded-full bg-white border border-slate-200 p-0.5 overflow-hidden shadow-xs hover:scale-110 hover:z-20 transition" title="Ma'din Academy">
                   <Image src="/madin-academy.png" alt="Ma'din Academy" width={24} height={24} className="w-full h-full object-contain" />
-                </div>
+                </Link>
               </div>
 
               <div>
-                <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition mb-3">
-                  <BookOpen className="w-6 h-6 text-blue-700" />
-                </div>
-                <div className="flex items-center justify-between">
-                  <h4 className="text-base font-bold text-slate-900 group-hover:text-blue-700 transition">
-                    Islamic Studies
-                  </h4>
-                </div>
+                <Link href="/leaderboard?stream=JAMIATHUL_HIND" className="block group/title">
+                  <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center shrink-0 shadow-xs group-hover/title:scale-105 transition mb-3">
+                    <BookOpen className="w-6 h-6 text-blue-700" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-base font-bold text-slate-900 group-hover/title:text-blue-700 transition">
+                      Islamic Studies
+                    </h4>
+                    <ArrowRight className="w-4 h-4 text-slate-400 group-hover/title:text-blue-700 group-hover/title:translate-x-1 transition shrink-0" />
+                  </div>
+                </Link>
                 <p className="text-xs text-slate-600 leading-relaxed mt-1">
                   Quranic recitation, Hadith memorization, Fiqh jurisprudence, Arabic grammar (Nahw & Sarf), and Islamic history.
                 </p>
@@ -807,29 +839,32 @@ export default function PublicHomePage() {
             <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-rose-500 transition-all duration-300 card-interactive space-y-3 relative group animate-slide-up delay-150 flex flex-col justify-between">
               {/* Overlapped 4 Festival Badges on Top-Right */}
               <div className="absolute top-4 right-4 flex items-center -space-x-2 z-10 bg-white/95 backdrop-blur-xs p-1 rounded-full border border-slate-200 shadow-2xs" title="Subcategories: Sahityotsav, Kalotsav, M-Lit, Jamia Mahrajan">
-                <div className="w-6 h-6 rounded-full bg-white border border-slate-200 p-0.5 overflow-hidden shadow-xs hover:scale-110 hover:z-20 transition" title="Sahityotsav">
+                <Link href="/leaderboard?fest=SAHITYOTSAV" className="w-6 h-6 rounded-full bg-white border border-slate-200 p-0.5 overflow-hidden shadow-xs hover:scale-110 hover:z-20 transition" title="Sahityotsav">
                   <Image src="/sahityotsav.png" alt="Sahityotsav" width={24} height={24} className="w-full h-full object-contain" />
-                </div>
-                <div className="w-6 h-6 rounded-full bg-white border border-slate-200 p-0.5 overflow-hidden shadow-xs hover:scale-110 hover:z-20 transition" title="Kalotsav">
+                </Link>
+                <Link href="/leaderboard?fest=KALOTSAV" className="w-6 h-6 rounded-full bg-white border border-slate-200 p-0.5 overflow-hidden shadow-xs hover:scale-110 hover:z-20 transition" title="Kalotsav">
                   <Image src="/kalotsav.png" alt="Kalotsav" width={24} height={24} className="w-full h-full object-contain" />
-                </div>
-                <div className="w-6 h-6 rounded-full bg-white border border-slate-200 p-0.5 overflow-hidden shadow-xs hover:scale-110 hover:z-20 transition" title="M-Lit Fest">
+                </Link>
+                <Link href="/leaderboard?fest=M_LIT" className="w-6 h-6 rounded-full bg-white border border-slate-200 p-0.5 overflow-hidden shadow-xs hover:scale-110 hover:z-20 transition" title="M-Lit Fest">
                   <Image src="/m-lit.png" alt="M-Lit" width={24} height={24} className="w-full h-full object-contain" />
-                </div>
-                <div className="w-6 h-6 rounded-full bg-white border border-slate-200 p-0.5 overflow-hidden shadow-xs hover:scale-110 hover:z-20 transition" title="Jamia Mahrajan">
+                </Link>
+                <Link href="/leaderboard?fest=JAMIA_MAHRAJAN" className="w-6 h-6 rounded-full bg-white border border-slate-200 p-0.5 overflow-hidden shadow-xs hover:scale-110 hover:z-20 transition" title="Jamia Mahrajan">
                   <Image src="/jamia-mahrajan.png" alt="Mahrajan" width={24} height={24} className="w-full h-full object-contain" />
-                </div>
+                </Link>
               </div>
 
               <div>
-                <div className="w-12 h-12 rounded-xl bg-rose-100 text-rose-800 flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition mb-3">
-                  <Feather className="w-6 h-6 text-rose-700" />
-                </div>
-                <div className="flex items-center justify-between">
-                  <h4 className="text-base font-bold text-slate-900 group-hover:text-rose-700 transition">
-                    Literary Festivals
-                  </h4>
-                </div>
+                <Link href="/leaderboard?fest=SAHITYOTSAV" className="block group/title">
+                  <div className="w-12 h-12 rounded-xl bg-rose-100 text-rose-800 flex items-center justify-center shrink-0 shadow-xs group-hover/title:scale-105 transition mb-3">
+                    <Feather className="w-6 h-6 text-rose-700" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-base font-bold text-slate-900 group-hover/title:text-rose-700 transition">
+                      Literary Festivals
+                    </h4>
+                    <ArrowRight className="w-4 h-4 text-slate-400 group-hover/title:text-rose-700 group-hover/title:translate-x-1 transition shrink-0" />
+                  </div>
+                </Link>
                 <p className="text-xs text-slate-600 leading-relaxed mt-1">
                   Sahityotsav, Kalotsavam, M-Lit Fest & Jamia Mahrajan literary and cultural arts competitions.
                 </p>
@@ -1031,9 +1066,8 @@ export default function PublicHomePage() {
             </button>
 
             {loadingProfile || !studentProfile ? (
-              <div className="py-16 text-center space-y-3">
-                <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
-                <div className="text-xs font-bold text-slate-600">Loading Student Performance Dossier...</div>
+              <div className="py-12 text-center">
+                <VideoLoader size="lg" text="Loading Student Performance Dossier..." subtext="Madin School of Excellence" />
               </div>
             ) : (
               <div className="space-y-6">

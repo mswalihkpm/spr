@@ -30,6 +30,11 @@ import {
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import StudentReportModal from '@/components/modals/StudentReportModal';
 import PwaFooterInstall from '@/components/pwa/PwaFooterInstall';
+import VideoLoader from '@/components/ui/VideoLoader';
+
+// Global client-side memory caches for 0ms instant loading
+const clientLeaderboardMemory = new Map<string, any[]>();
+const clientProfileMemory = new Map<string, any>();
 
 function LeaderboardContent() {
   const router = useRouter();
@@ -85,7 +90,7 @@ function LeaderboardContent() {
     }
   }, [searchParams, categories]);
 
-  // Fetch reference master data
+  // Fetch reference master data with instant load
   useEffect(() => {
     fetch('/api/academic')
       .then((res) => res.json())
@@ -98,21 +103,33 @@ function LeaderboardContent() {
   }, []);
 
   const fetchLeaderboard = async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (selectedFest) {
-        params.append('fest', selectedFest);
-      } else if (selectedStream) {
-        params.append('stream', selectedStream);
-      } else if (selectedCategory) {
-        params.append('categoryId', selectedCategory);
-      }
-      if (selectedClass) params.append('classId', selectedClass);
+    const params = new URLSearchParams();
+    if (selectedFest) {
+      params.append('fest', selectedFest);
+    } else if (selectedStream) {
+      params.append('stream', selectedStream);
+    } else if (selectedCategory) {
+      params.append('categoryId', selectedCategory);
+    }
+    if (selectedClass) params.append('classId', selectedClass);
 
+    const cacheKey = params.toString() || 'overall';
+    const cached = clientLeaderboardMemory.get(cacheKey);
+
+    if (cached) {
+      setLeaderboard(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    try {
       const res = await fetch(`/api/leaderboard?${params.toString()}`);
       const data = await res.json();
-      if (data.leaderboard) setLeaderboard(data.leaderboard);
+      if (data.leaderboard) {
+        clientLeaderboardMemory.set(cacheKey, data.leaderboard);
+        setLeaderboard(data.leaderboard);
+      }
       if (data.categories && categories.length === 0) setCategories(data.categories);
     } catch (err) {
       console.error(err);
@@ -125,9 +142,65 @@ function LeaderboardContent() {
     fetchLeaderboard();
   }, [selectedCategory, selectedStream, selectedFest, selectedClass]);
 
+  const switchLeaderboard = (target: {
+    type: 'OVERALL' | 'STREAM' | 'FEST' | 'CATEGORY';
+    stream?: string;
+    fest?: string;
+    categoryId?: string;
+  }) => {
+    let newCat = '';
+    let newStream = '';
+    let newFest = '';
+    let url = '/leaderboard';
+
+    if (target.type === 'OVERALL') {
+      newCat = '';
+      newStream = '';
+      newFest = '';
+      url = '/leaderboard';
+    } else if (target.type === 'STREAM' && target.stream) {
+      newCat = '';
+      newStream = target.stream;
+      newFest = '';
+      url = `/leaderboard?stream=${target.stream}`;
+    } else if (target.type === 'FEST' && target.fest) {
+      newCat = '';
+      newStream = '';
+      newFest = target.fest;
+      url = `/leaderboard?fest=${target.fest}`;
+    } else if (target.type === 'CATEGORY' && target.categoryId) {
+      newCat = target.categoryId;
+      newStream = '';
+      newFest = '';
+      url = `/leaderboard?categoryId=${target.categoryId}`;
+    }
+
+    setSelectedCategory(newCat);
+    setSelectedStream(newStream);
+    setSelectedFest(newFest);
+    router.push(url, { scroll: false });
+  };
+
+  const handleStudentRowClick = (studentId: string) => {
+    if (!selectedCategory && !selectedStream && !selectedFest) {
+      // Overall Institutional SPR Leaderboard -> Directly open full profile view!
+      router.push(`/student/${studentId}`);
+    } else {
+      // Specific Leaderboard (Category / Stream / Fest) -> Open calculation breakdown modal for this specific context
+      openStudentDossier(studentId);
+    }
+  };
+
   const openStudentDossier = (studentId: string) => {
     setSelectedStudentId(studentId);
-    setLoadingProfile(true);
+
+    const cachedProfile = clientProfileMemory.get(studentId);
+    if (cachedProfile) {
+      setStudentProfile(cachedProfile);
+      setLoadingProfile(false);
+    } else {
+      setLoadingProfile(true);
+    }
 
     // Default tab based on active view context
     if (selectedFest) {
@@ -151,11 +224,13 @@ function LeaderboardContent() {
       .then((res) => res.json())
       .then((data) => {
         if (data && data.profile) {
-          setStudentProfile({
+          const profileData = {
             ...data.profile,
             creativeWorks: data.creativeWorks || [],
             libraryRecords: data.libraryRecords || [],
-          });
+          };
+          clientProfileMemory.set(studentId, profileData);
+          setStudentProfile(profileData);
         }
       })
       .catch((err) => console.error(err))
@@ -336,7 +411,31 @@ function LeaderboardContent() {
       isFest: false,
     };
   } else if (currentCategory) {
-    if (currentCategory.code === 'CREATIVE_HUB') {
+    if (currentCategory.code === 'ISLAMIC') {
+      heroTheme = {
+        bgGradient: 'bg-gradient-to-r from-[#06203a] via-[#0A2540] to-[#1e40af]',
+        glowColor: 'from-white/30 via-blue-300/15 to-transparent',
+        borderColor: 'border-blue-400/40',
+        title: 'Islamic Studies Leaderboard',
+        subtitle: 'Comprehensive Islamic education: Quran, Hadith, Fiqh, Nahw & Sarf Arabic grammar.',
+        badge: 'Assessment Wing Dedicated Page',
+        badgeClass: 'bg-blue-500/25 text-blue-100 border-blue-300/40',
+        logo: '/jamiathul-hind.png',
+        isFest: false,
+      };
+    } else if (currentCategory.code === 'LITERARY') {
+      heroTheme = {
+        bgGradient: 'bg-gradient-to-r from-[#500724] via-[#881337] to-[#9f1239]',
+        glowColor: 'from-white/30 via-rose-300/15 to-transparent',
+        borderColor: 'border-rose-400/40',
+        title: 'Literary Festivals Leaderboard',
+        subtitle: 'Literary arts competitions: Sahityotsav, Kalotsavam, M-Lit Fest & Jamia Mahrajan.',
+        badge: 'Assessment Wing Dedicated Page',
+        badgeClass: 'bg-rose-500/25 text-rose-100 border-rose-300/40',
+        logo: '/sahityotsav.png',
+        isFest: true,
+      };
+    } else if (currentCategory.code === 'CREATIVE_HUB') {
       heroTheme = {
         bgGradient: 'bg-gradient-to-r from-[#083344] via-[#0e7490] to-[#0284c7]',
         glowColor: 'from-white/30 via-cyan-300/15 to-transparent',
@@ -399,6 +498,15 @@ function LeaderboardContent() {
     }
   }
 
+  // Determine active primary wing tab
+  const isOverallActive = !selectedCategory && !selectedStream && !selectedFest;
+  const isIslamicActive = Boolean(selectedStream || currentCategory?.code === 'ISLAMIC');
+  const isFestActive = Boolean(selectedFest || currentCategory?.code === 'LITERARY');
+  const isSchoolActive = currentCategory?.code === 'SCHOOL';
+  const isCreativeActive = currentCategory?.code === 'CREATIVE_HUB';
+  const isProgramsActive = currentCategory?.code === 'PROGRAMS';
+  const isLibraryActive = currentCategory?.code === 'LIBRARY';
+
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
       {/* Top Header with Low Opacity, Blur & Clean Navigation */}
@@ -451,7 +559,215 @@ function LeaderboardContent() {
       </header>
 
       {/* Main Standings Container */}
-      <main className="max-w-7xl mx-auto w-full px-3 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-5 sm:space-y-6 flex-1 print:hidden">
+      <main className="max-w-7xl mx-auto w-full px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-5 flex-1 print:hidden">
+        {/* Dedicated Separate Leaderboards Switcher Navigation Bar */}
+        <div className="space-y-2 animate-slide-up">
+          {/* Level 1: Primary Category / Wing Tabs */}
+          <div className="bg-white p-1.5 sm:p-2 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-1.5 overflow-x-auto scrollbar-none no-scrollbar">
+            {/* Overall SPR */}
+            <button
+              onClick={() => switchLeaderboard({ type: 'OVERALL' })}
+              className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-150 shrink-0 flex items-center space-x-1.5 ${
+                isOverallActive
+                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20 ring-2 ring-blue-600/30'
+                  : 'bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
+              }`}
+            >
+              <Trophy className={`w-3.5 h-3.5 ${isOverallActive ? 'text-amber-300' : 'text-amber-500'}`} />
+              <span>⭐ Overall SPR</span>
+            </button>
+
+            {/* Islamic Studies */}
+            <button
+              onClick={() => switchLeaderboard({ type: 'STREAM', stream: 'JAMIATHUL_HIND' })}
+              className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-150 shrink-0 flex items-center space-x-1.5 ${
+                isIslamicActive
+                  ? 'bg-blue-900 text-white shadow-sm shadow-blue-900/20 ring-2 ring-blue-900/30'
+                  : 'bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
+              }`}
+            >
+              <BookOpen className={`w-3.5 h-3.5 ${isIslamicActive ? 'text-blue-200' : 'text-blue-600'}`} />
+              <span>🕌 Islamic Studies</span>
+            </button>
+
+            {/* Literary Festivals */}
+            <button
+              onClick={() => switchLeaderboard({ type: 'FEST', fest: 'SAHITYOTSAV' })}
+              className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-150 shrink-0 flex items-center space-x-1.5 ${
+                isFestActive
+                  ? 'bg-rose-700 text-white shadow-sm shadow-rose-700/20 ring-2 ring-rose-700/30'
+                  : 'bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
+              }`}
+            >
+              <Feather className={`w-3.5 h-3.5 ${isFestActive ? 'text-rose-200' : 'text-rose-600'}`} />
+              <span>🎭 Literary Festivals</span>
+            </button>
+
+            {/* School Education */}
+            <button
+              onClick={() => {
+                const cat = categories.find((c) => c.code === 'SCHOOL');
+                if (cat) switchLeaderboard({ type: 'CATEGORY', categoryId: cat.id });
+              }}
+              className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-150 shrink-0 flex items-center space-x-1.5 ${
+                isSchoolActive
+                  ? 'bg-indigo-700 text-white shadow-sm shadow-indigo-700/20 ring-2 ring-indigo-700/30'
+                  : 'bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
+              }`}
+            >
+              <GraduationCap className={`w-3.5 h-3.5 ${isSchoolActive ? 'text-indigo-200' : 'text-indigo-600'}`} />
+              <span>🏫 School Education</span>
+            </button>
+
+            {/* Creative Hub */}
+            <button
+              onClick={() => {
+                const cat = categories.find((c) => c.code === 'CREATIVE_HUB');
+                if (cat) switchLeaderboard({ type: 'CATEGORY', categoryId: cat.id });
+              }}
+              className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-150 shrink-0 flex items-center space-x-1.5 ${
+                isCreativeActive
+                  ? 'bg-cyan-700 text-white shadow-sm shadow-cyan-700/20 ring-2 ring-cyan-700/30'
+                  : 'bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
+              }`}
+            >
+              <Sparkles className={`w-3.5 h-3.5 ${isCreativeActive ? 'text-cyan-200' : 'text-cyan-600'}`} />
+              <span>💡 Creative Hub</span>
+            </button>
+
+            {/* Programs & Leadership */}
+            <button
+              onClick={() => {
+                const cat = categories.find((c) => c.code === 'PROGRAMS');
+                if (cat) switchLeaderboard({ type: 'CATEGORY', categoryId: cat.id });
+              }}
+              className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-150 shrink-0 flex items-center space-x-1.5 ${
+                isProgramsActive
+                  ? 'bg-purple-700 text-white shadow-sm shadow-purple-700/20 ring-2 ring-purple-700/30'
+                  : 'bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
+              }`}
+            >
+              <Trophy className={`w-3.5 h-3.5 ${isProgramsActive ? 'text-purple-200' : 'text-purple-600'}`} />
+              <span>🏆 Programs</span>
+            </button>
+
+            {/* Library / Reading */}
+            <button
+              onClick={() => {
+                const cat = categories.find((c) => c.code === 'LIBRARY');
+                if (cat) switchLeaderboard({ type: 'CATEGORY', categoryId: cat.id });
+              }}
+              className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-150 shrink-0 flex items-center space-x-1.5 ${
+                isLibraryActive
+                  ? 'bg-amber-700 text-white shadow-sm shadow-amber-700/20 ring-2 ring-amber-700/30'
+                  : 'bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
+              }`}
+            >
+              <Library className={`w-3.5 h-3.5 ${isLibraryActive ? 'text-amber-200' : 'text-amber-600'}`} />
+              <span>📚 Library</span>
+            </button>
+          </div>
+
+          {/* Level 2: Subcategory Pills for Multi-Stream & Multi-Fest Wings */}
+          {isIslamicActive && (
+            <div className="flex items-center gap-2 overflow-x-auto p-1.5 sm:p-2 bg-blue-50/90 rounded-2xl border border-blue-200/80 animate-slide-down">
+              <span className="text-[10px] uppercase font-black text-blue-900 ml-1.5 shrink-0">Select Stream:</span>
+              <button
+                onClick={() => switchLeaderboard({ type: 'STREAM', stream: 'JAMIATHUL_HIND' })}
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition shrink-0 flex items-center space-x-1.5 ${
+                  selectedStream === 'JAMIATHUL_HIND'
+                    ? 'bg-blue-600 text-white shadow-2xs'
+                    : 'bg-white text-slate-700 hover:bg-blue-100/60 border border-blue-200'
+                }`}
+              >
+                <span>🕌 Jamiathul Hind</span>
+              </button>
+              <button
+                onClick={() => switchLeaderboard({ type: 'STREAM', stream: 'MADIN_ACADEMY' })}
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition shrink-0 flex items-center space-x-1.5 ${
+                  selectedStream === 'MADIN_ACADEMY'
+                    ? 'bg-teal-700 text-white shadow-2xs'
+                    : 'bg-white text-slate-700 hover:bg-teal-100/60 border border-teal-200'
+                }`}
+              >
+                <span>🏛️ Ma'din Academy</span>
+              </button>
+              <button
+                onClick={() => {
+                  const cat = categories.find((c) => c.code === 'ISLAMIC');
+                  if (cat) switchLeaderboard({ type: 'CATEGORY', categoryId: cat.id });
+                }}
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition shrink-0 flex items-center space-x-1.5 ${
+                  selectedCategory && !selectedStream && currentCategory?.code === 'ISLAMIC'
+                    ? 'bg-slate-800 text-white shadow-2xs'
+                    : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                }`}
+              >
+                <span>📋 Combined Islamic</span>
+              </button>
+            </div>
+          )}
+
+          {isFestActive && (
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto p-1.5 sm:p-2 bg-rose-50/90 rounded-2xl border border-rose-200/80 animate-slide-down">
+              <span className="text-[10px] uppercase font-black text-rose-900 ml-1.5 shrink-0">Festival:</span>
+              <button
+                onClick={() => switchLeaderboard({ type: 'FEST', fest: 'SAHITYOTSAV' })}
+                className={`px-2.5 sm:px-3 py-1 rounded-xl text-[11px] sm:text-xs font-bold transition shrink-0 flex items-center space-x-1 ${
+                  selectedFest === 'SAHITYOTSAV'
+                    ? 'bg-rose-700 text-white shadow-2xs'
+                    : 'bg-white text-slate-700 hover:bg-rose-100/60 border border-rose-200'
+                }`}
+              >
+                <span>🎭 Sahityotsav</span>
+              </button>
+              <button
+                onClick={() => switchLeaderboard({ type: 'FEST', fest: 'KALOTSAV' })}
+                className={`px-2.5 sm:px-3 py-1 rounded-xl text-[11px] sm:text-xs font-bold transition shrink-0 flex items-center space-x-1 ${
+                  selectedFest === 'KALOTSAV'
+                    ? 'bg-blue-700 text-white shadow-2xs'
+                    : 'bg-white text-slate-700 hover:bg-blue-100/60 border border-blue-200'
+                }`}
+              >
+                <span>🎨 Kalotsavam</span>
+              </button>
+              <button
+                onClick={() => switchLeaderboard({ type: 'FEST', fest: 'M_LIT' })}
+                className={`px-2.5 sm:px-3 py-1 rounded-xl text-[11px] sm:text-xs font-bold transition shrink-0 flex items-center space-x-1 ${
+                  selectedFest === 'M_LIT'
+                    ? 'bg-emerald-700 text-white shadow-2xs'
+                    : 'bg-white text-slate-700 hover:bg-emerald-100/60 border border-emerald-200'
+                }`}
+              >
+                <span>📖 M-Lit</span>
+              </button>
+              <button
+                onClick={() => switchLeaderboard({ type: 'FEST', fest: 'JAMIA_MAHRAJAN' })}
+                className={`px-2.5 sm:px-3 py-1 rounded-xl text-[11px] sm:text-xs font-bold transition shrink-0 flex items-center space-x-1 ${
+                  selectedFest === 'JAMIA_MAHRAJAN'
+                    ? 'bg-amber-700 text-white shadow-2xs'
+                    : 'bg-white text-slate-700 hover:bg-amber-100/60 border border-amber-200'
+                }`}
+              >
+                <span>🏆 Mahrajan</span>
+              </button>
+              <button
+                onClick={() => {
+                  const cat = categories.find((c) => c.code === 'LITERARY');
+                  if (cat) switchLeaderboard({ type: 'CATEGORY', categoryId: cat.id });
+                }}
+                className={`px-2.5 sm:px-3 py-1 rounded-xl text-[11px] sm:text-xs font-bold transition shrink-0 flex items-center space-x-1 ${
+                  selectedCategory && !selectedFest && currentCategory?.code === 'LITERARY'
+                    ? 'bg-slate-800 text-white shadow-2xs'
+                    : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                }`}
+              >
+                <span>📋 All Fests</span>
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Dynamic Themed Subcategory Hero Banner (With Logo at Left Top, Name at Left Top, Tiny White Glow) */}
         <div
           className={`relative overflow-hidden rounded-3xl p-5 sm:p-7 shadow-xl border ${heroTheme.borderColor} ${heroTheme.bgGradient} text-white animate-slide-up`}
@@ -507,27 +823,15 @@ function LeaderboardContent() {
                   const val = e.target.value;
                   if (val.startsWith('fest:')) {
                     const f = val.replace('fest:', '');
-                    setSelectedFest(f);
-                    setSelectedStream('');
-                    setSelectedCategory('');
-                    router.push(`/leaderboard?fest=${f}`);
+                    switchLeaderboard({ type: 'FEST', fest: f });
                   } else if (val.startsWith('stream:')) {
                     const s = val.replace('stream:', '');
-                    setSelectedStream(s);
-                    setSelectedFest('');
-                    setSelectedCategory('');
-                    router.push(`/leaderboard?stream=${s}`);
+                    switchLeaderboard({ type: 'STREAM', stream: s });
                   } else if (val.startsWith('cat:')) {
                     const c = val.replace('cat:', '');
-                    setSelectedCategory(c);
-                    setSelectedStream('');
-                    setSelectedFest('');
-                    router.push(`/leaderboard?categoryId=${c}`);
+                    switchLeaderboard({ type: 'CATEGORY', categoryId: c });
                   } else {
-                    setSelectedCategory('');
-                    setSelectedStream('');
-                    setSelectedFest('');
-                    router.push('/leaderboard');
+                    switchLeaderboard({ type: 'OVERALL' });
                   }
                 }}
                 className="px-3.5 py-2.5 bg-white/95 text-slate-900 font-bold rounded-2xl text-xs outline-none focus:ring-2 focus:ring-white shadow-md border border-white/40 cursor-pointer"
@@ -536,12 +840,18 @@ function LeaderboardContent() {
                 <optgroup label="Islamic Studies Subcategories">
                   <option value="stream:JAMIATHUL_HIND">🕌 Jamiathul Hind Al-Islamiyya</option>
                   <option value="stream:MADIN_ACADEMY">🏛️ Ma'din Academy Stream</option>
+                  {categories.find((c) => c.code === 'ISLAMIC') && (
+                    <option value={`cat:${categories.find((c) => c.code === 'ISLAMIC')?.id}`}>📋 All Islamic Studies</option>
+                  )}
                 </optgroup>
                 <optgroup label="Literary Festivals Subcategories">
                   <option value="fest:SAHITYOTSAV">🎭 Sahityotsav</option>
                   <option value="fest:KALOTSAV">🎨 Kerala School Kalotsavam</option>
                   <option value="fest:M_LIT">📖 M-Lit Fest</option>
                   <option value="fest:JAMIA_MAHRAJAN">🏆 Jamia Mahrajan</option>
+                  {categories.find((c) => c.code === 'LITERARY') && (
+                    <option value={`cat:${categories.find((c) => c.code === 'LITERARY')?.id}`}>📋 All Literary Festivals</option>
+                  )}
                 </optgroup>
                 <optgroup label="Assessment Wings">
                   {categories.map((c) => (
@@ -565,7 +875,7 @@ function LeaderboardContent() {
           <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-1 items-end max-w-4xl mx-auto">
             {/* Rank 2 (★ 2nd Rank ★) */}
             <div
-              onClick={() => openStudentDossier(topThree[1].studentId)}
+              onClick={() => handleStudentRowClick(topThree[1].studentId)}
               className="bg-white rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 border-2 border-slate-200 shadow-xs cursor-pointer hover:shadow-md transition-all flex flex-col justify-between order-1 text-center group animate-slide-left delay-150"
             >
               <div className="flex justify-center mb-1 sm:mb-2">
@@ -594,7 +904,7 @@ function LeaderboardContent() {
 
             {/* Rank 1 (★ 1st Rank ★) */}
             <div
-              onClick={() => openStudentDossier(topThree[0].studentId)}
+              onClick={() => handleStudentRowClick(topThree[0].studentId)}
               className="bg-gradient-to-b from-amber-50/90 via-white to-white rounded-2xl sm:rounded-3xl p-3 sm:p-6 shadow-md border-2 border-amber-400 cursor-pointer hover:shadow-xl transition-all flex flex-col justify-between order-2 -translate-y-2 sm:-translate-y-3 text-center group animate-zoom-up delay-100"
             >
               <div className="flex justify-center mb-1 sm:mb-2">
@@ -623,7 +933,7 @@ function LeaderboardContent() {
 
             {/* Rank 3 (★ 3rd Rank ★) */}
             <div
-              onClick={() => openStudentDossier(topThree[2].studentId)}
+              onClick={() => handleStudentRowClick(topThree[2].studentId)}
               className="bg-white rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 border-2 border-amber-200 shadow-xs cursor-pointer hover:shadow-md transition-all flex flex-col justify-between order-3 text-center group animate-slide-right delay-150"
             >
               <div className="flex justify-center mb-1 sm:mb-2">
@@ -697,9 +1007,8 @@ function LeaderboardContent() {
               <tbody className="divide-y divide-slate-100 font-sans">
                 {loading ? (
                   <tr>
-                    <td colSpan={5} className="py-12 text-center text-slate-400">
-                      <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                      Computing live rankings...
+                    <td colSpan={5} className="py-10 text-center">
+                      <VideoLoader size="md" text="Computing live rankings..." subtext="SPR Evaluation Engine" />
                     </td>
                   </tr>
                 ) : filteredEntries.length === 0 ? (
@@ -721,12 +1030,16 @@ function LeaderboardContent() {
                     return (
                       <tr
                         key={st.studentId}
-                        onClick={() => openStudentDossier(st.studentId)}
+                        onClick={() => handleStudentRowClick(st.studentId)}
                         style={{ animationDelay: `${Math.min(idx * 20, 450)}ms` }}
                         className={`animate-row hover:bg-blue-50/50 cursor-pointer transition-all duration-200 group ${
                           isTop1 ? 'bg-amber-50/20' : ''
                         }`}
-                        title="Click row to view mathematical % calculation breakdown"
+                        title={
+                          !selectedCategory && !selectedStream && !selectedFest
+                            ? 'Click to view full student profile and score origin breakdown'
+                            : 'Click to view calculation breakdown for this category'
+                        }
                       >
                         <td className="py-2 sm:py-3.5 px-1.5 sm:px-4 text-center">
                           {isTop1 ? (
@@ -813,9 +1126,8 @@ function LeaderboardContent() {
             </button>
 
             {loadingProfile || !studentProfile ? (
-              <div className="py-16 text-center space-y-3">
-                <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
-                <div className="text-xs font-bold text-slate-600">Computing mathematical % calculations...</div>
+              <div className="py-12 text-center">
+                <VideoLoader size="lg" text="Computing mathematical % calculations..." subtext="Analyzing student performance dossier" />
               </div>
             ) : (
               <div className="space-y-6">
@@ -860,6 +1172,36 @@ function LeaderboardContent() {
 
                 {/* Calculation Mode Switcher Tabs */}
                 <div className="space-y-3">
+                  {/* Context Header for Specific Leaderboard */}
+                  {(selectedCategory || selectedStream || selectedFest) && (
+                    <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-between text-xs text-blue-950 font-bold">
+                      <div className="flex items-center space-x-2">
+                        <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
+                        <span>
+                          Leaderboard Score Origin:{' '}
+                          <span className="text-blue-700 underline font-black">
+                            {selectedFest
+                              ? selectedFest === 'SAHITYOTSAV'
+                                ? 'Sahityotsav'
+                                : selectedFest === 'KALOTSAV'
+                                ? 'Kerala School Kalotsavam'
+                                : selectedFest === 'M_LIT'
+                                ? 'M-Lit Fest'
+                                : 'Jamia Mahrajan'
+                              : selectedStream
+                              ? selectedStream === 'JAMIATHUL_HIND'
+                                ? 'Jamiathul Hind Al-Islamiyya'
+                                : "Ma'din Academy Stream"
+                              : categories.find((c) => c.id === selectedCategory)?.name || 'Selected Category'}
+                          </span>
+                        </span>
+                      </div>
+                      <span className="text-[10px] uppercase font-black bg-blue-600 text-white px-2 py-0.5 rounded-md">
+                        Filtered View
+                      </span>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between pb-1 border-b border-slate-100">
                     <div className="flex items-center space-x-1.5">
                       <Percent className="w-4 h-4 text-blue-600" />
@@ -1099,7 +1441,13 @@ function LeaderboardContent() {
 
 export default function LeaderboardPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-xs text-slate-400">Loading leaderboard standings...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-[60vh] flex items-center justify-center p-8">
+          <VideoLoader size="xl" text="Loading SPR Leaderboard Standings..." subtext="Madin School of Excellence" />
+        </div>
+      }
+    >
       <LeaderboardContent />
     </Suspense>
   );

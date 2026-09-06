@@ -35,39 +35,37 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: 'Failed to compute student performance dossier.' }, { status: 500 });
     }
 
-    // Compute live rankings
-    const [allLeaderboard, classLeaderboard, schoolLeaderboard] = await Promise.all([
-      calculateAllLeaderboards({ academicYearId: profile.student.academicYear.id }),
-      calculateAllLeaderboards({
-        academicYearId: profile.student.academicYear.id,
-        classId: profile.student.class.id,
-      }),
-      calculateAllLeaderboards({
-        academicYearId: profile.student.academicYear.id,
-        schoolId: profile.student.school.id,
-      }),
-    ]);
+    // Compute live rankings instantly from single cached leaderboard dataset
+    const allLeaderboard = await calculateAllLeaderboards({ academicYearId: profile.student.academicYear.id });
 
-    const overallEntry = allLeaderboard.find((e) => e.studentId === studentId);
-    const classEntry = classLeaderboard.find((e) => e.studentId === studentId);
-    const schoolEntry = schoolLeaderboard.find((e) => e.studentId === studentId);
+    const classEntries = allLeaderboard.filter((e) => e.className === profile.student.class.name);
+    const schoolEntries = allLeaderboard.filter((e) => e.schoolName === profile.student.school.name);
 
-    profile.rank = overallEntry?.rank || 1;
-    profile.classRank = classEntry?.rank || 1;
-    profile.schoolRank = schoolEntry?.rank || 1;
+    const overallRank = allLeaderboard.findIndex((e) => e.studentId === studentId) + 1 || 1;
+    const classRank = classEntries.findIndex((e) => e.studentId === studentId) + 1 || 1;
+    const schoolRank = schoolEntries.findIndex((e) => e.studentId === studentId) + 1 || 1;
+
+    profile.rank = overallRank;
+    profile.classRank = classRank;
+    profile.schoolRank = schoolRank;
     profile.totalStudentsOverall = allLeaderboard.length;
-    profile.totalStudentsInClass = classLeaderboard.length;
-    profile.totalStudentsInSchool = schoolLeaderboard.length;
+    profile.totalStudentsInClass = classEntries.length;
+    profile.totalStudentsInSchool = schoolEntries.length;
 
     const enrichedProfile: any = {
       ...profile,
       overallScore: profile.overallSPR,
       categoryBreakdown: (profile.categoryScores || []).map((c) => ({
         categoryId: c.categoryId,
+        categoryCode: c.categoryCode,
         categoryName: c.categoryName,
+        icon: c.icon,
         score: c.percentage,
         percentage: c.percentage,
         weight: c.weight,
+        recordsCount: c.recordsCount,
+        isIncluded: c.isIncluded,
+        records: c.records || [],
       })),
     };
 

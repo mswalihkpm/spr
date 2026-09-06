@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Clock,
 } from 'lucide-react';
+import VideoLoader from '@/components/ui/VideoLoader';
 
 export default function DisplayModePage() {
   const [data, setData] = useState<any>(null);
@@ -91,6 +92,14 @@ export default function DisplayModePage() {
       }
     }
   };
+
+  if (loading && !data) {
+    return (
+      <div className="min-h-screen bg-madin-950 text-white flex items-center justify-center p-6">
+        <VideoLoader size="xl" text="Initializing Live SPR Broadcast..." subtext="Connecting to Madin School of Excellence Live Feed" />
+      </div>
+    );
+  }
 
   const topThree = data?.topThree || [];
   const leaderboard = data?.leaderboard || [];

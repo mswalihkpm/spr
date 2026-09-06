@@ -41,6 +41,8 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
+import VideoLoader from '@/components/ui/VideoLoader';
+
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -296,7 +298,9 @@ export default function DashboardPage() {
           </div>
 
           {loadingReports ? (
-            <div className="py-8 text-center text-xs text-slate-400">Loading reports...</div>
+            <div className="py-8 flex items-center justify-center">
+              <VideoLoader size="sm" text="Loading student inquiries..." subtext="Accessing leaderboard reports" />
+            </div>
           ) : filteredReports.length === 0 ? (
             <div className="py-8 text-center text-xs text-slate-500">
               <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto mb-1.5" />
@@ -421,7 +425,9 @@ export default function DashboardPage() {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-xs text-slate-400">Loading chart...</div>
+                <div className="h-full flex items-center justify-center">
+                  <VideoLoader size="md" text="Loading performance charts..." subtext="Analyzing SPR benchmarks" />
+                </div>
               )}
             </div>
 
@@ -451,47 +457,53 @@ export default function DashboardPage() {
                 </button>
               </div>
 
-              <div className="space-y-2.5">
-                {data?.topStudents?.map((st: any, idx: number) => {
-                  const medalColors = [
-                    'bg-amber-100 text-amber-900 border-amber-300 font-bold',
-                    'bg-slate-100 text-slate-800 border-slate-300 font-bold',
-                    'bg-orange-100 text-orange-900 border-orange-300 font-bold',
-                    'bg-slate-50 text-slate-600 border-slate-200',
-                    'bg-slate-50 text-slate-600 border-slate-200',
-                  ];
-                  return (
-                    <div
-                      key={st.studentId}
-                      onClick={() => router.push(`/students/${st.studentId}`)}
-                      className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:border-slate-300 hover:bg-slate-50 cursor-pointer transition-all group"
-                    >
-                      <div className="flex items-center space-x-2.5 min-w-0">
-                        <div
-                          className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs shrink-0 ${
-                            medalColors[idx] || 'bg-slate-50'
-                          }`}
-                        >
-                          {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold text-slate-900 group-hover:text-blue-600 truncate">
-                            {st.name}
+              {loading || !data?.topStudents ? (
+                <div className="py-8 flex items-center justify-center">
+                  <VideoLoader size="sm" text="Loading top performers..." subtext="Accessing rankings" />
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {data?.topStudents?.map((st: any, idx: number) => {
+                    const medalColors = [
+                      'bg-amber-100 text-amber-900 border-amber-300 font-bold',
+                      'bg-slate-100 text-slate-800 border-slate-300 font-bold',
+                      'bg-orange-100 text-orange-900 border-orange-300 font-bold',
+                      'bg-slate-50 text-slate-600 border-slate-200',
+                      'bg-slate-50 text-slate-600 border-slate-200',
+                    ];
+                    return (
+                      <div
+                        key={st.studentId}
+                        onClick={() => router.push(`/students/${st.studentId}`)}
+                        className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:border-slate-300 hover:bg-slate-50 cursor-pointer transition-all group"
+                      >
+                        <div className="flex items-center space-x-2.5 min-w-0">
+                          <div
+                            className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs shrink-0 ${
+                              medalColors[idx] || 'bg-slate-50'
+                            }`}
+                          >
+                            {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
                           </div>
-                          <div className="text-[10px] text-slate-500 truncate">
-                            {st.className} • {st.schoolName}
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-slate-900 group-hover:text-blue-600 truncate">
+                              {st.name}
+                            </div>
+                            <div className="text-[10px] text-slate-500 truncate">
+                              {st.className} • {st.schoolName}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right pl-2">
+                          <div className="text-xs font-extrabold text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                            {st.spr}%
                           </div>
                         </div>
                       </div>
-                      <div className="text-right pl-2">
-                        <div className="text-xs font-extrabold text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                          {st.spr}%
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -514,31 +526,37 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {data?.categoryPerformance?.map((cat: any) => (
-                <div
-                  key={cat.id}
-                  onClick={() => router.push(`/leaderboard?categoryId=${cat.id}`)}
-                  className="p-3.5 rounded-xl border border-slate-200 hover:border-madin-700 bg-slate-50/50 hover:bg-white cursor-pointer transition-all group"
-                >
-                  <div className="flex items-center justify-between text-xs text-slate-500">
-                    <span className="font-medium truncate">{cat.name}</span>
-                    <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-slate-200 text-slate-700">
-                      {cat.defaultWeight}% Wt
-                    </span>
+            {loading || !data?.categoryPerformance ? (
+              <div className="py-8 flex items-center justify-center">
+                <VideoLoader size="sm" text="Loading category averages..." subtext="Computing weight distributions" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {data?.categoryPerformance?.map((cat: any) => (
+                  <div
+                    key={cat.id}
+                    onClick={() => router.push(`/leaderboard?categoryId=${cat.id}`)}
+                    className="p-3.5 rounded-xl border border-slate-200 hover:border-madin-700 bg-slate-50/50 hover:bg-white cursor-pointer transition-all group"
+                  >
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span className="font-medium truncate">{cat.name}</span>
+                      <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-slate-200 text-slate-700">
+                        {cat.defaultWeight}% Wt
+                      </span>
+                    </div>
+                    <div className="text-lg font-bold text-slate-900 mt-1.5 group-hover:text-madin-900">
+                      {cat.averagePercentage}%
+                    </div>
+                    <div className="w-full bg-slate-200 h-1.5 rounded-full mt-2 overflow-hidden">
+                      <div
+                        className="bg-madin-900 h-full rounded-full group-hover:bg-gold-500 transition-all"
+                        style={{ width: `${Math.min(cat.averagePercentage, 100)}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="text-lg font-bold text-slate-900 mt-1.5 group-hover:text-madin-900">
-                    {cat.averagePercentage}%
-                  </div>
-                  <div className="w-full bg-slate-200 h-1.5 rounded-full mt-2 overflow-hidden">
-                    <div
-                      className="bg-madin-900 h-full rounded-full group-hover:bg-gold-500 transition-all"
-                      style={{ width: `${Math.min(cat.averagePercentage, 100)}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* School Performance Comparison */}

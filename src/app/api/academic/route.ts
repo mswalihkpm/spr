@@ -3,10 +3,28 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
+import { invalidateEngineCache } from '@/lib/spr-engine';
 import { logAuditAction } from '@/lib/audit';
+
+let cachedAcademicData: { timestamp: number; data: any } | null = null;
+const ACADEMIC_CACHE_TTL_MS = 60 * 1000; // 60 seconds TTL
+
+function invalidateAcademicCache() {
+  cachedAcademicData = null;
+  invalidateEngineCache();
+}
 
 export async function GET(req: NextRequest) {
   try {
+    const now = Date.now();
+    if (cachedAcademicData && now - cachedAcademicData.timestamp < ACADEMIC_CACHE_TTL_MS) {
+      return NextResponse.json(cachedAcademicData.data, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+        },
+      });
+    }
+
     const { user, errorResponse } = await authenticateApiRequest(req, 'VIEWER');
     // Note: If no token, allow public GET of academic master data
     const [
@@ -39,7 +57,7 @@ export async function GET(req: NextRequest) {
       prisma.literaryEvent.findMany({ include: { competitions: true, academicYear: true }, orderBy: { date: 'desc' } }),
     ]);
 
-    return NextResponse.json({
+    const payload = {
       schools,
       classes,
       academicYears,
@@ -53,6 +71,14 @@ export async function GET(req: NextRequest) {
       programs,
       competitions,
       literaryEvents,
+    };
+
+    cachedAcademicData = { timestamp: now, data: payload };
+
+    return NextResponse.json(payload, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+      },
     });
   } catch (error: any) {
     console.error('Academic master fetch error:', error);
@@ -162,6 +188,8 @@ export async function POST(req: NextRequest) {
       newValue: createdRecord,
     });
 
+    invalidateAcademicCache();
+
     return NextResponse.json({
       success: true,
       data: createdRecord,
@@ -181,8 +209,8 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
     const { type, id, data } = body;
 
-    if (!type || !id || !data) {
-      return NextResponse.json({ error: 'Entity type, ID, and updated data are required.' }, { status: 400 });
+    if (!type || !id) {
+      return NextResponse.json({ error: 'Entity type and ID are required for update.' }, { status: 400 });
     }
 
     let updatedRecord = null;
@@ -195,7 +223,7 @@ export async function PUT(req: NextRequest) {
         data: {
           ...(data.name ? { name: data.name.trim() } : {}),
           ...(data.code ? { code: data.code.trim() } : {}),
-          ...(data.active !== undefined ? { active: !!data.active } : {}),
+          ...(data.active !== undefined ? { active: Boolean(data.active) } : {}),
         },
       });
     } else if (type === 'CLASS') {
@@ -205,7 +233,7 @@ export async function PUT(req: NextRequest) {
         data: {
           ...(data.name ? { name: data.name.trim() } : {}),
           ...(data.numericGrade !== undefined ? { numericGrade: Number(data.numericGrade) } : {}),
-          ...(data.active !== undefined ? { active: !!data.active } : {}),
+          ...(data.active !== undefined ? { active: Boolean(data.active) } : {}),
         },
       });
     } else if (type === 'SUBJECT') {
@@ -216,8 +244,8 @@ export async function PUT(req: NextRequest) {
           ...(data.name ? { name: data.name.trim() } : {}),
           ...(data.code ? { code: data.code.trim() } : {}),
           ...(data.categoryId ? { categoryId: data.categoryId } : {}),
-          ...(data.institutionId !== undefined ? { institutionId: data.institutionId || null } : {}),
-          ...(data.boardId !== undefined ? { boardId: data.boardId || null } : {}),
+          institutionId: data.institutionId !== undefined ? data.institutionId : undefined,
+          boardId: data.boardId !== undefined ? data.boardId : undefined,
           ...(data.maxScore !== undefined ? { maxScore: Number(data.maxScore) } : {}),
         },
       });
@@ -227,9 +255,12 @@ export async function PUT(req: NextRequest) {
         where: { id },
         data: {
           ...(data.name ? { name: data.name.trim() } : {}),
+          ...(data.code ? { code: data.code.trim() } : {}),
           ...(data.categoryId ? { categoryId: data.categoryId } : {}),
-          ...(data.termId ? { termId: data.termId } : {}),
           ...(data.academicYearId ? { academicYearId: data.academicYearId } : {}),
+          ...(data.termId ? { termId: data.termId } : {}),
+          ...(data.maxScore !== undefined ? { maxScore: Number(data.maxScore) } : {}),
+          ...(data.weight !== undefined ? { weight: Number(data.weight) } : {}),
         },
       });
     } else if (type === 'TERM') {
@@ -239,7 +270,7 @@ export async function PUT(req: NextRequest) {
         data: {
           ...(data.name ? { name: data.name.trim() } : {}),
           ...(data.code ? { code: data.code.trim() } : {}),
-          ...(data.isCurrent !== undefined ? { isCurrent: !!data.isCurrent } : {}),
+          ...(data.isCurrent !== undefined ? { isCurrent: Boolean(data.isCurrent) } : {}),
         },
       });
     } else if (type === 'LEVEL') {
@@ -251,7 +282,6 @@ export async function PUT(req: NextRequest) {
           ...(data.code ? { code: data.code.trim() } : {}),
           ...(data.weightMultiplier !== undefined ? { weightMultiplier: Number(data.weightMultiplier) } : {}),
           ...(data.displayOrder !== undefined ? { displayOrder: Number(data.displayOrder) } : {}),
-          ...(data.active !== undefined ? { active: !!data.active } : {}),
         },
       });
     } else if (type === 'PROGRAM') {
@@ -260,8 +290,8 @@ export async function PUT(req: NextRequest) {
         where: { id },
         data: {
           ...(data.name ? { name: data.name.trim() } : {}),
-          ...(data.organizer !== undefined ? { organizer: data.organizer?.trim() || null } : {}),
-          ...(data.levelId !== undefined ? { levelId: data.levelId || null } : {}),
+          organizer: data.organizer !== undefined ? data.organizer : undefined,
+          levelId: data.levelId !== undefined ? data.levelId : undefined,
           ...(data.academicYearId ? { academicYearId: data.academicYearId } : {}),
           ...(data.date ? { date: new Date(data.date) } : {}),
         },
@@ -290,6 +320,8 @@ export async function PUT(req: NextRequest) {
       previousValue: prevRecord,
       newValue: updatedRecord,
     });
+
+    invalidateAcademicCache();
 
     return NextResponse.json({
       success: true,
@@ -404,6 +436,8 @@ export async function DELETE(req: NextRequest) {
       entityId: id,
       previousValue: prevRecord,
     });
+
+    invalidateAcademicCache();
 
     return NextResponse.json({
       success: true,

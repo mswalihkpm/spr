@@ -21,6 +21,8 @@ import {
   X,
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
+import VideoLoader from '@/components/ui/VideoLoader';
+
 
 export default function StudentsPage() {
   const router = useRouter();
@@ -395,8 +397,8 @@ export default function StudentsPage() {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-slate-400">
-                      Loading student directory...
+                    <td colSpan={7} className="py-10 text-center">
+                      <VideoLoader size="md" text="Loading student directory..." subtext="Accessing SPR Institutional Registry" />
                     </td>
                   </tr>
                 ) : students.length === 0 ? (

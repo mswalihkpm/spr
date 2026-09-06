@@ -1,6 +1,21 @@
 import { prisma } from './prisma';
 import { MissingDataRule, CategorySummary, StudentSPRProfile, LeaderboardEntry } from '@/types';
 
+// High-performance server-side in-memory cache with TTL for ultra-fast loading
+const leaderboardCache = new Map<string, { timestamp: number; data: LeaderboardEntry[] }>();
+const studentSPRProfileCache = new Map<string, { timestamp: number; data: StudentSPRProfile }>();
+let cachedMissingDataRule: { timestamp: number; value: MissingDataRule } | null = null;
+let cachedCategories: { timestamp: number; data: any[] } | null = null;
+
+const CACHE_TTL_MS = 30 * 1000; // 30 seconds TTL
+
+export function invalidateEngineCache() {
+  leaderboardCache.clear();
+  studentSPRProfileCache.clear();
+  cachedMissingDataRule = null;
+  cachedCategories = null;
+}
+
 export function normalizeScoreToPercentage(obtainedScore: number, maxScore: number): number {
   if (!maxScore || maxScore <= 0) return 0;
   const raw = (obtainedScore / maxScore) * 100;
@@ -12,10 +27,32 @@ export function formatPercentage(val: number): string {
 }
 
 export async function getMissingDataRule(): Promise<MissingDataRule> {
+  const now = Date.now();
+  if (cachedMissingDataRule && now - cachedMissingDataRule.timestamp < CACHE_TTL_MS) {
+    return cachedMissingDataRule.value;
+  }
   const setting = await prisma.systemSetting.findUnique({
     where: { key: 'MISSING_DATA_RULE' },
   });
-  return (setting?.value as MissingDataRule) || 'IGNORE_NORMALIZE';
+  const val = (setting?.value as MissingDataRule) || 'IGNORE_NORMALIZE';
+  cachedMissingDataRule = { timestamp: now, value: val };
+  return val;
+}
+
+export async function getCachedCategories() {
+  const now = Date.now();
+  if (cachedCategories && now - cachedCategories.timestamp < CACHE_TTL_MS) {
+    return cachedCategories.data;
+  }
+  const categories = await prisma.category.findMany({
+    where: { active: true },
+    include: {
+      categoryWeights: true,
+    },
+    orderBy: { displayOrder: 'asc' },
+  });
+  cachedCategories = { timestamp: now, data: categories };
+  return categories;
 }
 
 export async function calculateStudentSPR(
@@ -23,6 +60,13 @@ export async function calculateStudentSPR(
   academicYearId?: string,
   termId?: string
 ): Promise<StudentSPRProfile | null> {
+  const cacheKey = `${studentId}_${academicYearId || ''}_${termId || ''}`;
+  const now = Date.now();
+  const cached = studentSPRProfileCache.get(cacheKey);
+  if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+
   const includeConfig = {
     class: true,
     school: true,
@@ -49,7 +93,11 @@ export async function calculateStudentSPR(
         level: true,
       },
     },
-    creativeWorks: true,
+    creativeWorks: {
+      include: {
+        category: true,
+      },
+    },
     libraryRecords: true,
   };
 
@@ -74,16 +122,7 @@ export async function calculateStudentSPR(
 
   if (!student) return null;
 
-  const categories = await prisma.category.findMany({
-    where: { active: true },
-    include: {
-      categoryWeights: {
-        where: academicYearId ? { academicYearId } : undefined,
-      },
-    },
-    orderBy: { displayOrder: 'asc' },
-  });
-
+  const categories = await getCachedCategories();
   const missingDataRule = await getMissingDataRule();
 
   const categorySummaries: CategorySummary[] = [];
@@ -103,18 +142,75 @@ export async function calculateStudentSPR(
     let categoryRecords = student.performanceRecords.filter((r) => r.categoryId === cat.id);
     let categoryPercentage = 0;
     let recordsCount = categoryRecords.length;
+    let itemizedRecords: any[] = [];
 
     if (cat.code === 'CREATIVE_HUB' && student.creativeWorks.length > 0) {
       const creativePctSum = student.creativeWorks.reduce((acc, w) => acc + (w.percentage || 0), 0);
       categoryPercentage = Number((creativePctSum / student.creativeWorks.length).toFixed(1));
       recordsCount += student.creativeWorks.length;
+      itemizedRecords = student.creativeWorks.map((w: any) => ({
+        id: w.id,
+        title: w.title,
+        name: w.title,
+        categoryName: cat.name,
+        categoryCode: cat.code,
+        subCategoryName: w.category?.name || 'Creative Submission',
+        type: 'CREATIVE',
+        publicationStatus: w.publicationStatus,
+        rating: w.rating,
+        percentage: w.percentage,
+        obtainedScore: w.rating ?? w.percentage,
+        maxScore: 100,
+        mediaUrl: w.mediaUrl,
+        date: w.date ? w.date.toISOString() : null,
+        remarks: w.description || w.feedback,
+      }));
     } else if (cat.code === 'LIBRARY' && student.libraryRecords.length > 0) {
       const readingScoreSum = student.libraryRecords.reduce((acc, r) => acc + (r.readingScore || 0), 0);
       categoryPercentage = Number((readingScoreSum / student.libraryRecords.length).toFixed(1));
       recordsCount += student.libraryRecords.length;
+      itemizedRecords = student.libraryRecords.map((lib: any) => ({
+        id: lib.id,
+        name: lib.readingPeriod || 'Reading Milestone',
+        title: lib.readingPeriod || 'Reading Milestone',
+        categoryName: cat.name,
+        categoryCode: cat.code,
+        readingPeriod: lib.readingPeriod,
+        booksRead: lib.booksRead,
+        pagesRead: lib.pagesRead,
+        type: 'LIBRARY',
+        percentage: lib.readingScore,
+        readingScore: lib.readingScore,
+        obtainedScore: lib.booksRead,
+        maxScore: 10,
+        remarks: lib.remarks,
+        date: lib.createdAt ? lib.createdAt.toISOString() : null,
+      }));
     } else if (recordsCount > 0) {
       const totalPct = categoryRecords.reduce((acc, r) => acc + r.percentage, 0);
       categoryPercentage = Number((totalPct / recordsCount).toFixed(1));
+      itemizedRecords = categoryRecords.map((r: any) => ({
+        id: r.id,
+        categoryId: r.categoryId,
+        categoryCode: r.category.code,
+        categoryName: r.category.name,
+        name: r.subject?.name || r.competition?.name || r.literaryCompetition?.name || r.exam?.name || 'Assessment Record',
+        subjectName: r.subject?.name,
+        institutionName: r.subject?.institution?.name,
+        boardName: r.subject?.board?.name,
+        examName: r.exam?.name,
+        termName: r.exam?.term?.name,
+        competitionName: r.competition?.name,
+        programName: r.competition?.program?.name,
+        literaryCompetitionName: r.literaryCompetition?.name,
+        eventName: r.literaryCompetition?.event?.name || r.competition?.program?.name,
+        levelName: r.level?.name,
+        obtainedScore: r.obtainedScore,
+        maxScore: r.maxScore,
+        percentage: r.percentage,
+        remarks: r.remarks,
+        date: r.date ? r.date.toISOString() : null,
+      }));
     }
 
     const hasData = recordsCount > 0;
@@ -131,6 +227,7 @@ export async function calculateStudentSPR(
       percentage: categoryPercentage,
       recordsCount,
       isIncluded,
+      records: itemizedRecords,
     });
 
     if (isIncluded) {
@@ -205,7 +302,7 @@ export async function calculateStudentSPR(
       remarks: r.remarks,
     }));
 
-  return {
+  const profileResult = {
     student: {
       id: student.id,
       studentId: student.studentId,
@@ -242,6 +339,9 @@ export async function calculateStudentSPR(
       remarks: r.remarks,
     })),
   } as any;
+
+  studentSPRProfileCache.set(cacheKey, { timestamp: now, data: profileResult });
+  return profileResult;
 }
 
 export async function calculateAllLeaderboards(filters?: {
@@ -252,6 +352,13 @@ export async function calculateAllLeaderboards(filters?: {
   stream?: string; // e.g. 'JAMIATHUL_HIND', 'MADIN_ACADEMY'
   fest?: string; // e.g. 'SAHITYOTSAV', 'KALOTSAV', 'M_LIT', 'JAMIA_MAHRAJAN'
 }): Promise<LeaderboardEntry[]> {
+  const cacheKey = JSON.stringify(filters || {});
+  const now = Date.now();
+  const cached = leaderboardCache.get(cacheKey);
+  if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+
   const whereClause: any = { status: 'ACTIVE' };
   if (filters?.academicYearId) whereClause.academicYearId = filters.academicYearId;
   if (filters?.classId) whereClause.classId = filters.classId;
@@ -282,14 +389,7 @@ export async function calculateAllLeaderboards(filters?: {
     },
   });
 
-  const categories = await prisma.category.findMany({
-    where: { active: true },
-    include: {
-      categoryWeights: true,
-    },
-    orderBy: { displayOrder: 'asc' },
-  });
-
+  const categories = await getCachedCategories();
   const missingDataRule = await getMissingDataRule();
   const entries: LeaderboardEntry[] = [];
 
@@ -366,9 +466,9 @@ export async function calculateAllLeaderboards(filters?: {
     }
 
     for (const cat of categories) {
-      const customWeight = cat.categoryWeights[0]?.weight;
-      const isCatActive = cat.categoryWeights[0]?.isActive ?? cat.active;
-      const isIncluded = cat.categoryWeights[0]?.isIncludedInSPR ?? cat.includeInSPR;
+      const customWeight = cat.categoryWeights?.[0]?.weight;
+      const isCatActive = cat.categoryWeights?.[0]?.isActive ?? cat.active;
+      const isIncluded = cat.categoryWeights?.[0]?.isIncludedInSPR ?? cat.includeInSPR;
       const weight = customWeight !== undefined ? customWeight : cat.defaultWeight;
 
       if (!isCatActive) continue;
@@ -453,5 +553,6 @@ export async function calculateAllLeaderboards(filters?: {
     currentRank++;
   }
 
+  leaderboardCache.set(cacheKey, { timestamp: now, data: entries });
   return entries;
 }

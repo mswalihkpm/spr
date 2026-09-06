@@ -26,6 +26,8 @@ import {
   Sparkles,
   Upload,
 } from 'lucide-react';
+import VideoLoader from '@/components/ui/VideoLoader';
+
 
 interface DynamicEvent {
   id: string;
@@ -717,8 +719,8 @@ export default function LiteraryProgramsPage() {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-slate-400">
-                      Loading records...
+                    <td colSpan={7} className="py-10 text-center">
+                      <VideoLoader size="md" text="Loading literary records..." subtext="Accessing arts and cultural results" />
                     </td>
                   </tr>
                 ) : recentRecords.length === 0 ? (

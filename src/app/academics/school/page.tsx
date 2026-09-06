@@ -21,6 +21,8 @@ import {
   ArrowRight,
   Upload,
 } from 'lucide-react';
+import VideoLoader from '@/components/ui/VideoLoader';
+
 
 interface DynamicSubject {
   id: string;
@@ -616,8 +618,8 @@ export default function SchoolStudiesPage() {
                   <tbody className="divide-y divide-slate-100">
                     {loadingStudents ? (
                       <tr>
-                        <td colSpan={4} className="py-8 text-center text-slate-400">
-                          Loading students...
+                        <td colSpan={4} className="py-10 text-center">
+                          <VideoLoader size="md" text="Loading student cohort..." subtext="Accessing academic registry" />
                         </td>
                       </tr>
                     ) : students.length === 0 ? (
@@ -753,8 +755,8 @@ export default function SchoolStudiesPage() {
               <tbody className="divide-y divide-slate-100">
                 {loadingHistory ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-400">
-                      Loading history...
+                    <td colSpan={6} className="py-10 text-center">
+                      <VideoLoader size="md" text="Loading score logs..." subtext="Accessing academic historical scores" />
                     </td>
                   </tr>
                 ) : historyRecords.length === 0 ? (

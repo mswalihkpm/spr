@@ -13,6 +13,7 @@ import {
   Layers,
   Scale,
 } from 'lucide-react';
+import VideoLoader from '@/components/ui/VideoLoader';
 
 export default function WeightsPage() {
   const [weights, setWeights] = useState<any[]>([]);
@@ -58,8 +59,8 @@ export default function WeightsPage() {
   };
 
   const totalIncludedWeight = weights
-    .filter((w) => w.isActive && w.isIncludedInSPR)
-    .reduce((acc, w) => acc + (Number(w.weight) || 0), 0);
+    .filter((w) => w.isIncludedInSPR && w.isActive)
+    .reduce((acc, curr) => acc + (parseFloat(curr.weight) || 0), 0);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,7 +69,7 @@ export default function WeightsPage() {
 
     try {
       const res = await fetch('/api/weights', {
-        method: 'PUT',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           weights,
@@ -77,11 +78,11 @@ export default function WeightsPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update weights.');
+      if (!res.ok) throw new Error(data.error || 'Failed to update weight settings.');
 
       setStatusMsg({
         type: 'success',
-        text: 'Category weights and missing-data normalization rules updated successfully!',
+        text: 'SPR Weight & Normalization rules updated and active across system.',
       });
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
@@ -89,6 +90,16 @@ export default function WeightsPage() {
       setSaving(false);
     }
   };
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="py-24 flex items-center justify-center">
+          <VideoLoader size="xl" text="Loading weights configuration..." subtext="Accessing SPR normalization matrix" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>

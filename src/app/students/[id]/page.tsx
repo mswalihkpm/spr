@@ -24,21 +24,22 @@ import {
   Printer,
 } from 'lucide-react';
 import { StudentAvatar } from '@/components/ui/StudentAvatar';
+import VideoLoader from '@/components/ui/VideoLoader';
 
 export default function StudentProfilePage() {
   const params = useParams();
   const router = useRouter();
   const studentId = params?.id as string;
 
+  const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState<any>(null);
   const [creativeWorks, setCreativeWorks] = useState<any[]>([]);
   const [libraryRecords, setLibraryRecords] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('OVERVIEW');
 
   useEffect(() => {
     if (!studentId) return;
-
+    setLoading(true);
     fetch(`/api/students/${studentId}`)
       .then((res) => {
         if (!res.ok) throw new Error('Student not found');
@@ -58,7 +59,9 @@ export default function StudentProfilePage() {
   if (loading) {
     return (
       <AdminLayout>
-        <div className="py-20 text-center text-xs text-slate-400">Loading student dossier...</div>
+        <div className="py-20 flex items-center justify-center">
+          <VideoLoader size="xl" text="Loading Student Performance Dossier..." subtext="Accessing SPR Academic Records" />
+        </div>
       </AdminLayout>
     );
   }

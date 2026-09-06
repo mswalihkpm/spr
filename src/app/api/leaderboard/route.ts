@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { calculateAllLeaderboards } from '@/lib/spr-engine';
+import { calculateAllLeaderboards, getCachedCategories } from '@/lib/spr-engine';
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,25 +14,30 @@ export async function GET(req: NextRequest) {
     const fest = searchParams.get('fest') || undefined;
     const academicYearId = searchParams.get('academicYearId') || undefined;
 
-    const entries = await calculateAllLeaderboards({
-      classId,
-      schoolId,
-      categoryId,
-      stream,
-      fest,
-      academicYearId,
-    });
+    const [entries, categories] = await Promise.all([
+      calculateAllLeaderboards({
+        classId,
+        schoolId,
+        categoryId,
+        stream,
+        fest,
+        academicYearId,
+      }),
+      getCachedCategories(),
+    ]);
 
-    const categories = await prisma.category.findMany({
-      where: { active: true },
-      orderBy: { displayOrder: 'asc' },
-    });
-
-    return NextResponse.json({
-      leaderboard: entries,
-      categories,
-      totalStudents: entries.length,
-    });
+    return NextResponse.json(
+      {
+        leaderboard: entries,
+        categories,
+        totalStudents: entries.length,
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=30',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Leaderboard calculation error:', error);
     return NextResponse.json({ error: 'Failed to calculate leaderboard.' }, { status: 500 });

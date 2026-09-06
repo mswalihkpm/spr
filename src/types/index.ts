@@ -45,6 +45,7 @@ export interface CategorySummary {
   percentage: number;
   recordsCount: number;
   isIncluded: boolean;
+  records?: any[];
 }
 
 export interface StudentSPRProfile {

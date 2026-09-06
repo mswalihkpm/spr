@@ -16,6 +16,8 @@ import {
   Award,
   Trash2,
 } from 'lucide-react';
+import VideoLoader from '@/components/ui/VideoLoader';
+
 
 export default function LibraryPage() {
   const [integration, setIntegration] = useState<any>(null);
@@ -346,8 +348,8 @@ export default function LibraryPage() {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-slate-400">
-                      Loading library reading logs...
+                    <td colSpan={8} className="py-10 text-center">
+                      <VideoLoader size="md" text="Loading library reading logs..." subtext="Syncing Kuthbakhana catalog" />
                     </td>
                   </tr>
                 ) : records.length === 0 ? (
