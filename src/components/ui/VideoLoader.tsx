@@ -12,7 +12,7 @@ interface VideoLoaderProps {
 }
 
 export default function VideoLoader({
-  src = '/mothsl.mp4',
+  src = '/ploo.mp4',
   size = 'md',
   text,
   subtext,

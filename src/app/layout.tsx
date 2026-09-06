@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import AppIntro from '@/components/ui/AppIntro';
 
 export const metadata: Metadata = {
   title: 'SPR — Students Performance Rate | Madin School of Excellence',
@@ -35,6 +36,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="SPR Madin" />
       </head>
       <body className="min-h-screen bg-slate-50 text-slate-900 antialiased selection:bg-madin-900 selection:text-white">
+        <AppIntro />
         {children}
         <script
           dangerouslySetInnerHTML={{
