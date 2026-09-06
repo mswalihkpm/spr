@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function PUT(req: NextRequest) {
+async function handleUpdateWeights(req: NextRequest) {
   try {
     const { user, errorResponse } = await authenticateApiRequest(req, 'ADMIN');
     if (errorResponse) return errorResponse;
@@ -70,22 +70,34 @@ export async function PUT(req: NextRequest) {
     if (weights && Array.isArray(weights)) {
       for (const item of weights) {
         if (currentYear) {
-          await prisma.categoryWeight.upsert({
-            where: { id: `weight-${item.categoryId}-${currentYear.id}` },
-            update: {
-              weight: Number(item.weight),
-              isActive: item.isActive,
-              isIncludedInSPR: item.isIncludedInSPR,
-            },
-            create: {
-              id: `weight-${item.categoryId}-${currentYear.id}`,
+          const existingWeight = await prisma.categoryWeight.findFirst({
+            where: {
               categoryId: item.categoryId,
               academicYearId: currentYear.id,
-              weight: Number(item.weight),
-              isActive: item.isActive,
-              isIncludedInSPR: item.isIncludedInSPR,
             },
           });
+
+          if (existingWeight) {
+            await prisma.categoryWeight.update({
+              where: { id: existingWeight.id },
+              data: {
+                weight: Number(item.weight),
+                isActive: item.isActive,
+                isIncludedInSPR: item.isIncludedInSPR,
+              },
+            });
+          } else {
+            await prisma.categoryWeight.create({
+              data: {
+                id: `weight-${item.categoryId}-${currentYear.id}`,
+                categoryId: item.categoryId,
+                academicYearId: currentYear.id,
+                weight: Number(item.weight),
+                isActive: item.isActive,
+                isIncludedInSPR: item.isIncludedInSPR,
+              },
+            });
+          }
         }
 
         // Also update default values on Category
@@ -117,3 +129,12 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: error.message || 'Failed to update weights.' }, { status: 500 });
   }
 }
+
+export async function POST(req: NextRequest) {
+  return handleUpdateWeights(req);
+}
+
+export async function PUT(req: NextRequest) {
+  return handleUpdateWeights(req);
+}
+

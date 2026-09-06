@@ -26,11 +26,23 @@ export default function WeightsPage() {
     try {
       setLoading(true);
       const res = await fetch('/api/weights');
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { error: text || `Server response error (${res.status})` };
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to fetch weights.');
+      }
+
       if (data.weights) setWeights(data.weights);
       if (data.missingDataRule) setMissingDataRule(data.missingDataRule);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setStatusMsg({ type: 'error', text: err.message || 'Failed to load weights' });
     } finally {
       setLoading(false);
     }
@@ -77,8 +89,17 @@ export default function WeightsPage() {
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update weight settings.');
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { error: text || `Server error (${res.status})` };
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update weight settings.');
+      }
 
       setStatusMsg({
         type: 'success',
