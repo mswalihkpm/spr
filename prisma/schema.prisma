@@ -1,0 +1,426 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  name               String
+  passwordHash       String
+  role               String    @default("ADMIN") // SUPER_ADMIN, ADMIN, TEACHER, VIEWER
+  mustChangePassword Boolean   @default(false)
+  status             String    @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  sessions           Session[]
+  passwordResetTokens PasswordResetToken[]
+  createdRecords     PerformanceRecord[] @relation("CreatedRecords")
+  updatedRecords     PerformanceRecord[] @relation("UpdatedRecords")
+  auditLogs          AuditLog[]
+  importHistories    ImportHistory[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model School {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  code      String    @unique
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  students  Student[]
+}
+
+model AcademicClass {
+  id           String    @id @default(cuid())
+  name         String    @unique // Class 8, Class 9, Class 10, Class +1, Class +2
+  numericGrade Int       @default(0)
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  students     Student[]
+}
+
+model AcademicYear {
+  id                 String             @id @default(cuid())
+  name               String             @unique // 2025-2026, 2026-2027
+  isCurrent          Boolean            @default(false)
+  startDate          DateTime?
+  endDate            DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  students           Student[]
+  terms              Term[]
+  exams              Exam[]
+  programs           Program[]
+  literaryEvents     LiteraryEvent[]
+  performanceRecords PerformanceRecord[]
+  categoryWeights    CategoryWeight[]
+}
+
+model Student {
+  id                 String                  @id @default(cuid())
+  studentId          String                  @unique // e.g. MSOE-2026-001
+  sprStudentId       String?                 @unique // e.g. SPR0001
+  fullName           String
+  classId            String
+  class              AcademicClass           @relation(fields: [classId], references: [id])
+  schoolId           String
+  school             School                  @relation(fields: [schoolId], references: [id])
+  division           String                  @default("A")
+  academicYearId     String
+  academicYear       AcademicYear            @relation(fields: [academicYearId], references: [id])
+  status             String                  @default("ACTIVE") // ACTIVE, INACTIVE, ALUMNI
+  photoUrl           String?
+  notes              String?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  performanceRecords PerformanceRecord[]
+  creativeWorks      CreativeHubSubmission[]
+  libraryRecords     LibraryRecord[]
+}
+
+model Category {
+  id                 String              @id @default(cuid())
+  code               String              @unique // ISLAMIC, SCHOOL, PROGRAMS, CREATIVE_HUB, LITERARY, LIBRARY, or custom
+  name               String
+  description        String?
+  icon               String?             @default("award")
+  isSystem           Boolean             @default(false)
+  active             Boolean             @default(true)
+  displayOrder       Int                 @default(0)
+  defaultWeight      Float               @default(10.0)
+  includeInSPR       Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  subcategories      Subcategory[]
+  exams              Exam[]
+  subjects           Subject[]
+  performanceRecords PerformanceRecord[]
+  categoryWeights    CategoryWeight[]
+}
+
+model Subcategory {
+  id                 String              @id @default(cuid())
+  categoryId         String
+  category           Category            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name               String
+  code               String
+  maxScore           Float               @default(100.0)
+  active             Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  performanceRecords PerformanceRecord[]
+}
+
+model Level {
+  id                   String                @id @default(cuid())
+  name                 String                @unique // Campus, School, Sub-district, District, State, National, International
+  code                 String                @unique
+  weightMultiplier     Float                 @default(1.0)
+  displayOrder         Int                   @default(0)
+  active               Boolean               @default(true)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  programs             Program[]
+  literaryCompetitions LiteraryCompetition[]
+  performanceRecords   PerformanceRecord[]
+}
+
+model AcademicInstitution {
+  id        String    @id @default(cuid())
+  name      String    @unique // Ma'din Academy, Jamiathul Hind Al-Islamiyya
+  code      String    @unique
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  subjects  Subject[]
+}
+
+model BoardSyllabus {
+  id        String    @id @default(cuid())
+  name      String    @unique // Kerala State Syllabus, NCERT
+  code      String    @unique
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  subjects  Subject[]
+}
+
+model Term {
+  id                 String              @id @default(cuid())
+  name               String // Term 1, Term 2, Term 3, Annual
+  code               String
+  academicYearId     String
+  academicYear       AcademicYear        @relation(fields: [academicYearId], references: [id])
+  isCurrent          Boolean             @default(false)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  exams              Exam[]
+  performanceRecords PerformanceRecord[]
+}
+
+model Exam {
+  id                 String              @id @default(cuid())
+  name               String // Term 1 Examination, Mid-term, Annual
+  categoryId         String
+  category           Category            @relation(fields: [categoryId], references: [id])
+  termId             String
+  term               Term                @relation(fields: [termId], references: [id])
+  academicYearId     String
+  academicYear       AcademicYear        @relation(fields: [academicYearId], references: [id])
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  performanceRecords PerformanceRecord[]
+}
+
+model Subject {
+  id                 String               @id @default(cuid())
+  name               String
+  code               String
+  categoryId         String
+  category           Category             @relation(fields: [categoryId], references: [id])
+  institutionId      String?
+  institution        AcademicInstitution? @relation(fields: [institutionId], references: [id])
+  boardId            String?
+  board              BoardSyllabus?       @relation(fields: [boardId], references: [id])
+  maxScore           Float                @default(100.0)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  performanceRecords PerformanceRecord[]
+}
+
+model Program {
+  id                 String        @id @default(cuid())
+  name               String
+  organizer          String?
+  academicYearId     String
+  academicYear       AcademicYear  @relation(fields: [academicYearId], references: [id])
+  levelId            String?
+  level              Level?        @relation(fields: [levelId], references: [id])
+  date               DateTime      @default(now())
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  competitions       Competition[]
+}
+
+model Competition {
+  id                 String              @id @default(cuid())
+  programId          String
+  program            Program             @relation(fields: [programId], references: [id], onDelete: Cascade)
+  name               String
+  maxScore           Float               @default(100.0)
+  date               DateTime            @default(now())
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  performanceRecords PerformanceRecord[]
+}
+
+model CreativeHubCategory {
+  id          String                  @id @default(cuid())
+  name        String                  @unique // Poem, Story, Article, Letter, Response, Others
+  code        String                  @unique
+  active      Boolean                 @default(true)
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  submissions CreativeHubSubmission[]
+}
+
+model CreativeHubSubmission {
+  id                String              @id @default(cuid())
+  studentId         String
+  student           Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  categoryId        String
+  category          CreativeHubCategory @relation(fields: [categoryId], references: [id])
+  title             String
+  content           String?
+  date              DateTime            @default(now())
+  score             Float               @default(0.0)
+  maxScore          Float               @default(100.0)
+  percentage        Float               @default(0.0)
+  reviewer          String?
+  remarks           String?
+  publicationStatus String              @default("PUBLISHED") // DRAFT, UNDER_REVIEW, PUBLISHED, FEATURED
+  publicationLink   String?
+  attachmentUrl     String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+}
+
+model LiteraryEvent {
+  id           String                @id @default(cuid())
+  name         String // Salityotsav, Jamia Maharjan, M-Lit Fest
+  code         String                @unique
+  academicYearId String
+  academicYear AcademicYear          @relation(fields: [academicYearId], references: [id])
+  date         DateTime              @default(now())
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  competitions LiteraryCompetition[]
+}
+
+model LiteraryCompetition {
+  id                 String              @id @default(cuid())
+  eventId            String
+  event              LiteraryEvent       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name               String
+  levelId            String?
+  level              Level?              @relation(fields: [levelId], references: [id])
+  maxScore           Float               @default(100.0)
+  date               DateTime            @default(now())
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  performanceRecords PerformanceRecord[]
+}
+
+model LibraryIntegration {
+  id           String    @id @default(cuid())
+  endpointUrl  String    @default("https://msoelibrary.vercel.app/")
+  apiKey       String?
+  isConnected  Boolean   @default(false)
+  lastSyncAt   DateTime?
+  syncStatus   String    @default("NOT_CONNECTED") // CONNECTED, NOT_CONNECTED, ERROR, MANUAL_ONLY
+  syncError    String?
+  autoSync     Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model LibraryRecord {
+  id            String   @id @default(cuid())
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  booksRead     Int      @default(0)
+  readingScore  Float    @default(0.0)
+  readingRank   Int?
+  readingPeriod String?  // e.g. "Term 1 2026", "August 2026"
+  syncBatchId   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model PerformanceRecord {
+  id                     String               @id @default(cuid())
+  studentId              String
+  student                Student              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  categoryId             String
+  category               Category             @relation(fields: [categoryId], references: [id])
+  subcategoryId          String?
+  subcategory            Subcategory?         @relation(fields: [subcategoryId], references: [id])
+  eventId                String?
+  examId                 String?
+  exam                   Exam?                @relation(fields: [examId], references: [id])
+  subjectId              String?
+  subject                Subject?             @relation(fields: [subjectId], references: [id])
+  competitionId          String?
+  competition            Competition?         @relation(fields: [competitionId], references: [id])
+  literaryCompetitionId  String?
+  literaryCompetition    LiteraryCompetition? @relation(fields: [literaryCompetitionId], references: [id])
+  levelId                String?
+  level                  Level?               @relation(fields: [levelId], references: [id])
+  termId                 String?
+  term                   Term?                @relation(fields: [termId], references: [id])
+  academicYearId         String?
+  academicYear           AcademicYear?        @relation(fields: [academicYearId], references: [id])
+  obtainedScore          Float
+  maxScore               Float                @default(100.0)
+  percentage             Float
+  date                   DateTime             @default(now())
+  remarks                String?
+  createdById            String?
+  createdBy              User?                @relation("CreatedRecords", fields: [createdById], references: [id])
+  updatedById            String?
+  updatedBy              User?                @relation("UpdatedRecords", fields: [updatedById], references: [id])
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+}
+
+model CategoryWeight {
+  id             String       @id @default(cuid())
+  categoryId     String
+  category       Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  academicYearId String?
+  academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id])
+  weight         Float        @default(10.0)
+  isActive       Boolean      @default(true)
+  isIncludedInSPR Boolean     @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id])
+  userName      String?
+  action        String   // CREATE, UPDATE, DELETE, IMPORT, LOGIN, PASSWORD_CHANGE, SYNC
+  entity        String   // Student, Score, Category, Weight, Setting, User
+  entityId      String?
+  previousValue String?  // JSON string
+  newValue      String?  // JSON string
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+}
+
+model ImportHistory {
+  id           String   @id @default(cuid())
+  fileName     String
+  fileType     String   @default("EXCEL")
+  recordsCount Int      @default(0)
+  successCount Int      @default(0)
+  errorCount   Int      @default(0)
+  errorsJson   String?  // JSON string of issues
+  uploadedById String?
+  uploadedBy   User?    @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now())
+}
+
+model StudentReport {
+  id           String   @id @default(cuid())
+  studentId    String?
+  studentName  String
+  className    String?
+  rank         Int?
+  sprScore     Float?
+  reporterName String
+  message      String
+  status       String   @default("PENDING") // PENDING, REVIEWED, RESOLVED
+  adminNotes   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
