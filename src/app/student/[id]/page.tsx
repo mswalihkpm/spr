@@ -551,7 +551,7 @@ export default function PublicStudentScorecardPage() {
                       </span>
                     </div>
                     <div className="text-[11px] text-slate-600 font-medium mt-0.5">
-                      Itemized score origin and marks logged under this assessment wing
+                      Itemized percentage breakdown logged under this assessment wing
                     </div>
                   </div>
                 </div>
@@ -608,7 +608,6 @@ export default function PublicStudentScorecardPage() {
                         <tr>
                           <th className="py-2.5 px-3">Subject / Event Record</th>
                           <th className="py-2.5 px-3">Assessment / Fest / Context</th>
-                          <th className="py-2.5 px-3 text-center">Score / Marks</th>
                           <th className="py-2.5 px-3 text-right">Percentage</th>
                         </tr>
                       </thead>
@@ -666,18 +665,6 @@ export default function PublicStudentScorecardPage() {
                                     </div>
                                   )}
                                 </div>
-                              </td>
-
-                              <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-700">
-                                {r.obtainedScore !== undefined && r.maxScore ? (
-                                  <span>
-                                    {r.obtainedScore} <span className="text-slate-400 font-normal">/ {r.maxScore}</span>
-                                  </span>
-                                ) : r.booksRead !== undefined ? (
-                                  <span>{r.booksRead} Books</span>
-                                ) : (
-                                  <span>{recordPct.toFixed(1)}%</span>
-                                )}
                               </td>
 
                               <td className="py-2.5 px-3 text-right">

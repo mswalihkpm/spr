@@ -22,9 +22,14 @@ import {
   FileText,
   TrendingUp,
   Printer,
+  Camera,
+  UploadCloud,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
 import { StudentAvatar } from '@/components/ui/StudentAvatar';
 import VideoLoader from '@/components/ui/VideoLoader';
+import { compressImageClientSide } from '@/lib/image-utils';
 
 export default function StudentProfilePage() {
   const params = useParams();
@@ -36,6 +41,100 @@ export default function StudentProfilePage() {
   const [creativeWorks, setCreativeWorks] = useState<any[]>([]);
   const [libraryRecords, setLibraryRecords] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<string>('OVERVIEW');
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [isDraggingPhoto, setIsDraggingPhoto] = useState(false);
+
+  const handlePhotoFile = async (file: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Please select or drop a valid image file (JPEG, PNG, WebP).');
+      return;
+    }
+
+    try {
+      setUploadingPhoto(true);
+      const compressedDataUrl = await compressImageClientSide(file, 360, 0.85);
+
+      // Upload image
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: compressedDataUrl }),
+      });
+      const json = await res.json();
+      const finalUrl = json.url || compressedDataUrl;
+
+      // Update student profile photo in DB
+      const updateRes = await fetch(`/api/students/${studentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoUrl: finalUrl }),
+      });
+      const updateJson = await updateRes.json();
+      if (!updateRes.ok) throw new Error(updateJson.error || 'Failed to update photo');
+
+      setProfileData((prev: any) => ({
+        ...prev,
+        student: {
+          ...prev?.student,
+          photoUrl: finalUrl,
+        },
+      }));
+    } catch (err: any) {
+      console.error('Photo update error:', err);
+      alert(err.message || 'Error updating photo.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleRemovePhoto = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to remove this profile photo?')) return;
+    try {
+      setUploadingPhoto(true);
+      const updateRes = await fetch(`/api/students/${studentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoUrl: '' }),
+      });
+      if (!updateRes.ok) throw new Error('Failed to remove photo');
+
+      setProfileData((prev: any) => ({
+        ...prev,
+        student: {
+          ...prev?.student,
+          photoUrl: null,
+        },
+      }));
+    } catch (err: any) {
+      alert(err.message || 'Error removing photo.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handlePhotoDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDraggingPhoto) setIsDraggingPhoto(true);
+  };
+
+  const handlePhotoDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingPhoto(false);
+  };
+
+  const handlePhotoDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingPhoto(false);
+    const droppedFile = e.dataTransfer.files?.[0];
+    if (droppedFile) {
+      await handlePhotoFile(droppedFile);
+    }
+  };
 
   useEffect(() => {
     if (!studentId) return;
@@ -123,13 +222,77 @@ export default function StudentProfilePage() {
         {/* Hero Dossier Card */}
         <div className="bg-gradient-to-br from-madin-900 via-madin-950 to-slate-950 text-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-gold-500/20 relative overflow-hidden">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-            {/* Student Info */}
+            {/* Student Info with Drag & Drop Avatar */}
             <div className="flex items-center space-x-4 sm:space-x-6">
-              <StudentAvatar
-                photoUrl={student.photoUrl}
-                name={student.fullName}
-                size="2xl"
-              />
+              <div
+                onDragOver={handlePhotoDragOver}
+                onDragEnter={handlePhotoDragOver}
+                onDragLeave={handlePhotoDragLeave}
+                onDrop={handlePhotoDrop}
+                className="relative group shrink-0"
+                title="Drag & drop a photo here to update, or click camera icon"
+              >
+                <StudentAvatar
+                  photoUrl={student.photoUrl}
+                  name={student.fullName}
+                  size="2xl"
+                  className={`ring-4 transition-all duration-200 ${
+                    isDraggingPhoto
+                      ? 'ring-blue-400 scale-105 shadow-lg shadow-blue-500/50'
+                      : 'ring-white/20 group-hover:ring-blue-400/80'
+                  }`}
+                />
+
+                {/* Uploading Overlay */}
+                {uploadingPhoto && (
+                  <div className="absolute inset-0 bg-black/60 rounded-full flex flex-col items-center justify-center text-white backdrop-blur-2xs">
+                    <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+                    <span className="text-[9px] font-bold mt-1">Saving...</span>
+                  </div>
+                )}
+
+                {/* Dragging Active Overlay */}
+                {isDraggingPhoto && !uploadingPhoto && (
+                  <div className="absolute inset-0 bg-blue-600/90 rounded-full flex flex-col items-center justify-center text-white animate-pulse">
+                    <UploadCloud className="w-8 h-8" />
+                    <span className="text-[9px] font-extrabold mt-0.5">Drop Here</span>
+                  </div>
+                )}
+
+                {/* Hover action overlay & buttons */}
+                {!uploadingPhoto && !isDraggingPhoto && (
+                  <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 backdrop-blur-2xs">
+                    <label
+                      className="p-2 rounded-full bg-blue-600 hover:bg-blue-500 text-white cursor-pointer shadow-lg transition active:scale-90"
+                      title="Upload or Drop new photo"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/jpg"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            e.target.value = '';
+                            handlePhotoFile(file);
+                          }
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                    {student.photoUrl && (
+                      <button
+                        type="button"
+                        onClick={handleRemovePhoto}
+                        className="p-2 rounded-full bg-rose-600 hover:bg-rose-500 text-white shadow-lg transition active:scale-90"
+                        title="Drop / Delete photo"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="px-2.5 py-0.5 rounded-full bg-blue-500/25 text-blue-200 border border-blue-400/40 text-xs font-mono font-bold shadow-xs">

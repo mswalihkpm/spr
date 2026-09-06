@@ -21,61 +21,11 @@ import {
   X,
   Loader2,
   Camera,
+  UploadCloud,
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import VideoLoader from '@/components/ui/VideoLoader';
-
-const compressImageClientSide = (file: File, maxDim = 360, quality = 0.85): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    if (!file.type.startsWith('image/')) {
-      return reject(new Error('Please select a valid image file (JPEG, PNG, WebP).'));
-    }
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Failed to read image file.'));
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('Failed to decode image file.'));
-      img.onload = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height) {
-            if (width > maxDim) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            }
-          } else {
-            if (height > maxDim) {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            resolve(event.target?.result as string);
-            return;
-          }
-
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          ctx.drawImage(img, 0, 0, width, height);
-
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-          resolve(compressedDataUrl);
-        } catch {
-          resolve(event.target?.result as string);
-        }
-      };
-      img.src = event.target?.result as string;
-    };
-    reader.readAsDataURL(file);
-  });
-};
+import { compressImageClientSide } from '@/lib/image-utils';
 
 
 export default function StudentsPage() {
@@ -95,6 +45,7 @@ export default function StudentsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<any>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [isDraggingPhoto, setIsDraggingPhoto] = useState(false);
 
   // Bulk selection & deletion state
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
@@ -122,7 +73,7 @@ export default function StudentsPage() {
         if (data.classes) setClasses(data.classes);
         if (data.schools) setSchools(data.schools);
       })
-      .catch((err) => console.error(err));
+      .catch((err) => console.error('Error fetching academic masters:', err));
   }, []);
 
   const fetchStudents = async () => {
@@ -153,7 +104,7 @@ export default function StudentsPage() {
   const handleOpenAdd = () => {
     setEditingStudent(null);
     setFormData({
-      studentId: `MSOE-${Date.now().toString(36).toUpperCase()}`,
+      studentId: '',
       sprStudentId: '',
       fullName: '',
       classId: classes[0]?.id || '',
@@ -164,13 +115,14 @@ export default function StudentsPage() {
       photoUrl: '',
     });
     setFormError('');
+    setIsDraggingPhoto(false);
     setModalOpen(true);
   };
 
   const handleOpenEdit = (st: any) => {
     setEditingStudent(st);
     setFormData({
-      studentId: st.studentId || `MSOE-${Date.now().toString(36).toUpperCase()}`,
+      studentId: st.studentId,
       sprStudentId: st.sprStudentId || '',
       fullName: st.fullName,
       classId: st.classId,
@@ -181,18 +133,15 @@ export default function StudentsPage() {
       photoUrl: st.photoUrl || '',
     });
     setFormError('');
+    setIsDraggingPhoto(false);
     setModalOpen(true);
   };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const processPhotoFile = async (file: File) => {
     if (!file) return;
 
-    // Reset input value so re-selecting same file triggers onChange
-    e.target.value = '';
-
     if (!file.type.startsWith('image/')) {
-      alert('Please select a valid image file (JPEG, PNG, WebP).');
+      alert('Please select or drop a valid image file (JPEG, PNG, WebP).');
       return;
     }
 
@@ -220,6 +169,35 @@ export default function StudentsPage() {
       console.error('Photo upload error:', err);
     } finally {
       setUploadingPhoto(false);
+    }
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    await processPhotoFile(file);
+  };
+
+  const handlePhotoDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDraggingPhoto) setIsDraggingPhoto(true);
+  };
+
+  const handlePhotoDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingPhoto(false);
+  };
+
+  const handlePhotoDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingPhoto(false);
+    const droppedFile = e.dataTransfer.files?.[0];
+    if (droppedFile) {
+      await processPhotoFile(droppedFile);
     }
   };
 
@@ -590,60 +568,107 @@ export default function StudentsPage() {
             )}
 
             <form onSubmit={handleFormSubmit} className="mt-4 space-y-3.5">
-              {/* Profile Photo Upload Section */}
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center space-x-4">
-                <div className="shrink-0 relative">
-                  <StudentAvatar
-                    photoUrl={formData.photoUrl}
-                    name={formData.fullName || 'Student'}
-                    size="xl"
-                  />
-                  {uploadingPhoto && (
-                    <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
-                      <Loader2 className="w-5 h-5 text-white animate-spin" />
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex-1 space-y-1">
-                  <label className="block text-xs font-bold text-slate-800">Student Profile Photo</label>
-                  <p className="text-[11px] text-slate-500">Upload passport size or formal photo (JPEG, PNG, WebP).</p>
-                  <div className="flex items-center space-x-2 pt-1">
-                    <label className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer shadow-xs transition inline-flex items-center space-x-1.5 ${
-                      uploadingPhoto
-                        ? 'bg-blue-400 text-white cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700 text-white'
-                    }`}>
-                      {uploadingPhoto ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Processing...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Camera className="w-3.5 h-3.5" />
-                          <span>{formData.photoUrl ? 'Change Photo' : 'Choose Photo'}</span>
-                        </>
-                      )}
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp,image/jpg"
-                        onChange={handlePhotoUpload}
-                        disabled={uploadingPhoto}
-                        className="hidden"
-                      />
-                    </label>
-                    {formData.photoUrl && !uploadingPhoto && (
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, photoUrl: '' })}
-                        className="text-xs text-rose-600 hover:text-rose-700 font-medium hover:underline px-2 py-1 rounded transition"
-                      >
-                        Remove
-                      </button>
+              {/* Profile Photo Drag & Drop Upload Section */}
+              <div
+                onDragOver={handlePhotoDragOver}
+                onDragEnter={handlePhotoDragOver}
+                onDragLeave={handlePhotoDragLeave}
+                onDrop={handlePhotoDrop}
+                className={`p-4 rounded-2xl border-2 transition-all duration-200 relative ${
+                  isDraggingPhoto
+                    ? 'border-blue-500 bg-blue-50/90 ring-4 ring-blue-100 scale-[1.01]'
+                    : formData.photoUrl
+                    ? 'border-slate-200 bg-slate-50/70 hover:border-slate-300'
+                    : 'border-dashed border-slate-300 bg-slate-50/80 hover:border-blue-400 hover:bg-blue-50/30'
+                }`}
+              >
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  {/* Avatar Preview with Drop Overlay */}
+                  <div className="shrink-0 relative group">
+                    <StudentAvatar
+                      photoUrl={formData.photoUrl}
+                      name={formData.fullName || 'Student'}
+                      size="xl"
+                      className="shadow-sm ring-2 ring-white"
+                    />
+                    {uploadingPhoto && (
+                      <div className="absolute inset-0 bg-black/50 rounded-full flex flex-col items-center justify-center text-white backdrop-blur-2xs">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      </div>
+                    )}
+                    {isDraggingPhoto && !uploadingPhoto && (
+                      <div className="absolute inset-0 bg-blue-600/80 rounded-full flex items-center justify-center text-white animate-pulse">
+                        <UploadCloud className="w-6 h-6" />
+                      </div>
                     )}
                   </div>
+
+                  {/* Drop Info and Action Buttons */}
+                  <div className="flex-1 text-center sm:text-left space-y-1">
+                    <div className="flex items-center justify-center sm:justify-start space-x-2">
+                      <label className="text-xs font-bold text-slate-800">Student Profile Photo</label>
+                      {formData.photoUrl && (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-200">
+                          Photo Attached
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      {isDraggingPhoto
+                        ? '✨ Drop the image file here to upload!'
+                        : 'Drag & drop photo here, or browse from device (JPEG, PNG, WebP).'}
+                    </p>
+
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1.5">
+                      <label
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer shadow-xs transition-all inline-flex items-center space-x-1.5 ${
+                          uploadingPhoto
+                            ? 'bg-blue-400 text-white cursor-not-allowed'
+                            : 'bg-blue-600 hover:bg-blue-700 active:scale-95 text-white'
+                        }`}
+                      >
+                        {uploadingPhoto ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Processing...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Camera className="w-3.5 h-3.5" />
+                            <span>{formData.photoUrl ? 'Change / Drop New' : 'Browse / Drop Photo'}</span>
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/jpg"
+                          onChange={handlePhotoUpload}
+                          disabled={uploadingPhoto}
+                          className="hidden"
+                        />
+                      </label>
+
+                      {formData.photoUrl && !uploadingPhoto && (
+                        <button
+                          type="button"
+                          onClick={() => setFormData((prev) => ({ ...prev, photoUrl: '' }))}
+                          className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200/80 transition inline-flex items-center space-x-1"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Remove Photo</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
+
+                {isDraggingPhoto && (
+                  <div className="absolute inset-0 bg-blue-500/10 border-2 border-dashed border-blue-500 rounded-2xl pointer-events-none flex items-center justify-center">
+                    <div className="bg-white px-4 py-2 rounded-xl shadow-lg border border-blue-200 text-blue-700 text-xs font-bold flex items-center space-x-2 animate-bounce">
+                      <UploadCloud className="w-4 h-4 text-blue-600" />
+                      <span>Drop image to attach photo</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
