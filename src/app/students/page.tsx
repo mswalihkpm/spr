@@ -19,9 +19,63 @@ import {
   Building,
   GraduationCap,
   X,
+  Loader2,
+  Camera,
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import VideoLoader from '@/components/ui/VideoLoader';
+
+const compressImageClientSide = (file: File, maxDim = 360, quality = 0.85): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      return reject(new Error('Please select a valid image file (JPEG, PNG, WebP).'));
+    }
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read image file.'));
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Failed to decode image file.'));
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxDim) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            }
+          } else {
+            if (height > maxDim) {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(event.target?.result as string);
+            return;
+          }
+
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+          resolve(compressedDataUrl);
+        } catch {
+          resolve(event.target?.result as string);
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+};
 
 
 export default function StudentsPage() {
@@ -134,22 +188,36 @@ export default function StudentsPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Reset input value so re-selecting same file triggers onChange
+    e.target.value = '';
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select a valid image file (JPEG, PNG, WebP).');
+      return;
+    }
+
     try {
       setUploadingPhoto(true);
-      const data = new FormData();
-      data.append('file', file);
 
+      // Fast client-side resize & compression for instant preview and lightweight payload (<30KB)
+      const compressedDataUrl = await compressImageClientSide(file, 360, 0.85);
+
+      // Instantly show preview in avatar
+      setFormData((prev) => ({ ...prev, photoUrl: compressedDataUrl }));
+
+      // Send to upload API
       const res = await fetch('/api/upload', {
         method: 'POST',
-        body: data,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: compressedDataUrl }),
       });
 
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Failed to upload photo');
-
-      setFormData((prev) => ({ ...prev, photoUrl: json.url }));
+      if (res.ok && json.url) {
+        setFormData((prev) => ({ ...prev, photoUrl: json.url }));
+      }
     } catch (err: any) {
-      alert(err.message || 'Error uploading image');
+      console.error('Photo upload error:', err);
     } finally {
       setUploadingPhoto(false);
     }
@@ -524,33 +592,52 @@ export default function StudentsPage() {
             <form onSubmit={handleFormSubmit} className="mt-4 space-y-3.5">
               {/* Profile Photo Upload Section */}
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center space-x-4">
-                <div className="shrink-0">
+                <div className="shrink-0 relative">
                   <StudentAvatar
                     photoUrl={formData.photoUrl}
                     name={formData.fullName || 'Student'}
                     size="xl"
                   />
+                  {uploadingPhoto && (
+                    <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
+                      <Loader2 className="w-5 h-5 text-white animate-spin" />
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex-1 space-y-1">
                   <label className="block text-xs font-bold text-slate-800">Student Profile Photo</label>
-                  <p className="text-[11px] text-slate-500">Upload passport size or formal photo (JPEG, PNG).</p>
+                  <p className="text-[11px] text-slate-500">Upload passport size or formal photo (JPEG, PNG, WebP).</p>
                   <div className="flex items-center space-x-2 pt-1">
-                    <label className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold cursor-pointer shadow-xs transition">
-                      <span>{uploadingPhoto ? 'Uploading...' : 'Choose Photo'}</span>
+                    <label className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer shadow-xs transition inline-flex items-center space-x-1.5 ${
+                      uploadingPhoto
+                        ? 'bg-blue-400 text-white cursor-not-allowed'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    }`}>
+                      {uploadingPhoto ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Processing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Camera className="w-3.5 h-3.5" />
+                          <span>{formData.photoUrl ? 'Change Photo' : 'Choose Photo'}</span>
+                        </>
+                      )}
                       <input
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/png,image/webp,image/jpg"
                         onChange={handlePhotoUpload}
                         disabled={uploadingPhoto}
                         className="hidden"
                       />
                     </label>
-                    {formData.photoUrl && (
+                    {formData.photoUrl && !uploadingPhoto && (
                       <button
                         type="button"
                         onClick={() => setFormData({ ...formData, photoUrl: '' })}
-                        className="text-xs text-rose-600 hover:underline"
+                        className="text-xs text-rose-600 hover:text-rose-700 font-medium hover:underline px-2 py-1 rounded transition"
                       >
                         Remove
                       </button>

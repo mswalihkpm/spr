@@ -105,7 +105,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         ...(division ? { division: division.trim() } : {}),
         ...(status ? { status } : {}),
         ...(notes !== undefined ? { notes } : {}),
-        ...(photoUrl !== undefined ? { photoUrl } : {}),
+        ...(photoUrl !== undefined ? { photoUrl: photoUrl ? photoUrl : null } : {}),
         ...(validatedSprId !== undefined ? { sprStudentId: validatedSprId } : {}),
       },
       include: {
