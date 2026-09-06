@@ -539,8 +539,14 @@ export async function calculateAllLeaderboards(filters?: {
     });
   }
 
-  // Sort descending by score
-  entries.sort((a, b) => b.spr - a.spr);
+  // Sort descending by score, then secondary tie-breaker by total recordsCount, then alphabetically by name
+  entries.sort((a, b) => {
+    if (b.spr !== a.spr) return b.spr - a.spr;
+    if ((b.recordsCount || 0) !== (a.recordsCount || 0)) {
+      return (b.recordsCount || 0) - (a.recordsCount || 0);
+    }
+    return (a.name || '').localeCompare(b.name || '');
+  });
 
   // Assign ranks with proper tie handling
   let currentRank = 1;
@@ -553,6 +559,17 @@ export async function calculateAllLeaderboards(filters?: {
     currentRank++;
   }
 
+  // Mark tie flags and count of tied peers
+  const scoreCounts: Record<number, number> = {};
+  entries.forEach((e) => {
+    scoreCounts[e.spr] = (scoreCounts[e.spr] || 0) + 1;
+  });
+  entries.forEach((e: any) => {
+    e.isTied = scoreCounts[e.spr] > 1;
+    e.tiedCount = scoreCounts[e.spr];
+  });
+
   leaderboardCache.set(cacheKey, { timestamp: now, data: entries });
   return entries;
 }
+

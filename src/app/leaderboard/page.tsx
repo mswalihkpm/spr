@@ -870,95 +870,198 @@ function LeaderboardContent() {
           </div>
         </div>
 
-        {/* Live Top 3 Podium Cards (Horizontal 3-card layout on mobile & desktop, NO badges above photos, Class numbers only) */}
+        {/* Live Top 3 Podium Cards (Dynamic Rank & Tie-Aware Layout) */}
         {topThree.length >= 3 && (
-          <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-1 items-end max-w-4xl mx-auto">
-            {/* Rank 2 (★ 2nd Rank ★) */}
-            <div
-              onClick={() => handleStudentRowClick(topThree[1].studentId)}
-              className="bg-white rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 border-2 border-slate-200 shadow-xs cursor-pointer hover:shadow-md transition-all flex flex-col justify-between order-1 text-center group animate-slide-left delay-150"
-            >
-              <div className="flex justify-center mb-1 sm:mb-2">
-                <StudentAvatar
-                  photoUrl={topThree[1].photoUrl}
-                  name={topThree[1].name || topThree[1].studentName}
-                  size="lg"
-                  className="w-11 h-11 sm:w-18 sm:h-18"
-                />
-              </div>
-              <div className="text-[8px] sm:text-xs font-black text-slate-700 uppercase tracking-widest bg-slate-100/90 px-2 sm:px-3 py-0.5 rounded-full inline-block shadow-2xs border border-slate-200">
-                ★ 2nd Rank ★
-              </div>
-              <div className="text-[10px] sm:text-base font-extrabold text-slate-900 group-hover:text-blue-600 mt-1 transition-colors leading-tight break-words">
-                {topThree[1].name || topThree[1].studentName}
-              </div>
-              <div className="text-[9px] sm:text-xs text-slate-500 mt-0.5">
-                Std {formatClassNumber(topThree[1].className)}
-              </div>
-              <div className="mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t border-slate-100 flex items-center justify-center">
-                <span className="text-xs sm:text-lg font-black text-slate-800">
-                  {formatScore(topThree[1].spr ?? topThree[1].overallScore)}%
-                </span>
-              </div>
+          <div className="space-y-4 max-w-4xl mx-auto pt-1">
+            <div className="grid grid-cols-3 gap-2 sm:gap-4 items-end">
+              {/* Left Card (Position 2 in array: topThree[1]) */}
+              {(() => {
+                const student = topThree[1];
+                const rank = student?.rank ?? 2;
+                const isTied = student?.isTied || filteredEntries.filter((s) => s.spr === student?.spr).length > 1;
+                const isGold = rank === 1;
+                const isSilver = rank === 2;
+                const isBronze = rank === 3;
+
+                return (
+                  <div
+                    onClick={() => handleStudentRowClick(student.studentId)}
+                    className={`rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 border-2 shadow-xs cursor-pointer hover:shadow-md transition-all flex flex-col justify-between order-1 text-center group animate-slide-left delay-150 ${
+                      isGold
+                        ? 'bg-gradient-to-b from-amber-50/90 via-white to-white border-amber-400 shadow-md hover:shadow-xl'
+                        : isSilver
+                        ? 'bg-white border-slate-200'
+                        : 'bg-white border-amber-200'
+                    }`}
+                  >
+                    <div className="flex justify-center mb-1 sm:mb-2">
+                      <StudentAvatar
+                        photoUrl={student.photoUrl}
+                        name={student.name || student.studentName}
+                        size="lg"
+                        className={`w-11 h-11 sm:w-18 sm:h-18 ${isGold ? 'ring-3 sm:ring-4 ring-amber-300/60' : ''}`}
+                      />
+                    </div>
+                    <div
+                      className={`text-[8px] sm:text-xs font-black uppercase tracking-widest px-2 sm:px-3 py-0.5 rounded-full inline-block shadow-2xs border ${
+                        isGold
+                          ? 'bg-amber-100 text-amber-700 border-amber-300'
+                          : isSilver
+                          ? 'bg-slate-100/90 text-slate-700 border-slate-200'
+                          : 'bg-amber-100/90 text-amber-800 border-amber-200'
+                      }`}
+                    >
+                      ★ {rank === 1 ? '1st' : rank === 2 ? '2nd' : rank === 3 ? '3rd' : `${rank}th`} Rank {isTied ? '(Joint)' : ''} ★
+                    </div>
+                    <div
+                      className={`text-[10px] sm:text-base font-extrabold mt-1 transition-colors leading-tight break-words ${
+                        isGold ? 'text-slate-900 group-hover:text-amber-800' : 'text-slate-900 group-hover:text-blue-600'
+                      }`}
+                    >
+                      {student.name || student.studentName}
+                    </div>
+                    <div className="text-[9px] sm:text-xs text-slate-500 mt-0.5">
+                      Std {formatClassNumber(student.className)}
+                    </div>
+                    <div
+                      className={`mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t flex items-center justify-center ${
+                        isGold ? 'border-amber-100' : 'border-slate-100'
+                      }`}
+                    >
+                      <span className={`text-xs sm:text-lg font-black ${isGold ? 'text-amber-800' : 'text-slate-800'}`}>
+                        {formatScore(student.spr ?? student.overallScore)}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Center Card (Position 1 in array: topThree[0] - Elevated) */}
+              {(() => {
+                const student = topThree[0];
+                const rank = student?.rank ?? 1;
+                const isTied = student?.isTied || filteredEntries.filter((s) => s.spr === student?.spr).length > 1;
+
+                return (
+                  <div
+                    onClick={() => handleStudentRowClick(student.studentId)}
+                    className="bg-gradient-to-b from-amber-50/90 via-white to-white rounded-2xl sm:rounded-3xl p-3 sm:p-6 shadow-md border-2 border-amber-400 cursor-pointer hover:shadow-xl transition-all flex flex-col justify-between order-2 -translate-y-2 sm:-translate-y-3 text-center group animate-zoom-up delay-100"
+                  >
+                    <div className="flex justify-center mb-1 sm:mb-2">
+                      <StudentAvatar
+                        photoUrl={student.photoUrl}
+                        name={student.name || student.studentName}
+                        size="xl"
+                        className="w-13 h-13 sm:w-22 sm:h-22 ring-3 sm:ring-4 ring-amber-300/60"
+                      />
+                    </div>
+                    <div className="text-[8px] sm:text-xs font-black text-amber-700 uppercase tracking-widest bg-amber-100 px-2 sm:px-3 py-0.5 rounded-full inline-block shadow-2xs border border-amber-300">
+                      ★ {rank === 1 ? '1st' : `${rank}th`} Rank {isTied ? '(Joint)' : ''} ★
+                    </div>
+                    <div className="text-xs sm:text-lg font-black text-slate-900 group-hover:text-amber-800 mt-1 transition-colors leading-tight break-words">
+                      {student.name || student.studentName}
+                    </div>
+                    <div className="text-[9px] sm:text-xs text-slate-500 mt-0.5">
+                      Std {formatClassNumber(student.className)}
+                    </div>
+                    <div className="mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t border-amber-100 flex items-center justify-center">
+                      <span className="text-xs sm:text-2xl font-black text-amber-800">
+                        {formatScore(student.spr ?? student.overallScore)}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Right Card (Position 3 in array: topThree[2]) */}
+              {(() => {
+                const student = topThree[2];
+                const rank = student?.rank ?? 3;
+                const isTied = student?.isTied || filteredEntries.filter((s) => s.spr === student?.spr).length > 1;
+                const isGold = rank === 1;
+                const isSilver = rank === 2;
+                const isBronze = rank === 3;
+
+                return (
+                  <div
+                    onClick={() => handleStudentRowClick(student.studentId)}
+                    className={`rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 border-2 shadow-xs cursor-pointer hover:shadow-md transition-all flex flex-col justify-between order-3 text-center group animate-slide-right delay-150 ${
+                      isGold
+                        ? 'bg-gradient-to-b from-amber-50/90 via-white to-white border-amber-400 shadow-md hover:shadow-xl'
+                        : isSilver
+                        ? 'bg-white border-slate-200'
+                        : 'bg-white border-amber-200'
+                    }`}
+                  >
+                    <div className="flex justify-center mb-1 sm:mb-2">
+                      <StudentAvatar
+                        photoUrl={student.photoUrl}
+                        name={student.name || student.studentName}
+                        size="lg"
+                        className={`w-11 h-11 sm:w-18 sm:h-18 ${isGold ? 'ring-3 sm:ring-4 ring-amber-300/60' : ''}`}
+                      />
+                    </div>
+                    <div
+                      className={`text-[8px] sm:text-xs font-black uppercase tracking-widest px-2 sm:px-3 py-0.5 rounded-full inline-block shadow-2xs border ${
+                        isGold
+                          ? 'bg-amber-100 text-amber-700 border-amber-300'
+                          : isSilver
+                          ? 'bg-slate-100/90 text-slate-700 border-slate-200'
+                          : 'bg-amber-100/90 text-amber-800 border-amber-200'
+                      }`}
+                    >
+                      ★ {rank === 1 ? '1st' : rank === 2 ? '2nd' : rank === 3 ? '3rd' : `${rank}th`} Rank {isTied ? '(Joint)' : ''} ★
+                    </div>
+                    <div
+                      className={`text-[10px] sm:text-base font-extrabold mt-1 transition-colors leading-tight break-words ${
+                        isGold ? 'text-slate-900 group-hover:text-amber-800' : 'text-slate-900 group-hover:text-blue-600'
+                      }`}
+                    >
+                      {student.name || student.studentName}
+                    </div>
+                    <div className="text-[9px] sm:text-xs text-slate-500 mt-0.5">
+                      Std {formatClassNumber(student.className)}
+                    </div>
+                    <div
+                      className={`mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t flex items-center justify-center ${
+                        isGold ? 'border-amber-100' : 'border-slate-100'
+                      }`}
+                    >
+                      <span className={`text-xs sm:text-lg font-black ${isGold ? 'text-amber-800' : 'text-slate-800'}`}>
+                        {formatScore(student.spr ?? student.overallScore)}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
-            {/* Rank 1 (★ 1st Rank ★) */}
-            <div
-              onClick={() => handleStudentRowClick(topThree[0].studentId)}
-              className="bg-gradient-to-b from-amber-50/90 via-white to-white rounded-2xl sm:rounded-3xl p-3 sm:p-6 shadow-md border-2 border-amber-400 cursor-pointer hover:shadow-xl transition-all flex flex-col justify-between order-2 -translate-y-2 sm:-translate-y-3 text-center group animate-zoom-up delay-100"
-            >
-              <div className="flex justify-center mb-1 sm:mb-2">
-                <StudentAvatar
-                  photoUrl={topThree[0].photoUrl}
-                  name={topThree[0].name || topThree[0].studentName}
-                  size="xl"
-                  className="w-13 h-13 sm:w-22 sm:h-22 ring-3 sm:ring-4 ring-amber-300/60"
-                />
-              </div>
-              <div className="text-[8px] sm:text-xs font-black text-amber-700 uppercase tracking-widest bg-amber-100 px-2 sm:px-3 py-0.5 rounded-full inline-block shadow-2xs border border-amber-300">
-                ★ 1st Rank ★
-              </div>
-              <div className="text-xs sm:text-lg font-black text-slate-900 group-hover:text-amber-800 mt-1 transition-colors leading-tight break-words">
-                {topThree[0].name || topThree[0].studentName}
-              </div>
-              <div className="text-[9px] sm:text-xs text-slate-500 mt-0.5">
-                Std {formatClassNumber(topThree[0].className)}
-              </div>
-              <div className="mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t border-amber-100 flex items-center justify-center">
-                <span className="text-xs sm:text-2xl font-black text-amber-800">
-                  {formatScore(topThree[0].spr ?? topThree[0].overallScore)}%
-                </span>
-              </div>
-            </div>
-
-            {/* Rank 3 (★ 3rd Rank ★) */}
-            <div
-              onClick={() => handleStudentRowClick(topThree[2].studentId)}
-              className="bg-white rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 border-2 border-amber-200 shadow-xs cursor-pointer hover:shadow-md transition-all flex flex-col justify-between order-3 text-center group animate-slide-right delay-150"
-            >
-              <div className="flex justify-center mb-1 sm:mb-2">
-                <StudentAvatar
-                  photoUrl={topThree[2].photoUrl}
-                  name={topThree[2].name || topThree[2].studentName}
-                  size="lg"
-                  className="w-11 h-11 sm:w-18 sm:h-18"
-                />
-              </div>
-              <div className="text-[8px] sm:text-xs font-black text-amber-800 uppercase tracking-widest bg-amber-100/90 px-2 sm:px-3 py-0.5 rounded-full inline-block shadow-2xs border border-amber-200">
-                ★ 3rd Rank ★
-              </div>
-              <div className="text-[10px] sm:text-base font-extrabold text-slate-900 group-hover:text-blue-600 mt-1 transition-colors leading-tight break-words">
-                {topThree[2].name || topThree[2].studentName}
-              </div>
-              <div className="text-[9px] sm:text-xs text-slate-500 mt-0.5">
-                Std {formatClassNumber(topThree[2].className)}
-              </div>
-              <div className="mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t border-slate-100 flex items-center justify-center">
-                <span className="text-xs sm:text-lg font-black text-slate-800">
-                  {formatScore(topThree[2].spr ?? topThree[2].overallScore)}%
-                </span>
-              </div>
-            </div>
+            {/* Joint Rank 1 Cohort Recognition Pill Bar */}
+            {(() => {
+              const rank1Students = filteredEntries.filter((s) => s.rank === 1);
+              if (rank1Students.length <= 3) return null;
+              return (
+                <div className="p-3.5 bg-amber-50/90 border border-amber-200/90 rounded-2xl text-center shadow-xs animate-fade-in">
+                  <div className="text-xs font-black text-amber-950 flex items-center justify-center space-x-1.5">
+                    <span>🏆</span>
+                    <span>{rank1Students.length} Students Jointly Share 1st Rank ({formatScore(rank1Students[0]?.spr ?? 100)}% SPR)</span>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 mt-2">
+                    {rank1Students.map((st) => (
+                      <button
+                        key={st.studentId}
+                        onClick={() => handleStudentRowClick(st.studentId)}
+                        className="inline-flex items-center space-x-1.5 px-3 py-1 bg-white border border-amber-300 rounded-full text-xs font-bold text-slate-800 hover:bg-amber-100/80 shadow-2xs transition"
+                      >
+                        <span className="w-2 h-2 rounded-full bg-amber-500" />
+                        <span>{st.name || st.studentName}</span>
+                        <span className="text-[10px] text-amber-800 font-semibold">Std {formatClassNumber(st.className)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 

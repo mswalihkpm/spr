@@ -210,67 +210,63 @@ export default function DisplayModePage() {
 
           {topThree.length >= 3 && (
             <div className="space-y-3.5 flex-1 flex flex-col justify-center">
-              {/* Gold 1st */}
-              <div className="p-5 rounded-2xl bg-gradient-to-r from-amber-500/30 via-gold-500/20 to-amber-600/30 border-2 border-gold-400 shadow-2xl relative overflow-hidden animate-pulse-subtle">
-                <div className="flex items-center justify-between">
-                  <span className="w-10 h-10 rounded-full bg-gold-400 text-madin-950 font-black text-base flex items-center justify-center shadow-lg">
-                    🥇
-                  </span>
-                  <span className="text-xs font-black tracking-widest text-gold-300 uppercase bg-madin-950/80 px-2.5 py-1 rounded-full border border-gold-400/40">
-                    1st Position
-                  </span>
-                </div>
-                <div className="mt-3">
-                  <div className="text-xl font-black text-white truncate">{topThree[0]?.name}</div>
-                  <div className="text-xs text-gold-200 mt-0.5">
-                    {topThree[0]?.className} • {topThree[0]?.schoolName}
-                  </div>
-                </div>
-                <div className="mt-3 pt-2.5 border-t border-gold-400/30 flex items-center justify-between">
-                  <span className="text-xs font-mono text-gold-300">{topThree[0]?.studentCode}</span>
-                  <span className="text-2xl font-black text-gold-300">{topThree[0]?.spr}%</span>
-                </div>
-              </div>
+              {topThree.slice(0, 3).map((st: any, idx: number) => {
+                const rank = st.rank || (idx + 1);
+                const isTied = st.isTied || topThree.filter((s: any) => s.spr === st.spr).length > 1;
+                const isGold = rank === 1;
+                const isSilver = rank === 2;
+                const isBronze = rank === 3;
 
-              {/* Silver 2nd */}
-              <div className="p-4 rounded-2xl bg-slate-800/60 border border-slate-400/40 shadow-lg">
-                <div className="flex items-center justify-between">
-                  <span className="w-8 h-8 rounded-full bg-slate-300 text-slate-900 font-black text-sm flex items-center justify-center">
-                    🥈
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-300 uppercase">2nd Position</span>
-                </div>
-                <div className="mt-2">
-                  <div className="text-base font-bold text-white truncate">{topThree[1]?.name}</div>
-                  <div className="text-xs text-slate-400">
-                    {topThree[1]?.className} • {topThree[1]?.schoolName}
+                return (
+                  <div
+                    key={st.studentId || idx}
+                    className={`p-4 sm:p-5 rounded-2xl shadow-xl relative overflow-hidden transition-all ${
+                      isGold
+                        ? 'bg-gradient-to-r from-amber-500/30 via-gold-500/20 to-amber-600/30 border-2 border-gold-400 animate-pulse-subtle'
+                        : isSilver
+                        ? 'bg-slate-800/70 border-2 border-slate-400/50'
+                        : 'bg-amber-950/40 border-2 border-amber-600/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`w-9 h-9 rounded-full font-black text-sm flex items-center justify-center shadow-lg ${
+                          isGold ? 'bg-gold-400 text-madin-950' : isSilver ? 'bg-slate-300 text-slate-900' : 'bg-amber-600 text-white'
+                        }`}
+                      >
+                        {isGold ? '🥇' : isSilver ? '🥈' : '🥉'}
+                      </span>
+                      <span
+                        className={`text-[10px] font-black tracking-widest uppercase px-2.5 py-1 rounded-full border ${
+                          isGold
+                            ? 'text-gold-300 bg-madin-950/80 border-gold-400/40'
+                            : isSilver
+                            ? 'text-slate-200 bg-slate-900/80 border-slate-400/40'
+                            : 'text-amber-300 bg-amber-950/80 border-amber-500/40'
+                        }`}
+                      >
+                        {rank === 1 ? '1st' : rank === 2 ? '2nd' : rank === 3 ? '3rd' : `${rank}th`} Position {isTied ? '(Joint)' : ''}
+                      </span>
+                    </div>
+                    <div className="mt-3">
+                      <div className="text-lg sm:text-xl font-black text-white truncate">{st.name}</div>
+                      <div className="text-xs text-slate-300 mt-0.5">
+                        {st.className} • {st.schoolName}
+                      </div>
+                    </div>
+                    <div
+                      className={`mt-3 pt-2.5 border-t flex items-center justify-between ${
+                        isGold ? 'border-gold-400/30' : isSilver ? 'border-slate-700' : 'border-amber-800/40'
+                      }`}
+                    >
+                      <span className="text-xs font-mono text-slate-400">{st.studentCode}</span>
+                      <span className={`text-xl sm:text-2xl font-black ${isGold ? 'text-gold-300' : isSilver ? 'text-slate-200' : 'text-amber-400'}`}>
+                        {st.spr}%
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div className="mt-2 pt-2 border-t border-slate-700 flex items-center justify-between">
-                  <span className="text-xs font-mono text-slate-400">{topThree[1]?.studentCode}</span>
-                  <span className="text-xl font-black text-slate-200">{topThree[1]?.spr}%</span>
-                </div>
-              </div>
-
-              {/* Bronze 3rd */}
-              <div className="p-4 rounded-2xl bg-amber-950/40 border border-amber-600/40 shadow-lg">
-                <div className="flex items-center justify-between">
-                  <span className="w-8 h-8 rounded-full bg-amber-600 text-white font-black text-sm flex items-center justify-center">
-                    🥉
-                  </span>
-                  <span className="text-[10px] font-bold text-amber-300 uppercase">3rd Position</span>
-                </div>
-                <div className="mt-2">
-                  <div className="text-base font-bold text-white truncate">{topThree[2]?.name}</div>
-                  <div className="text-xs text-slate-400">
-                    {topThree[2]?.className} • {topThree[2]?.schoolName}
-                  </div>
-                </div>
-                <div className="mt-2 pt-2 border-t border-amber-800/40 flex items-center justify-between">
-                  <span className="text-xs font-mono text-slate-400">{topThree[2]?.studentCode}</span>
-                  <span className="text-xl font-black text-amber-400">{topThree[2]?.spr}%</span>
-                </div>
-              </div>
+                );
+              })}
             </div>
           )}
         </div>
