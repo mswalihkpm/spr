@@ -167,27 +167,20 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'At least one student ID is required for deletion.' }, { status: 400 });
     }
 
-    const deleteResult = await prisma.$transaction(async (tx) => {
-      // 1. Delete associated Performance Records
-      await tx.performanceRecord.deleteMany({
+    const [, , , deleteResult] = await prisma.$transaction([
+      prisma.performanceRecord.deleteMany({
         where: { studentId: { in: studentIds } },
-      });
-
-      // 2. Delete associated Creative Hub Works
-      await tx.creativeHubSubmission.deleteMany({
+      }),
+      prisma.creativeHubSubmission.deleteMany({
         where: { studentId: { in: studentIds } },
-      });
-
-      // 3. Delete associated Library Records
-      await tx.libraryRecord.deleteMany({
+      }),
+      prisma.libraryRecord.deleteMany({
         where: { studentId: { in: studentIds } },
-      });
-
-      // 4. Delete the Students
-      return await tx.student.deleteMany({
+      }),
+      prisma.student.deleteMany({
         where: { id: { in: studentIds } },
-      });
-    }, { timeout: 30000 });
+      }),
+    ]);
 
     await logAuditAction({
       userId: user?.id,

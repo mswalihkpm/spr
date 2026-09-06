@@ -102,66 +102,122 @@ export async function POST(req: NextRequest) {
       defaultTermId = currentTerm?.id;
     }
 
-    const savedRecords = await prisma.$transaction(async (tx) => {
-      const results = [];
-      for (const entry of entries) {
-        const obtained = Number(entry.obtainedScore);
-        const max = Number(entry.maxScore) || 100;
-        const percentage = normalizeScoreToPercentage(obtained, max);
-
-        // Check if an identical record exists to update it rather than creating duplicates
-        const existing = await tx.performanceRecord.findFirst({
+    // Pre-fetch all existing performance records for these students in this category in ONE query
+    const studentIds = Array.from(new Set(entries.map((e: any) => e.studentId).filter(Boolean)));
+    const existingRecords = studentIds.length > 0
+      ? await prisma.performanceRecord.findMany({
           where: {
-            studentId: entry.studentId,
+            studentId: { in: studentIds as string[] },
             categoryId,
-            ...(examId ? { examId } : {}),
-            ...(subjectId ? { subjectId } : {}),
-            ...(competitionId ? { competitionId } : {}),
-            ...(literaryCompetitionId ? { literaryCompetitionId } : {}),
             ...(defaultTermId ? { termId: defaultTermId } : {}),
           },
-        });
+        })
+      : [];
 
-        if (existing) {
-          const updated = await tx.performanceRecord.update({
-            where: { id: existing.id },
-            data: {
-              obtainedScore: obtained,
-              maxScore: max,
-              percentage,
-              levelId: levelId || existing.levelId,
-              date: date ? new Date(date) : existing.date,
-              remarks: entry.remarks !== undefined ? entry.remarks : existing.remarks,
-              updatedById: user?.id,
-            },
-          });
-          results.push(updated);
-        } else {
-          const created = await tx.performanceRecord.create({
-            data: {
-              studentId: entry.studentId,
-              categoryId,
-              subcategoryId: subcategoryId || null,
-              examId: examId || null,
-              subjectId: subjectId || null,
-              competitionId: competitionId || null,
-              literaryCompetitionId: literaryCompetitionId || null,
-              levelId: levelId || null,
-              termId: defaultTermId || null,
-              academicYearId: defaultYearId || null,
-              obtainedScore: obtained,
-              maxScore: max,
-              percentage,
-              date: date ? new Date(date) : new Date(),
-              remarks: entry.remarks || null,
-              createdById: user?.id,
-            },
-          });
-          results.push(created);
-        }
+    type ScoreWriteAction =
+      | { type: 'UPDATE'; id: string; data: any }
+      | { type: 'CREATE'; data: any };
+
+    const writeActions: ScoreWriteAction[] = [];
+
+    for (const entry of entries) {
+      const obtained = Number(entry.obtainedScore);
+      const max = Number(entry.maxScore) || 100;
+      const percentage = normalizeScoreToPercentage(obtained, max);
+
+      const existing = existingRecords.find((r) =>
+        r.studentId === entry.studentId &&
+        r.categoryId === categoryId &&
+        (!examId || r.examId === examId) &&
+        (!subjectId || r.subjectId === subjectId) &&
+        (!competitionId || r.competitionId === competitionId) &&
+        (!literaryCompetitionId || r.literaryCompetitionId === literaryCompetitionId) &&
+        (!defaultTermId || r.termId === defaultTermId)
+      );
+
+      if (existing) {
+        writeActions.push({
+          type: 'UPDATE',
+          id: existing.id,
+          data: {
+            obtainedScore: obtained,
+            maxScore: max,
+            percentage,
+            levelId: levelId || existing.levelId,
+            date: date ? new Date(date) : existing.date,
+            remarks: entry.remarks !== undefined ? entry.remarks : existing.remarks,
+            updatedById: user?.id,
+          },
+        });
+      } else {
+        writeActions.push({
+          type: 'CREATE',
+          data: {
+            studentId: entry.studentId,
+            categoryId,
+            subcategoryId: subcategoryId || null,
+            examId: examId || null,
+            subjectId: subjectId || null,
+            competitionId: competitionId || null,
+            literaryCompetitionId: literaryCompetitionId || null,
+            levelId: levelId || null,
+            termId: defaultTermId || null,
+            academicYearId: defaultYearId || null,
+            obtainedScore: obtained,
+            maxScore: max,
+            percentage,
+            date: date ? new Date(date) : new Date(),
+            remarks: entry.remarks || null,
+            createdById: user?.id,
+          },
+        });
+        // Register in existingRecords stub to prevent duplicates if student is repeated in entries
+        existingRecords.push({
+          id: `temp_${Date.now()}_${Math.random()}`,
+          studentId: entry.studentId,
+          categoryId,
+          subcategoryId: subcategoryId || null,
+          examId: examId || null,
+          subjectId: subjectId || null,
+          competitionId: competitionId || null,
+          literaryCompetitionId: literaryCompetitionId || null,
+          levelId: levelId || null,
+          termId: defaultTermId || null,
+          academicYearId: defaultYearId || null,
+          obtainedScore: obtained,
+          maxScore: max,
+          percentage,
+          date: date ? new Date(date) : new Date(),
+          remarks: entry.remarks || null,
+          createdById: user?.id,
+          updatedById: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          eventId: null,
+        } as any);
       }
-      return results;
-    });
+    }
+
+    const savedRecords: any[] = [];
+    const BATCH_SIZE = 25;
+    for (let i = 0; i < writeActions.length; i += BATCH_SIZE) {
+      const batch = writeActions.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.all(
+        batch.map(async (action) => {
+          if (action.type === 'UPDATE') {
+            return await prisma.performanceRecord.update({
+              where: { id: action.id },
+              data: action.data,
+            });
+          } else {
+            return await prisma.performanceRecord.create({
+              data: action.data,
+            });
+          }
+        })
+      );
+      savedRecords.push(...batchResults);
+    }
 
     await logAuditAction({
       userId: user?.id,

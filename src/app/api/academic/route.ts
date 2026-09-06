@@ -350,80 +350,81 @@ export async function DELETE(req: NextRequest) {
     let prevRecord = null;
 
     if (type === 'SCHOOL') {
-      await prisma.$transaction(async (tx) => {
-        const students = await tx.student.findMany({ where: { schoolId: id }, select: { id: true } });
-        const studentIds = students.map((s) => s.id);
-        if (studentIds.length > 0) {
-          await tx.performanceRecord.deleteMany({ where: { studentId: { in: studentIds } } });
-          await tx.creativeHubSubmission.deleteMany({ where: { studentId: { in: studentIds } } });
-          await tx.libraryRecord.deleteMany({ where: { studentId: { in: studentIds } } });
-          await tx.student.deleteMany({ where: { id: { in: studentIds } } });
-        }
-        prevRecord = await tx.school.findUnique({ where: { id } });
-        await tx.school.delete({ where: { id } });
-      }, { timeout: 30000 });
+      prevRecord = await prisma.school.findUnique({ where: { id } });
+      const students = await prisma.student.findMany({ where: { schoolId: id }, select: { id: true } });
+      const studentIds = students.map((s) => s.id);
+      const ops: any[] = [];
+      if (studentIds.length > 0) {
+        ops.push(prisma.performanceRecord.deleteMany({ where: { studentId: { in: studentIds } } }));
+        ops.push(prisma.creativeHubSubmission.deleteMany({ where: { studentId: { in: studentIds } } }));
+        ops.push(prisma.libraryRecord.deleteMany({ where: { studentId: { in: studentIds } } }));
+        ops.push(prisma.student.deleteMany({ where: { id: { in: studentIds } } }));
+      }
+      ops.push(prisma.school.delete({ where: { id } }));
+      await prisma.$transaction(ops);
     } else if (type === 'CLASS') {
-      await prisma.$transaction(async (tx) => {
-        const students = await tx.student.findMany({ where: { classId: id }, select: { id: true } });
-        const studentIds = students.map((s) => s.id);
-        if (studentIds.length > 0) {
-          await tx.performanceRecord.deleteMany({ where: { studentId: { in: studentIds } } });
-          await tx.creativeHubSubmission.deleteMany({ where: { studentId: { in: studentIds } } });
-          await tx.libraryRecord.deleteMany({ where: { studentId: { in: studentIds } } });
-          await tx.student.deleteMany({ where: { id: { in: studentIds } } });
-        }
-        prevRecord = await tx.academicClass.findUnique({ where: { id } });
-        await tx.academicClass.delete({ where: { id } });
-      }, { timeout: 30000 });
+      prevRecord = await prisma.academicClass.findUnique({ where: { id } });
+      const students = await prisma.student.findMany({ where: { classId: id }, select: { id: true } });
+      const studentIds = students.map((s) => s.id);
+      const ops: any[] = [];
+      if (studentIds.length > 0) {
+        ops.push(prisma.performanceRecord.deleteMany({ where: { studentId: { in: studentIds } } }));
+        ops.push(prisma.creativeHubSubmission.deleteMany({ where: { studentId: { in: studentIds } } }));
+        ops.push(prisma.libraryRecord.deleteMany({ where: { studentId: { in: studentIds } } }));
+        ops.push(prisma.student.deleteMany({ where: { id: { in: studentIds } } }));
+      }
+      ops.push(prisma.academicClass.delete({ where: { id } }));
+      await prisma.$transaction(ops);
     } else if (type === 'SUBJECT') {
-      await prisma.$transaction(async (tx) => {
-        await tx.performanceRecord.deleteMany({ where: { subjectId: id } });
-        prevRecord = await tx.subject.findUnique({ where: { id } });
-        await tx.subject.delete({ where: { id } });
-      }, { timeout: 30000 });
+      prevRecord = await prisma.subject.findUnique({ where: { id } });
+      await prisma.$transaction([
+        prisma.performanceRecord.deleteMany({ where: { subjectId: id } }),
+        prisma.subject.delete({ where: { id } }),
+      ]);
     } else if (type === 'EXAM') {
-      await prisma.$transaction(async (tx) => {
-        await tx.performanceRecord.deleteMany({ where: { examId: id } });
-        prevRecord = await tx.exam.findUnique({ where: { id } });
-        await tx.exam.delete({ where: { id } });
-      }, { timeout: 30000 });
+      prevRecord = await prisma.exam.findUnique({ where: { id } });
+      await prisma.$transaction([
+        prisma.performanceRecord.deleteMany({ where: { examId: id } }),
+        prisma.exam.delete({ where: { id } }),
+      ]);
     } else if (type === 'TERM') {
-      await prisma.$transaction(async (tx) => {
-        await tx.performanceRecord.deleteMany({ where: { termId: id } });
-        const exams = await tx.exam.findMany({ where: { termId: id }, select: { id: true } });
-        const examIds = exams.map((e) => e.id);
-        if (examIds.length > 0) {
-          await tx.performanceRecord.deleteMany({ where: { examId: { in: examIds } } });
-          await tx.exam.deleteMany({ where: { id: { in: examIds } } });
-        }
-        prevRecord = await tx.term.findUnique({ where: { id } });
-        await tx.term.delete({ where: { id } });
-      }, { timeout: 30000 });
+      prevRecord = await prisma.term.findUnique({ where: { id } });
+      const exams = await prisma.exam.findMany({ where: { termId: id }, select: { id: true } });
+      const examIds = exams.map((e) => e.id);
+      const ops: any[] = [
+        prisma.performanceRecord.deleteMany({ where: { termId: id } }),
+      ];
+      if (examIds.length > 0) {
+        ops.push(prisma.performanceRecord.deleteMany({ where: { examId: { in: examIds } } }));
+        ops.push(prisma.exam.deleteMany({ where: { id: { in: examIds } } }));
+      }
+      ops.push(prisma.term.delete({ where: { id } }));
+      await prisma.$transaction(ops);
     } else if (type === 'LEVEL') {
-      await prisma.$transaction(async (tx) => {
-        await tx.performanceRecord.deleteMany({ where: { levelId: id } });
-        await tx.literaryCompetition.updateMany({ where: { levelId: id }, data: { levelId: null } });
-        await tx.program.updateMany({ where: { levelId: id }, data: { levelId: null } });
-        prevRecord = await tx.level.findUnique({ where: { id } });
-        await tx.level.delete({ where: { id } });
-      }, { timeout: 30000 });
+      prevRecord = await prisma.level.findUnique({ where: { id } });
+      await prisma.$transaction([
+        prisma.performanceRecord.deleteMany({ where: { levelId: id } }),
+        prisma.literaryCompetition.updateMany({ where: { levelId: id }, data: { levelId: null } }),
+        prisma.program.updateMany({ where: { levelId: id }, data: { levelId: null } }),
+        prisma.level.delete({ where: { id } }),
+      ]);
     } else if (type === 'PROGRAM') {
-      await prisma.$transaction(async (tx) => {
-        const comps = await tx.competition.findMany({ where: { programId: id }, select: { id: true } });
-        const compIds = comps.map((c) => c.id);
-        if (compIds.length > 0) {
-          await tx.performanceRecord.deleteMany({ where: { competitionId: { in: compIds } } });
-          await tx.competition.deleteMany({ where: { id: { in: compIds } } });
-        }
-        prevRecord = await tx.program.findUnique({ where: { id } });
-        await tx.program.delete({ where: { id } });
-      }, { timeout: 30000 });
+      prevRecord = await prisma.program.findUnique({ where: { id } });
+      const comps = await prisma.competition.findMany({ where: { programId: id }, select: { id: true } });
+      const compIds = comps.map((c) => c.id);
+      const ops: any[] = [];
+      if (compIds.length > 0) {
+        ops.push(prisma.performanceRecord.deleteMany({ where: { competitionId: { in: compIds } } }));
+        ops.push(prisma.competition.deleteMany({ where: { id: { in: compIds } } }));
+      }
+      ops.push(prisma.program.delete({ where: { id } }));
+      await prisma.$transaction(ops);
     } else if (type === 'COMPETITION') {
-      await prisma.$transaction(async (tx) => {
-        await tx.performanceRecord.deleteMany({ where: { competitionId: id } });
-        prevRecord = await tx.competition.findUnique({ where: { id } });
-        await tx.competition.delete({ where: { id } });
-      }, { timeout: 30000 });
+      prevRecord = await prisma.competition.findUnique({ where: { id } });
+      await prisma.$transaction([
+        prisma.performanceRecord.deleteMany({ where: { competitionId: id } }),
+        prisma.competition.delete({ where: { id } }),
+      ]);
     } else {
       return NextResponse.json({ error: 'Invalid entity type specified.' }, { status: 400 });
     }

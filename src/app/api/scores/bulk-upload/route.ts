@@ -228,214 +228,330 @@ export async function POST(req: NextRequest) {
     if (subjectName) await getOrCreateSubjectId(subjectName, 100);
     if (competitionName) await getOrCreateCompetitionId(competitionName, 'Festival', 100);
 
-    await prisma.$transaction(async (tx) => {
-      for (let i = 0; i < records.length; i++) {
-        const row = records[i];
-        const rowIdentifier = row.studentId || row.studentName || row.id || row.name;
+    // Collect valid student records
+    const studentRows: Array<{ student: (typeof allStudents)[0]; row: any; index: number }> = [];
+    for (let i = 0; i < records.length; i++) {
+      const row = records[i];
+      const rowIdentifier = row.studentId || row.studentName || row.id || row.name;
 
-        if (!rowIdentifier) {
-          errorCount++;
-          errorDetails.push(`Row ${i + 1}: Missing student identifier.`);
-          continue;
-        }
+      if (!rowIdentifier) {
+        errorCount++;
+        errorDetails.push(`Row ${i + 1}: Missing student identifier.`);
+        continue;
+      }
 
-        const idKey = String(rowIdentifier).trim().toLowerCase();
-        const student = studentMapById.get(idKey) || studentMapByName.get(idKey);
+      const idKey = String(rowIdentifier).trim().toLowerCase();
+      const student = studentMapById.get(idKey) || studentMapByName.get(idKey);
 
-        if (!student) {
-          errorCount++;
-          errorDetails.push(`Row ${i + 1}: Student "${rowIdentifier}" not found in SPR registry.`);
-          continue;
-        }
+      if (!student) {
+        errorCount++;
+        errorDetails.push(`Row ${i + 1}: Student "${rowIdentifier}" not found in SPR registry.`);
+        continue;
+      }
 
-        // Case A: Multi-Subject / Multi-Programme columns (e.g. subjectScores array or scores object)
-        if (row.subjectScores && Array.isArray(row.subjectScores) && row.subjectScores.length > 0) {
-          for (const subEntry of row.subjectScores) {
-            const rawScore = subEntry.score ?? subEntry.obtainedScore ?? subEntry.marks;
-            if (rawScore === undefined || rawScore === null || rawScore === '') continue;
+      studentRows.push({ student, row, index: i });
+    }
 
-            const obtainedScore = Number(rawScore);
-            if (isNaN(obtainedScore) || obtainedScore < 0) continue;
+    // Pre-fetch all existing performance records for these students in this category & term in ONE single query
+    const matchedStudentIds = Array.from(new Set(studentRows.map((s) => s.student.id)));
+    const activeTermId = termId || currentTerm.id;
+    const activeYearId = academicYearId || currentYear.id;
 
-            const maxScore = Number(subEntry.maxScore) || 100;
-            const percentage = normalizeScoreToPercentage(obtainedScore, maxScore);
-            const targetSubjectName = subEntry.subjectName || subEntry.name || 'Subject';
-            const subId = await getOrCreateSubjectId(targetSubjectName, maxScore);
+    const existingRecords = matchedStudentIds.length > 0
+      ? await prisma.performanceRecord.findMany({
+          where: {
+            studentId: { in: matchedStudentIds },
+            categoryId,
+            termId: activeTermId,
+          },
+        })
+      : [];
 
-            const existing = await tx.performanceRecord.findFirst({
-              where: {
+    type WriteAction =
+      | { type: 'UPDATE'; id: string; data: any }
+      | { type: 'CREATE'; data: any };
+
+    const writeActions: WriteAction[] = [];
+
+    const findExisting = (
+      studentId: string,
+      subId?: string | null,
+      litCompId?: string | null,
+      eId?: string | null
+    ) => {
+      return existingRecords.find((r) => {
+        if (r.studentId !== studentId) return false;
+        if (r.categoryId !== categoryId) return false;
+        if (r.termId !== activeTermId) return false;
+        if (subId && r.subjectId !== subId) return false;
+        if (litCompId && r.literaryCompetitionId !== litCompId) return false;
+        if (eId && r.examId && r.examId !== eId) return false;
+        return true;
+      });
+    };
+
+    for (const { student, row, index } of studentRows) {
+      // Case A: Multi-Subject / Multi-Programme columns (e.g. subjectScores array or scores object)
+      if (row.subjectScores && Array.isArray(row.subjectScores) && row.subjectScores.length > 0) {
+        for (const subEntry of row.subjectScores) {
+          const rawScore = subEntry.score ?? subEntry.obtainedScore ?? subEntry.marks;
+          if (rawScore === undefined || rawScore === null || rawScore === '') continue;
+
+          const obtainedScore = Number(rawScore);
+          if (isNaN(obtainedScore) || obtainedScore < 0) continue;
+
+          const maxScore = Number(subEntry.maxScore) || 100;
+          const percentage = normalizeScoreToPercentage(obtainedScore, maxScore);
+          const targetSubjectName = subEntry.subjectName || subEntry.name || 'Subject';
+          const subId = await getOrCreateSubjectId(targetSubjectName, maxScore);
+
+          const existing = findExisting(student.id, subId, null, resolvedExamId);
+
+          if (existing) {
+            writeActions.push({
+              type: 'UPDATE',
+              id: existing.id,
+              data: {
+                obtainedScore,
+                maxScore,
+                percentage,
+                remarks: subEntry.remarks || row.remarks || existing.remarks,
+                updatedById: user?.id,
+              },
+            });
+          } else {
+            writeActions.push({
+              type: 'CREATE',
+              data: {
                 studentId: student.id,
                 categoryId,
                 subjectId: subId,
-                ...(resolvedExamId ? { examId: resolvedExamId } : {}),
-                termId: termId || currentTerm.id,
+                examId: resolvedExamId,
+                levelId: resolvedLevelId,
+                termId: activeTermId,
+                academicYearId: activeYearId,
+                obtainedScore,
+                maxScore,
+                percentage,
+                remarks: subEntry.remarks || row.remarks || null,
+                createdById: user?.id,
               },
             });
-
-            if (existing) {
-              await tx.performanceRecord.update({
-                where: { id: existing.id },
-                data: {
-                  obtainedScore,
-                  maxScore,
-                  percentage,
-                  remarks: subEntry.remarks || row.remarks || existing.remarks,
-                  updatedById: user?.id,
-                },
-              });
-            } else {
-              await tx.performanceRecord.create({
-                data: {
-                  studentId: student.id,
-                  categoryId,
-                  subjectId: subId,
-                  examId: resolvedExamId,
-                  levelId: resolvedLevelId,
-                  termId: termId || currentTerm.id,
-                  academicYearId: academicYearId || currentYear.id,
-                  obtainedScore,
-                  maxScore,
-                  percentage,
-                  remarks: subEntry.remarks || row.remarks || null,
-                  createdById: user?.id,
-                },
-              });
-            }
-            successCount++;
+            // Register stub in existingRecords to prevent duplicate creates if student+subject is repeated
+            existingRecords.push({
+              id: `temp_${Date.now()}_${Math.random()}`,
+              studentId: student.id,
+              categoryId,
+              subjectId: subId,
+              examId: resolvedExamId,
+              levelId: resolvedLevelId,
+              termId: activeTermId,
+              academicYearId: activeYearId,
+              obtainedScore,
+              maxScore,
+              percentage,
+              remarks: subEntry.remarks || row.remarks || null,
+              createdById: user?.id,
+              updatedById: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              subcategoryId: null,
+              eventId: null,
+              competitionId: null,
+              literaryCompetitionId: null,
+              date: new Date(),
+            } as any);
           }
-          continue;
         }
+        continue;
+      }
 
-        // Case B: Multi-Programme / Multi-Event array (e.g. programmeScores array)
-        if (row.programmeScores && Array.isArray(row.programmeScores) && row.programmeScores.length > 0) {
-          for (const progEntry of row.programmeScores) {
-            const rawScore = progEntry.score ?? progEntry.obtainedScore ?? progEntry.marks;
-            if (rawScore === undefined || rawScore === null || rawScore === '') continue;
+      // Case B: Multi-Programme / Multi-Event array (e.g. programmeScores array)
+      if (row.programmeScores && Array.isArray(row.programmeScores) && row.programmeScores.length > 0) {
+        for (const progEntry of row.programmeScores) {
+          const rawScore = progEntry.score ?? progEntry.obtainedScore ?? progEntry.marks;
+          if (rawScore === undefined || rawScore === null || rawScore === '') continue;
 
-            const obtainedScore = Number(rawScore);
-            if (isNaN(obtainedScore) || obtainedScore < 0) continue;
+          const obtainedScore = Number(rawScore);
+          if (isNaN(obtainedScore) || obtainedScore < 0) continue;
 
-            const maxScore = Number(progEntry.maxScore) || 50;
-            const percentage = normalizeScoreToPercentage(obtainedScore, maxScore);
-            const eventName = progEntry.competitionName || progEntry.name || 'Event';
-            const festTitle = progEntry.festivalName || progEntry.festName || 'Festival';
+          const maxScore = Number(progEntry.maxScore) || 50;
+          const percentage = normalizeScoreToPercentage(obtainedScore, maxScore);
+          const eventName = progEntry.competitionName || progEntry.name || 'Event';
+          const festTitle = progEntry.festivalName || progEntry.festName || 'Festival';
 
-            const compInfo = await getOrCreateCompetitionId(eventName, festTitle, maxScore);
+          const compInfo = await getOrCreateCompetitionId(eventName, festTitle, maxScore);
 
-            const existing = await tx.performanceRecord.findFirst({
-              where: {
+          const existing = findExisting(student.id, null, compInfo.id, null);
+
+          if (existing) {
+            writeActions.push({
+              type: 'UPDATE',
+              id: existing.id,
+              data: {
+                obtainedScore,
+                maxScore,
+                percentage,
+                levelId: resolvedLevelId || existing.levelId,
+                remarks: progEntry.remarks || row.remarks || existing.remarks,
+                updatedById: user?.id,
+              },
+            });
+          } else {
+            writeActions.push({
+              type: 'CREATE',
+              data: {
                 studentId: student.id,
                 categoryId,
                 literaryCompetitionId: compInfo.id,
-                termId: termId || currentTerm.id,
+                levelId: resolvedLevelId,
+                termId: activeTermId,
+                academicYearId: activeYearId,
+                obtainedScore,
+                maxScore,
+                percentage,
+                remarks: progEntry.remarks || row.remarks || `${festTitle} - ${eventName}`,
+                createdById: user?.id,
               },
             });
+            existingRecords.push({
+              id: `temp_${Date.now()}_${Math.random()}`,
+              studentId: student.id,
+              categoryId,
+              subjectId: null,
+              examId: null,
+              literaryCompetitionId: compInfo.id,
+              competitionId: null,
+              levelId: resolvedLevelId,
+              termId: activeTermId,
+              academicYearId: activeYearId,
+              obtainedScore,
+              maxScore,
+              percentage,
+              remarks: progEntry.remarks || row.remarks || `${festTitle} - ${eventName}`,
+              createdById: user?.id,
+              updatedById: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              subcategoryId: null,
+              eventId: null,
+              date: new Date(),
+            } as any);
+          }
+        }
+        continue;
+      }
 
-            if (existing) {
-              await tx.performanceRecord.update({
-                where: { id: existing.id },
-                data: {
-                  obtainedScore,
-                  maxScore,
-                  percentage,
-                  levelId: resolvedLevelId || existing.levelId,
-                  remarks: progEntry.remarks || row.remarks || existing.remarks,
-                  updatedById: user?.id,
-                },
+      // Case C: Single Score Row with dynamic on-the-fly subject/programme
+      const rawScore = row.score !== undefined ? row.score : row.marks || row.obtainedScore;
+      const obtainedScore = Number(rawScore);
+
+      if (isNaN(obtainedScore) || obtainedScore < 0) {
+        errorCount++;
+        errorDetails.push(`Row ${index + 1}: Invalid score "${rawScore}" for student ${student.fullName}.`);
+        continue;
+      }
+
+      const maxScore = Number(row.maxScore) || 100;
+      const percentage = normalizeScoreToPercentage(obtainedScore, maxScore);
+
+      let activeSubjectId = subjectId || null;
+      if (!activeSubjectId && (row.subjectName || subjectName)) {
+        activeSubjectId = await getOrCreateSubjectId(row.subjectName || subjectName, maxScore);
+      }
+
+      let activeLitCompId = literaryCompetitionId || null;
+      if (!activeLitCompId && (row.competitionName || competitionName)) {
+        const compInfo = await getOrCreateCompetitionId(row.competitionName || competitionName, row.festivalName || 'Festival', maxScore);
+        activeLitCompId = compInfo.id;
+      }
+
+      const existing = findExisting(student.id, activeSubjectId, activeLitCompId, resolvedExamId);
+
+      if (existing) {
+        writeActions.push({
+          type: 'UPDATE',
+          id: existing.id,
+          data: {
+            obtainedScore,
+            maxScore,
+            percentage,
+            levelId: resolvedLevelId || existing.levelId,
+            remarks: row.remarks || existing.remarks,
+            updatedById: user?.id,
+          },
+        });
+      } else {
+        writeActions.push({
+          type: 'CREATE',
+          data: {
+            studentId: student.id,
+            categoryId,
+            examId: resolvedExamId,
+            subjectId: activeSubjectId,
+            literaryCompetitionId: activeLitCompId,
+            levelId: resolvedLevelId,
+            termId: activeTermId,
+            academicYearId: activeYearId,
+            obtainedScore,
+            maxScore,
+            percentage,
+            date: row.date ? new Date(row.date) : new Date(),
+            remarks: row.remarks || null,
+            createdById: user?.id,
+          },
+        });
+        existingRecords.push({
+          id: `temp_${Date.now()}_${Math.random()}`,
+          studentId: student.id,
+          categoryId,
+          examId: resolvedExamId,
+          subjectId: activeSubjectId,
+          literaryCompetitionId: activeLitCompId,
+          competitionId: null,
+          levelId: resolvedLevelId,
+          termId: activeTermId,
+          academicYearId: activeYearId,
+          obtainedScore,
+          maxScore,
+          percentage,
+          remarks: row.remarks || null,
+          createdById: user?.id,
+          updatedById: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          subcategoryId: null,
+          eventId: null,
+          date: new Date(),
+        } as any);
+      }
+    }
+
+    // Execute writes in parallel batches for high throughput and PgBouncer safety
+    const BATCH_SIZE = 25;
+    for (let i = 0; i < writeActions.length; i += BATCH_SIZE) {
+      const batch = writeActions.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map(async (action) => {
+          try {
+            if (action.type === 'UPDATE') {
+              await prisma.performanceRecord.update({
+                where: { id: action.id },
+                data: action.data,
               });
             } else {
-              await tx.performanceRecord.create({
-                data: {
-                  studentId: student.id,
-                  categoryId,
-                  literaryCompetitionId: compInfo.id,
-                  levelId: resolvedLevelId,
-                  termId: termId || currentTerm.id,
-                  academicYearId: academicYearId || currentYear.id,
-                  obtainedScore,
-                  maxScore,
-                  percentage,
-                  remarks: progEntry.remarks || row.remarks || `${festTitle} - ${eventName}`,
-                  createdById: user?.id,
-                },
+              await prisma.performanceRecord.create({
+                data: action.data,
               });
             }
             successCount++;
+          } catch (err: any) {
+            errorCount++;
+            errorDetails.push(`Error writing score record: ${err.message}`);
           }
-          continue;
-        }
-
-        // Case C: Single Score Row with dynamic on-the-fly subject/programme
-        const rawScore = row.score !== undefined ? row.score : row.marks || row.obtainedScore;
-        const obtainedScore = Number(rawScore);
-
-        if (isNaN(obtainedScore) || obtainedScore < 0) {
-          errorCount++;
-          errorDetails.push(`Row ${i + 1}: Invalid score "${rawScore}" for student ${student.fullName}.`);
-          continue;
-        }
-
-        const maxScore = Number(row.maxScore) || 100;
-        const percentage = normalizeScoreToPercentage(obtainedScore, maxScore);
-
-        let activeSubjectId = subjectId || null;
-        if (!activeSubjectId && (row.subjectName || subjectName)) {
-          activeSubjectId = await getOrCreateSubjectId(row.subjectName || subjectName, maxScore);
-        }
-
-        let activeLitCompId = literaryCompetitionId || null;
-        if (!activeLitCompId && (row.competitionName || competitionName)) {
-          const compInfo = await getOrCreateCompetitionId(row.competitionName || competitionName, row.festivalName || 'Festival', maxScore);
-          activeLitCompId = compInfo.id;
-        }
-
-        const existing = await tx.performanceRecord.findFirst({
-          where: {
-            studentId: student.id,
-            categoryId,
-            ...(resolvedExamId ? { examId: resolvedExamId } : {}),
-            ...(activeSubjectId ? { subjectId: activeSubjectId } : {}),
-            ...(activeLitCompId ? { literaryCompetitionId: activeLitCompId } : {}),
-            termId: termId || currentTerm.id,
-          },
-        });
-
-        if (existing) {
-          await tx.performanceRecord.update({
-            where: { id: existing.id },
-            data: {
-              obtainedScore,
-              maxScore,
-              percentage,
-              levelId: resolvedLevelId || existing.levelId,
-              remarks: row.remarks || existing.remarks,
-              updatedById: user?.id,
-            },
-          });
-        } else {
-          await tx.performanceRecord.create({
-            data: {
-              studentId: student.id,
-              categoryId,
-              examId: resolvedExamId,
-              subjectId: activeSubjectId,
-              literaryCompetitionId: activeLitCompId,
-              levelId: resolvedLevelId,
-              termId: termId || currentTerm.id,
-              academicYearId: academicYearId || currentYear.id,
-              obtainedScore,
-              maxScore,
-              percentage,
-              date: row.date ? new Date(row.date) : new Date(),
-              remarks: row.remarks || null,
-              createdById: user?.id,
-            },
-          });
-        }
-
-        successCount++;
-      }
-    }, { timeout: 30000, maxWait: 15000 });
+        })
+      );
+    }
 
     await logAuditAction({
       userId: user?.id,

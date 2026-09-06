@@ -222,10 +222,10 @@ export async function DELETE(req: NextRequest) {
     const categoryIds: string[] = bodyData.categoryIds || (id ? [id] : []);
 
     if (subcategoryIds.length > 0) {
-      await prisma.$transaction(async (tx) => {
-        await tx.performanceRecord.deleteMany({ where: { subcategoryId: { in: subcategoryIds } } });
-        await tx.subcategory.deleteMany({ where: { id: { in: subcategoryIds } } });
-      }, { timeout: 30000 });
+      await prisma.$transaction([
+        prisma.performanceRecord.deleteMany({ where: { subcategoryId: { in: subcategoryIds } } }),
+        prisma.subcategory.deleteMany({ where: { id: { in: subcategoryIds } } }),
+      ]);
 
       await logAuditAction({
         userId: user?.id,
@@ -252,14 +252,14 @@ export async function DELETE(req: NextRequest) {
     const targetIds = nonSystemCategories.map((c) => c.id);
 
     // Cascade delete all child relationships before deleting categories
-    await prisma.$transaction(async (tx) => {
-      await tx.performanceRecord.deleteMany({ where: { categoryId: { in: targetIds } } });
-      await tx.categoryWeight.deleteMany({ where: { categoryId: { in: targetIds } } });
-      await tx.subject.deleteMany({ where: { categoryId: { in: targetIds } } });
-      await tx.exam.deleteMany({ where: { categoryId: { in: targetIds } } });
-      await tx.subcategory.deleteMany({ where: { categoryId: { in: targetIds } } });
-      await tx.category.deleteMany({ where: { id: { in: targetIds } } });
-    }, { timeout: 30000 });
+    await prisma.$transaction([
+      prisma.performanceRecord.deleteMany({ where: { categoryId: { in: targetIds } } }),
+      prisma.categoryWeight.deleteMany({ where: { categoryId: { in: targetIds } } }),
+      prisma.subject.deleteMany({ where: { categoryId: { in: targetIds } } }),
+      prisma.exam.deleteMany({ where: { categoryId: { in: targetIds } } }),
+      prisma.subcategory.deleteMany({ where: { categoryId: { in: targetIds } } }),
+      prisma.category.deleteMany({ where: { id: { in: targetIds } } }),
+    ]);
 
     await logAuditAction({
       userId: user?.id,
