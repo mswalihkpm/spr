@@ -18,16 +18,25 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ students: [] });
     }
 
-    const andConditions = words.map((w) => ({
-      OR: [
+    const andConditions = words.map((w) => {
+      const orConditions: any[] = [
         { fullName: { contains: w, mode: 'insensitive' as const } },
         { studentId: { contains: w, mode: 'insensitive' as const } },
         { sprStudentId: { contains: w, mode: 'insensitive' as const } },
         { division: { contains: w, mode: 'insensitive' as const } },
         { class: { name: { contains: w, mode: 'insensitive' as const } } },
         { school: { name: { contains: w, mode: 'insensitive' as const } } },
-      ],
-    }));
+      ];
+
+      const sprMatch = w.match(/^spr-?(\d+)$/i);
+      if (sprMatch) {
+        const num = parseInt(sprMatch[1], 10);
+        const formatted = `SPR${String(num).padStart(4, '0')}`;
+        orConditions.push({ sprStudentId: { equals: formatted, mode: 'insensitive' as const } });
+      }
+
+      return { OR: orConditions };
+    });
 
     const students = await prisma.student.findMany({
       where: {

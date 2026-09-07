@@ -259,18 +259,33 @@ function LeaderboardContent() {
     const terms = q.split(/\s+/).filter(Boolean);
     const sName = (entry.name || entry.studentName || '').toLowerCase();
     const sCode = (entry.studentCode || entry.studentIdCode || entry.studentId || '').toLowerCase();
+    const sprId = (entry.sprStudentId || '').toLowerCase();
     const cName = (entry.className || '').toLowerCase();
     const schName = (entry.schoolName || '').toLowerCase();
     const div = (entry.division || '').toLowerCase();
 
-    return terms.every(
-      (t) =>
+    return terms.every((t) => {
+      // Normal match
+      if (
         sName.includes(t) ||
         sCode.includes(t) ||
+        sprId.includes(t) ||
         cName.includes(t) ||
         schName.includes(t) ||
         div.includes(t)
-    );
+      ) {
+        return true;
+      }
+
+      // If search term is like "spr3" or "spr-3", check against normalized sprStudentId
+      const sprMatch = t.match(/^spr-?(\d+)$/i);
+      if (sprMatch) {
+        const formatted = `spr${String(parseInt(sprMatch[1], 10)).padStart(4, '0')}`;
+        if (sprId === formatted || sprId.includes(formatted)) return true;
+      }
+
+      return false;
+    });
   });
 
   const topThree = filteredEntries.slice(0, 3);

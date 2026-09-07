@@ -50,25 +50,35 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
       return;
     }
 
+    const controller = new AbortController();
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        let res = await fetch(`/api/students?search=${encodeURIComponent(query.trim())}&limit=8`);
+        let res = await fetch(`/api/students?search=${encodeURIComponent(query.trim())}&limit=8`, {
+          signal: controller.signal,
+        });
         if (res.status === 401) {
-          res = await fetch(`/api/public/search?q=${encodeURIComponent(query.trim())}`);
+          res = await fetch(`/api/public/search?q=${encodeURIComponent(query.trim())}`, {
+            signal: controller.signal,
+          });
         }
         const data = await res.json();
         if (data.students) {
           setStudents(data.students);
         }
-      } catch (err) {
-        console.error(err);
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          console.error(err);
+        }
       } finally {
         setLoading(false);
       }
     }, 150);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [query]);
 
   const navShortcuts = [

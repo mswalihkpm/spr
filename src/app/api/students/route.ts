@@ -25,16 +25,26 @@ export async function GET(req: NextRequest) {
 
     if (search.trim()) {
       const words = search.trim().split(/\s+/).filter(Boolean);
-      where.AND = words.map((w) => ({
-        OR: [
+      where.AND = words.map((w) => {
+        const orConditions: any[] = [
           { fullName: { contains: w, mode: 'insensitive' as const } },
           { studentId: { contains: w, mode: 'insensitive' as const } },
           { sprStudentId: { contains: w, mode: 'insensitive' as const } },
           { division: { contains: w, mode: 'insensitive' as const } },
           { class: { name: { contains: w, mode: 'insensitive' as const } } },
           { school: { name: { contains: w, mode: 'insensitive' as const } } },
-        ],
-      }));
+        ];
+
+        // If user typed e.g. "spr3" or "spr03" or "spr-3", also try normalized SPR ID
+        const sprMatch = w.match(/^spr-?(\d+)$/i);
+        if (sprMatch) {
+          const num = parseInt(sprMatch[1], 10);
+          const formatted = `SPR${String(num).padStart(4, '0')}`;
+          orConditions.push({ sprStudentId: { equals: formatted, mode: 'insensitive' as const } });
+        }
+
+        return { OR: orConditions };
+      });
     }
     if (classId) where.classId = classId;
     if (schoolId) where.schoolId = schoolId;

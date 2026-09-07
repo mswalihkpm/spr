@@ -65,6 +65,9 @@ export default function StudentsPage() {
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
 
+  const [isSearching, setIsSearching] = useState(false);
+  const activeReqRef = React.useRef(0);
+
   // Fetch reference master data
   useEffect(() => {
     fetch('/api/academic')
@@ -76,29 +79,54 @@ export default function StudentsPage() {
       .catch((err) => console.error('Error fetching academic masters:', err));
   }, []);
 
-  const fetchStudents = async () => {
+  const fetchStudents = async (signal?: AbortSignal, reqId?: number) => {
     try {
-      setLoading(true);
+      if (!signal) setLoading(true);
+      else setIsSearching(true);
+
       const params = new URLSearchParams();
-      if (search) params.append('search', search);
+      if (search.trim()) params.append('search', search.trim());
       if (classFilter) params.append('classId', classFilter);
       if (schoolFilter) params.append('schoolId', schoolFilter);
       if (statusFilter) params.append('status', statusFilter);
 
-      const res = await fetch(`/api/students?${params.toString()}`);
+      const res = await fetch(`/api/students?${params.toString()}`, { signal });
       const data = await res.json();
-      if (data.students) {
-        setStudents(data.students);
+      
+      // Only apply if this is still the active request
+      if (reqId === undefined || reqId === activeReqRef.current) {
+        if (data.students) {
+          setStudents(data.students);
+        }
       }
-    } catch (err) {
-      console.error('Failed to fetch students:', err);
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error('Failed to fetch students:', err);
+      }
     } finally {
-      setLoading(false);
+      if (reqId === undefined || reqId === activeReqRef.current) {
+        setLoading(false);
+        setIsSearching(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchStudents();
+    const controller = new AbortController();
+    const reqId = ++activeReqRef.current;
+
+    // Use a small 200ms debounce for search text changes, instant for dropdown filters
+    const delay = search ? 200 : 0;
+    if (search) setIsSearching(true);
+
+    const timer = setTimeout(() => {
+      fetchStudents(controller.signal, reqId);
+    }, delay);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [search, classFilter, schoolFilter, statusFilter]);
 
   const handleOpenAdd = () => {
@@ -337,8 +365,22 @@ export default function StudentsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by name, SPR ID (e.g. SPR0001)..."
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+              className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
             />
+            {isSearching ? (
+              <div className="absolute right-2.5 top-2.5">
+                <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin" />
+              </div>
+            ) : search ? (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-2.5 top-2.5 p-0.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full transition"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            ) : null}
           </div>
 
           {/* Class Filter */}

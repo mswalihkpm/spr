@@ -136,8 +136,9 @@ let homeAcademicMemory: any = null;
 
     setSearching(true);
     setShowSearchDropdown(true);
+    const controller = new AbortController();
     const timeout = setTimeout(() => {
-      fetch(`/api/public/search?q=${encodeURIComponent(trimmed)}`)
+      fetch(`/api/public/search?q=${encodeURIComponent(trimmed)}`, { signal: controller.signal })
         .then((res) => res.json())
         .then((data) => {
           if (data.students) {
@@ -145,11 +146,16 @@ let homeAcademicMemory: any = null;
             setShowSearchDropdown(true);
           }
         })
-        .catch((err) => console.error(err))
+        .catch((err) => {
+          if (err.name !== 'AbortError') console.error(err);
+        })
         .finally(() => setSearching(false));
     }, 150);
 
-    return () => clearTimeout(timeout);
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
   }, [searchQuery]);
 
   // Direct Navigation to Student Profile
@@ -252,17 +258,30 @@ let homeAcademicMemory: any = null;
     const sName = (item.studentName || item.name || '').toLowerCase();
     const cName = (item.className || '').toLowerCase();
     const sCode = (item.studentCode || item.studentIdCode || item.studentId || '').toLowerCase();
+    const sprId = (item.sprStudentId || '').toLowerCase();
     const schName = (item.schoolName || '').toLowerCase();
     const div = (item.division || '').toLowerCase();
 
-    return terms.every(
-      (t) =>
+    return terms.every((t) => {
+      if (
         sName.includes(t) ||
         cName.includes(t) ||
         sCode.includes(t) ||
+        sprId.includes(t) ||
         schName.includes(t) ||
         div.includes(t)
-    );
+      ) {
+        return true;
+      }
+
+      const sprMatch = t.match(/^spr-?(\d+)$/i);
+      if (sprMatch) {
+        const formatted = `spr${String(parseInt(sprMatch[1], 10)).padStart(4, '0')}`;
+        if (sprId === formatted || sprId.includes(formatted)) return true;
+      }
+
+      return false;
+    });
   });
 
   // Top 15 on homepage overview
