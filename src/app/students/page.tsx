@@ -28,6 +28,8 @@ import VideoLoader from '@/components/ui/VideoLoader';
 import { compressImageClientSide } from '@/lib/image-utils';
 
 
+import { getAcademicMasterData } from '@/lib/academic-client';
+
 export default function StudentsPage() {
   const router = useRouter();
   const [students, setStudents] = useState<any[]>([]);
@@ -68,10 +70,9 @@ export default function StudentsPage() {
   const [isSearching, setIsSearching] = useState(false);
   const activeReqRef = React.useRef(0);
 
-  // Fetch reference master data
+  // Fetch reference master data with instant client cache
   useEffect(() => {
-    fetch('/api/academic')
-      .then((res) => res.json())
+    getAcademicMasterData()
       .then((data) => {
         if (data.classes) setClasses(data.classes);
         if (data.schools) setSchools(data.schools);

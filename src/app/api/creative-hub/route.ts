@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
-import { normalizeScoreToPercentage } from '@/lib/spr-engine';
+import { normalizeScoreToPercentage, invalidateEngineCache } from '@/lib/spr-engine';
 
 export async function GET(req: NextRequest) {
   try {
@@ -92,6 +92,8 @@ export async function POST(req: NextRequest) {
       newValue: submission,
     });
 
+    invalidateEngineCache();
+
     return NextResponse.json({
       success: true,
       submission,
@@ -153,6 +155,8 @@ export async function PUT(req: NextRequest) {
       newValue: updated,
     });
 
+    invalidateEngineCache();
+
     return NextResponse.json({
       success: true,
       submission: updated,
@@ -201,6 +205,8 @@ export async function DELETE(req: NextRequest) {
       entity: 'CreativeHubSubmission',
       newValue: { count: deleteResult.count, ids: idsToDelete },
     });
+
+    invalidateEngineCache();
 
     return NextResponse.json({
       success: true,

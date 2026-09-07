@@ -364,6 +364,8 @@ export async function calculateAllLeaderboards(filters?: {
   if (filters?.classId) whereClause.classId = filters.classId;
   if (filters?.schoolId) whereClause.schoolId = filters.schoolId;
 
+  const isFestOrStream = !!(filters?.fest || filters?.stream);
+
   const students = await prisma.student.findMany({
     where: whereClause,
     include: {
@@ -371,18 +373,22 @@ export async function calculateAllLeaderboards(filters?: {
       school: true,
       academicYear: true,
       performanceRecords: {
-        include: {
-          category: true,
-          subject: {
-            include: { institution: true, board: true },
-          },
-          competition: {
-            include: { program: true },
-          },
-          literaryCompetition: {
-            include: { event: true },
-          },
-        },
+        include: isFestOrStream
+          ? {
+              category: true,
+              subject: {
+                include: { institution: true, board: true },
+              },
+              competition: {
+                include: { program: true },
+              },
+              literaryCompetition: {
+                include: { event: true },
+              },
+            }
+          : {
+              category: true,
+            },
       },
       creativeWorks: true,
       libraryRecords: true,
@@ -405,7 +411,7 @@ export async function calculateAllLeaderboards(filters?: {
 
     if (filters?.stream) {
       const streamTarget = filters.stream.toUpperCase();
-      const streamRecords = student.performanceRecords.filter((r) => {
+      const streamRecords = (student.performanceRecords as any[]).filter((r) => {
         const instCode = r.subject?.institution?.code?.toUpperCase() || '';
         const instName = r.subject?.institution?.name?.toUpperCase() || '';
         if (streamTarget === 'JAMIATHUL_HIND') {
@@ -430,7 +436,7 @@ export async function calculateAllLeaderboards(filters?: {
 
     if (filters?.fest) {
       const festTarget = filters.fest.toUpperCase();
-      const festRecords = student.performanceRecords.filter((r) => {
+      const festRecords = (student.performanceRecords as any[]).filter((r) => {
         const eventName = (r.literaryCompetition?.event?.name || r.competition?.program?.name || '').toUpperCase();
         const compName = (r.literaryCompetition?.name || r.competition?.name || '').toUpperCase();
         const remarks = (r.remarks || '').toUpperCase();

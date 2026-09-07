@@ -27,6 +27,7 @@ import {
   Upload,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import { getAcademicMasterData } from '@/lib/academic-client';
 
 
 interface DynamicEvent {
@@ -126,13 +127,12 @@ export default function LiteraryProgramsPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [resMaster, resStudents, resScores] = await Promise.all([
-        fetch('/api/academic'),
+      const [dataMaster, resStudents, resScores] = await Promise.all([
+        getAcademicMasterData(),
         fetch('/api/students?limit=100'),
         fetch('/api/scores'),
       ]);
 
-      const dataMaster = await resMaster.json();
       const dataStudents = await resStudents.json();
       const dataScores = await resScores.json();
 

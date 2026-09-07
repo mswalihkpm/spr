@@ -22,6 +22,7 @@ import {
   Upload,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import { getAcademicMasterData } from '@/lib/academic-client';
 
 
 interface DynamicSubject {
@@ -120,10 +121,10 @@ export default function SchoolStudiesPage() {
   const [bulkFile, setBulkFile] = useState<File | null>(null);
   const [bulkUploading, setBulkUploading] = useState(false);
 
+  // Load master data with instant client cache
   const loadMasterData = async () => {
     try {
-      const res = await fetch('/api/academic');
-      const data = await res.json();
+      const data = await getAcademicMasterData();
       if (data.classes) {
         setClasses(data.classes);
         if (data.classes.length > 0) {
@@ -151,8 +152,7 @@ export default function SchoolStudiesPage() {
   const fetchScoreHistory = async () => {
     try {
       setLoadingHistory(true);
-      const resMaster = await fetch('/api/academic');
-      const dataMaster = await resMaster.json();
+      const dataMaster = await getAcademicMasterData();
       const schoolCat = dataMaster.categories?.find((c: any) => c.code === 'SCHOOL');
 
       if (schoolCat) {

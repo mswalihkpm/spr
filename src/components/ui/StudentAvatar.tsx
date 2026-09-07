@@ -64,6 +64,8 @@ export function StudentAvatar({
         <img
           src={photoUrl}
           alt={name}
+          loading="lazy"
+          decoding="async"
           onError={() => setImageError(true)}
           className="w-full h-full object-cover"
         />

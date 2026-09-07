@@ -32,14 +32,21 @@ export async function GET(req: NextRequest) {
       spr: entry.spr,
     }));
 
-    return NextResponse.json({
-      institutionName: institutionSetting?.value || 'Madin School of Excellence',
-      autoScrollInterval: parseInt(autoScrollSetting?.value || '10', 10),
-      leaderboard: sanitizedLeaderboard,
-      categories: categories.map((c) => ({ id: c.id, code: c.code, name: c.name, icon: c.icon })),
-      classes: classes.map((c) => ({ id: c.id, name: c.name })),
-      topThree: sanitizedLeaderboard.slice(0, 3),
-    });
+    return NextResponse.json(
+      {
+        institutionName: institutionSetting?.value || 'Madin School of Excellence',
+        autoScrollInterval: parseInt(autoScrollSetting?.value || '10', 10),
+        leaderboard: sanitizedLeaderboard,
+        categories: categories.map((c) => ({ id: c.id, code: c.code, name: c.name, icon: c.icon })),
+        classes: classes.map((c) => ({ id: c.id, name: c.name })),
+        topThree: sanitizedLeaderboard.slice(0, 3),
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=30',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Display API error:', error);
     return NextResponse.json({ error: 'Failed to fetch display data.' }, { status: 500 });

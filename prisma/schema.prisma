@@ -104,6 +104,12 @@ model Student {
   performanceRecords PerformanceRecord[]
   creativeWorks      CreativeHubSubmission[]
   libraryRecords     LibraryRecord[]
+
+  @@index([classId])
+  @@index([schoolId])
+  @@index([academicYearId])
+  @@index([status])
+  @@index([fullName])
 }
 
 model Category {
@@ -137,6 +143,8 @@ model Subcategory {
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   performanceRecords PerformanceRecord[]
+
+  @@index([categoryId])
 }
 
 model Level {
@@ -198,6 +206,10 @@ model Exam {
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   performanceRecords PerformanceRecord[]
+
+  @@index([categoryId])
+  @@index([termId])
+  @@index([academicYearId])
 }
 
 model Subject {
@@ -214,6 +226,10 @@ model Subject {
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   performanceRecords PerformanceRecord[]
+
+  @@index([categoryId])
+  @@index([institutionId])
+  @@index([boardId])
 }
 
 model Program {
@@ -228,6 +244,9 @@ model Program {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
   competitions       Competition[]
+
+  @@index([academicYearId])
+  @@index([levelId])
 }
 
 model Competition {
@@ -240,6 +259,8 @@ model Competition {
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   performanceRecords PerformanceRecord[]
+
+  @@index([programId])
 }
 
 model CreativeHubCategory {
@@ -271,6 +292,11 @@ model CreativeHubSubmission {
   attachmentUrl     String?
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
+
+  @@index([studentId])
+  @@index([categoryId])
+  @@index([publicationStatus])
+  @@index([date])
 }
 
 model LiteraryEvent {
@@ -297,6 +323,9 @@ model LiteraryCompetition {
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   performanceRecords PerformanceRecord[]
+
+  @@index([eventId])
+  @@index([levelId])
 }
 
 model LibraryIntegration {
@@ -323,6 +352,9 @@ model LibraryRecord {
   syncBatchId   String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([readingPeriod])
 }
 
 model PerformanceRecord {
@@ -359,6 +391,18 @@ model PerformanceRecord {
   updatedBy              User?                @relation("UpdatedRecords", fields: [updatedById], references: [id])
   createdAt              DateTime             @default(now())
   updatedAt              DateTime             @updatedAt
+
+  @@index([studentId])
+  @@index([categoryId])
+  @@index([academicYearId])
+  @@index([termId])
+  @@index([examId])
+  @@index([subjectId])
+  @@index([competitionId])
+  @@index([literaryCompetitionId])
+  @@index([levelId])
+  @@index([date])
+  @@index([studentId, categoryId])
 }
 
 model CategoryWeight {
@@ -372,6 +416,9 @@ model CategoryWeight {
   isIncludedInSPR Boolean     @default(true)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+
+  @@index([categoryId])
+  @@index([academicYearId])
 }
 
 model SystemSetting {
@@ -395,6 +442,10 @@ model AuditLog {
   ipAddress     String?
   userAgent     String?
   createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([entity])
+  @@index([createdAt])
 }
 
 model ImportHistory {
@@ -423,4 +474,7 @@ model StudentReport {
   adminNotes   String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
 }

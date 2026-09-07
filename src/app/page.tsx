@@ -25,6 +25,7 @@ import StudentAvatar from '@/components/ui/StudentAvatar';
 import StudentReportModal from '@/components/modals/StudentReportModal';
 import PwaFooterInstall from '@/components/pwa/PwaFooterInstall';
 import VideoLoader from '@/components/ui/VideoLoader';
+import { getAcademicMasterData } from '@/lib/academic-client';
 
 export default function PublicHomePage() {
   const router = useRouter();
@@ -80,17 +81,10 @@ let homeAcademicMemory: any = null;
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch initial master data with cache
+  // Fetch initial master data with instant client cache
   useEffect(() => {
-    if (homeAcademicMemory) {
-      if (homeAcademicMemory.categories) setCategories(homeAcademicMemory.categories);
-      if (homeAcademicMemory.classes) setClasses(homeAcademicMemory.classes);
-      if (homeAcademicMemory.schools) setSchools(homeAcademicMemory.schools);
-    }
-    fetch('/api/academic')
-      .then((res) => res.json())
+    getAcademicMasterData()
       .then((data) => {
-        homeAcademicMemory = data;
         if (data.categories) setCategories(data.categories);
         if (data.classes) setClasses(data.classes);
         if (data.schools) setSchools(data.schools);

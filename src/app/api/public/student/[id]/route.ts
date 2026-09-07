@@ -82,11 +82,18 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       }),
     ]);
 
-    return NextResponse.json({
-      profile: enrichedProfile,
-      creativeWorks,
-      libraryRecords,
-    });
+    return NextResponse.json(
+      {
+        profile: enrichedProfile,
+        creativeWorks,
+        libraryRecords,
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=45',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Public student scorecard error:', error);
     return NextResponse.json({ error: 'Failed to fetch student scorecard.' }, { status: 500 });

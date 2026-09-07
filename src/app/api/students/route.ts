@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
 import { generateNextSprId, checkSprIdAvailable, normalizeSprId } from '@/lib/spr-id';
+import { invalidateEngineCache } from '@/lib/spr-engine';
 
 export async function GET(req: NextRequest) {
   try {
@@ -154,6 +155,8 @@ export async function POST(req: NextRequest) {
       newValue: student,
     });
 
+    invalidateEngineCache();
+
     return NextResponse.json({
       success: true,
       student,
@@ -199,6 +202,8 @@ export async function DELETE(req: NextRequest) {
       entity: 'Student',
       newValue: { count: deleteResult.count, studentIds },
     });
+
+    invalidateEngineCache();
 
     return NextResponse.json({
       success: true,

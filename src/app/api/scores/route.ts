@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
-import { normalizeScoreToPercentage } from '@/lib/spr-engine';
+import { normalizeScoreToPercentage, invalidateEngineCache } from '@/lib/spr-engine';
 
 export async function GET(req: NextRequest) {
   try {
@@ -227,6 +227,8 @@ export async function POST(req: NextRequest) {
       newValue: { count: savedRecords.length, categoryId, examId, subjectId },
     });
 
+    invalidateEngineCache();
+
     return NextResponse.json({
       success: true,
       message: `Successfully saved ${savedRecords.length} score records.`,
@@ -289,6 +291,8 @@ export async function PUT(req: NextRequest) {
       newValue: updated,
     });
 
+    invalidateEngineCache();
+
     return NextResponse.json({
       success: true,
       record: updated,
@@ -338,6 +342,8 @@ export async function DELETE(req: NextRequest) {
       entity: 'PerformanceRecord',
       newValue: { count: deleteResult.count, ids: idsToDelete },
     });
+
+    invalidateEngineCache();
 
     return NextResponse.json({
       success: true,

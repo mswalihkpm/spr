@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
-import { normalizeScoreToPercentage } from '@/lib/spr-engine';
+import { normalizeScoreToPercentage, invalidateEngineCache } from '@/lib/spr-engine';
 
 export async function POST(req: NextRequest) {
   try {
@@ -560,6 +560,8 @@ export async function POST(req: NextRequest) {
       entity: 'PerformanceRecord',
       newValue: { successCount, errorCount, categoryId, examName, subjectName },
     });
+
+    invalidateEngineCache();
 
     return NextResponse.json({
       success: true,

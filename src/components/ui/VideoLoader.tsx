@@ -11,7 +11,7 @@ interface VideoLoaderProps {
   loop?: boolean;
 }
 
-export default function VideoLoader({
+export function VideoLoaderComponent({
   src = '/ploo.mp4',
   size = 'md',
   text,
@@ -41,8 +41,11 @@ export default function VideoLoader({
     const video = videoRef.current;
     if (!video) return;
 
+    let isSubscribed = true;
+
     // Ensure immediate playback and continuous loop without browser stall
     const playVideo = () => {
+      if (!isSubscribed || !video) return;
       if (video.paused) {
         video.play().catch(() => {
           // Autoplay policy handled via muted & playsInline
@@ -55,6 +58,7 @@ export default function VideoLoader({
     video.addEventListener('canplay', playVideo);
 
     return () => {
+      isSubscribed = false;
       video.removeEventListener('loadeddata', playVideo);
       video.removeEventListener('canplay', playVideo);
     };
@@ -62,9 +66,9 @@ export default function VideoLoader({
 
   return (
     <div className={`flex flex-col items-center justify-center p-3 space-y-2.5 select-none ${className}`}>
-      {/* Seamless Video Container with White Background Removed via multiply blend */}
+      {/* Seamless Video Container with Hardware Acceleration */}
       <div
-        className="relative flex items-center justify-center shrink-0 overflow-hidden"
+        className="relative flex items-center justify-center shrink-0 overflow-hidden transform-gpu will-change-transform"
         style={{ width: pixelSize, height: pixelSize }}
       >
         <video
@@ -74,7 +78,7 @@ export default function VideoLoader({
           loop={loop}
           muted
           playsInline
-          preload="auto"
+          preload="metadata"
           className="w-full h-full object-contain pointer-events-none mix-blend-multiply"
           style={{
             filter: 'contrast(1.06) brightness(1.02)',
@@ -92,3 +96,7 @@ export default function VideoLoader({
     </div>
   );
 }
+
+const VideoLoader = React.memo(VideoLoaderComponent);
+export default VideoLoader;
+

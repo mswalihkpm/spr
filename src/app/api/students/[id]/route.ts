@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
-import { calculateStudentSPR, calculateAllLeaderboards } from '@/lib/spr-engine';
+import { calculateStudentSPR, calculateAllLeaderboards, invalidateEngineCache } from '@/lib/spr-engine';
 import { checkSprIdAvailable, normalizeSprId } from '@/lib/spr-id';
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -124,6 +124,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       newValue: updated,
     });
 
+    invalidateEngineCache();
+
     return NextResponse.json({
       success: true,
       student: updated,
@@ -161,6 +163,8 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       entityId: studentId,
       previousValue: previousStudent,
     });
+
+    invalidateEngineCache();
 
     return NextResponse.json({
       success: true,

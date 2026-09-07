@@ -31,6 +31,7 @@ import StudentAvatar from '@/components/ui/StudentAvatar';
 import StudentReportModal from '@/components/modals/StudentReportModal';
 import PwaFooterInstall from '@/components/pwa/PwaFooterInstall';
 import VideoLoader from '@/components/ui/VideoLoader';
+import { getAcademicMasterData } from '@/lib/academic-client';
 
 // Global client-side memory caches for 0ms instant loading
 const clientLeaderboardMemory = new Map<string, any[]>();
@@ -90,10 +91,9 @@ function LeaderboardContent() {
     }
   }, [searchParams, categories]);
 
-  // Fetch reference master data with instant load
+  // Fetch reference master data with instant memory load
   useEffect(() => {
-    fetch('/api/academic')
-      .then((res) => res.json())
+    getAcademicMasterData()
       .then((data) => {
         if (data.classes) setClasses(data.classes);
         if (data.schools) setSchools(data.schools);

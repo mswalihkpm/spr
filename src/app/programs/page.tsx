@@ -24,6 +24,7 @@ import {
   Award,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import { getAcademicMasterData } from '@/lib/academic-client';
 
 
 interface DynamicActivity {
@@ -132,13 +133,12 @@ export default function ProgramsPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [resMaster, resScores, resStudents] = await Promise.all([
-        fetch('/api/academic'),
+      const [dataMaster, resScores, resStudents] = await Promise.all([
+        getAcademicMasterData(),
         fetch('/api/scores'),
         fetch('/api/students?limit=100'),
       ]);
 
-      const dataMaster = await resMaster.json();
       const dataScores = await resScores.json();
       const dataStudents = await resStudents.json();
 

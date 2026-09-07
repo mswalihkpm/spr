@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
+import { invalidateEngineCache } from '@/lib/spr-engine';
 
 export async function GET(req: NextRequest) {
   try {
@@ -140,6 +141,8 @@ export async function POST(req: NextRequest) {
         newValue: { importedCount, period },
       });
 
+      invalidateEngineCache();
+
       return NextResponse.json({
         success: true,
         message: `Successfully imported ${importedCount} reading records.`,
@@ -187,6 +190,8 @@ export async function DELETE(req: NextRequest) {
       entity: 'LibraryRecord',
       previousValue: { deletedCount: deleteResult.count, ids },
     });
+
+    invalidateEngineCache();
 
     return NextResponse.json({
       success: true,

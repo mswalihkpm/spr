@@ -24,6 +24,7 @@ import {
   Upload,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import { getAcademicMasterData } from '@/lib/academic-client';
 
 
 interface DynamicSubject {
@@ -127,11 +128,10 @@ export default function IslamicStudiesPage() {
   const [bulkUploading, setBulkUploading] = useState(false);
   const [bulkPreviewRows, setBulkPreviewRows] = useState<any[]>([]);
 
-  // Load master data & recorded scores history
+  // Load master data & recorded scores history with instant client cache
   const loadMasterData = async () => {
     try {
-      const res = await fetch('/api/academic');
-      const data = await res.json();
+      const data = await getAcademicMasterData();
       if (data.classes) {
         setClasses(data.classes);
         if (data.classes.length > 0) {
