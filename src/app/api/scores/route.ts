@@ -81,11 +81,56 @@ export async function POST(req: NextRequest) {
       termId,
       academicYearId,
       date,
-      entries, // Array of { studentId, obtainedScore, maxScore, remarks }
+      entries, // Array of { studentId, obtainedScore, maxScore, remarks, position, grade }
     } = body;
 
-    if (!categoryId || !entries || !Array.isArray(entries) || entries.length === 0) {
-      return NextResponse.json({ error: 'Category ID and at least one score entry are required.' }, { status: 400 });
+    let targetCategoryId = categoryId;
+    if (!targetCategoryId && subcategoryId) {
+      const sub = await prisma.subcategory.findUnique({ where: { id: subcategoryId } });
+      if (sub) targetCategoryId = sub.categoryId;
+    }
+    if (!targetCategoryId && competitionId) {
+      const progCat = await prisma.category.findUnique({ where: { code: 'PROGRAMS' } });
+      if (progCat) targetCategoryId = progCat.id;
+    }
+    if (!targetCategoryId && literaryCompetitionId) {
+      const litCat = await prisma.category.findUnique({ where: { code: 'LITERARY' } });
+      if (litCat) targetCategoryId = litCat.id;
+    }
+    if (!targetCategoryId && examId) {
+      const ex = await prisma.exam.findUnique({ where: { id: examId } });
+      if (ex) targetCategoryId = ex.categoryId;
+    }
+    if (!targetCategoryId) {
+      const qualCat = await prisma.category.findUnique({ where: { code: 'QUALIFICATION' } });
+      const firstCat = await prisma.category.findFirst();
+      targetCategoryId = qualCat?.id || firstCat?.id;
+    }
+
+    let scoreEntries = entries;
+    if ((!scoreEntries || !Array.isArray(scoreEntries) || scoreEntries.length === 0) && (body.studentId || body.score !== undefined || body.obtainedScore !== undefined)) {
+      if (body.studentId) {
+        scoreEntries = [
+          {
+            studentId: body.studentId,
+            obtainedScore: body.obtainedScore !== undefined ? body.obtainedScore : body.score,
+            maxScore: body.maxScore || 100,
+            position: body.position || null,
+            grade: body.grade || null,
+            remarks: body.remarks || '',
+          },
+        ];
+      }
+    }
+
+    const validEntries = (scoreEntries || []).filter((e: any) => e && e.studentId && typeof e.studentId === 'string' && e.studentId.trim() !== '');
+
+    if (!validEntries.length) {
+      return NextResponse.json({ error: 'Please select a student and provide a valid score entry.' }, { status: 400 });
+    }
+
+    if (!targetCategoryId) {
+      return NextResponse.json({ error: 'Category ID could not be identified.' }, { status: 400 });
     }
 
     let defaultYearId = academicYearId;
@@ -103,12 +148,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Pre-fetch all existing performance records for these students in this category in ONE query
-    const studentIds = Array.from(new Set(entries.map((e: any) => e.studentId).filter(Boolean)));
+    const studentIds = Array.from(new Set(validEntries.map((e: any) => e.studentId).filter(Boolean)));
     const existingRecords = studentIds.length > 0
       ? await prisma.performanceRecord.findMany({
           where: {
             studentId: { in: studentIds as string[] },
-            categoryId,
+            categoryId: targetCategoryId,
             ...(defaultTermId ? { termId: defaultTermId } : {}),
           },
         })
@@ -120,14 +165,15 @@ export async function POST(req: NextRequest) {
 
     const writeActions: ScoreWriteAction[] = [];
 
-    for (const entry of entries) {
-      const obtained = Number(entry.obtainedScore);
+    for (const entry of validEntries) {
+      const obtained = Number(entry.obtainedScore !== undefined ? entry.obtainedScore : entry.score) || 0;
       const max = Number(entry.maxScore) || 100;
       const percentage = normalizeScoreToPercentage(obtained, max);
 
       const existing = existingRecords.find((r) =>
         r.studentId === entry.studentId &&
-        r.categoryId === categoryId &&
+        r.categoryId === targetCategoryId &&
+        (!subcategoryId || r.subcategoryId === subcategoryId) &&
         (!examId || r.examId === examId) &&
         (!subjectId || r.subjectId === subjectId) &&
         (!competitionId || r.competitionId === competitionId) &&
@@ -144,6 +190,9 @@ export async function POST(req: NextRequest) {
             maxScore: max,
             percentage,
             levelId: levelId || existing.levelId,
+            subcategoryId: subcategoryId || existing.subcategoryId,
+            position: entry.position !== undefined ? entry.position : existing.position,
+            grade: entry.grade !== undefined ? entry.grade : existing.grade,
             date: date ? new Date(date) : existing.date,
             remarks: entry.remarks !== undefined ? entry.remarks : existing.remarks,
             updatedById: user?.id,
@@ -154,13 +203,15 @@ export async function POST(req: NextRequest) {
           type: 'CREATE',
           data: {
             studentId: entry.studentId,
-            categoryId,
+            categoryId: targetCategoryId,
             subcategoryId: subcategoryId || null,
             examId: examId || null,
             subjectId: subjectId || null,
             competitionId: competitionId || null,
             literaryCompetitionId: literaryCompetitionId || null,
             levelId: levelId || null,
+            position: entry.position || null,
+            grade: entry.grade || null,
             termId: defaultTermId || null,
             academicYearId: defaultYearId || null,
             obtainedScore: obtained,
@@ -175,7 +226,7 @@ export async function POST(req: NextRequest) {
         existingRecords.push({
           id: `temp_${Date.now()}_${Math.random()}`,
           studentId: entry.studentId,
-          categoryId,
+          categoryId: targetCategoryId,
           subcategoryId: subcategoryId || null,
           examId: examId || null,
           subjectId: subjectId || null,

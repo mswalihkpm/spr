@@ -140,6 +140,8 @@ model Subcategory {
   code               String
   logoUrl            String?
   hasLevels          Boolean             @default(false)
+  levelGroup         String?             @default("ALL") // ALL, MAHARJAN, SAHITYOTSAV, KALOTSAV, CUSTOM
+  allowedLevelIds    String?             // Comma-separated list of Level IDs or JSON array
   hasMaxScore        Boolean             @default(true)
   maxScore           Float               @default(100.0)
   weight             Float               @default(1.0)

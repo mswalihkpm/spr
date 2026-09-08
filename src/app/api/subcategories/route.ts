@@ -44,6 +44,8 @@ export async function POST(req: NextRequest) {
       code,
       logoUrl,
       hasLevels,
+      levelGroup,
+      allowedLevelIds,
       hasMaxScore,
       maxScore,
       weight,
@@ -77,6 +79,8 @@ export async function POST(req: NextRequest) {
         code: subCode,
         logoUrl: logoUrl || null,
         hasLevels: Boolean(hasLevels),
+        levelGroup: levelGroup || 'ALL',
+        allowedLevelIds: allowedLevelIds ? (typeof allowedLevelIds === 'string' ? allowedLevelIds : JSON.stringify(allowedLevelIds)) : null,
         hasMaxScore: hasMaxScore !== undefined ? Boolean(hasMaxScore) : true,
         maxScore: Number(maxScore) || 100.0,
         weight: Number(weight) || 1.0,
@@ -116,6 +120,8 @@ export async function PUT(req: NextRequest) {
       name,
       logoUrl,
       hasLevels,
+      levelGroup,
+      allowedLevelIds,
       hasMaxScore,
       maxScore,
       weight,
@@ -138,6 +144,16 @@ export async function PUT(req: NextRequest) {
         ...(name ? { name: name.trim() } : {}),
         logoUrl: logoUrl !== undefined ? logoUrl : undefined,
         ...(hasLevels !== undefined ? { hasLevels: Boolean(hasLevels) } : {}),
+        ...(levelGroup !== undefined ? { levelGroup: levelGroup || 'ALL' } : {}),
+        ...(allowedLevelIds !== undefined
+          ? {
+              allowedLevelIds: allowedLevelIds
+                ? typeof allowedLevelIds === 'string'
+                  ? allowedLevelIds
+                  : JSON.stringify(allowedLevelIds)
+                : null,
+            }
+          : {}),
         ...(hasMaxScore !== undefined ? { hasMaxScore: Boolean(hasMaxScore) } : {}),
         ...(maxScore !== undefined ? { maxScore: Number(maxScore) } : {}),
         ...(weight !== undefined ? { weight: Number(weight) } : {}),
