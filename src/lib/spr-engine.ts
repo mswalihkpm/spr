@@ -131,10 +131,11 @@ export async function calculateStudentSPR(
   let missingCategoriesCount = 0;
 
   for (const cat of categories) {
-    const customWeight = cat.categoryWeights[0]?.weight;
-    const isCatActive = cat.categoryWeights[0]?.isActive ?? cat.active;
-    const isIncluded = cat.categoryWeights[0]?.isIncludedInSPR ?? cat.includeInSPR;
-    const weight = customWeight !== undefined ? customWeight : cat.defaultWeight;
+    const activeWeightRecord = cat.categoryWeights?.find((w: any) => w.weight > 0) || cat.categoryWeights?.[0];
+    const customWeight = activeWeightRecord?.weight;
+    const isCatActive = activeWeightRecord?.isActive ?? cat.active;
+    const isIncluded = activeWeightRecord?.isIncludedInSPR ?? cat.includeInSPR;
+    const weight = (customWeight !== undefined && customWeight !== null && customWeight > 0) ? customWeight : (cat.defaultWeight > 0 ? cat.defaultWeight : 10.0);
 
     if (!isCatActive) continue;
 
@@ -472,10 +473,11 @@ export async function calculateAllLeaderboards(filters?: {
     }
 
     for (const cat of categories) {
-      const customWeight = cat.categoryWeights?.[0]?.weight;
-      const isCatActive = cat.categoryWeights?.[0]?.isActive ?? cat.active;
-      const isIncluded = cat.categoryWeights?.[0]?.isIncludedInSPR ?? cat.includeInSPR;
-      const weight = customWeight !== undefined ? customWeight : cat.defaultWeight;
+      const activeWeightRecord = cat.categoryWeights?.find((w: any) => w.weight > 0) || cat.categoryWeights?.[0];
+      const customWeight = activeWeightRecord?.weight;
+      const isCatActive = activeWeightRecord?.isActive ?? cat.active;
+      const isIncluded = activeWeightRecord?.isIncludedInSPR ?? cat.includeInSPR;
+      const weight = (customWeight !== undefined && customWeight !== null && customWeight > 0) ? customWeight : (cat.defaultWeight > 0 ? cat.defaultWeight : 10.0);
 
       if (!isCatActive) continue;
 

@@ -38,6 +38,7 @@ export default function ProgramsPage() {
   const [classes, setClasses] = useState<any[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<string>('');
   const [students, setStudents] = useState<any[]>([]);
+  const [allStudents, setAllStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Score Entry Modal (Single Entry)
@@ -136,7 +137,7 @@ export default function ProgramsPage() {
       const [dataMaster, resScores, resStudents] = await Promise.all([
         getAcademicMasterData(),
         fetch('/api/scores'),
-        fetch('/api/students?limit=100'),
+        fetch('/api/students?all=true'),
       ]);
 
       const dataScores = await resScores.json();
@@ -156,6 +157,7 @@ export default function ProgramsPage() {
         }
       }
       if (dataStudents.students) {
+        setAllStudents(dataStudents.students);
         setStudents(dataStudents.students);
         if (dataStudents.students.length > 0 && !formData.studentId) {
           setFormData((prev) => ({ ...prev, studentId: dataStudents.students[0].id }));
@@ -175,12 +177,11 @@ export default function ProgramsPage() {
   // Fetch students for selected batch in Single Entry
   useEffect(() => {
     if (!selectedBatch) return;
-    fetch(`/api/students?classId=${selectedBatch}&limit=100`)
+    fetch(`/api/students?classId=${selectedBatch}&all=true`)
       .then((res) => res.json())
       .then((data) => {
         if (data.students && data.students.length > 0) {
           setStudents(data.students);
-          setFormData((prev) => ({ ...prev, studentId: data.students[0].id }));
         }
       })
       .catch((err) => console.error(err));
@@ -679,7 +680,7 @@ export default function ProgramsPage() {
               {/* Searchable Student Select */}
               <div>
                 <SearchableStudentSelect
-                  students={students}
+                  students={allStudents.length > 0 ? allStudents : students}
                   value={formData.studentId}
                   onChange={(stId) => setFormData((prev) => ({ ...prev, studentId: stId }))}
                   required

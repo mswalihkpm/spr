@@ -177,7 +177,7 @@ export default function SchoolStudiesPage() {
     if (!selectedClass) return;
 
     setLoadingStudents(true);
-    fetch(`/api/students?classId=${selectedClass}&limit=100`)
+    fetch(`/api/students?classId=${selectedClass}&all=true`)
       .then((res) => res.json())
       .then((data) => {
         if (data.students) {

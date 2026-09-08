@@ -18,9 +18,10 @@ export async function GET(req: NextRequest) {
     const schoolId = searchParams.get('schoolId') || '';
     const academicYearId = searchParams.get('academicYearId') || '';
     const status = searchParams.get('status') || '';
+    const isAll = searchParams.get('all') === 'true';
     const page = parseInt(searchParams.get('page') || '1', 10);
-    const limit = parseInt(searchParams.get('limit') || '50', 10);
-    const skip = (page - 1) * limit;
+    const limit = isAll ? 5000 : parseInt(searchParams.get('limit') || '50', 10);
+    const skip = isAll ? 0 : (page - 1) * limit;
 
     const where: any = {};
 
@@ -63,7 +64,7 @@ export async function GET(req: NextRequest) {
         },
         orderBy: [{ class: { numericGrade: 'asc' } }, { fullName: 'asc' }],
         skip,
-        take: limit,
+        take: isAll ? undefined : limit,
       }),
     ]);
 

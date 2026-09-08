@@ -54,7 +54,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        let res = await fetch(`/api/students?search=${encodeURIComponent(query.trim())}&limit=8`, {
+        let res = await fetch(`/api/students?search=${encodeURIComponent(query.trim())}&limit=25`, {
           signal: controller.signal,
         });
         if (res.status === 401) {

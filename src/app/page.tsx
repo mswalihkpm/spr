@@ -29,6 +29,7 @@ import StudentAvatar from '@/components/ui/StudentAvatar';
 import StudentReportModal from '@/components/modals/StudentReportModal';
 import PwaFooterInstall from '@/components/pwa/PwaFooterInstall';
 import VideoLoader from '@/components/ui/VideoLoader';
+import PublicFooter from '@/components/layout/PublicFooter';
 import { getAcademicMasterData } from '@/lib/academic-client';
 
 export default function PublicHomePage() {
@@ -1596,40 +1597,8 @@ let homeAcademicMemory: any = null;
         student={reportingStudent}
       />
 
-      {/* Footer */}
-      <footer id="footer-portal" className="mt-auto bg-slate-950 text-slate-300 border-t border-slate-800 py-8 px-4 sm:px-6 lg:px-8 print:hidden">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 flex items-center justify-center shrink-0">
-              <Image
-                src="/footer-logo.png"
-                alt="Madin Logo"
-                width={40}
-                height={40}
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <div>
-              <div className="text-white font-bold text-xs tracking-tight">Madin School of Excellence</div>
-              <div className="text-[10px] text-slate-400">Students Performance Rate (SPR) System</div>
-            </div>
-          </div>
-
-          {/* PWA Install Option in Website Footer Only */}
-          <div className="flex items-center space-x-4">
-            <PwaFooterInstall />
-
-            <Link
-              href="/login"
-              className="w-8 h-8 rounded-full bg-slate-800 hover:bg-blue-600 text-slate-400 hover:text-white flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs"
-              title="Staff & Admin Portal"
-              aria-label="Staff Login"
-            >
-              <Lock className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-        </div>
-      </footer>
+      {/* Permanent Public Footer */}
+      <PublicFooter />
 
       {/* Fixed Mobile Bottom Navigation Bar */}
       <nav className="sm:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl flex items-center justify-around py-2 px-1 print:hidden">

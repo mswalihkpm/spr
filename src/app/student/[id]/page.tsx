@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import VideoLoader from '@/components/ui/VideoLoader';
+import PublicFooter from '@/components/layout/PublicFooter';
 
 export default function PublicStudentScorecardPage() {
   const params = useParams();
@@ -773,6 +774,9 @@ export default function PublicStudentScorecardPage() {
           </div>
         </div>
       </div>
+
+      {/* Permanent Public Footer */}
+      <PublicFooter />
     </div>
   );
 }

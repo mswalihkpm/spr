@@ -31,6 +31,7 @@ import StudentAvatar from '@/components/ui/StudentAvatar';
 import StudentReportModal from '@/components/modals/StudentReportModal';
 import PwaFooterInstall from '@/components/pwa/PwaFooterInstall';
 import VideoLoader from '@/components/ui/VideoLoader';
+import PublicFooter from '@/components/layout/PublicFooter';
 import { getAcademicMasterData } from '@/lib/academic-client';
 
 // Global client-side memory caches for 0ms instant loading
@@ -1516,43 +1517,8 @@ function LeaderboardContent() {
         student={reportingStudent}
       />
 
-      {/* Footer */}
-      <footer className="mt-auto bg-slate-950 text-slate-300 border-t border-slate-800 py-6 px-4 sm:px-6 lg:px-8 print:hidden">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 flex items-center justify-center shrink-0">
-              <Image
-                src="/footer-logo.png"
-                alt="Madin Logo"
-                width={32}
-                height={32}
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <div>
-              <div className="text-white font-bold text-xs">Madin School of Excellence</div>
-              <div className="text-[10px] text-slate-400">Students Performance Rate (SPR) System</div>
-            </div>
-          </div>
-
-          {/* PWA Install Option in Website Footer Only */}
-          <div className="flex items-center space-x-4">
-            <PwaFooterInstall />
-
-            <span className="hidden sm:inline text-[11px] text-slate-500">
-              © {new Date().getFullYear()} Madin School of Excellence.
-            </span>
-
-            <Link
-              href="/login"
-              className="w-7 h-7 rounded-full bg-slate-800 hover:bg-blue-600 text-slate-400 hover:text-white flex items-center justify-center transition shadow-xs"
-              title="Staff Portal"
-            >
-              <Lock className="w-3 h-3" />
-            </Link>
-          </div>
-        </div>
-      </footer>
+      {/* Permanent Public Footer */}
+      <PublicFooter />
     </div>
   );
 }

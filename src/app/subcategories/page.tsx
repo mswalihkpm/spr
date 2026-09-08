@@ -136,7 +136,7 @@ export default function OtherSubcategoriesPage() {
       const [dataMaster, resSubs, resStudents, resScores] = await Promise.all([
         getAcademicMasterData(),
         fetch('/api/subcategories'),
-        fetch('/api/students?limit=200'),
+        fetch('/api/students?all=true'),
         fetch('/api/scores'),
       ]);
 

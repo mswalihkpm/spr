@@ -106,7 +106,7 @@ export default function CreativeHubPage() {
 
       const [resWorks, resStudents] = await Promise.all([
         fetch(`/api/creative-hub?${params.toString()}`),
-        fetch('/api/students?limit=100'),
+        fetch('/api/students?all=true'),
       ]);
 
       const dataWorks = await resWorks.json();

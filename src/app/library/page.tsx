@@ -17,6 +17,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import SearchableStudentSelect from '@/components/ui/SearchableStudentSelect';
 
 
 export default function LibraryPage() {
@@ -98,7 +99,7 @@ export default function LibraryPage() {
       setLoading(true);
       const [resLib, resStudents] = await Promise.all([
         fetch('/api/library'),
-        fetch('/api/students?limit=100'),
+        fetch('/api/students?all=true'),
       ]);
 
       const dataLib = await resLib.json();
@@ -416,19 +417,13 @@ export default function LibraryPage() {
 
             <form onSubmit={handleManualImport} className="mt-4 space-y-3.5">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Student *</label>
-                <select
-                  required
+                <SearchableStudentSelect
+                  students={students}
                   value={manualData.studentId}
-                  onChange={(e) => setManualData({ ...manualData, studentId: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
-                >
-                  {students.map((st) => (
-                    <option key={st.id} value={st.id}>
-                      {st.fullName} ({st.class?.name})
-                    </option>
-                  ))}
-                </select>
+                  onChange={(stId) => setManualData((prev) => ({ ...prev, studentId: stId }))}
+                  required
+                  label="Student *"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">

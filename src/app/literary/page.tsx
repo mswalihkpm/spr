@@ -138,7 +138,7 @@ export default function LiteraryProgramsPage() {
       setLoading(true);
       const [dataMaster, resStudents, resScores] = await Promise.all([
         getAcademicMasterData(),
-        fetch('/api/students?limit=100'),
+        fetch('/api/students?all=true'),
         fetch('/api/scores'),
       ]);
 

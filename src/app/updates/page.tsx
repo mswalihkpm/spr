@@ -17,6 +17,7 @@ import {
   Megaphone,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import PublicFooter from '@/components/layout/PublicFooter';
 
 export default function UpdatesPublicPage() {
   const [newsList, setNewsList] = useState<any[]>([]);
@@ -307,6 +308,9 @@ export default function UpdatesPublicPage() {
           </div>
         </div>
       )}
+
+      {/* Permanent Public Footer */}
+      <PublicFooter />
     </div>
   );
 }
