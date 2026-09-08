@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import { getAcademicMasterData } from '@/lib/academic-client';
-
+import SearchableStudentSelect from '@/components/ui/SearchableStudentSelect';
 
 interface DynamicActivity {
   id: string;
@@ -46,9 +46,9 @@ export default function ProgramsPage() {
     studentId: '',
     programName: 'Madin Excellence Talent Olympiad 2026',
     competitionName: 'English Elocution & Public Speaking',
-    levelId: '',
-    obtainedScore: '',
-    maxScore: 50,
+    position: '1st',
+    grade: '',
+    score: '90',
     remarks: '',
   });
   const [saving, setSaving] = useState(false);
@@ -57,7 +57,7 @@ export default function ProgramsPage() {
   // Edit Modal
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<any | null>(null);
-  const [editFormData, setEditFormData] = useState({ obtainedScore: 0, maxScore: 50, remarks: '', levelId: '' });
+  const [editFormData, setEditFormData] = useState({ obtainedScore: 0, maxScore: 50, remarks: '', levelId: '', position: '', grade: '' });
 
   // --- MULTI-ACTIVITY DYNAMIC BULK TEMPLATE & UPLOAD STATES ---
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
@@ -152,7 +152,6 @@ export default function ProgramsPage() {
       if (dataMaster.levels) {
         setLevels(dataMaster.levels);
         if (dataMaster.levels.length > 0) {
-          if (!formData.levelId) setFormData((prev) => ({ ...prev, levelId: dataMaster.levels[0].id }));
           if (!bulkLevelId) setBulkLevelId(dataMaster.levels[0].id);
         }
       }
@@ -382,19 +381,25 @@ export default function ProgramsPage() {
       const dataMaster = await resMaster.json();
       const progCat = dataMaster.categories.find((c: any) => c.code === 'PROGRAMS');
 
-      const res = await fetch('/api/scores', {
+      const scoreVal = Number(formData.score) || 0;
+      const remarksText = `${formData.programName} - ${formData.competitionName}. ${
+        formData.position ? formData.position + ' Position. ' : ''
+      }${formData.grade ? formData.grade + ' Grade. ' : ''}${formData.remarks || ''}`.trim();
+
+      const res = await fetch('/api/scores/bulk-upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           categoryId: progCat?.id,
-          levelId: formData.levelId,
-          maxScore: Number(formData.maxScore),
-          entries: [
+          competitionName: formData.competitionName,
+          records: [
             {
               studentId: formData.studentId,
-              obtainedScore: Number(formData.obtainedScore),
-              maxScore: Number(formData.maxScore),
-              remarks: `${formData.programName} - ${formData.competitionName}. ${formData.remarks}`,
+              score: scoreVal,
+              maxScore: 100,
+              position: formData.position || null,
+              grade: formData.grade || null,
+              remarks: remarksText,
             },
           ],
         }),
@@ -418,6 +423,8 @@ export default function ProgramsPage() {
     setEditFormData({
       obtainedScore: rec.obtainedScore,
       maxScore: rec.maxScore,
+      position: rec.position || '',
+      grade: rec.grade || '',
       remarks: rec.remarks || '',
       levelId: rec.levelId || levels[0]?.id || '',
     });
@@ -669,39 +676,18 @@ export default function ProgramsPage() {
             </div>
 
             <form onSubmit={handleSaveSingleScore} className="mt-4 space-y-3.5">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Filter Batch</label>
-                  <select
-                    value={selectedBatch}
-                    onChange={(e) => setSelectedBatch(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
-                  >
-                    {classes.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Select Student *</label>
-                  <select
-                    required
-                    value={formData.studentId}
-                    onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
-                  >
-                    {students.map((st) => (
-                      <option key={st.id} value={st.id}>
-                        {st.fullName} — {st.class?.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              {/* Searchable Student Select */}
+              <div>
+                <SearchableStudentSelect
+                  students={students}
+                  value={formData.studentId}
+                  onChange={(stId) => setFormData((prev) => ({ ...prev, studentId: stId }))}
+                  required
+                  label="Select Student *"
+                />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Program / Event Name * (Ontime)</label>
                   <input
@@ -727,47 +713,54 @@ export default function ProgramsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Level Multiplier *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Position / Placement</label>
                   <select
-                    value={formData.levelId}
-                    onChange={(e) => setFormData({ ...formData, levelId: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
+                    value={formData.position}
+                    onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
                   >
-                    {levels.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.name} ({l.weightMultiplier}x)
-                      </option>
-                    ))}
+                    <option value="1st">1st Position (Winner)</option>
+                    <option value="2nd">2nd Position (Runner Up)</option>
+                    <option value="3rd">3rd Position (Third)</option>
+                    <option value="Participated">Participated / Qualified</option>
+                    <option value="None">None</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Obtained Score *</label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    required
-                    value={formData.obtainedScore}
-                    onChange={(e) => setFormData({ ...formData, obtainedScore: e.target.value })}
-                    placeholder="e.g. 45"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
-                  />
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Grade <span className="text-slate-400 font-normal">(Optional)</span>
+                  </label>
+                  <select
+                    value={formData.grade}
+                    onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
+                  >
+                    <option value="">None / Optional</option>
+                    <option value="A+">A+ Grade</option>
+                    <option value="A">A Grade</option>
+                    <option value="B+">B+ Grade</option>
+                    <option value="B">B Grade</option>
+                    <option value="C">C Grade</option>
+                  </select>
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Max Score (Cut-off)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={formData.maxScore}
-                    onChange={(e) => setFormData({ ...formData, maxScore: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Score Awarded (0-100) *</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  max="1000"
+                  required
+                  value={formData.score}
+                  onChange={(e) => setFormData({ ...formData, score: e.target.value })}
+                  placeholder="e.g. 90"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
+                />
               </div>
 
               <div>
@@ -776,7 +769,7 @@ export default function ProgramsPage() {
                   type="text"
                   value={formData.remarks}
                   onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-                  placeholder="e.g. First Prize Winner / Gold Medal"
+                  placeholder="e.g. Gold Medal Winner / Distinction"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
                 />
               </div>

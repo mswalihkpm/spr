@@ -351,6 +351,7 @@ export async function DELETE(req: NextRequest) {
 
     if (type === 'SCHOOL') {
       prevRecord = await prisma.school.findUnique({ where: { id } });
+      if (!prevRecord) return NextResponse.json({ success: true, message: 'School already removed.' });
       const students = await prisma.student.findMany({ where: { schoolId: id }, select: { id: true } });
       const studentIds = students.map((s) => s.id);
       const ops: any[] = [];
@@ -364,6 +365,7 @@ export async function DELETE(req: NextRequest) {
       await prisma.$transaction(ops);
     } else if (type === 'CLASS') {
       prevRecord = await prisma.academicClass.findUnique({ where: { id } });
+      if (!prevRecord) return NextResponse.json({ success: true, message: 'Class already removed.' });
       const students = await prisma.student.findMany({ where: { classId: id }, select: { id: true } });
       const studentIds = students.map((s) => s.id);
       const ops: any[] = [];
@@ -377,18 +379,21 @@ export async function DELETE(req: NextRequest) {
       await prisma.$transaction(ops);
     } else if (type === 'SUBJECT') {
       prevRecord = await prisma.subject.findUnique({ where: { id } });
+      if (!prevRecord) return NextResponse.json({ success: true, message: 'Subject already removed.' });
       await prisma.$transaction([
         prisma.performanceRecord.deleteMany({ where: { subjectId: id } }),
         prisma.subject.delete({ where: { id } }),
       ]);
     } else if (type === 'EXAM') {
       prevRecord = await prisma.exam.findUnique({ where: { id } });
+      if (!prevRecord) return NextResponse.json({ success: true, message: 'Exam already removed.' });
       await prisma.$transaction([
         prisma.performanceRecord.deleteMany({ where: { examId: id } }),
         prisma.exam.delete({ where: { id } }),
       ]);
     } else if (type === 'TERM') {
       prevRecord = await prisma.term.findUnique({ where: { id } });
+      if (!prevRecord) return NextResponse.json({ success: true, message: 'Term already removed.' });
       const exams = await prisma.exam.findMany({ where: { termId: id }, select: { id: true } });
       const examIds = exams.map((e) => e.id);
       const ops: any[] = [
@@ -402,6 +407,7 @@ export async function DELETE(req: NextRequest) {
       await prisma.$transaction(ops);
     } else if (type === 'LEVEL') {
       prevRecord = await prisma.level.findUnique({ where: { id } });
+      if (!prevRecord) return NextResponse.json({ success: true, message: 'Level already removed.' });
       await prisma.$transaction([
         prisma.performanceRecord.deleteMany({ where: { levelId: id } }),
         prisma.literaryCompetition.updateMany({ where: { levelId: id }, data: { levelId: null } }),
@@ -410,6 +416,7 @@ export async function DELETE(req: NextRequest) {
       ]);
     } else if (type === 'PROGRAM') {
       prevRecord = await prisma.program.findUnique({ where: { id } });
+      if (!prevRecord) return NextResponse.json({ success: true, message: 'Program already removed.' });
       const comps = await prisma.competition.findMany({ where: { programId: id }, select: { id: true } });
       const compIds = comps.map((c) => c.id);
       const ops: any[] = [];
@@ -421,6 +428,7 @@ export async function DELETE(req: NextRequest) {
       await prisma.$transaction(ops);
     } else if (type === 'COMPETITION') {
       prevRecord = await prisma.competition.findUnique({ where: { id } });
+      if (!prevRecord) return NextResponse.json({ success: true, message: 'Competition already removed.' });
       await prisma.$transaction([
         prisma.performanceRecord.deleteMany({ where: { competitionId: id } }),
         prisma.competition.delete({ where: { id } }),

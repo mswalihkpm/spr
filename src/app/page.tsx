@@ -17,9 +17,13 @@ import {
   CheckCircle2,
   Printer,
   X,
-  Lock,
   Flag,
   ArrowRight,
+  Megaphone,
+  Home,
+  Clock,
+  Calendar,
+  Lock,
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import StudentReportModal from '@/components/modals/StudentReportModal';
@@ -33,6 +37,7 @@ export default function PublicHomePage() {
   const [schools, setSchools] = useState<any[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [newsUpdates, setNewsUpdates] = useState<any[]>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(true);
   const [scrolled, setScrolled] = useState(false);
 
@@ -68,6 +73,16 @@ let homeAcademicMemory: any = null;
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Fetch Latest 3 Updates for Homepage
+  useEffect(() => {
+    fetch('/api/news?limit=3')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.news) setNewsUpdates(data.news);
+      })
+      .catch((err) => console.error('Error fetching homepage news:', err));
   }, []);
 
   // Click outside to close search dropdown
@@ -329,6 +344,14 @@ let homeAcademicMemory: any = null;
 
           {/* Header Action Icons (Navigate in SAME tab) */}
           <div className="flex items-center space-x-2">
+            <Link
+              href="/updates"
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/90 hover:bg-amber-50 text-slate-700 hover:text-amber-600 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs btn-interactive"
+              title="Official News & Announcements"
+              aria-label="Updates"
+            >
+              <Megaphone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600" />
+            </Link>
             <a
               href="#search-section"
               className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/90 hover:bg-blue-50 text-slate-700 hover:text-blue-600 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs btn-interactive"
@@ -882,6 +905,95 @@ let homeAcademicMemory: any = null;
         </div>
       </section>
 
+      {/* Latest News & Official Announcements Section (Top 3 on Home) */}
+      <section id="updates-section" className="py-8 sm:py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-6 print:hidden">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+          <div>
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-300 flex items-center space-x-1.5 w-fit">
+              <Megaphone className="w-3.5 h-3.5 text-amber-600" />
+              <span>Broadcasts & Circulars</span>
+            </span>
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-1">
+              Latest Updates & Announcements
+            </h3>
+            <p className="text-[11px] sm:text-xs text-slate-500">
+              Official bulletins, literary festival circulars, and assessment updates from Madin Excellence.
+            </p>
+          </div>
+
+          <Link
+            href="/updates"
+            className="inline-flex items-center space-x-1.5 text-xs font-bold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 px-3.5 py-2 rounded-xl transition border border-amber-200 shadow-2xs btn-interactive w-fit"
+          >
+            <span>More Updates ({newsUpdates.length > 0 ? 'All' : '0'})</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        {newsUpdates.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+            {newsUpdates.map((item, idx) => (
+              <Link
+                key={item.id}
+                href="/updates"
+                className="group bg-white rounded-2xl border border-slate-200 hover:border-amber-400 p-4 sm:p-5 shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between space-y-3 relative overflow-hidden"
+              >
+                <div className="space-y-2.5">
+                  {item.imageUrl ? (
+                    <div className="relative w-full h-36 rounded-xl bg-slate-100 overflow-hidden border border-slate-200">
+                      <Image src={item.imageUrl} alt={item.title} fill className="object-cover group-hover:scale-105 transition duration-500" unoptimized />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200">
+                      <Megaphone className="w-5 h-5" />
+                    </div>
+                  )}
+
+                  <div className="flex items-center space-x-2 text-[10px] text-slate-400 font-medium">
+                    <Calendar className="w-3 h-3 text-amber-600" />
+                    <span>{new Date(item.publishedAt).toLocaleDateString()}</span>
+                  </div>
+
+                  <h4 className="text-sm font-bold text-slate-900 group-hover:text-amber-700 transition leading-snug line-clamp-2">
+                    {item.title}
+                  </h4>
+
+                  {item.subtitle && (
+                    <p className="text-xs text-blue-700 font-semibold line-clamp-1">
+                      {item.subtitle}
+                    </p>
+                  )}
+
+                  <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                    {item.body}
+                  </p>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-amber-700">
+                  <span>Read More</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="p-6 bg-white rounded-2xl border border-slate-200 text-center text-xs text-slate-400">
+            No announcements posted at this time.
+          </div>
+        )}
+
+        {/* More Updates Button */}
+        <div className="text-center pt-1">
+          <Link
+            href="/updates"
+            className="inline-flex items-center justify-center space-x-2 px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md transition-all duration-200 hover:scale-105 active:scale-95 btn-interactive"
+          >
+            <span>View All News & Updates</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      </section>
+
       {/* 6 Assessment Wings Section (With Overlapped Subcategory Badges on Top-Right of Main Categories) */}
       <section id="categories-section" className="py-10 sm:py-12 bg-white border-y border-slate-200/80 px-4 sm:px-6 lg:px-8 print:hidden">
         <div className="max-w-7xl mx-auto space-y-8">
@@ -1167,6 +1279,30 @@ let homeAcademicMemory: any = null;
               <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between text-xs text-amber-700 font-bold">
                 <span>View Reading Rankings</span>
                 <ArrowRight className="w-3.5 h-3.5" />
+              </div>
+            </Link>
+
+            {/* 7. QUALIFICATION & OTHER SUBCATEGORIES */}
+            <Link
+              href="/leaderboard?cat=QUALIFICATION"
+              className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-indigo-500 transition-all duration-300 card-interactive space-y-3 relative group animate-slide-up delay-350 flex flex-col justify-between sm:col-span-2 lg:col-span-3"
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-800 flex items-center justify-center shrink-0 mb-3 group-hover:bg-indigo-600 group-hover:text-white transition">
+                    <Award className="w-6 h-6 text-indigo-700" />
+                  </div>
+                  <h4 className="text-base font-bold text-slate-900 group-hover:text-indigo-700 transition">
+                    Qualification & Custom Subcategories
+                  </h4>
+                  <p className="text-xs text-slate-600 leading-relaxed mt-1 max-w-3xl">
+                    Hifz Al-Quran certifications, external qualifications, language proficiencies, sports, and specialized accredited achievements.
+                  </p>
+                </div>
+                <div className="pt-2 border-t sm:border-t-0 border-slate-200/80 flex items-center justify-between text-xs text-indigo-700 font-bold">
+                  <span className="hidden sm:inline">Open Category Leaderboards</span>
+                  <ArrowRight className="w-4 h-4 ml-1" />
+                </div>
               </div>
             </Link>
           </div>
@@ -1483,10 +1619,6 @@ let homeAcademicMemory: any = null;
           <div className="flex items-center space-x-4">
             <PwaFooterInstall />
 
-            <span className="hidden sm:inline text-[11px] text-slate-500">
-              © {new Date().getFullYear()} Madin School of Excellence.
-            </span>
-
             <Link
               href="/login"
               className="w-8 h-8 rounded-full bg-slate-800 hover:bg-blue-600 text-slate-400 hover:text-white flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs"
@@ -1498,6 +1630,41 @@ let homeAcademicMemory: any = null;
           </div>
         </div>
       </footer>
+
+      {/* Fixed Mobile Bottom Navigation Bar */}
+      <nav className="sm:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl flex items-center justify-around py-2 px-1 print:hidden">
+        <Link
+          href="/"
+          className="flex flex-col items-center justify-center flex-1 py-1 text-blue-600 font-bold"
+        >
+          <Home className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px]">Home</span>
+        </Link>
+
+        <Link
+          href="/leaderboard"
+          className="flex flex-col items-center justify-center flex-1 py-1 text-slate-500 hover:text-slate-900"
+        >
+          <Award className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px]">Leaderboard</span>
+        </Link>
+
+        <a
+          href="#categories-section"
+          className="flex flex-col items-center justify-center flex-1 py-1 text-slate-500 hover:text-slate-900"
+        >
+          <Layers className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px]">Categories</span>
+        </a>
+
+        <Link
+          href="/updates"
+          className="flex flex-col items-center justify-center flex-1 py-1 text-slate-500 hover:text-amber-600"
+        >
+          <Megaphone className="w-5 h-5 mb-0.5 text-amber-600" />
+          <span className="text-[10px]">Updates</span>
+        </Link>
+      </nav>
     </div>
   );
 }

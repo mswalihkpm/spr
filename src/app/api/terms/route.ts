@@ -154,17 +154,14 @@ export async function DELETE(req: NextRequest) {
     });
 
     if (!existing) {
-      return NextResponse.json({ error: 'Assessment term not found.' }, { status: 404 });
+      return NextResponse.json({ success: true, message: 'Assessment term already removed.' });
     }
 
     if (existing._count.performanceRecords > 0) {
-      return NextResponse.json(
-        { error: `Cannot delete term with ${existing._count.performanceRecords} associated performance score records.` },
-        { status: 400 }
-      );
+      await prisma.performanceRecord.deleteMany({ where: { termId: id } });
     }
 
-    // Delete child exams if no scores attached
+    // Delete child exams and term
     await prisma.exam.deleteMany({ where: { termId: id } });
     await prisma.term.delete({ where: { id } });
 

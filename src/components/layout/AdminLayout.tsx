@@ -28,6 +28,8 @@ import {
   PlusCircle,
   Layers,
   FileSpreadsheet,
+  Megaphone,
+  Home,
 } from 'lucide-react';
 import GlobalSearchModal from '../search/GlobalSearchModal';
 import PWAInstallPrompt from '../ui/PWAInstallPrompt';
@@ -108,7 +110,9 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
     { name: 'Creative Hub', href: '/creative-hub', icon: Sparkles },
     { name: 'Literary Programs', href: '/literary', icon: Feather },
     { name: 'Library / Reading', href: '/library', icon: Library },
-    { name: 'Custom Categories', href: '/categories', icon: Layers, adminOnly: true },
+    { name: 'Other Subcategories', href: '/subcategories', icon: Layers },
+    { name: 'News & Updates', href: '/updates/manage', icon: Megaphone, adminOnly: true },
+    { name: 'Custom Categories', href: '/categories', icon: Sliders, adminOnly: true },
     { name: 'Weight Management', href: '/weights', icon: Sliders, adminOnly: true },
     { name: 'Leaderboards', href: '/leaderboard', icon: Award },
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
@@ -414,6 +418,17 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
               )}
             </div>
 
+            {/* News & Updates Link Icon */}
+            <a
+              href="/updates"
+              target="_blank"
+              rel="noreferrer"
+              className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
+              title="Official News & Announcements"
+            >
+              <Megaphone className="w-4 h-4 text-amber-600" />
+            </a>
+
             {/* Global Search Button */}
             <button
               onClick={() => setSearchOpen(true)}
@@ -434,23 +449,13 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
       {/* Mobile Bottom Navigation Bar */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 shadow-2xl flex items-center justify-around py-2 px-1">
         <button
-          onClick={() => router.push('/dashboard')}
+          onClick={() => router.push('/')}
           className={`flex flex-col items-center justify-center flex-1 py-1 ${
-            pathname === '/dashboard' ? 'text-madin-900 font-bold' : 'text-slate-500'
+            pathname === '/' ? 'text-madin-900 font-bold' : 'text-slate-500'
           }`}
         >
-          <LayoutDashboard className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px]">Dashboard</span>
-        </button>
-
-        <button
-          onClick={() => router.push('/students')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 ${
-            pathname.startsWith('/students') ? 'text-madin-900 font-bold' : 'text-slate-500'
-          }`}
-        >
-          <Users className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px]">Students</span>
+          <Home className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px]">Home</span>
         </button>
 
         <button
@@ -460,17 +465,27 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
           }`}
         >
           <Award className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px]">Rankings</span>
+          <span className="text-[10px]">Leaderboard</span>
         </button>
 
         <button
-          onClick={() => router.push('/analytics')}
+          onClick={() => router.push('/subcategories')}
           className={`flex flex-col items-center justify-center flex-1 py-1 ${
-            pathname === '/analytics' ? 'text-madin-900 font-bold' : 'text-slate-500'
+            pathname.startsWith('/subcategories') ? 'text-madin-900 font-bold' : 'text-slate-500'
           }`}
         >
-          <BarChart3 className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px]">Analytics</span>
+          <Layers className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px]">Categories</span>
+        </button>
+
+        <button
+          onClick={() => router.push('/updates')}
+          className={`flex flex-col items-center justify-center flex-1 py-1 ${
+            pathname.startsWith('/updates') ? 'text-madin-900 font-bold' : 'text-slate-500'
+          }`}
+        >
+          <Megaphone className="w-5 h-5 mb-0.5 text-amber-600" />
+          <span className="text-[10px]">Updates</span>
         </button>
 
         <button

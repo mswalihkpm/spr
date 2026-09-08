@@ -27,6 +27,7 @@ import {
   Upload,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import SearchableStudentSelect from '@/components/ui/SearchableStudentSelect';
 import { getAcademicMasterData } from '@/lib/academic-client';
 
 
@@ -93,9 +94,10 @@ export default function LiteraryProgramsPage() {
     festivalName: 'Sahityotsav 2026',
     competitionName: 'Malayalam Essay Writing',
     levelId: '',
-    obtainedScore: '',
-    maxScore: 50,
-    remarks: 'A Grade with First Position',
+    score: '90',
+    position: '1st',
+    grade: 'A+',
+    remarks: '',
   });
   const [saving, setSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -103,7 +105,14 @@ export default function LiteraryProgramsPage() {
   // Edit Modal
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<any | null>(null);
-  const [editFormData, setEditFormData] = useState({ obtainedScore: 0, maxScore: 50, remarks: '', levelId: '' });
+  const [editFormData, setEditFormData] = useState({
+    obtainedScore: 0,
+    maxScore: 100,
+    position: '1st',
+    grade: 'A+',
+    remarks: '',
+    levelId: '',
+  });
 
   // --- MULTI-EVENT BULK UPLOAD MODAL STATES ---
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
@@ -111,18 +120,18 @@ export default function LiteraryProgramsPage() {
   const [bulkLevelId, setBulkLevelId] = useState<string>('');
   const [bulkClassId, setBulkClassId] = useState<string>('');
   const [bulkEvents, setBulkEvents] = useState<DynamicEvent[]>([
-    { id: '1', name: 'Malayalam Essay Writing', maxScore: 50 },
-    { id: '2', name: 'English Elocution & Speech', maxScore: 50 },
+    { id: '1', name: 'Malayalam Essay Writing', maxScore: 100 },
+    { id: '2', name: 'English Elocution & Speech', maxScore: 100 },
     { id: '3', name: 'Qira\'at & Quran Tajweed', maxScore: 100 },
-    { id: '4', name: 'Poem Recitation', maxScore: 50 },
-    { id: '5', name: 'Arabic Calligraphy', maxScore: 50 },
+    { id: '4', name: 'Poem Recitation', maxScore: 100 },
+    { id: '5', name: 'Arabic Calligraphy', maxScore: 100 },
   ]);
   const [newEventInput, setNewEventInput] = useState('');
-  const [newEventMax, setNewEventMax] = useState(50);
+  const [newEventMax, setNewEventMax] = useState(100);
   const [bulkFile, setBulkFile] = useState<File | null>(null);
   const [bulkUploading, setBulkUploading] = useState(false);
 
-  const festivals = ['Sahityotsav 2026', 'Kerala School Kalotsavam 2026', 'M-Lit Fest 2026', 'Jamia Mahrajan 2026'];
+  const festivals = ['Sahityotsav 2026', 'Kerala School Kalotsavam 2026', 'Jamia Mahrajan 2026', 'M-Lit Fest 2026'];
 
   const fetchData = async () => {
     try {
@@ -353,6 +362,30 @@ export default function LiteraryProgramsPage() {
     }
   };
 
+  // Helper: Get available levels for specific festivals
+  const getAvailableLevelsForFestival = (fName: string) => {
+    const lower = (fName || '').toLowerCase();
+    if (lower.includes('sahityotsav')) {
+      return levels.filter((l) =>
+        ['DIVISION', 'DISTRICT', 'STATE', 'NATIONAL'].includes(l.name.toUpperCase()) ||
+        ['DIVISION', 'DISTRICT', 'STATE', 'NATIONAL'].includes(l.code.toUpperCase())
+      );
+    } else if (lower.includes('kalotsav')) {
+      return levels.filter((l) =>
+        ['SUB-DISTRICT', 'SUB_DISTRICT', 'DISTRICT', 'STATE'].includes(l.name.toUpperCase()) ||
+        ['SUB-DISTRICT', 'SUB_DISTRICT', 'DISTRICT', 'STATE'].includes(l.code.toUpperCase())
+      );
+    } else if (lower.includes('mahrajan') || lower.includes('maharjan') || lower.includes('jamia')) {
+      return levels.filter((l) =>
+        ['KULLIYA', 'DAAERA', 'JAMIA'].includes(l.name.toUpperCase()) ||
+        ['KULLIYA', 'DAAERA', 'JAMIA'].includes(l.code.toUpperCase())
+      );
+    } else if (lower.includes('m-lit') || lower.includes('mlit')) {
+      return []; // No competition level for M-lit
+    }
+    return levels;
+  };
+
   // Single Score Entry
   const handleSaveScore = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -364,19 +397,26 @@ export default function LiteraryProgramsPage() {
       const dataMaster = await resMaster.json();
       const litCat = dataMaster.categories.find((c: any) => c.code === 'LITERARY');
 
+      const scoreVal = Number(formData.score) || 0;
+      const remarksText = `${formData.festivalName} - ${formData.competitionName}. ${
+        formData.position ? formData.position + ' Position. ' : ''
+      }${formData.grade ? formData.grade + ' Grade. ' : ''}${formData.remarks || ''}`.trim();
+
       const res = await fetch('/api/scores/bulk-upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           categoryId: litCat?.id,
-          levelId: formData.levelId,
+          levelId: formData.levelId || null,
           competitionName: formData.competitionName,
           records: [
             {
               studentId: formData.studentId,
-              score: Number(formData.obtainedScore),
-              maxScore: Number(formData.maxScore),
-              remarks: `${formData.festivalName} - ${formData.competitionName}. ${formData.remarks}`,
+              score: scoreVal,
+              maxScore: 100,
+              position: formData.position || null,
+              grade: formData.grade || null,
+              remarks: remarksText,
             },
           ],
         }),
@@ -400,6 +440,8 @@ export default function LiteraryProgramsPage() {
     setEditFormData({
       obtainedScore: rec.obtainedScore,
       maxScore: rec.maxScore,
+      position: rec.position || '',
+      grade: rec.grade || '',
       remarks: rec.remarks || '',
       levelId: rec.levelId || levels[0]?.id || '',
     });
@@ -1069,23 +1111,15 @@ export default function LiteraryProgramsPage() {
                 <X className="w-4 h-4" />
               </button>
             </div>
-
             <form onSubmit={handleSaveScore} className="mt-4 space-y-3.5">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Select Student *</label>
-                <select
-                  required
-                  value={formData.studentId}
-                  onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
-                >
-                  {students.map((st) => (
-                    <option key={st.id} value={st.id}>
-                      {st.fullName} — {st.class?.name} (Div {st.division || 'A'})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Searchable Student Selector */}
+              <SearchableStudentSelect
+                students={students}
+                value={formData.studentId}
+                onChange={(id) => setFormData({ ...formData, studentId: id })}
+                label="Select Student"
+                required
+              />
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1096,14 +1130,16 @@ export default function LiteraryProgramsPage() {
                     value={formData.festivalName}
                     onChange={(e) => setFormData({ ...formData, festivalName: e.target.value })}
                     placeholder="Type festival ontime..."
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-rose-600"
                   />
                   <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                     {festivals.map((fest) => (
                       <button
                         key={fest}
                         type="button"
-                        onClick={() => setFormData({ ...formData, festivalName: fest })}
+                        onClick={() => {
+                          setFormData({ ...formData, festivalName: fest });
+                        }}
                         className={`text-[9px] px-2 py-0.5 rounded-md border font-semibold transition ${
                           formData.festivalName === fest
                             ? 'bg-rose-600 text-white border-rose-600'
@@ -1123,63 +1159,103 @@ export default function LiteraryProgramsPage() {
                     required
                     value={formData.competitionName}
                     onChange={(e) => setFormData({ ...formData, competitionName: e.target.value })}
-                    placeholder="e.g. Urdu Ghazal / Essay"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
+                    placeholder="e.g. Malayalam Essay / Urdu Ghazal"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-rose-600"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              {/* Dynamic Levels for Festival */}
+              {(() => {
+                const availableLevels = getAvailableLevelsForFestival(formData.festivalName);
+                if (availableLevels.length === 0) return null;
+                return (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Competition Level *
+                    </label>
+                    <select
+                      value={formData.levelId}
+                      onChange={(e) => setFormData({ ...formData, levelId: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-rose-600"
+                    >
+                      <option value="">Select Level ({availableLevels.map((l) => l.name).join(', ')})</option>
+                      {availableLevels.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.name} (Weight Multiplier: {l.weightMultiplier}x)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })()}
+
+              {/* Position & Grade Dropdowns */}
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Level *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Position Awarded *
+                  </label>
                   <select
-                    value={formData.levelId}
-                    onChange={(e) => setFormData({ ...formData, levelId: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
+                    value={formData.position}
+                    onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-rose-600"
                   >
-                    {levels.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.name} ({l.weightMultiplier}x)
-                      </option>
-                    ))}
+                    <option value="1st">1st Position (Winner)</option>
+                    <option value="2nd">2nd Position (Runner Up)</option>
+                    <option value="3rd">3rd Position (Third)</option>
+                    <option value="Participated">Participated / Qualified</option>
+                    <option value="None">None</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Obtained Score *</label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    required
-                    value={formData.obtainedScore}
-                    onChange={(e) => setFormData({ ...formData, obtainedScore: e.target.value })}
-                    placeholder="e.g. 48"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Max Score</label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={formData.maxScore}
-                    onChange={(e) => setFormData({ ...formData, maxScore: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
-                  />
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Grade <span className="text-slate-400 font-normal">(Optional)</span>
+                  </label>
+                  <select
+                    value={formData.grade}
+                    onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-rose-600"
+                  >
+                    <option value="">None / Optional</option>
+                    <option value="A+">A+ Grade</option>
+                    <option value="A">A Grade</option>
+                    <option value="B+">B+ Grade</option>
+                    <option value="B">B Grade</option>
+                    <option value="C">C Grade</option>
+                  </select>
                 </div>
               </div>
 
+              {/* Direct Score Awarded */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Remarks / Position</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Score Awarded (0-100) *
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  max="1000"
+                  required
+                  value={formData.score}
+                  onChange={(e) => setFormData({ ...formData, score: e.target.value })}
+                  placeholder="e.g. 90"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-rose-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Remarks / Notes <span className="text-slate-400 font-normal">(Optional)</span>
+                </label>
                 <input
                   type="text"
                   value={formData.remarks}
                   onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-                  placeholder="e.g. First Prize with A Grade"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
+                  placeholder="e.g. Special jury distinction..."
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-rose-600"
                 />
               </div>
 
@@ -1194,9 +1270,10 @@ export default function LiteraryProgramsPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-4 py-2 bg-madin-900 text-white rounded-xl text-xs font-semibold hover:bg-madin-950 disabled:opacity-50 shadow"
+                  className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow flex items-center space-x-1.5 disabled:opacity-50"
                 >
-                  {saving ? 'Saving...' : 'Save Award Result'}
+                  <Save className="w-4 h-4 text-gold-400" />
+                  <span>{saving ? 'Recording...' : 'Record Festival Award'}</span>
                 </button>
               </div>
             </form>

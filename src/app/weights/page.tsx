@@ -12,12 +12,24 @@ import {
   RefreshCw,
   Layers,
   Scale,
+  Trophy,
+  Sparkles,
+  BookOpen,
+  GraduationCap,
+  Award,
+  Newspaper,
+  Flame,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 
 export default function WeightsPage() {
   const [weights, setWeights] = useState<any[]>([]);
+  const [levels, setLevels] = useState<any[]>([]);
+  const [subcategories, setSubcategories] = useState<any[]>([]);
+  const [creativeForms, setCreativeForms] = useState<any[]>([]);
+  const [publishedMedia, setPublishedMedia] = useState<any[]>([]);
   const [missingDataRule, setMissingDataRule] = useState<string>('IGNORE_NORMALIZE');
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -26,19 +38,17 @@ export default function WeightsPage() {
     try {
       setLoading(true);
       const res = await fetch('/api/weights');
-      const text = await res.text();
-      let data: any = {};
-      try {
-        data = text ? JSON.parse(text) : {};
-      } catch {
-        data = { error: text || `Server response error (${res.status})` };
-      }
+      const data = await res.json();
 
       if (!res.ok) {
         throw new Error(data.error || 'Failed to fetch weights.');
       }
 
       if (data.weights) setWeights(data.weights);
+      if (data.levels) setLevels(data.levels);
+      if (data.subcategories) setSubcategories(data.subcategories);
+      if (data.creativeForms) setCreativeForms(data.creativeForms);
+      if (data.publishedMedia) setPublishedMedia(data.publishedMedia);
       if (data.missingDataRule) setMissingDataRule(data.missingDataRule);
     } catch (err: any) {
       console.error(err);
@@ -52,21 +62,33 @@ export default function WeightsPage() {
     fetchWeights();
   }, []);
 
-  const handleWeightChange = (categoryId: string, val: number) => {
+  const handleCategoryWeightChange = (categoryId: string, val: number) => {
     setWeights((prev) =>
       prev.map((w) => (w.categoryId === categoryId ? { ...w, weight: Math.max(0, val) } : w))
     );
   };
 
-  const handleIncludeToggle = (categoryId: string) => {
-    setWeights((prev) =>
-      prev.map((w) => (w.categoryId === categoryId ? { ...w, isIncludedInSPR: !w.isIncludedInSPR } : w))
+  const handleLevelMultiplierChange = (levelId: string, val: number) => {
+    setLevels((prev) =>
+      prev.map((l) => (l.id === levelId ? { ...l, weightMultiplier: Math.max(0.1, val) } : l))
     );
   };
 
-  const handleActiveToggle = (categoryId: string) => {
-    setWeights((prev) =>
-      prev.map((w) => (w.categoryId === categoryId ? { ...w, isActive: !w.isActive } : w))
+  const handleSubcategoryWeightChange = (subId: string, val: number) => {
+    setSubcategories((prev) =>
+      prev.map((s) => (s.id === subId ? { ...s, weight: Math.max(0.1, val) } : s))
+    );
+  };
+
+  const handleCreativeFormWeightChange = (formId: string, val: number) => {
+    setCreativeForms((prev) =>
+      prev.map((cf) => (cf.id === formId ? { ...cf, weight: Math.max(0.1, val) } : cf))
+    );
+  };
+
+  const handleMediaWeightChange = (mediaId: string, val: number) => {
+    setPublishedMedia((prev) =>
+      prev.map((pm) => (pm.id === mediaId ? { ...pm, weight: Math.max(0.1, val) } : pm))
     );
   };
 
@@ -85,25 +107,22 @@ export default function WeightsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           weights,
+          levels,
+          subcategories,
+          creativeForms,
+          publishedMedia,
           missingDataRule,
         }),
       });
 
-      const text = await res.text();
-      let data: any = {};
-      try {
-        data = text ? JSON.parse(text) : {};
-      } catch {
-        data = { error: text || `Server error (${res.status})` };
-      }
-
+      const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || 'Failed to update weight settings.');
       }
 
       setStatusMsg({
         type: 'success',
-        text: 'SPR Weight & Normalization rules updated and active across system.',
+        text: 'All category weights, festival level multipliers, and subcategory coefficients updated successfully!',
       });
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
@@ -124,23 +143,32 @@ export default function WeightsPage() {
 
   return (
     <AdminLayout>
-      <div className="max-w-5xl mx-auto space-y-6">
+      <form onSubmit={handleSave} className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-subtle">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
           <div>
             <div className="flex items-center space-x-2">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gold-100 text-gold-900 border border-gold-300">
-                Universal Scoring Configuration
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                Universal Scoring Matrix
               </span>
             </div>
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight mt-1 flex items-center space-x-2">
+            <h2 className="text-xl font-black text-slate-900 tracking-tight mt-1 flex items-center space-x-2">
               <Sliders className="w-5 h-5 text-madin-900" />
               <span>Weight Management & Normalization Rules</span>
             </h2>
-            <p className="text-xs text-slate-500">
-              Configure how category percentages combine to form the overall SPR rating.
+            <p className="text-xs text-slate-500 mt-0.5">
+              Edit weightage for Main Categories, Festival Levels (Sahityotsav, Kalotsav, Maharjan), Subcategories, and Creative Hub.
             </p>
           </div>
+
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-5 py-2.5 bg-madin-900 hover:bg-madin-950 text-white rounded-2xl text-xs font-bold shadow-md flex items-center space-x-1.5 transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+          >
+            <Save className="w-4 h-4 text-gold-400" />
+            <span>{saving ? 'Saving...' : 'Save All Weights'}</span>
+          </button>
         </div>
 
         {/* Status Message */}
@@ -161,192 +189,230 @@ export default function WeightsPage() {
           </div>
         )}
 
-        {/* Weight Total Health Card */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Total Active Included Weight
-            </span>
-            <div className="text-3xl font-black text-slate-900 flex items-baseline space-x-2">
-              <span className={totalIncludedWeight === 100 ? 'text-emerald-700' : 'text-amber-700'}>
-                {totalIncludedWeight}%
-              </span>
-              <span className="text-xs text-slate-400 font-normal">
-                {totalIncludedWeight === 100
-                  ? '(Perfect 100% distribution)'
-                  : `(Active sum: ${totalIncludedWeight}% - automatically normalized by engine)`}
-              </span>
+        {/* 1. MAIN CATEGORY WEIGHTS */}
+        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center space-x-2">
+              <Scale className="w-5 h-5 text-blue-700" />
+              <div>
+                <h3 className="text-base font-black text-slate-900">Main Category Weights (SPR Pillars)</h3>
+                <p className="text-xs text-slate-500">Configure contribution percentages for the overall SPR index</p>
+              </div>
+            </div>
+            <div className="px-3 py-1 bg-blue-50 border border-blue-200 rounded-xl text-xs font-extrabold text-blue-950">
+              Total Weight: {totalIncludedWeight.toFixed(1)}
             </div>
           </div>
 
-          <div className="w-full md:w-64 bg-slate-100 h-3 rounded-full overflow-hidden">
-            <div
-              className={`h-full transition-all duration-300 ${
-                totalIncludedWeight === 100
-                  ? 'bg-emerald-600'
-                  : totalIncludedWeight > 100
-                  ? 'bg-rose-600'
-                  : 'bg-amber-500'
-              }`}
-              style={{ width: `${Math.min(totalIncludedWeight, 100)}%` }}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {weights.map((w) => (
+              <div
+                key={w.categoryId}
+                className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col justify-between space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-sm font-bold text-slate-800 shadow-xs">
+                      {w.icon || '📚'}
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900">{w.name}</div>
+                      <div className="text-[10px] text-slate-400 font-mono">Code: {w.code}</div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-black text-blue-900 bg-white px-2.5 py-1 rounded-xl border border-slate-200">
+                    {Number(w.weight).toFixed(1)}x
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-[11px] font-semibold text-slate-600">
+                    <span>Weight Multiplier</span>
+                    <span>{Number(w.weight).toFixed(1)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="5"
+                    step="0.1"
+                    value={w.weight}
+                    onChange={(e) => handleCategoryWeightChange(w.categoryId, parseFloat(e.target.value))}
+                    className="w-full accent-blue-600 cursor-pointer"
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
-        <form onSubmit={handleSave} className="space-y-6">
-          {/* Categories Weight Table */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden">
-            <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-800">Category Weight Allocation</span>
-              <span className="text-xs text-slate-500">Sliders update values in real-time</span>
+        {/* 2. FESTIVAL & COMPETITION LEVEL MULTIPLIERS */}
+        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <div className="flex items-center space-x-2 pb-3 border-b border-slate-100">
+            <Trophy className="w-5 h-5 text-amber-600" />
+            <div>
+              <h3 className="text-base font-black text-slate-900">Festival & Competition Level Multipliers</h3>
+              <p className="text-xs text-slate-500">
+                Sahityotsav (Division, District, State, National), Kalotsav (Sub-district, District, State), Maharjan (Daaera, Jamia)
+              </p>
             </div>
+          </div>
 
-            <div className="divide-y divide-slate-100 p-4 space-y-4">
-              {weights.map((cat) => (
-                <div key={cat.categoryId} className="pt-3 first:pt-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="w-full sm:w-64">
-                    <div className="text-xs font-bold text-slate-900 flex items-center space-x-2">
-                      <span>{cat.name}</span>
-                      {!cat.isIncludedInSPR && (
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-500 font-normal">
-                          Excluded
-                        </span>
-                      )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {levels.map((lvl) => (
+              <div
+                key={lvl.id}
+                className="p-3.5 bg-amber-50/50 rounded-2xl border border-amber-200 flex flex-col justify-between space-y-2.5"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-slate-900">{lvl.name}</span>
+                  <span className="text-xs font-black text-amber-900 bg-white px-2 py-0.5 rounded-lg border border-amber-300">
+                    {Number(lvl.weightMultiplier).toFixed(2)}x
+                  </span>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-1">
+                    <span>Multiplier</span>
+                    <span>×{Number(lvl.weightMultiplier).toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="5.0"
+                    step="0.05"
+                    value={lvl.weightMultiplier}
+                    onChange={(e) => handleLevelMultiplierChange(lvl.id, parseFloat(e.target.value))}
+                    className="w-full accent-amber-600 cursor-pointer"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 3. CUSTOM SUBCATEGORIES WEIGHTS */}
+        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <div className="flex items-center space-x-2 pb-3 border-b border-slate-100">
+            <Flame className="w-5 h-5 text-rose-600" />
+            <div>
+              <h3 className="text-base font-black text-slate-900">Custom Subcategories Weightage</h3>
+              <p className="text-xs text-slate-500">Admin configured custom subcategories</p>
+            </div>
+          </div>
+
+          {subcategories.length === 0 ? (
+            <p className="text-xs text-slate-400 italic py-2">
+              No custom subcategories configured yet. Create one from &ldquo;Other Subcategories&rdquo; menu.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {subcategories.map((sub) => (
+                <div
+                  key={sub.id}
+                  className="p-3.5 bg-rose-50/40 rounded-2xl border border-rose-200 flex flex-col justify-between space-y-2.5"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-black text-slate-900">{sub.name}</div>
+                      <div className="text-[10px] text-slate-400">{sub.category?.name || 'Main'}</div>
                     </div>
-                    <div className="text-[10px] text-slate-400 font-mono mt-0.5">{cat.code}</div>
+                    <span className="text-xs font-black text-rose-900 bg-white px-2 py-0.5 rounded-lg border border-rose-300">
+                      {Number(sub.weight || 1.0).toFixed(2)}x
+                    </span>
                   </div>
 
-                  {/* Slider & Input */}
-                  <div className="flex-1 flex items-center space-x-4">
+                  <div>
                     <input
                       type="range"
-                      min="0"
-                      max="100"
-                      step="1"
-                      disabled={!cat.isIncludedInSPR || !cat.isActive}
-                      value={cat.weight}
-                      onChange={(e) => handleWeightChange(cat.categoryId, Number(e.target.value))}
-                      className="w-full accent-madin-900 disabled:opacity-30 cursor-pointer"
+                      min="0.1"
+                      max="5.0"
+                      step="0.05"
+                      value={sub.weight || 1.0}
+                      onChange={(e) => handleSubcategoryWeightChange(sub.id, parseFloat(e.target.value))}
+                      className="w-full accent-rose-600 cursor-pointer"
                     />
-                    <div className="flex items-center space-x-1 shrink-0">
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.5"
-                        disabled={!cat.isIncludedInSPR || !cat.isActive}
-                        value={cat.weight}
-                        onChange={(e) => handleWeightChange(cat.categoryId, Number(e.target.value))}
-                        className="w-16 px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold text-slate-900 text-center outline-none focus:ring-2 focus:ring-madin-900 disabled:opacity-30"
-                      />
-                      <span className="text-xs font-bold text-slate-500">%</span>
-                    </div>
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
-                  {/* Controls */}
-                  <div className="flex items-center space-x-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleIncludeToggle(cat.categoryId)}
-                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-colors ${
-                        cat.isIncludedInSPR
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                          : 'bg-slate-100 text-slate-500 border-slate-200'
-                      }`}
-                    >
-                      {cat.isIncludedInSPR ? 'Included in SPR' : 'Excluded'}
-                    </button>
+        {/* 4. CREATIVE HUB: WINGS & PUBLISHED MEDIA WEIGHTS */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Creative Forms */}
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+            <div className="flex items-center space-x-2 pb-3 border-b border-slate-100">
+              <Sparkles className="w-5 h-5 text-purple-700" />
+              <div>
+                <h3 className="text-sm font-black text-slate-900">Creative Wings / Forms Weightage</h3>
+                <p className="text-[11px] text-slate-500">Poems, Articles, Short Stories, Essays, etc.</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {creativeForms.map((cf) => (
+                <div
+                  key={cf.id}
+                  className="p-3 bg-purple-50/40 rounded-2xl border border-purple-200 flex items-center justify-between"
+                >
+                  <span className="text-xs font-bold text-slate-900">{cf.name}</span>
+                  <div className="flex items-center space-x-3 w-40">
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="3.0"
+                      step="0.05"
+                      value={cf.weight || 1.0}
+                      onChange={(e) => handleCreativeFormWeightChange(cf.id, parseFloat(e.target.value))}
+                      className="w-full accent-purple-600 cursor-pointer"
+                    />
+                    <span className="text-xs font-black text-purple-900 w-10 text-right">
+                      {Number(cf.weight || 1.0).toFixed(2)}x
+                    </span>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Missing Data Rule Selector */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-subtle space-y-4">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Missing Data Calculation Strategy</h3>
-              <p className="text-xs text-slate-500">
-                Specify how the scoring engine treats unattempted categories for a student.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {/* Strategy 1 */}
-              <div
-                onClick={() => setMissingDataRule('IGNORE_NORMALIZE')}
-                className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                  missingDataRule === 'IGNORE_NORMALIZE'
-                    ? 'border-madin-900 bg-madin-50/40 shadow-sm'
-                    : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-bold text-slate-900">Ignore & Normalize</span>
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                    Recommended
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-600">
-                  Normalizes active attempted category weights to 100%. Missing categories do not unfairly penalize students.
-                </p>
-              </div>
-
-              {/* Strategy 2 */}
-              <div
-                onClick={() => setMissingDataRule('TREAT_AS_ZERO')}
-                className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                  missingDataRule === 'TREAT_AS_ZERO'
-                    ? 'border-madin-900 bg-madin-50/40 shadow-sm'
-                    : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-bold text-slate-900">Treat as Zero</span>
-                </div>
-                <p className="text-[11px] text-slate-600">
-                  Missing categories count as 0.0% with full weight penalty.
-                </p>
-              </div>
-
-              {/* Strategy 3 */}
-              <div
-                onClick={() => setMissingDataRule('REQUIRE_COMPLETE')}
-                className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                  missingDataRule === 'REQUIRE_COMPLETE'
-                    ? 'border-madin-900 bg-madin-50/40 shadow-sm'
-                    : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-bold text-slate-900">Require Complete Data</span>
-                </div>
-                <p className="text-[11px] text-slate-600">
-                  Flags incomplete profiles and excludes from champion leaderboards until all items are entered.
-                </p>
+          {/* Published Media */}
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+            <div className="flex items-center space-x-2 pb-3 border-b border-slate-100">
+              <Newspaper className="w-5 h-5 text-emerald-700" />
+              <div>
+                <h3 className="text-sm font-black text-slate-900">Published Media Weightage</h3>
+                <p className="text-[11px] text-slate-500">Suprabhaatham, Siraj, Manorama, Mathrubhumi, etc.</p>
               </div>
             </div>
-          </div>
 
-          {/* Submit Button */}
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-6 py-2.5 bg-madin-900 hover:bg-madin-950 text-white rounded-xl text-xs font-bold shadow-lg transition-all flex items-center space-x-2 disabled:opacity-50"
-            >
-              {saving ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <Save className="w-4 h-4 text-gold-400" />
-                  <span>Save Weights & Normalization Engine</span>
-                </>
-              )}
-            </button>
+            <div className="space-y-3">
+              {publishedMedia.map((pm) => (
+                <div
+                  key={pm.id}
+                  className="p-3 bg-emerald-50/40 rounded-2xl border border-emerald-200 flex items-center justify-between"
+                >
+                  <span className="text-xs font-bold text-slate-900">{pm.name}</span>
+                  <div className="flex items-center space-x-3 w-40">
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="3.0"
+                      step="0.05"
+                      value={pm.weight || 1.0}
+                      onChange={(e) => handleMediaWeightChange(pm.id, parseFloat(e.target.value))}
+                      className="w-full accent-emerald-600 cursor-pointer"
+                    />
+                    <span className="text-xs font-black text-emerald-900 w-10 text-right">
+                      {Number(pm.weight || 1.0).toFixed(2)}x
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        </form>
-      </div>
+        </div>
+      </form>
     </AdminLayout>
   );
 }

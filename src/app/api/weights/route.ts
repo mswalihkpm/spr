@@ -15,14 +15,33 @@ export async function GET(req: NextRequest) {
       where: { key: 'MISSING_DATA_RULE' },
     });
 
-    const categories = await prisma.category.findMany({
-      include: {
-        categoryWeights: {
-          where: currentYear ? { academicYearId: currentYear.id } : undefined,
+    const [categories, levels, subcategories, creativeForms, publishedMedia] = await Promise.all([
+      prisma.category.findMany({
+        include: {
+          categoryWeights: {
+            where: currentYear ? { academicYearId: currentYear.id } : undefined,
+          },
         },
-      },
-      orderBy: { displayOrder: 'asc' },
-    });
+        orderBy: { displayOrder: 'asc' },
+      }),
+      prisma.level.findMany({
+        where: { active: true },
+        orderBy: { displayOrder: 'asc' },
+      }),
+      prisma.subcategory.findMany({
+        where: { active: true },
+        include: { category: true },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.creativeHubCategory.findMany({
+        where: { active: true },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.publishedMedia.findMany({
+        where: { active: true },
+        orderBy: { name: 'asc' },
+      }),
+    ]);
 
     const weights = categories.map((cat) => ({
       categoryId: cat.id,
@@ -36,6 +55,10 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       weights,
+      levels,
+      subcategories,
+      creativeForms,
+      publishedMedia,
       missingDataRule: missingDataRuleSetting?.value || 'IGNORE_NORMALIZE',
       academicYear: currentYear,
     });
@@ -51,7 +74,7 @@ async function handleUpdateWeights(req: NextRequest) {
     if (errorResponse) return errorResponse;
 
     const body = await req.json();
-    const { weights, missingDataRule } = body;
+    const { weights, missingDataRule, levels, subcategories, creativeForms, publishedMedia } = body;
 
     if (missingDataRule) {
       await prisma.systemSetting.upsert({
@@ -67,6 +90,7 @@ async function handleUpdateWeights(req: NextRequest) {
 
     const currentYear = await prisma.academicYear.findFirst({ where: { isCurrent: true } });
 
+    // 1. Update Core Category Weights
     if (weights && Array.isArray(weights)) {
       for (const item of weights) {
         if (currentYear) {
@@ -100,7 +124,7 @@ async function handleUpdateWeights(req: NextRequest) {
           }
         }
 
-        // Also update default values on Category
+        // Update default values on Category
         await prisma.category.update({
           where: { id: item.categoryId },
           data: {
@@ -112,17 +136,73 @@ async function handleUpdateWeights(req: NextRequest) {
       }
     }
 
+    // 2. Update Competition / Festival Level Multipliers
+    if (levels && Array.isArray(levels)) {
+      for (const lvl of levels) {
+        if (lvl.id) {
+          await prisma.level.update({
+            where: { id: lvl.id },
+            data: {
+              weightMultiplier: Number(lvl.weightMultiplier) || 1.0,
+            },
+          });
+        }
+      }
+    }
+
+    // 3. Update Custom Subcategories Weights
+    if (subcategories && Array.isArray(subcategories)) {
+      for (const sub of subcategories) {
+        if (sub.id) {
+          await prisma.subcategory.update({
+            where: { id: sub.id },
+            data: {
+              weight: Number(sub.weight) || 1.0,
+            },
+          });
+        }
+      }
+    }
+
+    // 4. Update Creative Forms Weights
+    if (creativeForms && Array.isArray(creativeForms)) {
+      for (const cf of creativeForms) {
+        if (cf.id) {
+          await prisma.creativeHubCategory.update({
+            where: { id: cf.id },
+            data: {
+              weight: Number(cf.weight) || 1.0,
+            },
+          });
+        }
+      }
+    }
+
+    // 5. Update Published Media Weights
+    if (publishedMedia && Array.isArray(publishedMedia)) {
+      for (const pm of publishedMedia) {
+        if (pm.id) {
+          await prisma.publishedMedia.update({
+            where: { id: pm.id },
+            data: {
+              weight: Number(pm.weight) || 1.0,
+            },
+          });
+        }
+      }
+    }
+
     await logAuditAction({
       userId: user?.id,
       userName: user?.name,
       action: 'UPDATE',
       entity: 'CategoryWeight',
-      newValue: { weights, missingDataRule },
+      newValue: { weights, missingDataRule, levels, subcategories, creativeForms, publishedMedia },
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Weights and calculation rules updated successfully.',
+      message: 'All category weights, festival level multipliers, and subcategory coefficients updated successfully.',
     });
   } catch (error: any) {
     console.error('Update weights error:', error);
@@ -137,4 +217,3 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   return handleUpdateWeights(req);
 }
-

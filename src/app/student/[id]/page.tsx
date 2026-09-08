@@ -734,16 +734,41 @@ export default function PublicStudentScorecardPage() {
             </div>
           )}
 
-          {/* Official Verification Seal & Footer */}
-          <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2 print:pt-1.5 print:gap-0 print:border-t print:mt-auto page-break-avoid">
-            <div>
-              <div className="font-bold text-slate-800 text-xs print:text-[9px]">Controller of Examinations & Evaluation</div>
-              <div className="text-[11px] print:text-[8px]">Madin School of Excellence</div>
+          {/* Official Verification Signatures & Stamp Block (Formatted for A4 Print) */}
+          <div className="pt-4 border-t border-slate-200 space-y-3 print:pt-2 print:space-y-1.5 page-break-avoid">
+            {/* Signature Columns */}
+            <div className="hidden print:grid grid-cols-3 gap-4 pt-4 pb-1 text-center">
+              <div className="space-y-6">
+                <div className="h-6"></div>
+                <div className="border-t border-slate-400 pt-1 text-[8.5px] font-bold text-slate-800 uppercase tracking-wider">
+                  Class Teacher
+                </div>
+              </div>
+              <div className="space-y-6">
+                <div className="h-6"></div>
+                <div className="border-t border-slate-400 pt-1 text-[8.5px] font-bold text-slate-800 uppercase tracking-wider">
+                  Controller of Exams
+                </div>
+              </div>
+              <div className="space-y-6">
+                <div className="h-6"></div>
+                <div className="border-t border-slate-400 pt-1 text-[8.5px] font-bold text-slate-800 uppercase tracking-wider">
+                  Principal & Seal
+                </div>
+              </div>
             </div>
 
-            <div className="text-center sm:text-right text-[10px] text-slate-400 print:text-[8px]">
-              <div>Official SPR Certified Dossier Record</div>
-              <div>Generated: {new Date().toLocaleDateString()}</div>
+            {/* Official Institutional Footer */}
+            <div className="flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2 print:pt-1 print:gap-0 print:border-t print:mt-auto">
+              <div>
+                <div className="font-bold text-slate-800 text-xs print:text-[9px]">Students Performance Rate (SPR) System</div>
+                <div className="text-[11px] print:text-[8px]">Madin School of Excellence • Malappuram, Kerala</div>
+              </div>
+
+              <div className="text-center sm:text-right text-[10px] text-slate-400 print:text-[8px]">
+                <div>Official Certified Academic & Co-Curricular Dossier</div>
+                <div>Printed Date: {new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+              </div>
             </div>
           </div>
         </div>

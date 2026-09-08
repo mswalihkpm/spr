@@ -138,7 +138,11 @@ model Subcategory {
   category           Category            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   name               String
   code               String
+  logoUrl            String?
+  hasLevels          Boolean             @default(false)
+  hasMaxScore        Boolean             @default(true)
   maxScore           Float               @default(100.0)
+  weight             Float               @default(1.0)
   active             Boolean             @default(true)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
@@ -267,6 +271,18 @@ model CreativeHubCategory {
   id          String                  @id @default(cuid())
   name        String                  @unique // Poem, Story, Article, Letter, Response, Others
   code        String                  @unique
+  weight      Float                   @default(1.0)
+  active      Boolean                 @default(true)
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  submissions CreativeHubSubmission[]
+}
+
+model PublishedMedia {
+  id          String                  @id @default(cuid())
+  name        String                  @unique // Newspaper, Magazine, Wall Magazine, Digital Portal, Journal
+  code        String?
+  weight      Float                   @default(1.0)
   active      Boolean                 @default(true)
   createdAt   DateTime                @default(now())
   updatedAt   DateTime                @updatedAt
@@ -279,7 +295,10 @@ model CreativeHubSubmission {
   student           Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
   categoryId        String
   category          CreativeHubCategory @relation(fields: [categoryId], references: [id])
-  title             String
+  publishedMediaId  String?
+  publishedMedia    PublishedMedia?     @relation(fields: [publishedMediaId], references: [id])
+  publishedMediaName String?
+  title             String              @default("Creative Submission")
   content           String?
   date              DateTime            @default(now())
   score             Float               @default(0.0)
@@ -295,8 +314,24 @@ model CreativeHubSubmission {
 
   @@index([studentId])
   @@index([categoryId])
+  @@index([publishedMediaId])
   @@index([publicationStatus])
   @@index([date])
+}
+
+model News {
+  id          String    @id @default(cuid())
+  title       String
+  subtitle    String?
+  body        String
+  imageUrl    String?
+  publishedAt DateTime  @default(now())
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([publishedAt])
+  @@index([active])
 }
 
 model LiteraryEvent {
@@ -383,6 +418,8 @@ model PerformanceRecord {
   obtainedScore          Float
   maxScore               Float                @default(100.0)
   percentage             Float
+  position               String?              // "1st", "2nd", "3rd", "Participated", etc.
+  grade                  String?              // "A+", "A", "B+", etc.
   date                   DateTime             @default(now())
   remarks                String?
   createdById            String?

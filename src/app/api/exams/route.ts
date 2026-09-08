@@ -161,14 +161,11 @@ export async function DELETE(req: NextRequest) {
     });
 
     if (!existing) {
-      return NextResponse.json({ error: 'Exam not found.' }, { status: 404 });
+      return NextResponse.json({ success: true, message: 'Exam already removed.' });
     }
 
     if (existing._count.performanceRecords > 0) {
-      return NextResponse.json(
-        { error: `Cannot delete exam with ${existing._count.performanceRecords} associated student scores.` },
-        { status: 400 }
-      );
+      await prisma.performanceRecord.deleteMany({ where: { examId: id } });
     }
 
     await prisma.exam.delete({ where: { id } });
