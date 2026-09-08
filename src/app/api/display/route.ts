@@ -10,9 +10,10 @@ export async function GET(req: NextRequest) {
     const categoryId = searchParams.get('categoryId') || undefined;
     const classId = searchParams.get('classId') || undefined;
 
-    const [institutionSetting, autoScrollSetting, categories, classes] = await Promise.all([
+    const [institutionSetting, autoScrollSetting, introFooterSetting, categories, classes] = await Promise.all([
       prisma.systemSetting.findUnique({ where: { key: 'INSTITUTION_NAME' } }),
       prisma.systemSetting.findUnique({ where: { key: 'DISPLAY_AUTOSCROLL_INTERVAL' } }),
+      prisma.systemSetting.findUnique({ where: { key: 'APP_INTRO_FOOTER' } }),
       prisma.category.findMany({ where: { active: true }, orderBy: { displayOrder: 'asc' } }),
       prisma.academicClass.findMany({ where: { active: true }, orderBy: { numericGrade: 'asc' } }),
     ]);
@@ -36,6 +37,7 @@ export async function GET(req: NextRequest) {
       {
         institutionName: institutionSetting?.value || 'Madin School of Excellence',
         autoScrollInterval: parseInt(autoScrollSetting?.value || '10', 10),
+        introFooter: introFooterSetting?.value || '2026 version 0.1',
         leaderboard: sanitizedLeaderboard,
         categories: categories.map((c) => ({ id: c.id, code: c.code, name: c.name, icon: c.icon })),
         classes: classes.map((c) => ({ id: c.id, name: c.name })),

@@ -157,7 +157,7 @@ export default function WeightsPage() {
               <span>Weight Management & Normalization Rules</span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Edit weightage for Main Categories, Festival Levels (Sahityotsav, Kalotsav, Maharjan), Subcategories, and Creative Hub.
+              Edit weightage for Main Categories, Festival Levels (Sahityotsav, Kalotsav, Maharjan: Kulliya, Daaera, Jamia), Subcategories, and Creative Hub.
             </p>
           </div>
 

@@ -13,7 +13,27 @@ export default function AppIntro({
 }: AppIntroProps) {
   const [show, setShow] = useState(true);
   const [fadeOut, setFadeOut] = useState(false);
+  const [footerText, setFooterText] = useState('2026 version 0.1');
   const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    try {
+      const cached = typeof window !== 'undefined' ? localStorage.getItem('spr_intro_footer') : null;
+      if (cached) setFooterText(cached);
+    } catch {}
+
+    fetch('/api/display')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.introFooter) {
+          setFooterText(data.introFooter);
+          try {
+            if (typeof window !== 'undefined') localStorage.setItem('spr_intro_footer', data.introFooter);
+          } catch {}
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -100,7 +120,7 @@ export default function AppIntro({
       {/* Colourless Subdued Footer */}
       <div className="w-full pb-6 sm:pb-8 text-center px-4 shrink-0">
         <p className="text-[11px] sm:text-xs text-slate-400 font-normal tracking-widest select-none">
-          2026 version 0.1
+          {footerText}
         </p>
       </div>
     </div>

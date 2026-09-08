@@ -30,6 +30,7 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<string>('INSTITUTION');
   const [institutionName, setInstitutionName] = useState('Madin School of Excellence');
   const [autoscrollSpeed, setAutoscrollSpeed] = useState('10');
+  const [introFooterText, setIntroFooterText] = useState('2026 version 0.1');
 
   // Master Data
   const [masterData, setMasterData] = useState<any>({});
@@ -119,6 +120,7 @@ export default function SettingsPage() {
       if (dataSettings.settings) {
         if (dataSettings.settings.INSTITUTION_NAME) setInstitutionName(dataSettings.settings.INSTITUTION_NAME);
         if (dataSettings.settings.DISPLAY_AUTOSCROLL_INTERVAL) setAutoscrollSpeed(dataSettings.settings.DISPLAY_AUTOSCROLL_INTERVAL);
+        if (dataSettings.settings.APP_INTRO_FOOTER) setIntroFooterText(dataSettings.settings.APP_INTRO_FOOTER);
       }
       if (dataSettings.users) setUsersList(dataSettings.users);
       if (dataLogs.logs) setAuditLogs(dataLogs.logs);
@@ -146,13 +148,18 @@ export default function SettingsPage() {
           settings: {
             INSTITUTION_NAME: institutionName,
             DISPLAY_AUTOSCROLL_INTERVAL: autoscrollSpeed,
+            APP_INTRO_FOOTER: introFooterText,
           },
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      setStatusMsg({ type: 'success', text: 'System settings saved successfully.' });
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('spr_intro_footer', introFooterText);
+      }
+
+      setStatusMsg({ type: 'success', text: 'System and intro footer settings saved successfully.' });
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
     }
@@ -418,6 +425,23 @@ export default function SettingsPage() {
                   onChange={(e) => setInstitutionName(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  App Intro Splash Footer (Version / Copyright Tag)
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={introFooterText}
+                  onChange={(e) => setIntroFooterText(e.target.value)}
+                  placeholder="e.g. 2026 version 0.1"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  This custom text is displayed at the bottom of the video splash screen on initial app launch.
+                </p>
               </div>
 
               <button
