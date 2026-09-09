@@ -108,7 +108,8 @@ export async function DELETE(req: NextRequest) {
     if (errorResponse) return errorResponse;
 
     const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
+    const idParam = searchParams.get('id');
+    const idsParam = searchParams.get('ids');
 
     let body: any = {};
     try {
@@ -117,11 +118,18 @@ export async function DELETE(req: NextRequest) {
       // Body empty or not JSON
     }
 
-    const idsToDelete: string[] = [];
-    if (id) idsToDelete.push(id);
-    if (body.id) idsToDelete.push(body.id);
-    if (body.reportId) idsToDelete.push(body.reportId);
-    if (body.ids && Array.isArray(body.ids)) idsToDelete.push(...body.ids);
+    const idsSet = new Set<string>();
+    if (idParam) idsSet.add(idParam.trim());
+    if (idsParam) idsParam.split(',').forEach((s) => s.trim() && idsSet.add(s.trim()));
+    if (body.id) idsSet.add(String(body.id).trim());
+    if (body.reportId) idsSet.add(String(body.reportId).trim());
+    if (Array.isArray(body.ids)) {
+      body.ids.forEach((s: any) => s && idsSet.add(String(s).trim()));
+    } else if (typeof body.ids === 'string') {
+      body.ids.split(',').forEach((s: string) => s.trim() && idsSet.add(s.trim()));
+    }
+
+    const idsToDelete = Array.from(idsSet);
 
     if (body.clearResolved) {
       const deleteResult = await prisma.studentReport.deleteMany({

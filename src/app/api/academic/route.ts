@@ -341,7 +341,8 @@ export async function DELETE(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     let type = searchParams.get('type');
-    const id = searchParams.get('id');
+    const idParam = searchParams.get('id');
+    const idsParam = searchParams.get('ids');
 
     let body: any = {};
     try {
@@ -354,13 +355,21 @@ export async function DELETE(req: NextRequest) {
       type = body.type;
     }
 
-    const idsToDelete: string[] = [];
-    if (body.ids && Array.isArray(body.ids)) {
-      idsToDelete.push(...body.ids);
+    const idsSet = new Set<string>();
+
+    if (idParam) idsSet.add(idParam.trim());
+    if (idsParam) idsParam.split(',').forEach((s) => s.trim() && idsSet.add(s.trim()));
+    if (body.id) idsSet.add(String(body.id).trim());
+    if (Array.isArray(body.ids)) {
+      body.ids.forEach((s: any) => s && idsSet.add(String(s).trim()));
+    } else if (typeof body.ids === 'string') {
+      body.ids.split(',').forEach((s: string) => s.trim() && idsSet.add(s.trim()));
     }
-    if (id && !idsToDelete.includes(id)) {
-      idsToDelete.push(id);
+    if (Array.isArray(body.itemIds)) {
+      body.itemIds.forEach((s: any) => s && idsSet.add(String(s).trim()));
     }
+
+    const idsToDelete = Array.from(idsSet);
 
     if (!type || idsToDelete.length === 0) {
       return NextResponse.json({ error: 'Entity type and ID(s) are required for deletion.' }, { status: 400 });

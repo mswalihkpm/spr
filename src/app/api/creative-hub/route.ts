@@ -224,21 +224,31 @@ export async function DELETE(req: NextRequest) {
     if (errorResponse) return errorResponse;
 
     const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
+    const idParam = searchParams.get('id');
+    const idsParam = searchParams.get('ids');
 
-    let idsToDelete: string[] = [];
+    let body: any = {};
     try {
-      const body = await req.json();
-      if (body && Array.isArray(body.ids)) {
-        idsToDelete = body.ids;
-      }
+      body = await req.json();
     } catch {
       // Body not JSON or empty
     }
 
-    if (id) {
-      idsToDelete.push(id);
+    const idsSet = new Set<string>();
+
+    if (idParam) idsSet.add(idParam.trim());
+    if (idsParam) idsParam.split(',').forEach((s) => s.trim() && idsSet.add(s.trim()));
+    if (body.id) idsSet.add(String(body.id).trim());
+    if (Array.isArray(body.ids)) {
+      body.ids.forEach((s: any) => s && idsSet.add(String(s).trim()));
+    } else if (typeof body.ids === 'string') {
+      body.ids.split(',').forEach((s: string) => s.trim() && idsSet.add(s.trim()));
     }
+    if (Array.isArray(body.submissionIds)) {
+      body.submissionIds.forEach((s: any) => s && idsSet.add(String(s).trim()));
+    }
+
+    const idsToDelete = Array.from(idsSet);
 
     if (idsToDelete.length === 0) {
       return NextResponse.json({ error: 'Submission ID(s) are required for deletion.' }, { status: 400 });

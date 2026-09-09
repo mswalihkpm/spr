@@ -38,9 +38,12 @@ export async function getCurrentUser(): Promise<UserSession | null> {
     const payload = verifyToken(token);
     if (!payload) return null;
 
+    const userId = payload.id || (payload as any).userId;
+    if (!userId) return null;
+
     // Verify user is active in DB
     const user = await prisma.user.findUnique({
-      where: { id: payload.id },
+      where: { id: userId },
       select: { id: true, email: true, name: true, role: true, mustChangePassword: true, status: true },
     });
 
@@ -112,8 +115,16 @@ export async function authenticateApiRequest(req: NextRequest, minRole: UserRole
     };
   }
 
+  const userId = payload.id || (payload as any).userId;
+  if (!userId) {
+    return {
+      user: null,
+      errorResponse: NextResponse.json({ error: 'Session token missing valid user identifier.' }, { status: 401 }),
+    };
+  }
+
   const user = await prisma.user.findUnique({
-    where: { id: payload.id },
+    where: { id: userId },
     select: { id: true, email: true, name: true, role: true, mustChangePassword: true, status: true },
   });
 

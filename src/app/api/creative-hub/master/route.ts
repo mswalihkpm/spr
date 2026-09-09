@@ -171,21 +171,40 @@ export async function DELETE(req: NextRequest) {
     if (errorResponse) return errorResponse;
 
     const { searchParams } = new URL(req.url);
-    const type = searchParams.get('type');
-    const id = searchParams.get('id');
+    let type = searchParams.get('type');
+    const idParam = searchParams.get('id');
+    const idsParam = searchParams.get('ids');
 
-    if (!type || !id) {
-      return NextResponse.json({ error: 'Type and ID are required' }, { status: 400 });
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      // Body not JSON or empty
+    }
+
+    if (body.type) {
+      type = body.type;
+    }
+
+    const idsSet = new Set<string>();
+    if (idParam) idsSet.add(idParam.trim());
+    if (idsParam) idsParam.split(',').forEach((s) => s.trim() && idsSet.add(s.trim()));
+    if (body.id) idsSet.add(String(body.id).trim());
+    if (Array.isArray(body.ids)) {
+      body.ids.forEach((s: any) => s && idsSet.add(String(s).trim()));
+    } else if (typeof body.ids === 'string') {
+      body.ids.split(',').forEach((s: string) => s.trim() && idsSet.add(s.trim()));
+    }
+
+    const idsToDelete = Array.from(idsSet);
+
+    if (!type || idsToDelete.length === 0) {
+      return NextResponse.json({ error: 'Type and ID(s) are required for deletion.' }, { status: 400 });
     }
 
     if (type === 'MEDIA') {
-      const existing = await prisma.publishedMedia.findUnique({ where: { id } });
-      if (!existing) {
-        return NextResponse.json({ success: true, message: 'Already removed' });
-      }
-
-      await prisma.publishedMedia.update({
-        where: { id },
+      await prisma.publishedMedia.updateMany({
+        where: { id: { in: idsToDelete } },
         data: { active: false },
       });
 
@@ -194,18 +213,13 @@ export async function DELETE(req: NextRequest) {
         userName: user?.name,
         action: 'DELETE',
         entity: 'PublishedMedia',
-        entityId: id,
+        newValue: { count: idsToDelete.length, ids: idsToDelete },
       });
 
-      return NextResponse.json({ success: true, message: 'Published Media removed' });
+      return NextResponse.json({ success: true, message: 'Published Media removed', count: idsToDelete.length });
     } else {
-      const existing = await prisma.creativeHubCategory.findUnique({ where: { id } });
-      if (!existing) {
-        return NextResponse.json({ success: true, message: 'Already removed' });
-      }
-
-      await prisma.creativeHubCategory.update({
-        where: { id },
+      await prisma.creativeHubCategory.updateMany({
+        where: { id: { in: idsToDelete } },
         data: { active: false },
       });
 
@@ -214,10 +228,10 @@ export async function DELETE(req: NextRequest) {
         userName: user?.name,
         action: 'DELETE',
         entity: 'CreativeHubCategory',
-        entityId: id,
+        newValue: { count: idsToDelete.length, ids: idsToDelete },
       });
 
-      return NextResponse.json({ success: true, message: 'Creative Wing / Form removed' });
+      return NextResponse.json({ success: true, message: 'Creative Wing / Form removed', count: idsToDelete.length });
     }
   } catch (error: any) {
     console.error('Delete creative master item error:', error);

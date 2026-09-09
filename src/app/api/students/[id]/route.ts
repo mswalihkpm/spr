@@ -151,9 +151,13 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       return NextResponse.json({ error: 'Student not found.' }, { status: 404 });
     }
 
-    await prisma.student.delete({
-      where: { id: studentId },
-    });
+    await prisma.$transaction([
+      prisma.performanceRecord.deleteMany({ where: { studentId } }),
+      prisma.creativeHubSubmission.deleteMany({ where: { studentId } }),
+      prisma.libraryRecord.deleteMany({ where: { studentId } }),
+      prisma.studentReport.deleteMany({ where: { studentId } }),
+      prisma.student.delete({ where: { id: studentId } }),
+    ]);
 
     await logAuditAction({
       userId: user?.id,

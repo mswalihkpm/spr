@@ -478,7 +478,9 @@ async function main() {
   const isIslamicSubKeys = Object.keys(islamicSubjectsMap);
   const isSchoolSubKeys = Object.keys(schoolSubjectsMap);
 
-  let insertedCount = 0;
+  const perfBatch = [];
+  const creativeBatch = [];
+  const libraryBatch = [];
 
   for (let idx = 0; idx < allStudents.length; idx++) {
     const student = allStudents[idx];
@@ -493,22 +495,19 @@ async function main() {
       const variance = (Math.sin(idx + subCode.length) * 4);
       const subScore = Math.min(Math.max(Math.round(baseAbility + variance), 55), 99);
 
-      await prisma.performanceRecord.create({
-        data: {
-          studentId: student.id,
-          categoryId: categoriesMap['ISLAMIC'],
-          examId: islamicExam.id,
-          subjectId: subjectId,
-          termId: term1.id,
-          academicYearId: academicYear.id,
-          obtainedScore: subScore,
-          maxScore: 100,
-          percentage: subScore,
-          date: new Date('2026-07-20'),
-          createdById: superAdmin1.id,
-        },
+      perfBatch.push({
+        studentId: student.id,
+        categoryId: categoriesMap['ISLAMIC'],
+        examId: islamicExam.id,
+        subjectId: subjectId,
+        termId: term1.id,
+        academicYearId: academicYear.id,
+        obtainedScore: subScore,
+        maxScore: 100,
+        percentage: subScore,
+        date: new Date('2026-07-20'),
+        createdById: superAdmin1.id,
       });
-      insertedCount++;
     }
 
     // 2. School Studies Records (6 subjects)
@@ -517,43 +516,37 @@ async function main() {
       const variance = (Math.cos(idx + subCode.length) * 5);
       const subScore = Math.min(Math.max(Math.round(baseAbility - 1 + variance), 50), 98);
 
-      await prisma.performanceRecord.create({
-        data: {
-          studentId: student.id,
-          categoryId: categoriesMap['SCHOOL'],
-          examId: schoolExam.id,
-          subjectId: subjectId,
-          termId: term1.id,
-          academicYearId: academicYear.id,
-          obtainedScore: subScore,
-          maxScore: 100,
-          percentage: subScore,
-          date: new Date('2026-07-25'),
-          createdById: superAdmin1.id,
-        },
+      perfBatch.push({
+        studentId: student.id,
+        categoryId: categoriesMap['SCHOOL'],
+        examId: schoolExam.id,
+        subjectId: subjectId,
+        termId: term1.id,
+        academicYearId: academicYear.id,
+        obtainedScore: subScore,
+        maxScore: 100,
+        percentage: subScore,
+        date: new Date('2026-07-25'),
+        createdById: superAdmin1.id,
       });
-      insertedCount++;
     }
 
     // 3. Programs & Competitions
     const progObtained = Math.min(50, Math.max(25, Math.round((baseAbility / 100) * 50 + (Math.sin(idx) * 3))));
-    await prisma.performanceRecord.create({
-      data: {
-        studentId: student.id,
-        categoryId: categoriesMap['PROGRAMS'],
-        competitionId: idx % 2 === 0 ? compElocution.id : compQuiz.id,
-        levelId: idx < 15 ? levelsMap['DISTRICT'] : levelsMap['CAMPUS'],
-        termId: term1.id,
-        academicYearId: academicYear.id,
-        obtainedScore: progObtained,
-        maxScore: 50,
-        percentage: Number(((progObtained / 50) * 100).toFixed(1)),
-        date: new Date('2026-07-16'),
-        remarks: 'Demonstrated outstanding articulation and subject mastery',
-        createdById: superAdmin1.id,
-      },
+    perfBatch.push({
+      studentId: student.id,
+      categoryId: categoriesMap['PROGRAMS'],
+      competitionId: idx % 2 === 0 ? compElocution.id : compQuiz.id,
+      levelId: idx < 15 ? levelsMap['DISTRICT'] : levelsMap['CAMPUS'],
+      termId: term1.id,
+      academicYearId: academicYear.id,
+      obtainedScore: progObtained,
+      maxScore: 50,
+      percentage: Number(((progObtained / 50) * 100).toFixed(1)),
+      date: new Date('2026-07-16'),
+      remarks: 'Demonstrated outstanding articulation and subject mastery',
+      createdById: superAdmin1.id,
     });
-    insertedCount++;
 
     // 4. Creative Hub Submission
     const creativeScore = Math.min(Math.max(Math.round(baseAbility + (Math.random() * 4 - 2)), 65), 99);
@@ -561,79 +554,74 @@ async function main() {
     const mediaKeys = Object.keys(mediaMap);
     const selectedMediaKey = mediaKeys[idx % mediaKeys.length];
 
-    await prisma.creativeHubSubmission.create({
-      data: {
-        studentId: student.id,
-        categoryId: creativeHubMap[formKey],
-        publishedMediaId: mediaMap[selectedMediaKey],
-        publishedMediaName: publishedMediaList.find(m => m.code === selectedMediaKey)?.name || 'Madin Weekly',
-        title: idx % 2 === 0
-          ? `The Radiance of Knowledge: An Essay on Ethics in Modern Science (${student.fullName})`
-          : `Echoes of the Valley: A Poetic Symphony on Spiritual Devotion (${student.fullName})`,
-        date: new Date('2026-08-01'),
-        score: creativeScore,
-        maxScore: 100,
-        percentage: creativeScore,
-        reviewer: 'Chief Editor, MSOE Creative Wing',
-        remarks: 'Published with distinction in editorial column',
-        publicationStatus: idx < 10 ? 'FEATURED' : 'PUBLISHED',
-        publicationLink: 'https://msoe-creative.edu.in/publications/' + student.studentId,
-      },
+    creativeBatch.push({
+      studentId: student.id,
+      categoryId: creativeHubMap[formKey],
+      publishedMediaId: mediaMap[selectedMediaKey],
+      publishedMediaName: publishedMediaList.find(m => m.code === selectedMediaKey)?.name || 'Madin Weekly',
+      title: idx % 2 === 0
+        ? `The Radiance of Knowledge: An Essay on Ethics in Modern Science (${student.fullName})`
+        : `Echoes of the Valley: A Poetic Symphony on Spiritual Devotion (${student.fullName})`,
+      date: new Date('2026-08-01'),
+      score: creativeScore,
+      maxScore: 100,
+      percentage: creativeScore,
+      reviewer: 'Chief Editor, MSOE Creative Wing',
+      remarks: 'Published with distinction in editorial column',
+      publicationStatus: idx < 10 ? 'FEATURED' : 'PUBLISHED',
+      publicationLink: 'https://msoe-creative.edu.in/publications/' + student.studentId,
     });
 
     // 5. Literary Programs Records
     const litScore = Math.min(50, Math.max(20, Math.round((baseAbility / 100) * 50 + (Math.cos(idx) * 2))));
-    await prisma.performanceRecord.create({
-      data: {
-        studentId: student.id,
-        categoryId: categoriesMap['LITERARY'],
-        literaryCompetitionId: idx % 2 === 0 ? litCompEssay.id : litCompPoetry.id,
-        levelId: idx < 20 ? levelsMap['STATE'] : levelsMap['DISTRICT'],
-        termId: term1.id,
-        academicYearId: academicYear.id,
-        obtainedScore: litScore,
-        maxScore: 50,
-        percentage: Number(((litScore / 50) * 100).toFixed(1)),
-        date: new Date('2026-08-11'),
-        remarks: 'Sahityotsav A-Grade Distinction',
-        createdById: superAdmin1.id,
-      },
+    perfBatch.push({
+      studentId: student.id,
+      categoryId: categoriesMap['LITERARY'],
+      literaryCompetitionId: idx % 2 === 0 ? litCompEssay.id : litCompPoetry.id,
+      levelId: idx < 20 ? levelsMap['STATE'] : levelsMap['DISTRICT'],
+      termId: term1.id,
+      academicYearId: academicYear.id,
+      obtainedScore: litScore,
+      maxScore: 50,
+      percentage: Number(((litScore / 50) * 100).toFixed(1)),
+      date: new Date('2026-08-11'),
+      remarks: 'Sahityotsav A-Grade Distinction',
+      createdById: superAdmin1.id,
     });
-    insertedCount++;
 
     // 6. Library / Reading Records
     const booksRead = Math.round(12 + (idx % 15));
     const readingScore = Math.min(Math.max(Math.round(baseAbility + (idx % 4)), 60), 99);
-    await prisma.libraryRecord.create({
-      data: {
-        studentId: student.id,
-        booksRead: booksRead,
-        readingScore: readingScore,
-        readingRank: idx + 1,
-        readingPeriod: 'Term 1 2026',
-      },
+    libraryBatch.push({
+      studentId: student.id,
+      booksRead: booksRead,
+      readingScore: readingScore,
+      readingRank: idx + 1,
+      readingPeriod: 'Term 1 2026',
     });
 
     // 7. Qualification & Certifications Records
     const qualScore = Math.min(100, Math.max(60, Math.round(baseAbility + (Math.sin(idx) * 3))));
     const qualSubKey = idx % 2 === 0 ? 'HIFZ' : 'LANG_PROFICIENCY';
-    await prisma.performanceRecord.create({
-      data: {
-        studentId: student.id,
-        categoryId: categoriesMap['QUALIFICATION'],
-        subcategoryId: subcategoriesMap[qualSubKey],
-        termId: term1.id,
-        academicYearId: academicYear.id,
-        obtainedScore: qualScore,
-        maxScore: 100,
-        percentage: qualScore,
-        date: new Date('2026-08-20'),
-        remarks: 'Certified with High Distinction',
-        createdById: superAdmin1.id,
-      },
+    perfBatch.push({
+      studentId: student.id,
+      categoryId: categoriesMap['QUALIFICATION'],
+      subcategoryId: subcategoriesMap[qualSubKey],
+      termId: term1.id,
+      academicYearId: academicYear.id,
+      obtainedScore: qualScore,
+      maxScore: 100,
+      percentage: qualScore,
+      date: new Date('2026-08-20'),
+      remarks: 'Certified with High Distinction',
+      createdById: superAdmin1.id,
     });
-    insertedCount++;
   }
+
+  const perfResult = await prisma.performanceRecord.createMany({ data: perfBatch });
+  const creativeResult = await prisma.creativeHubSubmission.createMany({ data: creativeBatch });
+  const libraryResult = await prisma.libraryRecord.createMany({ data: libraryBatch });
+  const insertedCount = perfResult.count;
 
   // 15. News & Announcements
   const newsCount = await prisma.news.count();

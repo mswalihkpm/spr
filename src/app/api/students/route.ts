@@ -175,7 +175,8 @@ export async function DELETE(req: NextRequest) {
     if (errorResponse) return errorResponse;
 
     const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
+    const idParam = searchParams.get('id');
+    const idsParam = searchParams.get('ids');
 
     let body: any = {};
     try {
@@ -184,22 +185,27 @@ export async function DELETE(req: NextRequest) {
       // Body not JSON or empty
     }
 
-    const studentIds: string[] = [];
-    if (body.studentIds && Array.isArray(body.studentIds)) {
-      studentIds.push(...body.studentIds);
+    const idsSet = new Set<string>();
+
+    if (idParam) idsSet.add(idParam.trim());
+    if (idsParam) idsParam.split(',').forEach((s) => s.trim() && idsSet.add(s.trim()));
+    if (body.id) idsSet.add(String(body.id).trim());
+    if (Array.isArray(body.studentIds)) {
+      body.studentIds.forEach((s: any) => s && idsSet.add(String(s).trim()));
     }
-    if (body.ids && Array.isArray(body.ids)) {
-      studentIds.push(...body.ids);
+    if (Array.isArray(body.ids)) {
+      body.ids.forEach((s: any) => s && idsSet.add(String(s).trim()));
+    } else if (typeof body.ids === 'string') {
+      body.ids.split(',').forEach((s: string) => s.trim() && idsSet.add(s.trim()));
     }
-    if (id && !studentIds.includes(id)) {
-      studentIds.push(id);
-    }
+
+    const studentIds = Array.from(idsSet);
 
     if (studentIds.length === 0) {
       return NextResponse.json({ error: 'At least one student ID is required for deletion.' }, { status: 400 });
     }
 
-    const [, , , deleteResult] = await prisma.$transaction([
+    const [, , , , deleteResult] = await prisma.$transaction([
       prisma.performanceRecord.deleteMany({
         where: { studentId: { in: studentIds } },
       }),
@@ -209,11 +215,13 @@ export async function DELETE(req: NextRequest) {
       prisma.libraryRecord.deleteMany({
         where: { studentId: { in: studentIds } },
       }),
+      prisma.studentReport.deleteMany({
+        where: { studentId: { in: studentIds } },
+      }),
       prisma.student.deleteMany({
         where: { id: { in: studentIds } },
       }),
     ]);
-
 
     await logAuditAction({
       userId: user?.id,

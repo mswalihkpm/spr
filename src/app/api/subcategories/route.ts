@@ -188,7 +188,8 @@ export async function DELETE(req: NextRequest) {
     if (errorResponse) return errorResponse;
 
     const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
+    const idParam = searchParams.get('id');
+    const idsParam = searchParams.get('ids');
 
     let body: any = {};
     try {
@@ -197,16 +198,21 @@ export async function DELETE(req: NextRequest) {
       // Body not JSON or empty
     }
 
-    const idsToDelete: string[] = [];
-    if (body.ids && Array.isArray(body.ids)) {
-      idsToDelete.push(...body.ids);
+    const idsSet = new Set<string>();
+
+    if (idParam) idsSet.add(idParam.trim());
+    if (idsParam) idsParam.split(',').forEach((s) => s.trim() && idsSet.add(s.trim()));
+    if (body.id) idsSet.add(String(body.id).trim());
+    if (Array.isArray(body.ids)) {
+      body.ids.forEach((s: any) => s && idsSet.add(String(s).trim()));
+    } else if (typeof body.ids === 'string') {
+      body.ids.split(',').forEach((s: string) => s.trim() && idsSet.add(s.trim()));
     }
-    if (body.subcategoryIds && Array.isArray(body.subcategoryIds)) {
-      idsToDelete.push(...body.subcategoryIds);
+    if (Array.isArray(body.subcategoryIds)) {
+      body.subcategoryIds.forEach((s: any) => s && idsSet.add(String(s).trim()));
     }
-    if (id && !idsToDelete.includes(id)) {
-      idsToDelete.push(id);
-    }
+
+    const idsToDelete = Array.from(idsSet);
 
     if (idsToDelete.length === 0) {
       return NextResponse.json({ error: 'Subcategory ID(s) are required for deletion.' }, { status: 400 });
