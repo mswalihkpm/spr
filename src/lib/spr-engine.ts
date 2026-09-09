@@ -600,5 +600,4 @@ export async function calculateAllLeaderboards(filters?: {
   leaderboardCache.set(cacheKey, { timestamp: now, data: rankedEntries });
   return rankedEntries;
 }
-}
 

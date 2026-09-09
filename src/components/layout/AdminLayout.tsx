@@ -446,54 +446,72 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
         </main>
       </div>
 
-      {/* Mobile Bottom Navigation Bar */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 shadow-2xl flex items-center justify-around py-2 px-1">
+      {/* Specialized Admin Mobile Bottom Navigation Bar */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl flex items-center justify-around py-2 px-1">
         <button
-          onClick={() => router.push('/')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 ${
-            pathname === '/' ? 'text-madin-900 font-bold' : 'text-slate-500'
+          onClick={() => router.push('/dashboard')}
+          className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
+            pathname === '/dashboard'
+              ? 'text-madin-900 font-bold scale-105'
+              : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          <Home className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px]">Home</span>
+          <div className={`p-1 rounded-lg ${pathname === '/dashboard' ? 'bg-madin-50 text-madin-900' : ''}`}>
+            <LayoutDashboard className="w-5 h-5" />
+          </div>
+          <span className="text-[10px] tracking-tight">Dashboard</span>
         </button>
 
         <button
-          onClick={() => router.push('/leaderboard')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 ${
-            pathname === '/leaderboard' ? 'text-madin-900 font-bold' : 'text-slate-500'
+          onClick={() => router.push('/students')}
+          className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
+            pathname.startsWith('/students')
+              ? 'text-madin-900 font-bold scale-105'
+              : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          <Award className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px]">Leaderboard</span>
+          <div className={`p-1 rounded-lg ${pathname.startsWith('/students') ? 'bg-madin-50 text-madin-900' : ''}`}>
+            <Users className="w-5 h-5" />
+          </div>
+          <span className="text-[10px] tracking-tight">Students</span>
         </button>
 
         <button
-          onClick={() => router.push('/subcategories')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 ${
-            pathname.startsWith('/subcategories') ? 'text-madin-900 font-bold' : 'text-slate-500'
+          onClick={() => router.push('/academics/school')}
+          className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
+            pathname.startsWith('/academics')
+              ? 'text-madin-900 font-bold scale-105'
+              : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          <Layers className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px]">Categories</span>
+          <div className={`p-1 rounded-lg ${pathname.startsWith('/academics') ? 'bg-madin-50 text-madin-900' : ''}`}>
+            <GraduationCap className="w-5 h-5" />
+          </div>
+          <span className="text-[10px] tracking-tight">Academics</span>
         </button>
 
         <button
-          onClick={() => router.push('/updates')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 ${
-            pathname.startsWith('/updates') ? 'text-madin-900 font-bold' : 'text-slate-500'
+          onClick={() => router.push('/updates/manage')}
+          className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
+            pathname.startsWith('/updates')
+              ? 'text-madin-900 font-bold scale-105'
+              : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          <Megaphone className="w-5 h-5 mb-0.5 text-amber-600" />
-          <span className="text-[10px]">Updates</span>
+          <div className={`p-1 rounded-lg ${pathname.startsWith('/updates') ? 'bg-amber-50 text-amber-700' : ''}`}>
+            <Megaphone className="w-5 h-5 text-amber-600" />
+          </div>
+          <span className="text-[10px] tracking-tight">Updates</span>
         </button>
 
         <button
           onClick={() => setSidebarOpen(true)}
-          className="flex flex-col items-center justify-center flex-1 py-1 text-slate-500 hover:text-madin-900"
+          className="flex flex-col items-center justify-center flex-1 py-1 text-slate-500 hover:text-madin-900 transition-all"
         >
-          <Menu className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px]">Menu</span>
+          <div className="p-1 rounded-lg">
+            <Menu className="w-5 h-5" />
+          </div>
+          <span className="text-[10px] tracking-tight">Admin Menu</span>
         </button>
       </nav>
     </div>

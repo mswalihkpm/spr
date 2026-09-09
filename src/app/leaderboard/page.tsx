@@ -41,18 +41,21 @@ const clientProfileMemory = new Map<string, any>();
 function LeaderboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialCategory = searchParams.get('categoryId') || '';
+  const initialCategory = searchParams.get('categoryId') || searchParams.get('cat') || '';
+  const initialSubcategory = searchParams.get('subcategoryId') || searchParams.get('sub') || '';
   const initialStream = searchParams.get('stream') || '';
   const initialFest = searchParams.get('fest') || '';
 
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [subcategories, setSubcategories] = useState<any[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
   const [schools, setSchools] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filters
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
+  const [selectedSubcategory, setSelectedSubcategory] = useState(initialSubcategory);
   const [selectedStream, setSelectedStream] = useState(initialStream);
   const [selectedFest, setSelectedFest] = useState(initialFest);
   const [selectedClass, setSelectedClass] = useState('');
@@ -70,10 +73,19 @@ function LeaderboardContent() {
 
   // Sync parameters from URL query changes
   useEffect(() => {
-    const catParam = searchParams.get('categoryId') || '';
+    let catParam = searchParams.get('categoryId') || searchParams.get('cat') || '';
+    const subParam = searchParams.get('subcategoryId') || searchParams.get('sub') || '';
     const streamParam = searchParams.get('stream') || '';
     const festParam = searchParams.get('fest') || '';
+
+    // Handle cat=QUALIFICATION alias
+    if (catParam === 'QUALIFICATION' && categories.length > 0) {
+      const qual = categories.find((c) => c.code === 'QUALIFICATION' || c.name?.toLowerCase().includes('qualif'));
+      if (qual) catParam = qual.id;
+    }
+
     setSelectedCategory(catParam);
+    setSelectedSubcategory(subParam);
     setSelectedStream(streamParam);
     setSelectedFest(festParam);
 
@@ -92,7 +104,7 @@ function LeaderboardContent() {
     }
   }, [searchParams, categories]);
 
-  // Fetch reference master data with instant memory load
+  // Fetch reference master data & subcategories with instant memory load
   useEffect(() => {
     getAcademicMasterData()
       .then((data) => {
@@ -101,11 +113,21 @@ function LeaderboardContent() {
         if (data.categories) setCategories(data.categories);
       })
       .catch((err) => console.error(err));
+
+    fetch('/api/subcategories')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.subcategories) setSubcategories(data.subcategories);
+      })
+      .catch((err) => console.error('Error fetching subcategories:', err));
   }, []);
 
   const fetchLeaderboard = async () => {
     const params = new URLSearchParams();
-    if (selectedFest) {
+    if (selectedSubcategory) {
+      params.append('subcategoryId', selectedSubcategory);
+      if (selectedCategory) params.append('categoryId', selectedCategory);
+    } else if (selectedFest) {
       params.append('fest', selectedFest);
     } else if (selectedStream) {
       params.append('stream', selectedStream);
@@ -141,42 +163,55 @@ function LeaderboardContent() {
 
   useEffect(() => {
     fetchLeaderboard();
-  }, [selectedCategory, selectedStream, selectedFest, selectedClass]);
+  }, [selectedCategory, selectedSubcategory, selectedStream, selectedFest, selectedClass]);
 
   const switchLeaderboard = (target: {
-    type: 'OVERALL' | 'STREAM' | 'FEST' | 'CATEGORY';
+    type: 'OVERALL' | 'STREAM' | 'FEST' | 'CATEGORY' | 'SUBCATEGORY';
     stream?: string;
     fest?: string;
     categoryId?: string;
+    subcategoryId?: string;
   }) => {
     let newCat = '';
+    let newSub = '';
     let newStream = '';
     let newFest = '';
     let url = '/leaderboard';
 
     if (target.type === 'OVERALL') {
       newCat = '';
+      newSub = '';
       newStream = '';
       newFest = '';
       url = '/leaderboard';
     } else if (target.type === 'STREAM' && target.stream) {
       newCat = '';
+      newSub = '';
       newStream = target.stream;
       newFest = '';
       url = `/leaderboard?stream=${target.stream}`;
     } else if (target.type === 'FEST' && target.fest) {
       newCat = '';
+      newSub = '';
       newStream = '';
       newFest = target.fest;
       url = `/leaderboard?fest=${target.fest}`;
     } else if (target.type === 'CATEGORY' && target.categoryId) {
       newCat = target.categoryId;
+      newSub = '';
       newStream = '';
       newFest = '';
       url = `/leaderboard?categoryId=${target.categoryId}`;
+    } else if (target.type === 'SUBCATEGORY' && target.subcategoryId) {
+      newCat = target.categoryId || selectedCategory;
+      newSub = target.subcategoryId;
+      newStream = '';
+      newFest = '';
+      url = `/leaderboard?categoryId=${newCat}&subcategoryId=${newSub}`;
     }
 
     setSelectedCategory(newCat);
+    setSelectedSubcategory(newSub);
     setSelectedStream(newStream);
     setSelectedFest(newFest);
     router.push(url, { scroll: false });
@@ -340,6 +375,11 @@ function LeaderboardContent() {
   };
 
   const currentCategory = categories.find((c) => c.id === selectedCategory);
+  const activeCategorySubcategories = subcategories.filter(
+    (s) => s.categoryId === selectedCategory
+  );
+  const activeSubcategory = subcategories.find((s) => s.id === selectedSubcategory);
+  const qualCat = categories.find((c) => c.code === 'QUALIFICATION' || c.name?.toLowerCase().includes('qualif'));
 
   // Configuration for Themed Hero Header with Logo matching colors and tiny white glow
   let heroTheme = {
@@ -354,7 +394,19 @@ function LeaderboardContent() {
     isFest: false,
   };
 
-  if (selectedFest === 'SAHITYOTSAV') {
+  if (activeSubcategory) {
+    heroTheme = {
+      bgGradient: 'bg-gradient-to-r from-[#1e1b4b] via-[#312e81] to-[#4338ca]',
+      glowColor: 'from-white/30 via-indigo-300/15 to-transparent',
+      borderColor: 'border-indigo-400/40',
+      title: `${activeSubcategory.name} Leaderboard`,
+      subtitle: `Dedicated performance benchmarks and evaluation standings for ${activeSubcategory.name}.`,
+      badge: `${currentCategory?.name || 'Category'} Subcategory`,
+      badgeClass: 'bg-indigo-500/25 text-indigo-100 border-indigo-300/40',
+      logo: activeSubcategory.logoUrl || '/logo.png',
+      isFest: false,
+    };
+  } else if (selectedFest === 'SAHITYOTSAV') {
     heroTheme = {
       bgGradient: 'bg-gradient-to-r from-[#500724] via-[#881337] to-[#be123c]',
       glowColor: 'from-white/30 via-rose-300/15 to-transparent',
@@ -427,7 +479,19 @@ function LeaderboardContent() {
       isFest: false,
     };
   } else if (currentCategory) {
-    if (currentCategory.code === 'ISLAMIC') {
+    if (currentCategory.code === 'QUALIFICATION' || currentCategory.name?.toLowerCase().includes('qualif')) {
+      heroTheme = {
+        bgGradient: 'bg-gradient-to-r from-[#091e3a] via-[#1e3a8a] to-[#2563eb]',
+        glowColor: 'from-white/30 via-blue-300/15 to-transparent',
+        borderColor: 'border-blue-400/40',
+        title: 'Qualification Leaderboard',
+        subtitle: 'Certifications, Hifz Al-Quran, Language Proficiency, Sports & specialized institutional qualifications.',
+        badge: 'Qualification & Subcategories',
+        badgeClass: 'bg-blue-500/25 text-blue-100 border-blue-300/40',
+        logo: '/logo.png',
+        isFest: false,
+      };
+    } else if (currentCategory.code === 'ISLAMIC') {
       heroTheme = {
         bgGradient: 'bg-gradient-to-r from-[#06203a] via-[#0A2540] to-[#1e40af]',
         glowColor: 'from-white/30 via-blue-300/15 to-transparent',
@@ -515,13 +579,14 @@ function LeaderboardContent() {
   }
 
   // Determine active primary wing tab
-  const isOverallActive = !selectedCategory && !selectedStream && !selectedFest;
+  const isOverallActive = !selectedCategory && !selectedStream && !selectedFest && !selectedSubcategory;
   const isIslamicActive = Boolean(selectedStream || currentCategory?.code === 'ISLAMIC');
   const isFestActive = Boolean(selectedFest || currentCategory?.code === 'LITERARY');
   const isSchoolActive = currentCategory?.code === 'SCHOOL';
   const isCreativeActive = currentCategory?.code === 'CREATIVE_HUB';
   const isProgramsActive = currentCategory?.code === 'PROGRAMS';
   const isLibraryActive = currentCategory?.code === 'LIBRARY';
+  const isQualActive = Boolean(qualCat && selectedCategory === qualCat.id);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
@@ -592,6 +657,21 @@ function LeaderboardContent() {
               <Trophy className={`w-3.5 h-3.5 ${isOverallActive ? 'text-amber-300' : 'text-amber-500'}`} />
               <span>⭐ Overall SPR</span>
             </button>
+
+            {/* Qualification */}
+            {qualCat && (
+              <button
+                onClick={() => switchLeaderboard({ type: 'CATEGORY', categoryId: qualCat.id })}
+                className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-150 shrink-0 flex items-center space-x-1.5 ${
+                  isQualActive
+                    ? 'bg-blue-900 text-white shadow-sm shadow-blue-900/20 ring-2 ring-blue-900/30'
+                    : 'bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
+                }`}
+              >
+                <Award className={`w-3.5 h-3.5 ${isQualActive ? 'text-blue-200' : 'text-blue-600'}`} />
+                <span>📜 Qualification</span>
+              </button>
+            )}
 
             {/* Islamic Studies */}
             <button
@@ -683,6 +763,36 @@ function LeaderboardContent() {
               <span>📚 Library</span>
             </button>
           </div>
+
+          {/* Level 2: Subcategory Pills for Active Category with Subcategories (e.g. Qualification) */}
+          {activeCategorySubcategories.length > 0 && (
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto p-1.5 sm:p-2 bg-blue-50/90 rounded-2xl border border-blue-200/80 animate-slide-down">
+              <span className="text-[10px] uppercase font-black text-blue-900 ml-1.5 shrink-0">Subcategories:</span>
+              <button
+                onClick={() => switchLeaderboard({ type: 'CATEGORY', categoryId: selectedCategory })}
+                className={`px-2.5 sm:px-3 py-1 rounded-xl text-[11px] sm:text-xs font-bold transition shrink-0 flex items-center space-x-1 ${
+                  !selectedSubcategory
+                    ? 'bg-blue-700 text-white shadow-2xs'
+                    : 'bg-white text-slate-700 hover:bg-blue-100/60 border border-blue-200'
+                }`}
+              >
+                <span>⭐ All {currentCategory?.name || 'Category'}</span>
+              </button>
+              {activeCategorySubcategories.map((sub) => (
+                <button
+                  key={sub.id}
+                  onClick={() => switchLeaderboard({ type: 'SUBCATEGORY', categoryId: selectedCategory, subcategoryId: sub.id })}
+                  className={`px-2.5 sm:px-3 py-1 rounded-xl text-[11px] sm:text-xs font-bold transition shrink-0 flex items-center space-x-1 ${
+                    selectedSubcategory === sub.id
+                      ? 'bg-blue-700 text-white shadow-2xs'
+                      : 'bg-white text-slate-700 hover:bg-blue-100/60 border border-blue-200'
+                  }`}
+                >
+                  <span>{sub.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Level 2: Subcategory Pills for Multi-Stream & Multi-Fest Wings */}
           {isIslamicActive && (
@@ -827,7 +937,9 @@ function LeaderboardContent() {
             <div className="flex items-center space-x-2.5 shrink-0">
               <select
                 value={
-                  selectedFest
+                  selectedSubcategory
+                    ? `sub:${selectedSubcategory}`
+                    : selectedFest
                     ? `fest:${selectedFest}`
                     : selectedStream
                     ? `stream:${selectedStream}`
@@ -837,7 +949,11 @@ function LeaderboardContent() {
                 }
                 onChange={(e) => {
                   const val = e.target.value;
-                  if (val.startsWith('fest:')) {
+                  if (val.startsWith('sub:')) {
+                    const s = val.replace('sub:', '');
+                    const subObj = subcategories.find((x) => x.id === s);
+                    switchLeaderboard({ type: 'SUBCATEGORY', categoryId: subObj?.categoryId || selectedCategory, subcategoryId: s });
+                  } else if (val.startsWith('fest:')) {
                     const f = val.replace('fest:', '');
                     switchLeaderboard({ type: 'FEST', fest: f });
                   } else if (val.startsWith('stream:')) {
@@ -853,6 +969,16 @@ function LeaderboardContent() {
                 className="px-3.5 py-2.5 bg-white/95 text-slate-900 font-bold rounded-2xl text-xs outline-none focus:ring-2 focus:ring-white shadow-md border border-white/40 cursor-pointer"
               >
                 <option value="">⭐ Overall Institutional SPR</option>
+                {qualCat && (
+                  <optgroup label="Qualification & Subcategories">
+                    <option value={`cat:${qualCat.id}`}>📜 All Qualification</option>
+                    {subcategories.filter((s) => s.categoryId === qualCat.id).map((sub) => (
+                      <option key={sub.id} value={`sub:${sub.id}`}>
+                        🔹 {sub.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
                 <optgroup label="Islamic Studies Subcategories">
                   <option value="stream:JAMIATHUL_HIND">🕌 Jamiathul Hind Al-Islamiyya</option>
                   <option value="stream:MADIN_ACADEMY">🏛️ Ma'din Academy Stream</option>
@@ -886,171 +1012,138 @@ function LeaderboardContent() {
           </div>
         </div>
 
-        {/* Live Top 3 Podium Cards (Dynamic Rank & Tie-Aware Layout) */}
-        {topThree.length >= 3 && (
+        {/* Live Top Podium Cards (Dynamic Rank & Tie-Aware Layout) */}
+        {filteredEntries.length > 0 && (
           <div className="space-y-4 max-w-4xl mx-auto pt-1">
-            <div className="grid grid-cols-3 gap-2 sm:gap-4 items-end">
-              {/* Left Card (Position 2 in array: topThree[1]) */}
-              {(() => {
-                const student = topThree[1];
-                const rank = student?.rank ?? 2;
-                const isTied = student?.isTied || filteredEntries.filter((s) => s.spr === student?.spr).length > 1;
-                const isGold = rank === 1;
-                const isSilver = rank === 2;
-                const isBronze = rank === 3;
+            {filteredEntries.length === 1 ? (
+              /* Single Center Card for 1 Ranked Student */
+              <div className="max-w-xs mx-auto">
+                {(() => {
+                  const student = filteredEntries[0];
+                  const rank = student?.rank ?? 1;
+                  return (
+                    <div
+                      onClick={() => handleStudentRowClick(student.studentId)}
+                      className="bg-gradient-to-b from-amber-50/90 via-white to-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-md border-2 border-amber-400 cursor-pointer hover:shadow-xl transition-all flex flex-col justify-between text-center group animate-zoom-up"
+                    >
+                      <div className="flex justify-center mb-1.5 sm:mb-2">
+                        <StudentAvatar photoUrl={student.photoUrl} name={student.name || student.studentName} size="xl" className="w-16 h-16 sm:w-22 sm:h-22 ring-3 sm:ring-4 ring-amber-300/60" />
+                      </div>
+                      <div className="text-[9px] sm:text-xs font-black text-amber-700 uppercase tracking-widest bg-amber-100 px-2.5 sm:px-3 py-0.5 rounded-full inline-block shadow-2xs border border-amber-300 mx-auto">
+                        ★ 1st Rank ★
+                      </div>
+                      <div className="text-sm sm:text-lg font-black text-slate-900 group-hover:text-amber-800 mt-1 transition-colors leading-tight break-words">
+                        {student.name || student.studentName}
+                      </div>
+                      <div className="text-[10px] sm:text-xs text-slate-500 mt-0.5">
+                        Std {formatClassNumber(student.className)}
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-amber-100 flex items-center justify-center">
+                        <span className="text-sm sm:text-2xl font-black text-amber-800">
+                          {formatScore(student.spr ?? student.overallScore)}%
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            ) : (
+              /* 2 or 3 Card Podium */
+              <div className={`grid ${filteredEntries.length === 2 ? 'grid-cols-2 max-w-lg' : 'grid-cols-3 max-w-4xl'} gap-2 sm:gap-4 mx-auto items-end`}>
+                {/* Position 2 in topThree */}
+                {topThree[1] && (() => {
+                  const student = topThree[1];
+                  const rank = student?.rank ?? 2;
+                  const isTied = student?.isTied || filteredEntries.filter((s) => s.spr === student?.spr).length > 1;
+                  return (
+                    <div
+                      onClick={() => handleStudentRowClick(student.studentId)}
+                      className="rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 border-2 shadow-xs cursor-pointer hover:shadow-md transition-all flex flex-col justify-between order-1 text-center group bg-white border-slate-200 animate-slide-left"
+                    >
+                      <div className="flex justify-center mb-1 sm:mb-2">
+                        <StudentAvatar photoUrl={student.photoUrl} name={student.name || student.studentName} size="lg" className="w-11 h-11 sm:w-18 sm:h-18" />
+                      </div>
+                      <div className="text-[8px] sm:text-xs font-black uppercase tracking-widest px-2 sm:px-3 py-0.5 rounded-full inline-block shadow-2xs border bg-slate-100/90 text-slate-700 border-slate-200">
+                        ★ {rank === 1 ? '1st' : rank === 2 ? '2nd' : `${rank}th`} Rank {isTied ? '(Joint)' : ''} ★
+                      </div>
+                      <div className="text-[10px] sm:text-base font-extrabold mt-1 transition-colors leading-tight break-words text-slate-900 group-hover:text-blue-600">
+                        {student.name || student.studentName}
+                      </div>
+                      <div className="text-[9px] sm:text-xs text-slate-500 mt-0.5">
+                        Std {formatClassNumber(student.className)}
+                      </div>
+                      <div className="mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t border-slate-100 flex items-center justify-center">
+                        <span className="text-xs sm:text-lg font-black text-slate-800">
+                          {formatScore(student.spr ?? student.overallScore)}%
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
-                return (
-                  <div
-                    onClick={() => handleStudentRowClick(student.studentId)}
-                    className={`rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 border-2 shadow-xs cursor-pointer hover:shadow-md transition-all flex flex-col justify-between order-1 text-center group animate-slide-left delay-150 ${
-                      isGold
-                        ? 'bg-gradient-to-b from-amber-50/90 via-white to-white border-amber-400 shadow-md hover:shadow-xl'
-                        : isSilver
-                        ? 'bg-white border-slate-200'
-                        : 'bg-white border-amber-200'
-                    }`}
-                  >
-                    <div className="flex justify-center mb-1 sm:mb-2">
-                      <StudentAvatar
-                        photoUrl={student.photoUrl}
-                        name={student.name || student.studentName}
-                        size="lg"
-                        className={`w-11 h-11 sm:w-18 sm:h-18 ${isGold ? 'ring-3 sm:ring-4 ring-amber-300/60' : ''}`}
-                      />
-                    </div>
+                {/* Position 1 in topThree */}
+                {topThree[0] && (() => {
+                  const student = topThree[0];
+                  const rank = student?.rank ?? 1;
+                  const isTied = student?.isTied || filteredEntries.filter((s) => s.spr === student?.spr).length > 1;
+                  return (
                     <div
-                      className={`text-[8px] sm:text-xs font-black uppercase tracking-widest px-2 sm:px-3 py-0.5 rounded-full inline-block shadow-2xs border ${
-                        isGold
-                          ? 'bg-amber-100 text-amber-700 border-amber-300'
-                          : isSilver
-                          ? 'bg-slate-100/90 text-slate-700 border-slate-200'
-                          : 'bg-amber-100/90 text-amber-800 border-amber-200'
-                      }`}
+                      onClick={() => handleStudentRowClick(student.studentId)}
+                      className="bg-gradient-to-b from-amber-50/90 via-white to-white rounded-2xl sm:rounded-3xl p-3 sm:p-6 shadow-md border-2 border-amber-400 cursor-pointer hover:shadow-xl transition-all flex flex-col justify-between order-2 -translate-y-2 sm:-translate-y-3 text-center group animate-zoom-up"
                     >
-                      ★ {rank === 1 ? '1st' : rank === 2 ? '2nd' : rank === 3 ? '3rd' : `${rank}th`} Rank {isTied ? '(Joint)' : ''} ★
+                      <div className="flex justify-center mb-1 sm:mb-2">
+                        <StudentAvatar photoUrl={student.photoUrl} name={student.name || student.studentName} size="xl" className="w-13 h-13 sm:w-22 sm:h-22 ring-3 sm:ring-4 ring-amber-300/60" />
+                      </div>
+                      <div className="text-[8px] sm:text-xs font-black text-amber-700 uppercase tracking-widest bg-amber-100 px-2 sm:px-3 py-0.5 rounded-full inline-block shadow-2xs border border-amber-300">
+                        ★ {rank === 1 ? '1st' : `${rank}th`} Rank {isTied ? '(Joint)' : ''} ★
+                      </div>
+                      <div className="text-xs sm:text-lg font-black text-slate-900 group-hover:text-amber-800 mt-1 transition-colors leading-tight break-words">
+                        {student.name || student.studentName}
+                      </div>
+                      <div className="text-[9px] sm:text-xs text-slate-500 mt-0.5">
+                        Std {formatClassNumber(student.className)}
+                      </div>
+                      <div className="mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t border-amber-100 flex items-center justify-center">
+                        <span className="text-xs sm:text-2xl font-black text-amber-800">
+                          {formatScore(student.spr ?? student.overallScore)}%
+                        </span>
+                      </div>
                     </div>
-                    <div
-                      className={`text-[10px] sm:text-base font-extrabold mt-1 transition-colors leading-tight break-words ${
-                        isGold ? 'text-slate-900 group-hover:text-amber-800' : 'text-slate-900 group-hover:text-blue-600'
-                      }`}
-                    >
-                      {student.name || student.studentName}
-                    </div>
-                    <div className="text-[9px] sm:text-xs text-slate-500 mt-0.5">
-                      Std {formatClassNumber(student.className)}
-                    </div>
-                    <div
-                      className={`mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t flex items-center justify-center ${
-                        isGold ? 'border-amber-100' : 'border-slate-100'
-                      }`}
-                    >
-                      <span className={`text-xs sm:text-lg font-black ${isGold ? 'text-amber-800' : 'text-slate-800'}`}>
-                        {formatScore(student.spr ?? student.overallScore)}%
-                      </span>
-                    </div>
-                  </div>
-                );
-              })()}
+                  );
+                })()}
 
-              {/* Center Card (Position 1 in array: topThree[0] - Elevated) */}
-              {(() => {
-                const student = topThree[0];
-                const rank = student?.rank ?? 1;
-                const isTied = student?.isTied || filteredEntries.filter((s) => s.spr === student?.spr).length > 1;
-
-                return (
-                  <div
-                    onClick={() => handleStudentRowClick(student.studentId)}
-                    className="bg-gradient-to-b from-amber-50/90 via-white to-white rounded-2xl sm:rounded-3xl p-3 sm:p-6 shadow-md border-2 border-amber-400 cursor-pointer hover:shadow-xl transition-all flex flex-col justify-between order-2 -translate-y-2 sm:-translate-y-3 text-center group animate-zoom-up delay-100"
-                  >
-                    <div className="flex justify-center mb-1 sm:mb-2">
-                      <StudentAvatar
-                        photoUrl={student.photoUrl}
-                        name={student.name || student.studentName}
-                        size="xl"
-                        className="w-13 h-13 sm:w-22 sm:h-22 ring-3 sm:ring-4 ring-amber-300/60"
-                      />
-                    </div>
-                    <div className="text-[8px] sm:text-xs font-black text-amber-700 uppercase tracking-widest bg-amber-100 px-2 sm:px-3 py-0.5 rounded-full inline-block shadow-2xs border border-amber-300">
-                      ★ {rank === 1 ? '1st' : `${rank}th`} Rank {isTied ? '(Joint)' : ''} ★
-                    </div>
-                    <div className="text-xs sm:text-lg font-black text-slate-900 group-hover:text-amber-800 mt-1 transition-colors leading-tight break-words">
-                      {student.name || student.studentName}
-                    </div>
-                    <div className="text-[9px] sm:text-xs text-slate-500 mt-0.5">
-                      Std {formatClassNumber(student.className)}
-                    </div>
-                    <div className="mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t border-amber-100 flex items-center justify-center">
-                      <span className="text-xs sm:text-2xl font-black text-amber-800">
-                        {formatScore(student.spr ?? student.overallScore)}%
-                      </span>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Right Card (Position 3 in array: topThree[2]) */}
-              {(() => {
-                const student = topThree[2];
-                const rank = student?.rank ?? 3;
-                const isTied = student?.isTied || filteredEntries.filter((s) => s.spr === student?.spr).length > 1;
-                const isGold = rank === 1;
-                const isSilver = rank === 2;
-                const isBronze = rank === 3;
-
-                return (
-                  <div
-                    onClick={() => handleStudentRowClick(student.studentId)}
-                    className={`rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 border-2 shadow-xs cursor-pointer hover:shadow-md transition-all flex flex-col justify-between order-3 text-center group animate-slide-right delay-150 ${
-                      isGold
-                        ? 'bg-gradient-to-b from-amber-50/90 via-white to-white border-amber-400 shadow-md hover:shadow-xl'
-                        : isSilver
-                        ? 'bg-white border-slate-200'
-                        : 'bg-white border-amber-200'
-                    }`}
-                  >
-                    <div className="flex justify-center mb-1 sm:mb-2">
-                      <StudentAvatar
-                        photoUrl={student.photoUrl}
-                        name={student.name || student.studentName}
-                        size="lg"
-                        className={`w-11 h-11 sm:w-18 sm:h-18 ${isGold ? 'ring-3 sm:ring-4 ring-amber-300/60' : ''}`}
-                      />
-                    </div>
+                {/* Position 3 in topThree */}
+                {topThree[2] && (() => {
+                  const student = topThree[2];
+                  const rank = student?.rank ?? 3;
+                  const isTied = student?.isTied || filteredEntries.filter((s) => s.spr === student?.spr).length > 1;
+                  return (
                     <div
-                      className={`text-[8px] sm:text-xs font-black uppercase tracking-widest px-2 sm:px-3 py-0.5 rounded-full inline-block shadow-2xs border ${
-                        isGold
-                          ? 'bg-amber-100 text-amber-700 border-amber-300'
-                          : isSilver
-                          ? 'bg-slate-100/90 text-slate-700 border-slate-200'
-                          : 'bg-amber-100/90 text-amber-800 border-amber-200'
-                      }`}
+                      onClick={() => handleStudentRowClick(student.studentId)}
+                      className="rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 border-2 shadow-xs cursor-pointer hover:shadow-md transition-all flex flex-col justify-between order-3 text-center group bg-white border-amber-200 animate-slide-right"
                     >
-                      ★ {rank === 1 ? '1st' : rank === 2 ? '2nd' : rank === 3 ? '3rd' : `${rank}th`} Rank {isTied ? '(Joint)' : ''} ★
+                      <div className="flex justify-center mb-1 sm:mb-2">
+                        <StudentAvatar photoUrl={student.photoUrl} name={student.name || student.studentName} size="lg" className="w-11 h-11 sm:w-18 sm:h-18" />
+                      </div>
+                      <div className="text-[8px] sm:text-xs font-black uppercase tracking-widest px-2 sm:px-3 py-0.5 rounded-full inline-block shadow-2xs border bg-amber-100/90 text-amber-800 border-amber-200">
+                        ★ {rank === 1 ? '1st' : rank === 2 ? '2nd' : rank === 3 ? '3rd' : `${rank}th`} Rank {isTied ? '(Joint)' : ''} ★
+                      </div>
+                      <div className="text-[10px] sm:text-base font-extrabold mt-1 transition-colors leading-tight break-words text-slate-900 group-hover:text-blue-600">
+                        {student.name || student.studentName}
+                      </div>
+                      <div className="text-[9px] sm:text-xs text-slate-500 mt-0.5">
+                        Std {formatClassNumber(student.className)}
+                      </div>
+                      <div className="mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t border-slate-100 flex items-center justify-center">
+                        <span className="text-xs sm:text-lg font-black text-slate-800">
+                          {formatScore(student.spr ?? student.overallScore)}%
+                        </span>
+                      </div>
                     </div>
-                    <div
-                      className={`text-[10px] sm:text-base font-extrabold mt-1 transition-colors leading-tight break-words ${
-                        isGold ? 'text-slate-900 group-hover:text-amber-800' : 'text-slate-900 group-hover:text-blue-600'
-                      }`}
-                    >
-                      {student.name || student.studentName}
-                    </div>
-                    <div className="text-[9px] sm:text-xs text-slate-500 mt-0.5">
-                      Std {formatClassNumber(student.className)}
-                    </div>
-                    <div
-                      className={`mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t flex items-center justify-center ${
-                        isGold ? 'border-amber-100' : 'border-slate-100'
-                      }`}
-                    >
-                      <span className={`text-xs sm:text-lg font-black ${isGold ? 'text-amber-800' : 'text-slate-800'}`}>
-                        {formatScore(student.spr ?? student.overallScore)}%
-                      </span>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
+                  );
+                })()}
+              </div>
+            )}
 
             {/* Joint Rank 1 Cohort Recognition Pill Bar */}
             {(() => {
