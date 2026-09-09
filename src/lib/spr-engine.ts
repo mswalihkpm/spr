@@ -556,15 +556,9 @@ export async function calculateAllLeaderboards(filters?: {
     return (a.name || '').localeCompare(b.name || '');
   });
 
-  // Assign ranks with proper tie handling
-  let currentRank = 1;
+  // Assign sequential clean ranks (1, 2, 3, 4, 5, 6, 7, 8, 9, 10...) based on deterministic tie-breaking
   for (let i = 0; i < entries.length; i++) {
-    if (i > 0 && entries[i].spr === entries[i - 1].spr) {
-      entries[i].rank = entries[i - 1].rank;
-    } else {
-      entries[i].rank = currentRank;
-    }
-    currentRank++;
+    entries[i].rank = i + 1;
   }
 
   // Mark tie flags and count of tied peers
