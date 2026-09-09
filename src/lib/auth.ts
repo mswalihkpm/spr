@@ -78,14 +78,21 @@ export function clearAuthCookie(response: NextResponse) {
   });
 }
 
-export function hasPermission(userRole: UserRole, requiredRole: 'SUPER_ADMIN' | 'ADMIN' | 'TEACHER' | 'VIEWER'): boolean {
-  const hierarchy: Record<UserRole, number> = {
-    SUPER_ADMIN: 4,
-    ADMIN: 3,
-    TEACHER: 2,
-    VIEWER: 1,
-  };
-  return hierarchy[userRole] >= hierarchy[requiredRole];
+export function hasPermission(userRole: UserRole, requiredRole: UserRole): boolean {
+  if (userRole === 'SUPER_ADMIN') return true;
+  if (userRole === 'ADMIN') {
+    return requiredRole !== 'SUPER_ADMIN';
+  }
+  if (userRole === 'CREATIVE_HUB_ADMIN') {
+    return requiredRole === 'CREATIVE_HUB_ADMIN' || requiredRole === 'VIEWER';
+  }
+  if (userRole === 'TEACHER') {
+    return requiredRole === 'TEACHER' || requiredRole === 'VIEWER';
+  }
+  if (userRole === 'VIEWER') {
+    return requiredRole === 'VIEWER';
+  }
+  return false;
 }
 
 export async function authenticateApiRequest(req: NextRequest, minRole: UserRole = 'VIEWER'): Promise<{ user: UserSession | null; errorResponse?: NextResponse }> {

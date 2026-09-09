@@ -40,6 +40,8 @@ export default function LoginPage() {
 
       if (data.mustChangePassword) {
         router.push('/auth/change-password');
+      } else if (data.user?.role === 'CREATIVE_HUB_ADMIN') {
+        router.push('/creative-hub');
       } else {
         router.push('/dashboard');
       }

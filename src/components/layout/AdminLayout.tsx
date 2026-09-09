@@ -83,16 +83,24 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
     router.push('/login');
   };
 
-  // Enforce admin-only route protection
+  // Enforce role-based route protection
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
+  const isCreativeHubAdmin = user?.role === 'CREATIVE_HUB_ADMIN';
 
   useEffect(() => {
-    if (user && !isAdmin) {
-      if (pathname.startsWith('/settings') || pathname.startsWith('/weights') || pathname.startsWith('/categories')) {
-        router.push('/dashboard');
+    if (user) {
+      if (isCreativeHubAdmin) {
+        if (pathname !== '/creative-hub' && pathname !== '/auth/change-password' && !pathname.startsWith('/leaderboard')) {
+          router.push('/creative-hub');
+        }
+      } else if (!isAdmin) {
+        if (pathname.startsWith('/settings') || pathname.startsWith('/weights') || pathname.startsWith('/categories') || pathname.startsWith('/updates/manage')) {
+          router.push('/dashboard');
+        }
       }
     }
-  }, [user, isAdmin, pathname, router]);
+  }, [user, isAdmin, isCreativeHubAdmin, pathname, router]);
 
   const allNavItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -119,7 +127,12 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
     { name: 'Settings', href: '/settings', icon: Settings, adminOnly: true },
   ];
 
-  const navItems = allNavItems.filter((item) => !item.adminOnly || isAdmin);
+  const navItems = isCreativeHubAdmin
+    ? [
+        { name: 'Creative Hub', href: '/creative-hub', icon: Sparkles },
+        { name: 'Leaderboards', href: '/leaderboard', icon: Award },
+      ]
+    : allNavItems.filter((item) => !item.adminOnly || isAdmin);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row text-slate-900 selection:bg-madin-900 selection:text-white">
@@ -298,7 +311,13 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
               </div>
               <div className="min-w-0">
                 <div className="text-xs font-semibold text-white truncate">{user?.name || 'Administrator'}</div>
-                <div className="text-[10px] text-gold-400 truncate">{user?.role?.replace('_', ' ') || 'Super Admin'}</div>
+                <div className="text-[10px] text-gold-400 truncate">
+                  {user?.role === 'CREATIVE_HUB_ADMIN'
+                    ? 'Creative Hub Admin'
+                    : user?.role === 'SUPER_ADMIN'
+                    ? 'Super Admin'
+                    : user?.role?.replace('_', ' ') || 'Admin'}
+                </div>
               </div>
             </div>
             <button
@@ -338,85 +357,95 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
 
           <div className="flex items-center space-x-3">
             {/* Quick Action Menu */}
-            <div className="relative">
+            {!isCreativeHubAdmin ? (
+              <div className="relative">
+                <button
+                  onClick={() => setQuickActionOpen(!quickActionOpen)}
+                  className="px-3 py-1.5 rounded-lg bg-madin-900 hover:bg-madin-800 text-white font-medium text-xs flex items-center space-x-1.5 shadow transition-all"
+                >
+                  <PlusCircle className="w-3.5 h-3.5 text-gold-400" />
+                  <span>Quick Actions</span>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-300" />
+                </button>
+
+                {quickActionOpen && (
+                  <div
+                    onMouseLeave={() => setQuickActionOpen(false)}
+                    className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-fade-in"
+                  >
+                    <button
+                      onClick={() => {
+                        router.push('/students');
+                        setQuickActionOpen(false);
+                      }}
+                      className="w-full px-4 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center space-x-2.5"
+                    >
+                      <Users className="w-4 h-4 text-madin-700" />
+                      <span>+ Add New Student</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        router.push('/students/bulk-import');
+                        setQuickActionOpen(false);
+                      }}
+                      className="w-full px-4 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center space-x-2.5"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                      <span>Bulk Excel Import</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        router.push('/academics/islamic');
+                        setQuickActionOpen(false);
+                      }}
+                      className="w-full px-4 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center space-x-2.5"
+                    >
+                      <BookOpen className="w-4 h-4 text-amber-600" />
+                      <span>Enter Islamic Scores</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        router.push('/academics/school');
+                        setQuickActionOpen(false);
+                      }}
+                      className="w-full px-4 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center space-x-2.5"
+                    >
+                      <GraduationCap className="w-4 h-4 text-blue-600" />
+                      <span>Enter School Exam Scores</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        router.push('/creative-hub');
+                        setQuickActionOpen(false);
+                      }}
+                      className="w-full px-4 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center space-x-2.5"
+                    >
+                      <Sparkles className="w-4 h-4 text-purple-600" />
+                      <span>Add Creative Work</span>
+                    </button>
+                    <div className="border-t border-slate-100 my-1"></div>
+                    <button
+                      onClick={() => {
+                        router.push('/categories');
+                        setQuickActionOpen(false);
+                      }}
+                      className="w-full px-4 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center space-x-2.5"
+                    >
+                      <Layers className="w-4 h-4 text-slate-600" />
+                      <span>+ Create Custom Category</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
               <button
-                onClick={() => setQuickActionOpen(!quickActionOpen)}
+                onClick={() => router.push('/creative-hub')}
                 className="px-3 py-1.5 rounded-lg bg-madin-900 hover:bg-madin-800 text-white font-medium text-xs flex items-center space-x-1.5 shadow transition-all"
               >
-                <PlusCircle className="w-3.5 h-3.5 text-gold-400" />
-                <span>Quick Actions</span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-300" />
+                <Sparkles className="w-3.5 h-3.5 text-gold-400" />
+                <span>+ Add Creative Work</span>
               </button>
-
-              {quickActionOpen && (
-                <div
-                  onMouseLeave={() => setQuickActionOpen(false)}
-                  className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-fade-in"
-                >
-                  <button
-                    onClick={() => {
-                      router.push('/students');
-                      setQuickActionOpen(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center space-x-2.5"
-                  >
-                    <Users className="w-4 h-4 text-madin-700" />
-                    <span>+ Add New Student</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      router.push('/students/bulk-import');
-                      setQuickActionOpen(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center space-x-2.5"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                    <span>Bulk Excel Import</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      router.push('/academics/islamic');
-                      setQuickActionOpen(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center space-x-2.5"
-                  >
-                    <BookOpen className="w-4 h-4 text-amber-600" />
-                    <span>Enter Islamic Scores</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      router.push('/academics/school');
-                      setQuickActionOpen(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center space-x-2.5"
-                  >
-                    <GraduationCap className="w-4 h-4 text-blue-600" />
-                    <span>Enter School Exam Scores</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      router.push('/creative-hub');
-                      setQuickActionOpen(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center space-x-2.5"
-                  >
-                    <Sparkles className="w-4 h-4 text-purple-600" />
-                    <span>Add Creative Work</span>
-                  </button>
-                  <div className="border-t border-slate-100 my-1"></div>
-                  <button
-                    onClick={() => {
-                      router.push('/categories');
-                      setQuickActionOpen(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center space-x-2.5"
-                  >
-                    <Layers className="w-4 h-4 text-slate-600" />
-                    <span>+ Create Custom Category</span>
-                  </button>
-                </div>
-              )}
-            </div>
+            )}
 
             {/* News & Updates Link Icon */}
             <a
@@ -447,73 +476,129 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
       </div>
 
       {/* Specialized Admin Mobile Bottom Navigation Bar */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl flex items-center justify-around py-2 px-1">
-        <button
-          onClick={() => router.push('/dashboard')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
-            pathname === '/dashboard'
-              ? 'text-madin-900 font-bold scale-105'
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <div className={`p-1 rounded-lg ${pathname === '/dashboard' ? 'bg-madin-50 text-madin-900' : ''}`}>
-            <LayoutDashboard className="w-5 h-5" />
-          </div>
-          <span className="text-[10px] tracking-tight">Dashboard</span>
-        </button>
+      {isCreativeHubAdmin ? (
+        <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl flex items-center justify-around py-2 px-1">
+          <button
+            onClick={() => router.push('/creative-hub')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
+              pathname === '/creative-hub'
+                ? 'text-madin-900 font-bold scale-105'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <div className={`p-1 rounded-lg ${pathname === '/creative-hub' ? 'bg-purple-50 text-purple-700' : ''}`}>
+              <Sparkles className="w-5 h-5 text-purple-600" />
+            </div>
+            <span className="text-[10px] tracking-tight">Creative Hub</span>
+          </button>
 
-        <button
-          onClick={() => router.push('/students')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
-            pathname.startsWith('/students')
-              ? 'text-madin-900 font-bold scale-105'
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <div className={`p-1 rounded-lg ${pathname.startsWith('/students') ? 'bg-madin-50 text-madin-900' : ''}`}>
-            <Users className="w-5 h-5" />
-          </div>
-          <span className="text-[10px] tracking-tight">Students</span>
-        </button>
+          <button
+            onClick={() => router.push('/leaderboard')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
+              pathname === '/leaderboard'
+                ? 'text-madin-900 font-bold scale-105'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <div className={`p-1 rounded-lg ${pathname === '/leaderboard' ? 'bg-madin-50 text-madin-900' : ''}`}>
+              <Award className="w-5 h-5 text-gold-600" />
+            </div>
+            <span className="text-[10px] tracking-tight">Leaderboard</span>
+          </button>
 
-        <button
-          onClick={() => router.push('/academics/school')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
-            pathname.startsWith('/academics')
-              ? 'text-madin-900 font-bold scale-105'
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <div className={`p-1 rounded-lg ${pathname.startsWith('/academics') ? 'bg-madin-50 text-madin-900' : ''}`}>
-            <GraduationCap className="w-5 h-5" />
-          </div>
-          <span className="text-[10px] tracking-tight">Academics</span>
-        </button>
+          <button
+            onClick={() => router.push('/auth/change-password')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
+              pathname === '/auth/change-password'
+                ? 'text-madin-900 font-bold scale-105'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <div className={`p-1 rounded-lg ${pathname === '/auth/change-password' ? 'bg-amber-50 text-amber-700' : ''}`}>
+              <Settings className="w-5 h-5 text-slate-600" />
+            </div>
+            <span className="text-[10px] tracking-tight">Password</span>
+          </button>
 
-        <button
-          onClick={() => router.push('/updates/manage')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
-            pathname.startsWith('/updates')
-              ? 'text-madin-900 font-bold scale-105'
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <div className={`p-1 rounded-lg ${pathname.startsWith('/updates') ? 'bg-amber-50 text-amber-700' : ''}`}>
-            <Megaphone className="w-5 h-5 text-amber-600" />
-          </div>
-          <span className="text-[10px] tracking-tight">Updates</span>
-        </button>
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="flex flex-col items-center justify-center flex-1 py-1 text-slate-500 hover:text-madin-900 transition-all"
+          >
+            <div className="p-1 rounded-lg">
+              <Menu className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] tracking-tight">Admin Menu</span>
+          </button>
+        </nav>
+      ) : (
+        <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl flex items-center justify-around py-2 px-1">
+          <button
+            onClick={() => router.push('/dashboard')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
+              pathname === '/dashboard'
+                ? 'text-madin-900 font-bold scale-105'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <div className={`p-1 rounded-lg ${pathname === '/dashboard' ? 'bg-madin-50 text-madin-900' : ''}`}>
+              <LayoutDashboard className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] tracking-tight">Dashboard</span>
+          </button>
 
-        <button
-          onClick={() => setSidebarOpen(true)}
-          className="flex flex-col items-center justify-center flex-1 py-1 text-slate-500 hover:text-madin-900 transition-all"
-        >
-          <div className="p-1 rounded-lg">
-            <Menu className="w-5 h-5" />
-          </div>
-          <span className="text-[10px] tracking-tight">Admin Menu</span>
-        </button>
-      </nav>
+          <button
+            onClick={() => router.push('/students')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
+              pathname.startsWith('/students')
+                ? 'text-madin-900 font-bold scale-105'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <div className={`p-1 rounded-lg ${pathname.startsWith('/students') ? 'bg-madin-50 text-madin-900' : ''}`}>
+              <Users className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] tracking-tight">Students</span>
+          </button>
+
+          <button
+            onClick={() => router.push('/academics/school')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
+              pathname.startsWith('/academics')
+                ? 'text-madin-900 font-bold scale-105'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <div className={`p-1 rounded-lg ${pathname.startsWith('/academics') ? 'bg-madin-50 text-madin-900' : ''}`}>
+              <GraduationCap className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] tracking-tight">Academics</span>
+          </button>
+
+          <button
+            onClick={() => router.push('/updates/manage')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
+              pathname.startsWith('/updates')
+                ? 'text-madin-900 font-bold scale-105'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <div className={`p-1 rounded-lg ${pathname.startsWith('/updates') ? 'bg-amber-50 text-amber-700' : ''}`}>
+              <Megaphone className="w-5 h-5 text-amber-600" />
+            </div>
+            <span className="text-[10px] tracking-tight">Updates</span>
+          </button>
+
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="flex flex-col items-center justify-center flex-1 py-1 text-slate-500 hover:text-madin-900 transition-all"
+          >
+            <div className="p-1 rounded-lg">
+              <Menu className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] tracking-tight">Admin Menu</span>
+          </button>
+        </nav>
+      )}
     </div>
   );
 }

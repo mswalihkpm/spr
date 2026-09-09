@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { user, errorResponse } = await authenticateApiRequest(req, 'ADMIN');
+    const { user, errorResponse } = await authenticateApiRequest(req, 'CREATIVE_HUB_ADMIN');
     if (errorResponse) return errorResponse;
 
     const body = await req.json();
@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const { user, errorResponse } = await authenticateApiRequest(req, 'ADMIN');
+    const { user, errorResponse } = await authenticateApiRequest(req, 'CREATIVE_HUB_ADMIN');
     if (errorResponse) return errorResponse;
 
     const body = await req.json();
@@ -220,7 +220,7 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const { user, errorResponse } = await authenticateApiRequest(req, 'ADMIN');
+    const { user, errorResponse } = await authenticateApiRequest(req, 'CREATIVE_HUB_ADMIN');
     if (errorResponse) return errorResponse;
 
     const { searchParams } = new URL(req.url);

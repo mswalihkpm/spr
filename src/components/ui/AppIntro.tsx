@@ -95,7 +95,7 @@ export default function AppIntro({
       {/* Centered Video Container with White Background Removal */}
       <div className="flex-1 flex flex-col items-center justify-center w-full px-4">
         <div
-          className="relative flex items-center justify-center shrink-0 overflow-hidden w-[220px] h-[220px] sm:w-[300px] sm:h-[300px] md:w-[380px] md:h-[380px] lg:w-[420px] lg:h-[420px] max-w-[85vw] max-h-[55vh]"
+          className="relative flex items-center justify-center shrink-0 overflow-hidden w-[120px] h-[120px] sm:w-[150px] sm:h-[150px] md:w-[180px] md:h-[180px] lg:w-[200px] lg:h-[200px] max-w-[65vw] max-h-[35vh]"
           style={{
             backgroundColor: '#ffffff',
           }}

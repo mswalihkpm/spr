@@ -48,7 +48,11 @@ export default function ChangePasswordPage() {
 
       setSuccess(true);
       setTimeout(() => {
-        router.push('/dashboard');
+        if (data.user?.role === 'CREATIVE_HUB_ADMIN') {
+          router.push('/creative-hub');
+        } else {
+          router.push('/dashboard');
+        }
       }, 1200);
     } catch (err: any) {
       setError(err.message);
@@ -64,22 +68,15 @@ export default function ChangePasswordPage() {
           <ShieldAlert className="w-8 h-8" />
         </div>
         <h2 className="text-2xl font-extrabold text-white tracking-tight">
-          Security Update Required
+          Security Update & Password Change
         </h2>
         <p className="mt-1 text-xs text-slate-400">
-          Madin School of Excellence • Initial Administrator Setup
+          Madin School of Excellence • Authentication & Access Control
         </p>
       </div>
 
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md px-4">
         <div className="bg-white py-8 px-6 sm:px-10 shadow-2xl rounded-2xl border border-slate-100">
-          <div className="mb-5 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start space-x-2.5">
-            <AlertCircle className="w-4 h-4 shrink-0 text-amber-700 mt-0.5" />
-            <span>
-              <strong>First-Time Login Security:</strong> You are currently using a temporary bootstrap credential. You must establish a permanent personal password to unlock the platform.
-            </span>
-          </div>
-
           {error && (
             <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start space-x-2">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -90,7 +87,7 @@ export default function ChangePasswordPage() {
           {success && (
             <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs flex items-center space-x-2">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>Password updated successfully! Redirecting to Dashboard...</span>
+              <span>Password updated successfully! Redirecting...</span>
             </div>
           )}
 

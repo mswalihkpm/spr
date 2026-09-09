@@ -37,42 +37,69 @@ async function main() {
     },
   });
 
-  // 2. Initial Super Admin (excellence@madin.edu.in)
-  const adminPasswordHash = await bcrypt.hash('7412369', 10);
-  const superAdmin = await prisma.user.upsert({
+  // 2. Main Super Admin Accounts & Creative Hub Admin
+  const admin1PasswordHash = await bcrypt.hash('7412369', 10);
+  const superAdmin1 = await prisma.user.upsert({
     where: { email: 'excellence@madin.edu.in' },
     update: {
-      passwordHash: adminPasswordHash,
+      passwordHash: admin1PasswordHash,
       mustChangePassword: false,
       status: 'ACTIVE',
       role: 'SUPER_ADMIN',
+      name: 'Super Administrator (Excellence)',
     },
     create: {
       email: 'excellence@madin.edu.in',
-      name: 'Super Administrator',
-      passwordHash: adminPasswordHash,
+      name: 'Super Administrator (Excellence)',
+      passwordHash: admin1PasswordHash,
       role: 'SUPER_ADMIN',
       mustChangePassword: false,
       status: 'ACTIVE',
     },
   });
-  console.log('Super Admin provisioned:', superAdmin.email);
+  console.log('Super Admin 1 provisioned:', superAdmin1.email);
 
-  // Staff Account (mswalihkpm@gmail.com)
-  const standardPasswordHash = await bcrypt.hash('Madin@2026', 10);
-  const staffUser = await prisma.user.upsert({
+  const admin2PasswordHash = await bcrypt.hash('9632147', 10);
+  const superAdmin2 = await prisma.user.upsert({
     where: { email: 'mswalihkpm@gmail.com' },
-    update: {},
+    update: {
+      passwordHash: admin2PasswordHash,
+      mustChangePassword: false,
+      status: 'ACTIVE',
+      role: 'SUPER_ADMIN',
+      name: 'Super Administrator (Swalih KPM)',
+    },
     create: {
       email: 'mswalihkpm@gmail.com',
-      name: 'M Swalih KPM',
-      passwordHash: standardPasswordHash,
-      role: 'TEACHER',
+      name: 'Super Administrator (Swalih KPM)',
+      passwordHash: admin2PasswordHash,
+      role: 'SUPER_ADMIN',
       mustChangePassword: false,
       status: 'ACTIVE',
     },
   });
-  console.log('Staff provisioned:', staffUser.email);
+  console.log('Super Admin 2 provisioned:', superAdmin2.email);
+
+  const creativeHubPasswordHash = await bcrypt.hash('00074123', 10);
+  const creativeHubAdmin = await prisma.user.upsert({
+    where: { email: 'creativehub@gmail.com' },
+    update: {
+      passwordHash: creativeHubPasswordHash,
+      mustChangePassword: false,
+      status: 'ACTIVE',
+      role: 'CREATIVE_HUB_ADMIN',
+      name: 'Creative Hub Admin',
+    },
+    create: {
+      email: 'creativehub@gmail.com',
+      name: 'Creative Hub Admin',
+      passwordHash: creativeHubPasswordHash,
+      role: 'CREATIVE_HUB_ADMIN',
+      mustChangePassword: false,
+      status: 'ACTIVE',
+    },
+  });
+  console.log('Creative Hub Admin provisioned:', creativeHubAdmin.email);
 
   // 3. Academic Year & Terms
   const academicYear = await prisma.academicYear.upsert({
@@ -526,7 +553,7 @@ async function main() {
           maxScore: 100,
           percentage: subScore,
           date: new Date('2026-07-20'),
-          createdById: superAdmin.id,
+          createdById: superAdmin1.id,
         },
       });
     }
@@ -546,7 +573,7 @@ async function main() {
           maxScore: 100,
           percentage: subScore,
           date: new Date('2026-07-25'),
-          createdById: superAdmin.id,
+          createdById: superAdmin1.id,
         },
       });
     }
@@ -566,7 +593,7 @@ async function main() {
         percentage: Number(((progObtained / 50) * 100).toFixed(1)),
         date: new Date('2026-07-16'),
         remarks: 'Demonstrated exceptional articulation and stage presence',
-        createdById: superAdmin.id,
+        createdById: superAdmin1.id,
       },
     });
 
@@ -603,7 +630,7 @@ async function main() {
         percentage: Number(((litScore / 50) * 100).toFixed(1)),
         date: new Date('2026-08-11'),
         remarks: 'Sahityotsav District level A-Grade winner',
-        createdById: superAdmin.id,
+        createdById: superAdmin1.id,
       },
     });
 

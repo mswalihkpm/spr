@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
 // POST create Creative Form or Published Media
 export async function POST(req: NextRequest) {
   try {
-    const { user, errorResponse } = await authenticateApiRequest(req, 'ADMIN');
+    const { user, errorResponse } = await authenticateApiRequest(req, 'CREATIVE_HUB_ADMIN');
     if (errorResponse) return errorResponse;
 
     const body = await req.json();
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
 // PUT update Creative Form or Published Media
 export async function PUT(req: NextRequest) {
   try {
-    const { user, errorResponse } = await authenticateApiRequest(req, 'ADMIN');
+    const { user, errorResponse } = await authenticateApiRequest(req, 'CREATIVE_HUB_ADMIN');
     if (errorResponse) return errorResponse;
 
     const body = await req.json();
@@ -167,7 +167,7 @@ export async function PUT(req: NextRequest) {
 // DELETE delete Creative Form or Published Media (Soft or Safe Delete)
 export async function DELETE(req: NextRequest) {
   try {
-    const { user, errorResponse } = await authenticateApiRequest(req, 'ADMIN');
+    const { user, errorResponse } = await authenticateApiRequest(req, 'CREATIVE_HUB_ADMIN');
     if (errorResponse) return errorResponse;
 
     const { searchParams } = new URL(req.url);
