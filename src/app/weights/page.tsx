@@ -19,6 +19,8 @@ import {
   Award,
   Newspaper,
   Flame,
+  Feather,
+  Library,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 
@@ -90,6 +92,32 @@ export default function WeightsPage() {
     setPublishedMedia((prev) =>
       prev.map((pm) => (pm.id === mediaId ? { ...pm, weight: Math.max(0.1, val) } : pm))
     );
+  };
+
+  const renderCategoryIcon = (code?: string, iconName?: string) => {
+    const key = (code || iconName || '').toUpperCase();
+    if (key.includes('ISLAMIC') || key.includes('BOOK')) {
+      return <BookOpen className="w-4 h-4 text-blue-700" />;
+    }
+    if (key.includes('SCHOOL') || key.includes('GRADUATION')) {
+      return <GraduationCap className="w-4 h-4 text-indigo-700" />;
+    }
+    if (key.includes('PROGRAM') || key.includes('TROPHY')) {
+      return <Trophy className="w-4 h-4 text-purple-600" />;
+    }
+    if (key.includes('CREATIVE') || key.includes('SPARKLE')) {
+      return <Sparkles className="w-4 h-4 text-cyan-600" />;
+    }
+    if (key.includes('LITERARY') || key.includes('FEATHER')) {
+      return <Feather className="w-4 h-4 text-rose-600" />;
+    }
+    if (key.includes('LIBRARY') || key.includes('READING')) {
+      return <Library className="w-4 h-4 text-amber-700" />;
+    }
+    if (key.includes('QUALIF') || key.includes('AWARD')) {
+      return <Award className="w-4 h-4 text-blue-800" />;
+    }
+    return <Layers className="w-4 h-4 text-slate-700" />;
   };
 
   const totalIncludedWeight = weights
@@ -211,16 +239,16 @@ export default function WeightsPage() {
                 className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col justify-between space-y-3"
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-sm font-bold text-slate-800 shadow-xs">
-                      {w.icon || '📚'}
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-xs">
+                      {renderCategoryIcon(w.code, w.icon)}
                     </div>
-                    <div>
-                      <div className="text-xs font-bold text-slate-900">{w.name}</div>
-                      <div className="text-[10px] text-slate-400 font-mono">Code: {w.code}</div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-900 truncate">{w.name}</div>
+                      <div className="text-[10px] text-slate-400 font-mono truncate">Code: {w.code}</div>
                     </div>
                   </div>
-                  <span className="text-xs font-black text-blue-900 bg-white px-2.5 py-1 rounded-xl border border-slate-200">
+                  <span className="text-xs font-black text-blue-900 bg-white px-2.5 py-1 rounded-xl border border-slate-200 shrink-0 ml-2">
                     {Number(w.weight).toFixed(1)}x
                   </span>
                 </div>

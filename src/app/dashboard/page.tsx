@@ -30,6 +30,7 @@ import {
   Check,
   X,
   ExternalLink,
+  Trash2,
 } from 'lucide-react';
 import {
   BarChart,
@@ -55,6 +56,9 @@ export default function DashboardPage() {
   const [loadingReports, setLoadingReports] = useState(true);
   const [reportFilter, setReportFilter] = useState<'ALL' | 'PENDING' | 'RESOLVED'>('ALL');
   const [updatingReportId, setUpdatingReportId] = useState<string | null>(null);
+  const [selectedReportIds, setSelectedReportIds] = useState<string[]>([]);
+  const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
+  const [bulkDeletingReports, setBulkDeletingReports] = useState(false);
 
   const fetchAnalytics = async () => {
     try {
@@ -109,6 +113,87 @@ export default function DashboardPage() {
       console.error('Error updating report status:', err);
     } finally {
       setUpdatingReportId(null);
+    }
+  };
+
+  const handleDeleteReport = async (reportId: string, studentName: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete the inquiry for "${studentName || 'this student'}"?`)) return;
+    try {
+      setDeletingReportId(reportId);
+      const res = await fetch(`/api/reports?id=${reportId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setSelectedReportIds((prev) => prev.filter((id) => id !== reportId));
+        fetchReports();
+      } else {
+        const errData = await res.json();
+        alert(errData.error || 'Failed to delete report.');
+      }
+    } catch (err) {
+      console.error('Error deleting report:', err);
+    } finally {
+      setDeletingReportId(null);
+    }
+  };
+
+  const handleBulkDeleteReports = async () => {
+    if (selectedReportIds.length === 0) return;
+    if (!window.confirm(`Permanently delete ${selectedReportIds.length} selected inquiry report(s)?`)) return;
+    try {
+      setBulkDeletingReports(true);
+      const res = await fetch('/api/reports', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedReportIds }),
+      });
+      if (res.ok) {
+        setSelectedReportIds([]);
+        fetchReports();
+      } else {
+        const errData = await res.json();
+        alert(errData.error || 'Failed to bulk delete reports.');
+      }
+    } catch (err) {
+      console.error('Error bulk deleting reports:', err);
+    } finally {
+      setBulkDeletingReports(false);
+    }
+  };
+
+  const handleClearResolvedReports = async () => {
+    const resolvedCount = reports.filter((r) => r.status === 'RESOLVED').length;
+    if (resolvedCount === 0) return;
+    if (!window.confirm(`Clear all ${resolvedCount} resolved inquiry reports from database?`)) return;
+    try {
+      setBulkDeletingReports(true);
+      const res = await fetch('/api/reports', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clearResolved: true }),
+      });
+      if (res.ok) {
+        setSelectedReportIds([]);
+        fetchReports();
+      }
+    } catch (err) {
+      console.error('Error clearing resolved reports:', err);
+    } finally {
+      setBulkDeletingReports(false);
+    }
+  };
+
+  const toggleSelectReport = (id: string) => {
+    setSelectedReportIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllFilteredReports = () => {
+    const visibleIds = filteredReports.map((r) => r.id);
+    const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedReportIds.includes(id));
+    if (allSelected) {
+      setSelectedReportIds((prev) => prev.filter((id) => !visibleIds.includes(id)));
+    } else {
+      setSelectedReportIds((prev) => Array.from(new Set([...prev, ...visibleIds])));
     }
   };
 
@@ -269,33 +354,71 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <div className="flex items-center space-x-1.5 bg-slate-100 p-1 rounded-xl">
-              <button
-                onClick={() => setReportFilter('ALL')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
-                  reportFilter === 'ALL' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
-                }`}
-              >
-                All ({reports.length})
-              </button>
-              <button
-                onClick={() => setReportFilter('PENDING')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
-                  reportFilter === 'PENDING' ? 'bg-rose-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-900'
-                }`}
-              >
-                Pending ({pendingReportsCount})
-              </button>
-              <button
-                onClick={() => setReportFilter('RESOLVED')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
-                  reportFilter === 'RESOLVED' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-900'
-                }`}
-              >
-                Resolved ({reports.filter((r) => r.status === 'RESOLVED').length})
-              </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {selectedReportIds.length > 0 && (
+                <button
+                  disabled={bulkDeletingReports}
+                  onClick={handleBulkDeleteReports}
+                  className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-sm transition animate-slide-left"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Selected ({selectedReportIds.length})</span>
+                </button>
+              )}
+
+              {reports.some((r) => r.status === 'RESOLVED') && selectedReportIds.length === 0 && (
+                <button
+                  disabled={bulkDeletingReports}
+                  onClick={handleClearResolvedReports}
+                  className="px-2.5 py-1 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 rounded-xl text-xs font-medium border border-slate-200 transition"
+                  title="Remove all resolved inquiries from database"
+                >
+                  Clear Resolved
+                </button>
+              )}
+
+              <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl">
+                <button
+                  onClick={() => setReportFilter('ALL')}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                    reportFilter === 'ALL' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  All ({reports.length})
+                </button>
+                <button
+                  onClick={() => setReportFilter('PENDING')}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                    reportFilter === 'PENDING' ? 'bg-rose-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  Pending ({pendingReportsCount})
+                </button>
+                <button
+                  onClick={() => setReportFilter('RESOLVED')}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                    reportFilter === 'RESOLVED' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  Resolved ({reports.filter((r) => r.status === 'RESOLVED').length})
+                </button>
+              </div>
             </div>
           </div>
+
+          {filteredReports.length > 0 && (
+            <div className="flex items-center justify-between px-2 pt-1 text-xs text-slate-500">
+              <label className="flex items-center space-x-2 cursor-pointer font-medium hover:text-slate-900 select-none">
+                <input
+                  type="checkbox"
+                  checked={filteredReports.length > 0 && filteredReports.every((r) => selectedReportIds.includes(r.id))}
+                  onChange={toggleSelectAllFilteredReports}
+                  className="rounded border-slate-300 text-rose-600 focus:ring-rose-500 w-3.5 h-3.5"
+                />
+                <span>Select all in view ({filteredReports.length})</span>
+              </label>
+            </div>
+          )}
 
           {loadingReports ? (
             <div className="py-8 flex items-center justify-center">
@@ -307,57 +430,71 @@ export default function DashboardPage() {
               No inquiries found in this view. All student reports are up-to-date.
             </div>
           ) : (
-            <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">
+            <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
               {filteredReports.map((rep) => {
                 const isPending = rep.status === 'PENDING';
                 const isResolved = rep.status === 'RESOLVED';
+                const isSelected = selectedReportIds.includes(rep.id);
                 return (
-                  <div key={rep.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs hover:bg-slate-50/60 px-2 rounded-xl transition">
-                    <div className="space-y-1 flex-1">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-extrabold text-slate-900">{rep.studentName}</span>
-                        {rep.className && (
-                          <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-medium">
-                            {rep.className}
+                  <div
+                    key={rep.id}
+                    className={`py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs px-2.5 rounded-xl transition ${
+                      isSelected ? 'bg-rose-50/50 border border-rose-100' : 'hover:bg-slate-50/60'
+                    }`}
+                  >
+                    <div className="flex items-start space-x-2.5 flex-1 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelectReport(rep.id)}
+                        className="mt-1 rounded border-slate-300 text-rose-600 focus:ring-rose-500 w-3.5 h-3.5 shrink-0"
+                      />
+                      <div className="space-y-1 flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="font-extrabold text-slate-900">{rep.studentName}</span>
+                          {rep.className && (
+                            <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-medium">
+                              {rep.className}
+                            </span>
+                          )}
+                          {rep.sprScore && (
+                            <span className="text-[10px] font-black text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
+                              SPR: {rep.sprScore}%
+                            </span>
+                          )}
+                          <span
+                            className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
+                              isPending
+                                ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                                : isResolved
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                : 'bg-amber-100 text-amber-800 border border-amber-200'
+                            }`}
+                          >
+                            {rep.status}
                           </span>
-                        )}
-                        {rep.sprScore && (
-                          <span className="text-[10px] font-black text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
-                            SPR: {rep.sprScore}%
-                          </span>
-                        )}
-                        <span
-                          className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
-                            isPending
-                              ? 'bg-rose-100 text-rose-800 border border-rose-200'
-                              : isResolved
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                              : 'bg-amber-100 text-amber-800 border border-amber-200'
-                          }`}
-                        >
-                          {rep.status}
-                        </span>
-                      </div>
+                        </div>
 
-                      <div className="text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100 font-medium">
-                        "{rep.message}"
-                      </div>
+                        <div className="text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100 font-medium break-words">
+                          &ldquo;{rep.message}&rdquo;
+                        </div>
 
-                      <div className="text-[10px] text-slate-400 flex items-center space-x-2">
-                        <span>Reported by: <strong className="text-slate-600">{rep.reporterName}</strong></span>
-                        <span>•</span>
-                        <span>{new Date(rep.createdAt).toLocaleString()}</span>
+                        <div className="text-[10px] text-slate-400 flex items-center space-x-2">
+                          <span>Reported by: <strong className="text-slate-600">{rep.reporterName}</strong></span>
+                          <span>•</span>
+                          <span>{new Date(rep.createdAt).toLocaleString()}</span>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-2 shrink-0">
+                    <div className="flex items-center space-x-1.5 shrink-0 sm:self-center self-end">
                       {rep.studentId && (
                         <button
                           onClick={() => router.push(`/students/${rep.studentId}`)}
                           className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center space-x-1 transition"
                           title="Open student dossier"
                         >
-                          <span>Review Dossier</span>
+                          <span>Review</span>
                           <ExternalLink className="w-3 h-3" />
                         </button>
                       )}
@@ -366,7 +503,7 @@ export default function DashboardPage() {
                         <button
                           disabled={updatingReportId === rep.id}
                           onClick={() => handleUpdateReportStatus(rep.id, 'RESOLVED')}
-                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center space-x-1 shadow-xs transition"
+                          className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center space-x-1 shadow-xs transition"
                         >
                           <Check className="w-3.5 h-3.5" />
                           <span>Resolve</span>
@@ -380,6 +517,16 @@ export default function DashboardPage() {
                           Mark Pending
                         </button>
                       )}
+
+                      {/* Single Delete Action Button */}
+                      <button
+                        disabled={deletingReportId === rep.id}
+                        onClick={() => handleDeleteReport(rep.id, rep.studentName)}
+                        className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-transparent hover:border-rose-200 transition"
+                        title="Delete this inquiry"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 );

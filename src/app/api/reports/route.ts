@@ -101,3 +101,90 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to update report.' }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { user, errorResponse } = await authenticateApiRequest(req, 'ADMIN');
+    if (errorResponse) return errorResponse;
+
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      // Body empty or not JSON
+    }
+
+    const idsToDelete: string[] = [];
+    if (id) idsToDelete.push(id);
+    if (body.id) idsToDelete.push(body.id);
+    if (body.reportId) idsToDelete.push(body.reportId);
+    if (body.ids && Array.isArray(body.ids)) idsToDelete.push(...body.ids);
+
+    if (body.clearResolved) {
+      const deleteResult = await prisma.studentReport.deleteMany({
+        where: { status: 'RESOLVED' },
+      });
+
+      await logAuditAction({
+        userId: user?.id,
+        userName: user?.name,
+        action: 'BULK_DELETE',
+        entity: 'StudentReport',
+        newValue: { clearedResolved: true, count: deleteResult.count },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Cleared ${deleteResult.count} resolved reports.`,
+        count: deleteResult.count,
+      });
+    }
+
+    if (body.all || body.clearAll) {
+      const deleteResult = await prisma.studentReport.deleteMany();
+
+      await logAuditAction({
+        userId: user?.id,
+        userName: user?.name,
+        action: 'BULK_DELETE',
+        entity: 'StudentReport',
+        newValue: { clearAll: true, count: deleteResult.count },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Deleted all ${deleteResult.count} reports.`,
+        count: deleteResult.count,
+      });
+    }
+
+    if (idsToDelete.length === 0) {
+      return NextResponse.json({ error: 'Report ID(s) required for deletion.' }, { status: 400 });
+    }
+
+    const deleteResult = await prisma.studentReport.deleteMany({
+      where: { id: { in: idsToDelete } },
+    });
+
+    await logAuditAction({
+      userId: user?.id,
+      userName: user?.name,
+      action: 'DELETE',
+      entity: 'StudentReport',
+      newValue: { count: deleteResult.count, deletedIds: idsToDelete },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: `Successfully deleted ${deleteResult.count} report(s).`,
+      count: deleteResult.count,
+    });
+  } catch (error: any) {
+    console.error('Delete report error:', error);
+    return NextResponse.json({ error: 'Failed to delete report.' }, { status: 500 });
+  }
+}
+
