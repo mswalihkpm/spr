@@ -1,22 +1,17 @@
 const fs = require('fs');
 
-async function findQ6() {
-  const html = await fetch('https://msoelibrary.vercel.app/leaderboard').then(r => r.text());
-  const jsFileMatch = html.match(/src="(\/assets\/[^"]+\.js)"/);
-  const jsCode = await fetch('https://msoelibrary.vercel.app' + jsFileMatch[1]).then(r => r.text());
+const js = fs.readFileSync('src/scratch/lib_bundle.js', 'utf8');
 
-  const idx = jsCode.indexOf('function Q6');
-  console.log('function Q6 idx:', idx);
-  if (idx !== -1) {
-    console.log(jsCode.slice(idx, idx + 1000));
-  } else {
-    // search for Q6=
-    const idx2 = jsCode.indexOf('Q6=');
-    console.log('Q6= idx:', idx2);
-    if (idx2 !== -1) {
-      console.log(jsCode.slice(idx2, idx2 + 1000));
-    }
+// Find Q6
+const idx = js.indexOf('function Q6');
+if (idx !== -1) {
+  console.log('--- Q6 ---');
+  console.log(js.slice(idx, idx + 600));
+} else {
+  const reg = /Q6\s*=\s*/g;
+  let m = reg.exec(js);
+  if (m) {
+    console.log('--- Q6 assign ---');
+    console.log(js.slice(m.index - 50, m.index + 500));
   }
 }
-
-findQ6();
