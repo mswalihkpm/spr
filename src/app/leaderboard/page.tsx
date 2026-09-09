@@ -374,12 +374,22 @@ function LeaderboardContent() {
     setReportModalOpen(true);
   };
 
-  const currentCategory = categories.find((c) => c.id === selectedCategory);
-  const activeCategorySubcategories = subcategories.filter(
-    (s) => s.categoryId === selectedCategory
+  const qualCat = categories.find((c) => c.code === 'QUALIFICATION' || c.name?.toLowerCase().includes('qualif'));
+  const currentCategory = categories.find(
+    (c) => c.id === selectedCategory || c.code === selectedCategory || (selectedCategory === 'QUALIFICATION' && c.code === 'QUALIFICATION')
   );
   const activeSubcategory = subcategories.find((s) => s.id === selectedSubcategory);
-  const qualCat = categories.find((c) => c.code === 'QUALIFICATION' || c.name?.toLowerCase().includes('qualif'));
+  const isQualActive = Boolean(
+    (qualCat && selectedCategory === qualCat.id) ||
+      selectedCategory === 'QUALIFICATION' ||
+      currentCategory?.code === 'QUALIFICATION' ||
+      (activeSubcategory && (activeSubcategory.category?.code === 'QUALIFICATION' || activeSubcategory.categoryId === qualCat?.id))
+  );
+
+  const activeCategoryId = currentCategory?.id || (isQualActive && qualCat ? qualCat.id : selectedCategory);
+  const activeCategorySubcategories = subcategories.filter(
+    (s) => s.categoryId === activeCategoryId || (qualCat && isQualActive && s.categoryId === qualCat.id)
+  );
 
   // Configuration for Themed Hero Header with Logo matching colors and tiny white glow
   let heroTheme = {
@@ -586,7 +596,6 @@ function LeaderboardContent() {
   const isCreativeActive = currentCategory?.code === 'CREATIVE_HUB';
   const isProgramsActive = currentCategory?.code === 'PROGRAMS';
   const isLibraryActive = currentCategory?.code === 'LIBRARY';
-  const isQualActive = Boolean(qualCat && selectedCategory === qualCat.id);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
@@ -659,19 +668,20 @@ function LeaderboardContent() {
             </button>
 
             {/* Qualification */}
-            {qualCat && (
-              <button
-                onClick={() => switchLeaderboard({ type: 'CATEGORY', categoryId: qualCat.id })}
-                className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-150 shrink-0 flex items-center space-x-1.5 ${
-                  isQualActive
-                    ? 'bg-blue-900 text-white shadow-sm shadow-blue-900/20 ring-2 ring-blue-900/30'
-                    : 'bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
-                }`}
-              >
-                <Award className={`w-3.5 h-3.5 ${isQualActive ? 'text-blue-200' : 'text-blue-600'}`} />
-                <span>📜 Qualification</span>
-              </button>
-            )}
+            <button
+              onClick={() => {
+                const qCat = categories.find((c) => c.code === 'QUALIFICATION' || c.name?.toLowerCase().includes('qualif'));
+                switchLeaderboard({ type: 'CATEGORY', categoryId: qCat ? qCat.id : 'QUALIFICATION' });
+              }}
+              className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-150 shrink-0 flex items-center space-x-1.5 ${
+                isQualActive
+                  ? 'bg-blue-900 text-white shadow-sm shadow-blue-900/20 ring-2 ring-blue-900/30'
+                  : 'bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
+              }`}
+            >
+              <Award className={`w-3.5 h-3.5 ${isQualActive ? 'text-blue-200' : 'text-blue-600'}`} />
+              <span>📜 Qualification</span>
+            </button>
 
             {/* Islamic Studies */}
             <button
@@ -769,19 +779,19 @@ function LeaderboardContent() {
             <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto p-1.5 sm:p-2 bg-blue-50/90 rounded-2xl border border-blue-200/80 animate-slide-down">
               <span className="text-[10px] uppercase font-black text-blue-900 ml-1.5 shrink-0">Subcategories:</span>
               <button
-                onClick={() => switchLeaderboard({ type: 'CATEGORY', categoryId: selectedCategory })}
+                onClick={() => switchLeaderboard({ type: 'CATEGORY', categoryId: selectedCategory || activeCategoryId || qualCat?.id || 'QUALIFICATION' })}
                 className={`px-2.5 sm:px-3 py-1 rounded-xl text-[11px] sm:text-xs font-bold transition shrink-0 flex items-center space-x-1 ${
                   !selectedSubcategory
                     ? 'bg-blue-700 text-white shadow-2xs'
                     : 'bg-white text-slate-700 hover:bg-blue-100/60 border border-blue-200'
                 }`}
               >
-                <span>⭐ All {currentCategory?.name || 'Category'}</span>
+                <span>⭐ All {currentCategory?.name || qualCat?.name || 'Qualification'}</span>
               </button>
               {activeCategorySubcategories.map((sub) => (
                 <button
                   key={sub.id}
-                  onClick={() => switchLeaderboard({ type: 'SUBCATEGORY', categoryId: selectedCategory, subcategoryId: sub.id })}
+                  onClick={() => switchLeaderboard({ type: 'SUBCATEGORY', categoryId: selectedCategory || activeCategoryId || qualCat?.id || 'QUALIFICATION', subcategoryId: sub.id })}
                   className={`px-2.5 sm:px-3 py-1 rounded-xl text-[11px] sm:text-xs font-bold transition shrink-0 flex items-center space-x-1 ${
                     selectedSubcategory === sub.id
                       ? 'bg-blue-700 text-white shadow-2xs'

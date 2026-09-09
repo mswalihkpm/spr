@@ -539,7 +539,13 @@ export async function calculateAllLeaderboards(filters?: {
       finalScore = streamIslamicScore;
       totalRecords = streamIslamicRecordsCount;
     } else if (filters?.categoryId) {
-      finalScore = categoryPercentages[filters.categoryId] || 0;
+      const matchedCategory = categories.find(
+        (c) =>
+          c.id === filters.categoryId ||
+          c.code?.toUpperCase() === filters.categoryId?.toUpperCase() ||
+          c.name?.toLowerCase() === filters.categoryId?.toLowerCase()
+      );
+      finalScore = matchedCategory ? (categoryPercentages[matchedCategory.id] || 0) : (categoryPercentages[filters.categoryId] || 0);
     } else {
       if (missingDataRule === 'IGNORE_NORMALIZE') {
         finalScore = activeWeightsTotal > 0 ? Number((weightedSum / (activeWeightsTotal / 100)).toFixed(1)) : 0;
