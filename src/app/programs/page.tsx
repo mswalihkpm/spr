@@ -86,10 +86,12 @@ export default function ProgramsPage() {
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
 
   const handleToggleSelectAll = () => {
-    if (selectedRecordIds.length === recentRecords.length) {
-      setSelectedRecordIds([]);
+    const allSelected = recentRecords.length > 0 && recentRecords.every((r) => selectedRecordIds.includes(r.id));
+    if (allSelected) {
+      const recordIdSet = new Set(recentRecords.map((r) => r.id));
+      setSelectedRecordIds((prev) => prev.filter((id) => !recordIdSet.has(id)));
     } else {
-      setSelectedRecordIds(recentRecords.map((r) => r.id));
+      setSelectedRecordIds((prev) => Array.from(new Set([...prev, ...recentRecords.map((r) => r.id)])));
     }
   };
 
@@ -579,7 +581,7 @@ export default function ProgramsPage() {
                   <th className="py-2.5 px-4 w-10 text-center">
                     <input
                       type="checkbox"
-                      checked={recentRecords.length > 0 && selectedRecordIds.length === recentRecords.length}
+                      checked={recentRecords.length > 0 && recentRecords.every((r) => selectedRecordIds.includes(r.id))}
                       onChange={handleToggleSelectAll}
                       className="w-4 h-4 rounded text-blue-600 focus:ring-blue-600 cursor-pointer"
                       title="Select All"

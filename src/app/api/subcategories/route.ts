@@ -190,34 +190,62 @@ export async function DELETE(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
-    if (!id) {
-      return NextResponse.json({ error: 'Subcategory ID is required.' }, { status: 400 });
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      // Body not JSON or empty
     }
 
-    const existing = await prisma.subcategory.findUnique({ where: { id } });
-    if (!existing) {
-      return NextResponse.json({ success: true, message: 'Subcategory already removed.' });
+    const idsToDelete: string[] = [];
+    if (body.ids && Array.isArray(body.ids)) {
+      idsToDelete.push(...body.ids);
+    }
+    if (body.subcategoryIds && Array.isArray(body.subcategoryIds)) {
+      idsToDelete.push(...body.subcategoryIds);
+    }
+    if (id && !idsToDelete.includes(id)) {
+      idsToDelete.push(id);
     }
 
-    await prisma.$transaction([
-      prisma.performanceRecord.deleteMany({ where: { subcategoryId: id } }),
-      prisma.subcategory.delete({ where: { id } }),
+    if (idsToDelete.length === 0) {
+      return NextResponse.json({ error: 'Subcategory ID(s) are required for deletion.' }, { status: 400 });
+    }
+
+    const existingSubcategories = await prisma.subcategory.findMany({
+      where: { id: { in: idsToDelete } },
+    });
+
+    if (existingSubcategories.length === 0) {
+      return NextResponse.json({ success: true, message: 'Subcategories already removed.' });
+    }
+
+    const validIds = existingSubcategories.map((s) => s.id);
+
+    const [deleteRecordsResult, deleteSubcategoriesResult] = await prisma.$transaction([
+      prisma.performanceRecord.deleteMany({ where: { subcategoryId: { in: validIds } } }),
+      prisma.subcategory.deleteMany({ where: { id: { in: validIds } } }),
     ]);
 
     await logAuditAction({
       userId: user?.id,
       userName: user?.name,
-      action: 'DELETE',
+      action: 'BULK_DELETE',
       entity: 'Subcategory',
-      entityId: id,
-      previousValue: existing,
+      newValue: { count: deleteSubcategoriesResult.count, ids: validIds, deletedRecords: deleteRecordsResult.count },
     });
 
     invalidateEngineCache();
 
-    return NextResponse.json({ success: true, message: 'Subcategory deleted successfully.' });
+    return NextResponse.json({
+      success: true,
+      message: `Successfully deleted ${deleteSubcategoriesResult.count} subcategory(ies) and associated scores.`,
+      count: deleteSubcategoriesResult.count,
+      deletedCount: deleteSubcategoriesResult.count,
+    });
   } catch (error: any) {
     console.error('Delete subcategory error:', error);
     return NextResponse.json({ error: error.message || 'Failed to delete subcategory.' }, { status: 500 });
   }
 }
+

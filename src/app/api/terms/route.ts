@@ -144,39 +144,66 @@ export async function DELETE(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
-    if (!id) {
-      return NextResponse.json({ error: 'Term ID is required.' }, { status: 400 });
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      // Body not JSON or empty
     }
 
-    const existing = await prisma.term.findUnique({
-      where: { id },
-      include: { _count: { select: { performanceRecords: true, exams: true } } },
+    const idsToDelete: string[] = [];
+    if (body.ids && Array.isArray(body.ids)) {
+      idsToDelete.push(...body.ids);
+    }
+    if (id && !idsToDelete.includes(id)) {
+      idsToDelete.push(id);
+    }
+
+    if (idsToDelete.length === 0) {
+      return NextResponse.json({ error: 'Term ID(s) are required for deletion.' }, { status: 400 });
+    }
+
+    const existingTerms = await prisma.term.findMany({
+      where: { id: { in: idsToDelete } },
+      select: { id: true },
     });
 
-    if (!existing) {
-      return NextResponse.json({ success: true, message: 'Assessment term already removed.' });
+    if (existingTerms.length === 0) {
+      return NextResponse.json({ success: true, message: 'Assessment terms already removed.' });
     }
 
-    if (existing._count.performanceRecords > 0) {
-      await prisma.performanceRecord.deleteMany({ where: { termId: id } });
-    }
+    const validIds = existingTerms.map((t) => t.id);
+    const exams = await prisma.exam.findMany({ where: { termId: { in: validIds } }, select: { id: true } });
+    const examIds = exams.map((e) => e.id);
 
-    // Delete child exams and term
-    await prisma.exam.deleteMany({ where: { termId: id } });
-    await prisma.term.delete({ where: { id } });
+    const ops: any[] = [
+      prisma.performanceRecord.deleteMany({ where: { termId: { in: validIds } } }),
+    ];
+    if (examIds.length > 0) {
+      ops.push(prisma.performanceRecord.deleteMany({ where: { examId: { in: examIds } } }));
+      ops.push(prisma.exam.deleteMany({ where: { id: { in: examIds } } }));
+    }
+    ops.push(prisma.term.deleteMany({ where: { id: { in: validIds } } }));
+
+    await prisma.$transaction(ops);
 
     await logAuditAction({
       userId: user?.id,
       userName: user?.name,
-      action: 'DELETE',
+      action: 'BULK_DELETE',
       entity: 'Term',
-      entityId: id,
-      previousValue: existing,
+      newValue: { count: validIds.length, ids: validIds },
     });
 
-    return NextResponse.json({ success: true, message: 'Assessment term deleted successfully.' });
+    return NextResponse.json({
+      success: true,
+      message: `Successfully deleted ${validIds.length} assessment term(s).`,
+      count: validIds.length,
+      deletedCount: validIds.length,
+    });
   } catch (error: any) {
     console.error('Delete term error:', error);
     return NextResponse.json({ error: error.message || 'Failed to delete assessment term.' }, { status: 500 });
   }
 }
+

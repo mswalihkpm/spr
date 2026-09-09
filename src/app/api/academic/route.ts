@@ -340,19 +340,37 @@ export async function DELETE(req: NextRequest) {
     if (errorResponse) return errorResponse;
 
     const { searchParams } = new URL(req.url);
-    const type = searchParams.get('type');
+    let type = searchParams.get('type');
     const id = searchParams.get('id');
 
-    if (!type || !id) {
-      return NextResponse.json({ error: 'Entity type and ID are required for deletion.' }, { status: 400 });
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      // Body not JSON or empty
     }
 
-    let prevRecord = null;
+    if (body.type) {
+      type = body.type;
+    }
+
+    const idsToDelete: string[] = [];
+    if (body.ids && Array.isArray(body.ids)) {
+      idsToDelete.push(...body.ids);
+    }
+    if (id && !idsToDelete.includes(id)) {
+      idsToDelete.push(id);
+    }
+
+    if (!type || idsToDelete.length === 0) {
+      return NextResponse.json({ error: 'Entity type and ID(s) are required for deletion.' }, { status: 400 });
+    }
 
     if (type === 'SCHOOL') {
-      prevRecord = await prisma.school.findUnique({ where: { id } });
-      if (!prevRecord) return NextResponse.json({ success: true, message: 'School already removed.' });
-      const students = await prisma.student.findMany({ where: { schoolId: id }, select: { id: true } });
+      const schools = await prisma.school.findMany({ where: { id: { in: idsToDelete } } });
+      if (schools.length === 0) return NextResponse.json({ success: true, message: 'Schools already removed.' });
+      const validIds = schools.map((s) => s.id);
+      const students = await prisma.student.findMany({ where: { schoolId: { in: validIds } }, select: { id: true } });
       const studentIds = students.map((s) => s.id);
       const ops: any[] = [];
       if (studentIds.length > 0) {
@@ -361,12 +379,13 @@ export async function DELETE(req: NextRequest) {
         ops.push(prisma.libraryRecord.deleteMany({ where: { studentId: { in: studentIds } } }));
         ops.push(prisma.student.deleteMany({ where: { id: { in: studentIds } } }));
       }
-      ops.push(prisma.school.delete({ where: { id } }));
+      ops.push(prisma.school.deleteMany({ where: { id: { in: validIds } } }));
       await prisma.$transaction(ops);
     } else if (type === 'CLASS') {
-      prevRecord = await prisma.academicClass.findUnique({ where: { id } });
-      if (!prevRecord) return NextResponse.json({ success: true, message: 'Class already removed.' });
-      const students = await prisma.student.findMany({ where: { classId: id }, select: { id: true } });
+      const classes = await prisma.academicClass.findMany({ where: { id: { in: idsToDelete } } });
+      if (classes.length === 0) return NextResponse.json({ success: true, message: 'Classes already removed.' });
+      const validIds = classes.map((c) => c.id);
+      const students = await prisma.student.findMany({ where: { classId: { in: validIds } }, select: { id: true } });
       const studentIds = students.map((s) => s.id);
       const ops: any[] = [];
       if (studentIds.length > 0) {
@@ -375,63 +394,69 @@ export async function DELETE(req: NextRequest) {
         ops.push(prisma.libraryRecord.deleteMany({ where: { studentId: { in: studentIds } } }));
         ops.push(prisma.student.deleteMany({ where: { id: { in: studentIds } } }));
       }
-      ops.push(prisma.academicClass.delete({ where: { id } }));
+      ops.push(prisma.academicClass.deleteMany({ where: { id: { in: validIds } } }));
       await prisma.$transaction(ops);
     } else if (type === 'SUBJECT') {
-      prevRecord = await prisma.subject.findUnique({ where: { id } });
-      if (!prevRecord) return NextResponse.json({ success: true, message: 'Subject already removed.' });
+      const subjects = await prisma.subject.findMany({ where: { id: { in: idsToDelete } } });
+      if (subjects.length === 0) return NextResponse.json({ success: true, message: 'Subjects already removed.' });
+      const validIds = subjects.map((s) => s.id);
       await prisma.$transaction([
-        prisma.performanceRecord.deleteMany({ where: { subjectId: id } }),
-        prisma.subject.delete({ where: { id } }),
+        prisma.performanceRecord.deleteMany({ where: { subjectId: { in: validIds } } }),
+        prisma.subject.deleteMany({ where: { id: { in: validIds } } }),
       ]);
     } else if (type === 'EXAM') {
-      prevRecord = await prisma.exam.findUnique({ where: { id } });
-      if (!prevRecord) return NextResponse.json({ success: true, message: 'Exam already removed.' });
+      const exams = await prisma.exam.findMany({ where: { id: { in: idsToDelete } } });
+      if (exams.length === 0) return NextResponse.json({ success: true, message: 'Exams already removed.' });
+      const validIds = exams.map((e) => e.id);
       await prisma.$transaction([
-        prisma.performanceRecord.deleteMany({ where: { examId: id } }),
-        prisma.exam.delete({ where: { id } }),
+        prisma.performanceRecord.deleteMany({ where: { examId: { in: validIds } } }),
+        prisma.exam.deleteMany({ where: { id: { in: validIds } } }),
       ]);
     } else if (type === 'TERM') {
-      prevRecord = await prisma.term.findUnique({ where: { id } });
-      if (!prevRecord) return NextResponse.json({ success: true, message: 'Term already removed.' });
-      const exams = await prisma.exam.findMany({ where: { termId: id }, select: { id: true } });
+      const terms = await prisma.term.findMany({ where: { id: { in: idsToDelete } } });
+      if (terms.length === 0) return NextResponse.json({ success: true, message: 'Terms already removed.' });
+      const validIds = terms.map((t) => t.id);
+      const exams = await prisma.exam.findMany({ where: { termId: { in: validIds } }, select: { id: true } });
       const examIds = exams.map((e) => e.id);
       const ops: any[] = [
-        prisma.performanceRecord.deleteMany({ where: { termId: id } }),
+        prisma.performanceRecord.deleteMany({ where: { termId: { in: validIds } } }),
       ];
       if (examIds.length > 0) {
         ops.push(prisma.performanceRecord.deleteMany({ where: { examId: { in: examIds } } }));
         ops.push(prisma.exam.deleteMany({ where: { id: { in: examIds } } }));
       }
-      ops.push(prisma.term.delete({ where: { id } }));
+      ops.push(prisma.term.deleteMany({ where: { id: { in: validIds } } }));
       await prisma.$transaction(ops);
     } else if (type === 'LEVEL') {
-      prevRecord = await prisma.level.findUnique({ where: { id } });
-      if (!prevRecord) return NextResponse.json({ success: true, message: 'Level already removed.' });
+      const levels = await prisma.level.findMany({ where: { id: { in: idsToDelete } } });
+      if (levels.length === 0) return NextResponse.json({ success: true, message: 'Levels already removed.' });
+      const validIds = levels.map((l) => l.id);
       await prisma.$transaction([
-        prisma.performanceRecord.deleteMany({ where: { levelId: id } }),
-        prisma.literaryCompetition.updateMany({ where: { levelId: id }, data: { levelId: null } }),
-        prisma.program.updateMany({ where: { levelId: id }, data: { levelId: null } }),
-        prisma.level.delete({ where: { id } }),
+        prisma.performanceRecord.deleteMany({ where: { levelId: { in: validIds } } }),
+        prisma.literaryCompetition.updateMany({ where: { levelId: { in: validIds } }, data: { levelId: null } }),
+        prisma.program.updateMany({ where: { levelId: { in: validIds } }, data: { levelId: null } }),
+        prisma.level.deleteMany({ where: { id: { in: validIds } } }),
       ]);
     } else if (type === 'PROGRAM') {
-      prevRecord = await prisma.program.findUnique({ where: { id } });
-      if (!prevRecord) return NextResponse.json({ success: true, message: 'Program already removed.' });
-      const comps = await prisma.competition.findMany({ where: { programId: id }, select: { id: true } });
+      const programs = await prisma.program.findMany({ where: { id: { in: idsToDelete } } });
+      if (programs.length === 0) return NextResponse.json({ success: true, message: 'Programs already removed.' });
+      const validIds = programs.map((p) => p.id);
+      const comps = await prisma.competition.findMany({ where: { programId: { in: validIds } }, select: { id: true } });
       const compIds = comps.map((c) => c.id);
       const ops: any[] = [];
       if (compIds.length > 0) {
         ops.push(prisma.performanceRecord.deleteMany({ where: { competitionId: { in: compIds } } }));
         ops.push(prisma.competition.deleteMany({ where: { id: { in: compIds } } }));
       }
-      ops.push(prisma.program.delete({ where: { id } }));
+      ops.push(prisma.program.deleteMany({ where: { id: { in: validIds } } }));
       await prisma.$transaction(ops);
     } else if (type === 'COMPETITION') {
-      prevRecord = await prisma.competition.findUnique({ where: { id } });
-      if (!prevRecord) return NextResponse.json({ success: true, message: 'Competition already removed.' });
+      const comps = await prisma.competition.findMany({ where: { id: { in: idsToDelete } } });
+      if (comps.length === 0) return NextResponse.json({ success: true, message: 'Competitions already removed.' });
+      const validIds = comps.map((c) => c.id);
       await prisma.$transaction([
-        prisma.performanceRecord.deleteMany({ where: { competitionId: id } }),
-        prisma.competition.delete({ where: { id } }),
+        prisma.performanceRecord.deleteMany({ where: { competitionId: { in: validIds } } }),
+        prisma.competition.deleteMany({ where: { id: { in: validIds } } }),
       ]);
     } else {
       return NextResponse.json({ error: 'Invalid entity type specified.' }, { status: 400 });
@@ -440,21 +465,23 @@ export async function DELETE(req: NextRequest) {
     await logAuditAction({
       userId: user?.id,
       userName: user?.name,
-      action: 'DELETE',
+      action: 'BULK_DELETE',
       entity: type,
-      entityId: id,
-      previousValue: prevRecord,
+      newValue: { count: idsToDelete.length, ids: idsToDelete },
     });
 
     invalidateAcademicCache();
 
     return NextResponse.json({
       success: true,
-      message: `${type} deleted successfully.`,
+      message: `Successfully deleted ${idsToDelete.length} ${type.toLowerCase()}(s).`,
+      count: idsToDelete.length,
+      deletedCount: idsToDelete.length,
     });
   } catch (error: any) {
     console.error('Academic master delete error:', error);
     return NextResponse.json({ error: error.message || 'Failed to delete record. Check if linked records exist.' }, { status: 500 });
   }
 }
+
 

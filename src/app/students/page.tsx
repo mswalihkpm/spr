@@ -271,10 +271,12 @@ export default function StudentsPage() {
   };
 
   const handleToggleSelectAll = () => {
-    if (selectedStudentIds.length === students.length) {
-      setSelectedStudentIds([]);
+    const allSelected = students.length > 0 && students.every((s) => selectedStudentIds.includes(s.id));
+    if (allSelected) {
+      const studentIdSet = new Set(students.map((s) => s.id));
+      setSelectedStudentIds((prev) => prev.filter((id) => !studentIdSet.has(id)));
     } else {
-      setSelectedStudentIds(students.map((s) => s.id));
+      setSelectedStudentIds((prev) => Array.from(new Set([...prev, ...students.map((s) => s.id)])));
     }
   };
 
@@ -469,7 +471,7 @@ export default function StudentsPage() {
                   <th className="py-3.5 px-4 w-10 text-center">
                     <input
                       type="checkbox"
-                      checked={students.length > 0 && selectedStudentIds.length === students.length}
+                      checked={students.length > 0 && students.every((s) => selectedStudentIds.includes(s.id))}
                       onChange={handleToggleSelectAll}
                       className="w-4 h-4 rounded text-blue-600 focus:ring-blue-600 cursor-pointer"
                       title="Select All Students"

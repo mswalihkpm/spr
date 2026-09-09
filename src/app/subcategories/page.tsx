@@ -100,6 +100,16 @@ export default function OtherSubcategoriesPage() {
   // Selected subcategory for recording
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string>('');
 
+  // Bulk record deletion state
+  const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
+  const [bulkDeletingRecords, setBulkDeletingRecords] = useState(false);
+  const [confirmBulkDeleteRecordsOpen, setConfirmBulkDeleteRecordsOpen] = useState(false);
+
+  // Bulk subcategory deletion state
+  const [selectedSubcategoryIds, setSelectedSubcategoryIds] = useState<string[]>([]);
+  const [bulkDeletingSubs, setBulkDeletingSubs] = useState(false);
+  const [confirmBulkDeleteSubsOpen, setConfirmBulkDeleteSubsOpen] = useState(false);
+
   // Record Score Form State
   const [recordForm, setRecordForm] = useState({
     studentId: '',
@@ -129,6 +139,7 @@ export default function OtherSubcategoriesPage() {
   });
   const [savingBuilder, setSavingBuilder] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
 
   const fetchData = async () => {
     try {
@@ -397,6 +408,86 @@ export default function OtherSubcategoriesPage() {
     }
   };
 
+  // Bulk Score Records Operations
+  const handleToggleSelectRecord = (id: string) => {
+    setSelectedRecordIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAllRecords = (currentRecords: any[]) => {
+    const allSelected = currentRecords.length > 0 && currentRecords.every((r) => selectedRecordIds.includes(r.id));
+    if (allSelected) {
+      setSelectedRecordIds((prev) => prev.filter((id) => !currentRecords.some((r) => r.id === id)));
+    } else {
+      setSelectedRecordIds((prev) => Array.from(new Set([...prev, ...currentRecords.map((r) => r.id)])));
+    }
+  };
+
+  const handleBulkDeleteRecords = async () => {
+    if (selectedRecordIds.length === 0) return;
+    setBulkDeletingRecords(true);
+    try {
+      const res = await fetch('/api/scores', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedRecordIds }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to bulk delete scores.');
+
+      const count = selectedRecordIds.length;
+      setSelectedRecordIds([]);
+      setConfirmBulkDeleteRecordsOpen(false);
+      setStatusMsg({ type: 'success', text: `Successfully deleted ${count} subcategory score record(s).` });
+      fetchData();
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting records.' });
+    } finally {
+      setBulkDeletingRecords(false);
+    }
+  };
+
+  // Bulk Subcategories Operations
+  const handleToggleSelectSubcategory = (id: string) => {
+    setSelectedSubcategoryIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAllSubcategories = () => {
+    const allSelected = subcategories.length > 0 && subcategories.every((s) => selectedSubcategoryIds.includes(s.id));
+    if (allSelected) {
+      setSelectedSubcategoryIds([]);
+    } else {
+      setSelectedSubcategoryIds(subcategories.map((s) => s.id));
+    }
+  };
+
+  const handleBulkDeleteSubcategories = async () => {
+    if (selectedSubcategoryIds.length === 0) return;
+    setBulkDeletingSubs(true);
+    try {
+      const res = await fetch('/api/subcategories', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedSubcategoryIds }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to bulk delete subcategories.');
+
+      const count = selectedSubcategoryIds.length;
+      setSelectedSubcategoryIds([]);
+      setConfirmBulkDeleteSubsOpen(false);
+      setStatusMsg({ type: 'success', text: `Successfully deleted ${count} subcategory(ies) and all associated scores.` });
+      fetchData();
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting subcategories.' });
+    } finally {
+      setBulkDeletingSubs(false);
+    }
+  };
+
   // Delete Subcategory
   const handleDeleteSubcategory = async (sub: any) => {
     if (!confirm(`Are you sure you want to delete subcategory "${sub.name}"? All associated scores will also be removed.`)) {
@@ -408,10 +499,11 @@ export default function OtherSubcategoriesPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to delete subcategory.');
 
+      setSelectedSubcategoryIds((prev) => prev.filter((id) => id !== sub.id));
       setStatusMsg({ type: 'success', text: `Subcategory "${sub.name}" deleted.` });
       fetchData();
     } catch (err: any) {
-      alert(err.message || 'Error deleting subcategory');
+      setStatusMsg({ type: 'error', text: err.message || 'Error deleting subcategory.' });
     }
   };
 
@@ -421,10 +513,11 @@ export default function OtherSubcategoriesPage() {
       const res = await fetch(`/api/scores?id=${rec.id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      setSelectedRecordIds((prev) => prev.filter((id) => id !== rec.id));
       setStatusMsg({ type: 'success', text: 'Score record deleted.' });
       fetchData();
     } catch (err: any) {
-      alert(err.message || 'Error deleting score');
+      setStatusMsg({ type: 'error', text: err.message || 'Error deleting score.' });
     }
   };
 
@@ -433,6 +526,7 @@ export default function OtherSubcategoriesPage() {
     const preset = LEVEL_PRESETS.find((p) => p.id === sub.levelGroup);
     return preset ? preset.badge : 'Multi-Level';
   };
+
 
   return (
     <AdminLayout>
@@ -756,74 +850,139 @@ export default function OtherSubcategoriesPage() {
             </div>
 
             {/* Recent Recorded Scores Table */}
-            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden flex flex-col justify-between">
-              <div>
-                <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800">
-                    Recorded Scores for {activeSubcategory.name} ({recentRecords.filter((r) => r.subcategoryId === activeSubcategory.id).length})
-                  </span>
-                  <Link
-                    href={`/leaderboard?subcategoryId=${activeSubcategory.id}`}
-                    className="text-xs font-bold text-indigo-700 hover:underline flex items-center space-x-1"
-                  >
-                    <span>View Dedicated Standings</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
+            <div className="lg:col-span-2 space-y-3">
+              {/* Bulk Action Toolbar for Score Records */}
+              {selectedRecordIds.length > 0 && (
+                <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-2xl flex items-center justify-between shadow-xs animate-fade-in">
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+                    <span className="text-xs font-bold text-rose-950">
+                      {selectedRecordIds.length} score record(s) selected
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRecordIds([])}
+                      className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-rose-100 rounded-xl transition"
+                    >
+                      Deselect All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmBulkDeleteRecordsOpen(true)}
+                      className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl flex items-center space-x-1.5 shadow-sm transition hover:scale-105 active:scale-95"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete Selected ({selectedRecordIds.length})</span>
+                    </button>
+                  </div>
                 </div>
+              )}
 
-                <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto">
-                  {recentRecords
-                    .filter((r) => r.subcategoryId === activeSubcategory.id)
-                    .map((rec) => (
-                      <div key={rec.id} className="p-3.5 hover:bg-slate-50 flex items-center justify-between gap-3 text-xs">
-                        <div className="min-w-0">
-                          <div className="font-bold text-slate-900 truncate">
-                            {rec.student?.fullName}
-                          </div>
-                          <div className="text-[11px] text-slate-500 mt-0.5 flex items-center space-x-2">
-                            <span>{rec.student?.class?.name}</span>
-                            {rec.position && (
-                              <span className="px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 font-bold text-[10px]">
-                                {rec.position}
-                              </span>
-                            )}
-                            {rec.grade && (
-                              <span className="px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-900 font-bold text-[10px]">
-                                {rec.grade}
-                              </span>
-                            )}
-                            {rec.level && (
-                              <span className="text-slate-500 font-medium">({rec.level.name})</span>
-                            )}
-                          </div>
-                        </div>
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden flex flex-col justify-between">
+                <div>
+                  <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        checked={
+                          recentRecords.filter((r) => r.subcategoryId === activeSubcategory.id).length > 0 &&
+                          recentRecords
+                            .filter((r) => r.subcategoryId === activeSubcategory.id)
+                            .every((r) => selectedRecordIds.includes(r.id))
+                        }
+                        onChange={() =>
+                          handleToggleSelectAllRecords(
+                            recentRecords.filter((r) => r.subcategoryId === activeSubcategory.id)
+                          )
+                        }
+                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-600 cursor-pointer"
+                        title="Select All Records"
+                      />
+                      <span className="text-xs font-bold text-slate-800">
+                        Recorded Scores for {activeSubcategory.name} ({recentRecords.filter((r) => r.subcategoryId === activeSubcategory.id).length})
+                      </span>
+                    </div>
+                    <Link
+                      href={`/leaderboard?subcategoryId=${activeSubcategory.id}`}
+                      className="text-xs font-bold text-indigo-700 hover:underline flex items-center space-x-1"
+                    >
+                      <span>View Dedicated Standings</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
 
-                        <div className="flex items-center space-x-3 shrink-0">
-                          <div className="text-right">
-                            <span className="font-mono font-bold text-indigo-700 text-sm">
-                              {rec.obtainedScore}
-                            </span>
-                            <span className="text-slate-400 text-[10px]">/{rec.maxScore}</span>
-                            <div className="text-[10px] text-slate-400 font-mono">
-                              ({rec.percentage?.toFixed(1)}%)
+                  <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto">
+                    {recentRecords
+                      .filter((r) => r.subcategoryId === activeSubcategory.id)
+                      .map((rec) => {
+                        const isSelected = selectedRecordIds.includes(rec.id);
+                        return (
+                          <div
+                            key={rec.id}
+                            className={`p-3.5 hover:bg-slate-50 flex items-center justify-between gap-3 text-xs transition-colors ${
+                              isSelected ? 'bg-rose-50/50' : ''
+                            }`}
+                          >
+                            <div className="flex items-center space-x-3 min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleToggleSelectRecord(rec.id)}
+                                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-600 cursor-pointer shrink-0"
+                              />
+                              <div className="min-w-0">
+                                <div className="font-bold text-slate-900 truncate">
+                                  {rec.student?.fullName}
+                                </div>
+                                <div className="text-[11px] text-slate-500 mt-0.5 flex items-center space-x-2">
+                                  <span>{rec.student?.class?.name}</span>
+                                  {rec.position && (
+                                    <span className="px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 font-bold text-[10px]">
+                                      {rec.position}
+                                    </span>
+                                  )}
+                                  {rec.grade && (
+                                    <span className="px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-900 font-bold text-[10px]">
+                                      {rec.grade}
+                                    </span>
+                                  )}
+                                  {rec.level && (
+                                    <span className="text-slate-500 font-medium">({rec.level.name})</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center space-x-3 shrink-0">
+                              <div className="text-right">
+                                <span className="font-mono font-bold text-indigo-700 text-sm">
+                                  {rec.obtainedScore}
+                                </span>
+                                <span className="text-slate-400 text-[10px]">/{rec.maxScore}</span>
+                                <div className="text-[10px] text-slate-400 font-mono">
+                                  ({rec.percentage?.toFixed(1)}%)
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={() => handleDeleteRecord(rec)}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 rounded"
+                                title="Delete score"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           </div>
-
-                          <button
-                            onClick={() => handleDeleteRecord(rec)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded"
-                            title="Delete score"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                        );
+                      })}
+                    {recentRecords.filter((r) => r.subcategoryId === activeSubcategory.id).length === 0 && (
+                      <div className="p-8 text-center text-xs text-slate-400">
+                        No scores recorded yet for {activeSubcategory.name}. Use the form on the left to add one.
                       </div>
-                    ))}
-                  {recentRecords.filter((r) => r.subcategoryId === activeSubcategory.id).length === 0 && (
-                    <div className="p-8 text-center text-xs text-slate-400">
-                      No scores recorded yet for {activeSubcategory.name}. Use the form on the left to add one.
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -832,78 +991,133 @@ export default function OtherSubcategoriesPage() {
 
         {/* TAB 2: BUILDER TAB */}
         {activeTab === 'BUILDER' && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div>
-                <h3 className="text-base font-black text-slate-900">Custom Subcategory & Feature Builder</h3>
-                <p className="text-xs text-slate-500">Create, customize competition levels, configure logos, scoring modes, and manage weightage.</p>
+          <div className="space-y-4">
+            {/* Bulk Action Toolbar for Subcategories */}
+            {selectedSubcategoryIds.length > 0 && (
+              <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-2xl flex items-center justify-between shadow-xs animate-fade-in">
+                <div className="flex items-center space-x-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+                  <span className="text-xs font-bold text-rose-950">
+                    {selectedSubcategoryIds.length} subcategory(ies) selected
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSubcategoryIds([])}
+                    className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-rose-100 rounded-xl transition"
+                  >
+                    Deselect All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmBulkDeleteSubsOpen(true)}
+                    className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl flex items-center space-x-1.5 shadow-sm transition hover:scale-105 active:scale-95"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Selected ({selectedSubcategoryIds.length})</span>
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={handleOpenAddSub}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow"
-              >
-                <Plus className="w-4 h-4 text-gold-400" />
-                <span>+ Create Subcategory</span>
-              </button>
-            </div>
+            )}
 
-            <div className="divide-y divide-slate-100">
-              {subcategories.map((sub) => (
-                <div key={sub.id} className="py-4 first:pt-0 flex items-center justify-between gap-4">
-                  <div className="flex items-center space-x-3.5 min-w-0">
-                    {sub.logoUrl ? (
-                      <div className="w-12 h-12 rounded-xl bg-slate-100 p-1 shrink-0 overflow-hidden border border-slate-200">
-                        <Image src={sub.logoUrl} alt={sub.name} width={44} height={44} className="w-full h-full object-contain" unoptimized />
-                      </div>
-                    ) : (
-                      <div className="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-800 flex items-center justify-center shrink-0 font-black">
-                        {sub.name.slice(0, 2).toUpperCase()}
-                      </div>
-                    )}
-
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <h4 className="text-sm font-bold text-slate-900">{sub.name}</h4>
-                        <span className="px-2 py-0.2 rounded-md bg-slate-100 text-slate-700 text-[10px] font-bold">
-                          {sub.category?.name || 'Qualification'}
-                        </span>
-                        <span className="px-2 py-0.2 rounded-md bg-indigo-50 text-indigo-800 text-[10px] font-bold border border-indigo-200">
-                          {getLevelPresetName(sub)}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-2 text-xs text-slate-500 mt-1">
-                        <span>Levels: {sub.hasLevels ? 'Enabled' : 'Disabled'}</span>
-                        <span>•</span>
-                        <span>Max Score: {sub.hasMaxScore ? sub.maxScore : 'Direct Points'}</span>
-                        <span>•</span>
-                        <span>Weight: {sub.weight || 1.0}x</span>
-                        <span>•</span>
-                        <span>{sub._count?.performanceRecords || 0} scores recorded</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2 shrink-0">
-                    <button
-                      onClick={() => handleOpenEditSub(sub)}
-                      className="p-2 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-slate-100"
-                      title="Edit Features"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteSubcategory(sub)}
-                      className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100"
-                      title="Delete Subcategory"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden p-6 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    checked={subcategories.length > 0 && subcategories.every((s) => selectedSubcategoryIds.includes(s.id))}
+                    onChange={handleToggleSelectAllSubcategories}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-600 cursor-pointer"
+                    title="Select All Subcategories"
+                  />
+                  <div>
+                    <h3 className="text-base font-black text-slate-900">Custom Subcategory & Feature Builder</h3>
+                    <p className="text-xs text-slate-500">Create, customize competition levels, configure logos, scoring modes, and manage weightage.</p>
                   </div>
                 </div>
-              ))}
+                <button
+                  onClick={handleOpenAddSub}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow"
+                >
+                  <Plus className="w-4 h-4 text-gold-400" />
+                  <span>+ Create Subcategory</span>
+                </button>
+              </div>
+
+              <div className="divide-y divide-slate-100">
+                {subcategories.map((sub) => {
+                  const isSelected = selectedSubcategoryIds.includes(sub.id);
+                  return (
+                    <div
+                      key={sub.id}
+                      className={`py-4 first:pt-0 px-3 rounded-xl flex items-center justify-between gap-4 transition-colors ${
+                        isSelected ? 'bg-rose-50/50' : ''
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3.5 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelectSubcategory(sub.id)}
+                          className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-600 cursor-pointer shrink-0"
+                        />
+                        {sub.logoUrl ? (
+                          <div className="w-12 h-12 rounded-xl bg-slate-100 p-1 shrink-0 overflow-hidden border border-slate-200">
+                            <Image src={sub.logoUrl} alt={sub.name} width={44} height={44} className="w-full h-full object-contain" unoptimized />
+                          </div>
+                        ) : (
+                          <div className="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-800 flex items-center justify-center shrink-0 font-black">
+                            {sub.name.slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <h4 className="text-sm font-bold text-slate-900">{sub.name}</h4>
+                            <span className="px-2 py-0.2 rounded-md bg-slate-100 text-slate-700 text-[10px] font-bold">
+                              {sub.category?.name || 'Qualification'}
+                            </span>
+                            <span className="px-2 py-0.2 rounded-md bg-indigo-50 text-indigo-800 text-[10px] font-bold border border-indigo-200">
+                              {getLevelPresetName(sub)}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2 text-xs text-slate-500 mt-1">
+                            <span>Levels: {sub.hasLevels ? 'Enabled' : 'Disabled'}</span>
+                            <span>•</span>
+                            <span>Max Score: {sub.hasMaxScore ? sub.maxScore : 'Direct Points'}</span>
+                            <span>•</span>
+                            <span>Weight: {sub.weight || 1.0}x</span>
+                            <span>•</span>
+                            <span>{sub._count?.performanceRecords || 0} scores recorded</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2 shrink-0">
+                        <button
+                          onClick={() => handleOpenEditSub(sub)}
+                          className="p-2 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-slate-100"
+                          title="Edit Features"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSubcategory(sub)}
+                          className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100"
+                          title="Delete Subcategory"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
+
 
         {/* Builder Modal with Advanced Feature Management */}
         {builderModalOpen && (
@@ -1239,7 +1453,101 @@ export default function OtherSubcategoriesPage() {
             </div>
           </div>
         )}
+        {/* Bulk Delete Score Records Confirmation Modal */}
+        {confirmBulkDeleteRecordsOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-scale-in">
+              <div className="flex items-center space-x-3 text-rose-600 mb-4">
+                <div className="p-3 bg-rose-100 rounded-full">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Confirm Bulk Score Deletion</h3>
+                  <p className="text-xs text-slate-500">This action cannot be undone.</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed mb-6">
+                Are you sure you want to permanently delete <strong className="text-rose-600">{selectedRecordIds.length}</strong> selected subcategory score record(s)? Student aggregates and leaderboards will recalculate automatically.
+              </p>
+
+              <div className="flex items-center justify-end space-x-3">
+                <button
+                  type="button"
+                  disabled={bulkDeletingRecords}
+                  onClick={() => setConfirmBulkDeleteRecordsOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={bulkDeletingRecords}
+                  onClick={handleBulkDeleteRecords}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md transition hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center space-x-1.5"
+                >
+                  {bulkDeletingRecords ? (
+                    <span>Deleting...</span>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      <span>Delete {selectedRecordIds.length} Score(s)</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk Delete Subcategories Confirmation Modal */}
+        {confirmBulkDeleteSubsOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-scale-in">
+              <div className="flex items-center space-x-3 text-rose-600 mb-4">
+                <div className="p-3 bg-rose-100 rounded-full">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Confirm Bulk Subcategory Deletion</h3>
+                  <p className="text-xs text-slate-500">Cascade Deletion Warning</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed mb-6">
+                Are you sure you want to permanently delete <strong className="text-rose-600">{selectedSubcategoryIds.length}</strong> selected subcategory(ies)? <strong className="text-rose-700">All historical scores and performance logs associated with these subcategories will also be deleted permanently.</strong>
+              </p>
+
+              <div className="flex items-center justify-end space-x-3">
+                <button
+                  type="button"
+                  disabled={bulkDeletingSubs}
+                  onClick={() => setConfirmBulkDeleteSubsOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={bulkDeletingSubs}
+                  onClick={handleBulkDeleteSubcategories}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md transition hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center space-x-1.5"
+                >
+                  {bulkDeletingSubs ? (
+                    <span>Deleting...</span>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      <span>Delete {selectedSubcategoryIds.length} Subcategory(ies)</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );
 }
+

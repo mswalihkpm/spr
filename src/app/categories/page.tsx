@@ -47,10 +47,12 @@ export default function CustomCategoriesPage() {
   const deletableCategories = categories.filter((c) => !c.isSystem);
 
   const handleToggleSelectAll = () => {
-    if (selectedCategoryIds.length === deletableCategories.length) {
-      setSelectedCategoryIds([]);
+    const allSelected = deletableCategories.length > 0 && deletableCategories.every((c) => selectedCategoryIds.includes(c.id));
+    if (allSelected) {
+      const catIdSet = new Set(deletableCategories.map((c) => c.id));
+      setSelectedCategoryIds((prev) => prev.filter((id) => !catIdSet.has(id)));
     } else {
-      setSelectedCategoryIds(deletableCategories.map((c) => c.id));
+      setSelectedCategoryIds((prev) => Array.from(new Set([...prev, ...deletableCategories.map((c) => c.id)])));
     }
   };
 
@@ -255,7 +257,7 @@ export default function CustomCategoriesPage() {
               onClick={handleToggleSelectAll}
               className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition"
             >
-              {selectedCategoryIds.length === deletableCategories.length
+              {deletableCategories.every((c) => selectedCategoryIds.includes(c.id))
                 ? 'Deselect All Custom'
                 : 'Select All Custom Categories'}
             </button>

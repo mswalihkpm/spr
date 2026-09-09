@@ -174,10 +174,28 @@ export async function DELETE(req: NextRequest) {
     const { user, errorResponse } = await authenticateApiRequest(req, 'ADMIN');
     if (errorResponse) return errorResponse;
 
-    const body = await req.json();
-    const { studentIds } = body as { studentIds: string[] };
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
 
-    if (!studentIds || !Array.isArray(studentIds) || studentIds.length === 0) {
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      // Body not JSON or empty
+    }
+
+    const studentIds: string[] = [];
+    if (body.studentIds && Array.isArray(body.studentIds)) {
+      studentIds.push(...body.studentIds);
+    }
+    if (body.ids && Array.isArray(body.ids)) {
+      studentIds.push(...body.ids);
+    }
+    if (id && !studentIds.includes(id)) {
+      studentIds.push(id);
+    }
+
+    if (studentIds.length === 0) {
       return NextResponse.json({ error: 'At least one student ID is required for deletion.' }, { status: 400 });
     }
 
@@ -195,6 +213,7 @@ export async function DELETE(req: NextRequest) {
         where: { id: { in: studentIds } },
       }),
     ]);
+
 
     await logAuditAction({
       userId: user?.id,

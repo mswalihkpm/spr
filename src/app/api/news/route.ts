@@ -133,29 +133,49 @@ export async function DELETE(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
-    if (!id) {
-      return NextResponse.json({ error: 'News ID is required.' }, { status: 400 });
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      // Body not JSON or empty
     }
 
-    const existing = await prisma.news.findUnique({ where: { id } });
-    if (!existing) {
-      return NextResponse.json({ success: true, message: 'News item already removed.' });
+    const idsToDelete: string[] = [];
+    if (body.ids && Array.isArray(body.ids)) {
+      idsToDelete.push(...body.ids);
+    }
+    if (body.newsIds && Array.isArray(body.newsIds)) {
+      idsToDelete.push(...body.newsIds);
+    }
+    if (id && !idsToDelete.includes(id)) {
+      idsToDelete.push(id);
     }
 
-    await prisma.news.delete({ where: { id } });
+    if (idsToDelete.length === 0) {
+      return NextResponse.json({ error: 'News item ID(s) are required for deletion.' }, { status: 400 });
+    }
+
+    const deleteResult = await prisma.news.deleteMany({
+      where: { id: { in: idsToDelete } },
+    });
 
     await logAuditAction({
       userId: user?.id,
       userName: user?.name,
-      action: 'DELETE',
+      action: 'BULK_DELETE',
       entity: 'News',
-      entityId: id,
-      previousValue: existing,
+      newValue: { count: deleteResult.count, ids: idsToDelete },
     });
 
-    return NextResponse.json({ success: true, message: 'News item deleted.' });
+    return NextResponse.json({
+      success: true,
+      message: `Successfully deleted ${deleteResult.count} news announcement(s).`,
+      count: deleteResult.count,
+      deletedCount: deleteResult.count,
+    });
   } catch (error: any) {
     console.error('Delete news error:', error);
     return NextResponse.json({ error: error.message || 'Failed to delete news.' }, { status: 500 });
   }
 }
+

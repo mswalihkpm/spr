@@ -62,10 +62,12 @@ export default function SchoolStudiesPage() {
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
 
   const handleToggleSelectAll = () => {
-    if (selectedRecordIds.length === historyRecords.length) {
-      setSelectedRecordIds([]);
+    const allSelected = historyRecords.length > 0 && historyRecords.every((r) => selectedRecordIds.includes(r.id));
+    if (allSelected) {
+      const recordIdSet = new Set(historyRecords.map((r) => r.id));
+      setSelectedRecordIds((prev) => prev.filter((id) => !recordIdSet.has(id)));
     } else {
-      setSelectedRecordIds(historyRecords.map((r) => r.id));
+      setSelectedRecordIds((prev) => Array.from(new Set([...prev, ...historyRecords.map((r) => r.id)])));
     }
   };
 
@@ -739,7 +741,7 @@ export default function SchoolStudiesPage() {
                   <th className="py-2.5 px-3 w-10 text-center">
                     <input
                       type="checkbox"
-                      checked={historyRecords.length > 0 && selectedRecordIds.length === historyRecords.length}
+                      checked={historyRecords.length > 0 && historyRecords.every((r) => selectedRecordIds.includes(r.id))}
                       onChange={handleToggleSelectAll}
                       className="w-4 h-4 rounded text-blue-600 focus:ring-blue-600 cursor-pointer"
                       title="Select All"

@@ -368,15 +368,19 @@ export async function DELETE(req: NextRequest) {
     try {
       const body = await req.json();
       if (body && Array.isArray(body.ids)) {
-        idsToDelete = body.ids;
+        idsToDelete.push(...body.ids);
+      }
+      if (body && Array.isArray(body.scoreIds)) {
+        idsToDelete.push(...body.scoreIds);
       }
     } catch {
       // Body not JSON or empty
     }
 
-    if (id) {
+    if (id && !idsToDelete.includes(id)) {
       idsToDelete.push(id);
     }
+
 
     if (idsToDelete.length === 0) {
       return NextResponse.json({ error: 'Score record ID(s) are required for deletion.' }, { status: 400 });

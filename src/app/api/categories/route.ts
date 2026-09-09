@@ -219,7 +219,8 @@ export async function DELETE(req: NextRequest) {
     } catch {}
 
     const subcategoryIds: string[] = bodyData.subcategoryIds || (subcategoryId ? [subcategoryId] : []);
-    const categoryIds: string[] = bodyData.categoryIds || (id ? [id] : []);
+    const categoryIds: string[] = bodyData.categoryIds || bodyData.ids || (id ? [id] : []);
+
 
     if (subcategoryIds.length > 0) {
       await prisma.$transaction([

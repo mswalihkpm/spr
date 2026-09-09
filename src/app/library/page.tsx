@@ -43,10 +43,12 @@ export default function LibraryPage() {
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
 
   const handleToggleSelectAll = () => {
-    if (selectedRecordIds.length === records.length) {
-      setSelectedRecordIds([]);
+    const allSelected = records.length > 0 && records.every((r) => selectedRecordIds.includes(r.id));
+    if (allSelected) {
+      const recordIdSet = new Set(records.map((r) => r.id));
+      setSelectedRecordIds((prev) => prev.filter((id) => !recordIdSet.has(id)));
     } else {
-      setSelectedRecordIds(records.map((r) => r.id));
+      setSelectedRecordIds((prev) => Array.from(new Set([...prev, ...records.map((r) => r.id)])));
     }
   };
 
@@ -331,7 +333,7 @@ export default function LibraryPage() {
                   <th className="py-2.5 px-4 w-10 text-center">
                     <input
                       type="checkbox"
-                      checked={records.length > 0 && selectedRecordIds.length === records.length}
+                      checked={records.length > 0 && records.every((r) => selectedRecordIds.includes(r.id))}
                       onChange={handleToggleSelectAll}
                       className="w-4 h-4 rounded text-blue-600 focus:ring-blue-600 cursor-pointer"
                       title="Select All"

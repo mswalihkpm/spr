@@ -151,37 +151,58 @@ export async function DELETE(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
-    if (!id) {
-      return NextResponse.json({ error: 'Exam ID is required.' }, { status: 400 });
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      // Body not JSON or empty
     }
 
-    const existing = await prisma.exam.findUnique({
-      where: { id },
-      include: { _count: { select: { performanceRecords: true } } },
+    const idsToDelete: string[] = [];
+    if (body.ids && Array.isArray(body.ids)) {
+      idsToDelete.push(...body.ids);
+    }
+    if (id && !idsToDelete.includes(id)) {
+      idsToDelete.push(id);
+    }
+
+    if (idsToDelete.length === 0) {
+      return NextResponse.json({ error: 'Exam ID(s) are required for deletion.' }, { status: 400 });
+    }
+
+    const existingExams = await prisma.exam.findMany({
+      where: { id: { in: idsToDelete } },
+      select: { id: true },
     });
 
-    if (!existing) {
-      return NextResponse.json({ success: true, message: 'Exam already removed.' });
+    if (existingExams.length === 0) {
+      return NextResponse.json({ success: true, message: 'Exams already removed.' });
     }
 
-    if (existing._count.performanceRecords > 0) {
-      await prisma.performanceRecord.deleteMany({ where: { examId: id } });
-    }
+    const validIds = existingExams.map((e) => e.id);
 
-    await prisma.exam.delete({ where: { id } });
+    await prisma.$transaction([
+      prisma.performanceRecord.deleteMany({ where: { examId: { in: validIds } } }),
+      prisma.exam.deleteMany({ where: { id: { in: validIds } } }),
+    ]);
 
     await logAuditAction({
       userId: user?.id,
       userName: user?.name,
-      action: 'DELETE',
+      action: 'BULK_DELETE',
       entity: 'Exam',
-      entityId: id,
-      previousValue: existing,
+      newValue: { count: validIds.length, ids: validIds },
     });
 
-    return NextResponse.json({ success: true, message: 'Exam deleted successfully.' });
+    return NextResponse.json({
+      success: true,
+      message: `Successfully deleted ${validIds.length} exam(s).`,
+      count: validIds.length,
+      deletedCount: validIds.length,
+    });
   } catch (error: any) {
     console.error('Delete exam error:', error);
     return NextResponse.json({ error: error.message || 'Failed to delete exam.' }, { status: 500 });
   }
 }
+

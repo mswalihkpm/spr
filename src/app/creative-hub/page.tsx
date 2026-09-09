@@ -60,10 +60,12 @@ export default function CreativeHubPage() {
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
 
   const handleToggleSelectAll = () => {
-    if (selectedSubmissionIds.length === submissions.length) {
-      setSelectedSubmissionIds([]);
+    const allSelected = submissions.length > 0 && submissions.every((s) => selectedSubmissionIds.includes(s.id));
+    if (allSelected) {
+      const subIdSet = new Set(submissions.map((s) => s.id));
+      setSelectedSubmissionIds((prev) => prev.filter((id) => !subIdSet.has(id)));
     } else {
-      setSelectedSubmissionIds(submissions.map((s) => s.id));
+      setSelectedSubmissionIds((prev) => Array.from(new Set([...prev, ...submissions.map((s) => s.id)])));
     }
   };
 
@@ -379,7 +381,7 @@ export default function CreativeHubPage() {
                   onClick={handleToggleSelectAll}
                   className="w-full px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition text-center"
                 >
-                  {submissions.length > 0 && selectedSubmissionIds.length === submissions.length
+                  {submissions.length > 0 && submissions.every((s) => selectedSubmissionIds.includes(s.id))
                     ? 'Deselect All'
                     : 'Select All Publications'}
                 </button>

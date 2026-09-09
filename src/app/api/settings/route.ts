@@ -220,7 +220,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'BULK_DELETE_USERS') {
-      const { userIds } = body;
+      const userIds = body.userIds || body.ids;
       if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
         return NextResponse.json({ error: 'No user IDs provided for deletion.' }, { status: 400 });
       }
@@ -248,6 +248,34 @@ export async function POST(req: NextRequest) {
         success: true,
         message: `Successfully deleted ${deleteResult.count} user account(s).`,
         count: deleteResult.count,
+        deletedCount: deleteResult.count,
+      });
+    }
+
+    if (action === 'BULK_DELETE_AUDIT_LOGS') {
+      const logIds = body.logIds || body.ids;
+      if (!logIds || !Array.isArray(logIds) || logIds.length === 0) {
+        return NextResponse.json({ error: 'No audit log IDs provided for deletion.' }, { status: 400 });
+      }
+
+      const deleteResult = await prisma.auditLog.deleteMany({
+        where: { id: { in: logIds } },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Successfully deleted ${deleteResult.count} audit log entry(ies).`,
+        count: deleteResult.count,
+        deletedCount: deleteResult.count,
+      });
+    }
+
+    if (action === 'CLEAR_AUDIT_LOGS') {
+      const deleteResult = await prisma.auditLog.deleteMany({});
+      return NextResponse.json({
+        success: true,
+        message: `Cleared all ${deleteResult.count} audit log entries.`,
+        count: deleteResult.count,
       });
     }
 
@@ -257,4 +285,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message || 'Failed to update settings.' }, { status: 500 });
   }
 }
+
 
