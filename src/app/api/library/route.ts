@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
 import { invalidateEngineCache } from '@/lib/spr-engine';
+import { fetchLibraryLeaderboard, syncLibraryLeaderboardToSPR } from '@/lib/library-sync';
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
     if (!integration) {
       integration = await prisma.libraryIntegration.create({
         data: {
-          endpointUrl: 'https://msoelibrary.vercel.app/',
+          endpointUrl: 'https://msoelibrary.vercel.app/leaderboard',
           isConnected: true,
           syncStatus: 'CONNECTED',
         },
@@ -31,13 +32,17 @@ export async function GET(req: NextRequest) {
           },
         },
       },
-      orderBy: { booksRead: 'desc' },
+      orderBy: [
+        { readingRank: 'asc' },
+        { readingScore: 'desc' },
+        { booksRead: 'desc' },
+      ],
     });
 
     return NextResponse.json({
       integration: {
         id: integration.id,
-        endpointUrl: integration.endpointUrl,
+        endpointUrl: integration.endpointUrl || 'https://msoelibrary.vercel.app/leaderboard',
         isConnected: integration.isConnected,
         lastSyncAt: integration.lastSyncAt,
         syncStatus: integration.syncStatus,
@@ -60,29 +65,36 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { action, endpointUrl, apiKey, records, readingPeriod } = body;
 
-    if (action === 'UPDATE_CONFIG') {
-      const integration = await prisma.libraryIntegration.findFirst();
-      if (integration) {
-        await prisma.libraryIntegration.update({
-          where: { id: integration.id },
-          data: {
-            endpointUrl: endpointUrl || integration.endpointUrl,
-            apiKey: apiKey !== undefined ? apiKey : integration.apiKey,
-            syncStatus: 'CONNECTED',
-            lastSyncAt: new Date(),
+    // Direct Live Sync with MSOE Library Leaderboard
+    if (action === 'SYNC' || action === 'UPDATE_CONFIG') {
+      try {
+        const syncResult = await syncLibraryLeaderboardToSPR();
+
+        await logAuditAction({
+          userId: user?.id,
+          userName: user?.name,
+          action: 'SYNC',
+          entity: 'LibraryLeaderboard',
+          newValue: {
+            importedCount: syncResult.importedCount,
+            totalFound: syncResult.totalLeaderboardEntries,
+            endpointUrl: endpointUrl || 'https://msoelibrary.vercel.app/leaderboard',
           },
         });
+
+        return NextResponse.json({
+          success: true,
+          message: `Synchronized ${syncResult.importedCount} scored readers directly from MSOE Library Leaderboard.`,
+          importedCount: syncResult.importedCount,
+          totalLeaderboardEntries: syncResult.totalLeaderboardEntries,
+          notice: syncResult.notice,
+        });
+      } catch (syncErr: any) {
+        console.error('Live sync error:', syncErr);
+        return NextResponse.json({
+          error: syncErr.message || 'Failed to sync with MSOE Library Leaderboard.',
+        }, { status: 502 });
       }
-
-      await logAuditAction({
-        userId: user?.id,
-        userName: user?.name,
-        action: 'UPDATE',
-        entity: 'LibraryIntegration',
-        newValue: { endpointUrl, apiKeySet: !!apiKey },
-      });
-
-      return NextResponse.json({ success: true, message: 'Library configuration saved.' });
     }
 
     if (action === 'IMPORT_RECORDS') {
@@ -96,7 +108,6 @@ export async function POST(req: NextRequest) {
       for (const item of records) {
         if (!item.studentId) continue;
 
-        // Find or match student
         const student = await prisma.student.findFirst({
           where: {
             OR: [
@@ -109,7 +120,7 @@ export async function POST(req: NextRequest) {
 
         if (student) {
           const books = Number(item.booksRead) || 0;
-          const score = Number(item.readingScore) || Math.min(books * 8, 100);
+          const score = Number(item.readingScore) || 0;
 
           await prisma.libraryRecord.create({
             data: {
@@ -123,23 +134,6 @@ export async function POST(req: NextRequest) {
           importedCount++;
         }
       }
-
-      // Update last sync timestamp
-      const integration = await prisma.libraryIntegration.findFirst();
-      if (integration) {
-        await prisma.libraryIntegration.update({
-          where: { id: integration.id },
-          data: { lastSyncAt: new Date(), syncStatus: 'CONNECTED' },
-        });
-      }
-
-      await logAuditAction({
-        userId: user?.id,
-        userName: user?.name,
-        action: 'SYNC',
-        entity: 'LibraryRecord',
-        newValue: { importedCount, period },
-      });
 
       invalidateEngineCache();
 
@@ -203,4 +197,3 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: error.message || 'Failed to delete library record(s).' }, { status: 500 });
   }
 }
-

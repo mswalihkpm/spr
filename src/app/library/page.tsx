@@ -8,17 +8,17 @@ import {
   ExternalLink,
   CheckCircle2,
   AlertCircle,
-  FileSpreadsheet,
-  Save,
   Plus,
-  ArrowRight,
   BookOpen,
   Award,
   Trash2,
+  Trophy,
+  Medal,
+  Flame,
+  Sparkles,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import SearchableStudentSelect from '@/components/ui/SearchableStudentSelect';
-
 
 export default function LibraryPage() {
   const [integration, setIntegration] = useState<any>(null);
@@ -32,8 +32,9 @@ export default function LibraryPage() {
   const [students, setStudents] = useState<any[]>([]);
   const [manualData, setManualData] = useState({
     studentId: '',
-    booksRead: '12',
-    readingScore: '94',
+    booksRead: '5',
+    readingScore: '140',
+    readingRank: '1',
     readingPeriod: 'Term 1 2026',
   });
 
@@ -131,23 +132,22 @@ export default function LibraryPage() {
     setStatusMsg(null);
 
     try {
-      // Simulate live sync heartbeat to endpoint https://msoelibrary.vercel.app/
       const res = await fetch('/api/library', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'UPDATE_CONFIG',
-          endpointUrl: 'https://msoelibrary.vercel.app/',
-        }),
+        body: JSON.stringify({ action: 'SYNC' }),
       });
 
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Sync failed');
 
-      setStatusMsg({ type: 'success', text: 'Kuthbakhana library synchronization completed successfully.' });
+      setStatusMsg({
+        type: 'success',
+        text: json.message || 'Successfully synchronized Top Readers Leaderboard from MSOE Library.',
+      });
       fetchData();
     } catch (err: any) {
-      setStatusMsg({ type: 'error', text: err.message });
+      setStatusMsg({ type: 'error', text: err.message || 'Failed to sync library leaderboard.' });
     } finally {
       setSyncing(false);
     }
@@ -169,6 +169,7 @@ export default function LibraryPage() {
               studentId: manualData.studentId,
               booksRead: Number(manualData.booksRead),
               readingScore: Number(manualData.readingScore),
+              readingRank: Number(manualData.readingRank),
             },
           ],
         }),
@@ -177,13 +178,18 @@ export default function LibraryPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Import failed');
 
-      setStatusMsg({ type: 'success', text: 'Reading record added to student profile.' });
+      setStatusMsg({ type: 'success', text: 'Reading record saved.' });
       setModalOpen(false);
       fetchData();
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
     }
   };
+
+  // Top 3 Podium
+  const top1 = records.length > 0 ? records[0] : null;
+  const top2 = records.length > 1 ? records[1] : null;
+  const top3 = records.length > 2 ? records[2] : null;
 
   return (
     <AdminLayout>
@@ -192,16 +198,26 @@ export default function LibraryPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-subtle">
           <div>
             <div className="flex items-center space-x-2">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-900 border border-purple-300">
-                MSOE Kuthbakhana Reading Wing
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-900 border border-rose-200 flex items-center space-x-1">
+                <Flame className="w-3 h-3 text-rose-600" />
+                <span>Imthiyaaz Library • Leaderboard Sync</span>
               </span>
             </div>
             <h2 className="text-xl font-bold text-slate-900 tracking-tight mt-1 flex items-center space-x-2">
-              <Library className="w-5 h-5 text-purple-700" />
-              <span>Library & Reading Performance Engine</span>
+              <Trophy className="w-5 h-5 text-amber-500" />
+              <span>Library Leaderboard & Top Readers</span>
             </h2>
             <p className="text-xs text-slate-500">
-              Synchronized with the MSOE Library Portal for tracking reading habits and comprehension benchmarks.
+              Synchronized exclusively with the MSOE Library Leaderboard portal (
+              <a
+                href="https://msoelibrary.vercel.app/leaderboard"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-madin-700 hover:underline font-semibold"
+              >
+                msoelibrary.vercel.app/leaderboard
+              </a>
+              ) for official reader rankings and point standings.
             </p>
           </div>
 
@@ -209,17 +225,17 @@ export default function LibraryPage() {
             <button
               onClick={handleTriggerSync}
               disabled={syncing}
-              className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold flex items-center space-x-1.5 transition-colors border border-slate-200"
+              className="px-4 py-2 rounded-xl bg-madin-900 hover:bg-madin-950 text-white text-xs font-bold flex items-center space-x-2 shadow transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
             >
-              <RefreshCw className={`w-4 h-4 text-purple-600 ${syncing ? 'animate-spin' : ''}`} />
-              <span>{syncing ? 'Syncing...' : 'Sync with MSOE Library'}</span>
+              <RefreshCw className={`w-3.5 h-3.5 text-gold-400 ${syncing ? 'animate-spin' : ''}`} />
+              <span>{syncing ? 'Syncing Leaderboard...' : 'Sync with MSOE Library'}</span>
             </button>
             <button
               onClick={() => setModalOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-madin-900 hover:bg-madin-950 text-white text-xs font-semibold flex items-center space-x-1.5 shadow transition-all"
+              className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold flex items-center space-x-1.5 transition-colors border border-slate-200"
             >
-              <Plus className="w-4 h-4 text-gold-400" />
-              <span>Add Reading Record</span>
+              <Plus className="w-3.5 h-3.5 text-slate-600" />
+              <span>Add Record</span>
             </button>
           </div>
         </div>
@@ -227,7 +243,7 @@ export default function LibraryPage() {
         {/* Status Message */}
         {statusMsg && (
           <div
-            className={`p-4 rounded-2xl border text-xs flex items-center space-x-2.5 ${
+            className={`p-4 rounded-2xl border text-xs flex items-center space-x-2.5 animate-fade-in ${
               statusMsg.type === 'success'
                 ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                 : 'bg-rose-50 border-rose-200 text-rose-800'
@@ -242,50 +258,103 @@ export default function LibraryPage() {
           </div>
         )}
 
-        {/* Integration Status Panel */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-subtle grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="flex items-center space-x-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
-            <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
-              ✓
+        {/* Notice & Connection Status */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="md:col-span-2 bg-gradient-to-br from-slate-900 via-slate-950 to-rose-950 p-5 rounded-2xl text-white shadow-md relative overflow-hidden border border-slate-800">
+            <div className="absolute top-0 right-0 w-36 h-36 bg-rose-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div className="flex items-center space-x-2 mb-2">
+              <Sparkles className="w-4 h-4 text-gold-400" />
+              <span className="text-xs font-extrabold uppercase tracking-wider text-rose-400">
+                National Librarian&apos;s Day Special
+              </span>
             </div>
-            <div>
-              <div className="text-[10px] uppercase font-bold text-slate-400">Connection Status</div>
-              <div className="text-xs font-extrabold text-emerald-700 flex items-center space-x-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>CONNECTED TO MSOE LIBRARY</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
-            <div className="w-10 h-10 rounded-lg bg-purple-100 text-purple-800 flex items-center justify-center">
-              <ExternalLink className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-[10px] uppercase font-bold text-slate-400">Library Web Endpoint</div>
-              <a
-                href={integration?.endpointUrl || 'https://msoelibrary.vercel.app/'}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs font-bold text-madin-700 hover:text-madin-900 truncate block underline"
-              >
-                {integration?.endpointUrl || 'https://msoelibrary.vercel.app/'}
-              </a>
+            <p className="text-xs text-slate-200 leading-relaxed font-medium">
+              - പുതിയ ലീഡർബോർഡ് ഓഗസ്റ്റ് 12 ന് സ്റ്റാർട്ട് ചെയ്യും. ആയതിനാൽ നിലവിലെ ടോപ് റീഡറിനെ ഓഗസ്റ്റ് 12 ന് തിരഞ്ഞെടുക്കും. വായിക്കുക....വളരുക...ഉയരുക...!
+            </p>
+            <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+              <span>Endpoint: <strong>msoelibrary.vercel.app/leaderboard</strong></span>
+              <span className="text-emerald-400 font-semibold flex items-center space-x-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Real-Time Sync Active</span>
+              </span>
             </div>
           </div>
 
-          <div className="flex items-center space-x-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
-            <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center">
-              <Award className="w-5 h-5" />
-            </div>
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-subtle flex flex-col justify-between">
             <div>
-              <div className="text-[10px] uppercase font-bold text-slate-400">Last Synchronized</div>
-              <div className="text-xs font-bold text-slate-800">
-                {integration?.lastSyncAt ? new Date(integration.lastSyncAt).toLocaleString() : 'Just now'}
+              <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Sync Telemetry</div>
+              <div className="text-sm font-extrabold text-slate-800 mt-1 flex items-center space-x-1.5">
+                <Award className="w-4 h-4 text-amber-500" />
+                <span>{records.length} Scored Reader Profiles</span>
               </div>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Only students with verified points on the library website leaderboard are imported.
+              </p>
+            </div>
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+              <span className="text-slate-400 font-medium">Last Synced:</span>
+              <span className="font-bold text-slate-700">
+                {integration?.lastSyncAt ? new Date(integration.lastSyncAt).toLocaleTimeString() : 'Just now'}
+              </span>
             </div>
           </div>
         </div>
+
+        {/* Top 3 Podium Cards */}
+        {records.length >= 3 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            {/* Rank 2 */}
+            <div className="bg-gradient-to-b from-slate-100 to-white border border-slate-200 p-5 rounded-2xl shadow-subtle flex flex-col items-center text-center relative hover:scale-[1.02] transition">
+              <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-black text-sm mb-2 shadow-inner">
+                #2
+              </div>
+              <div className="text-sm font-bold text-slate-900 truncate max-w-full">
+                {top2?.student?.fullName}
+              </div>
+              <div className="text-[11px] text-slate-500 mt-0.5">
+                {top2?.student?.class?.name} • {top2?.student?.school?.name}
+              </div>
+              <div className="mt-3 px-3 py-1 bg-slate-200/70 text-slate-800 rounded-xl font-mono font-black text-xs">
+                {top2?.readingScore} pts • {top2?.booksRead} books
+              </div>
+            </div>
+
+            {/* Rank 1 */}
+            <div className="bg-gradient-to-b from-amber-100 via-amber-50 to-white border-2 border-amber-300 p-6 rounded-2xl shadow-md flex flex-col items-center text-center relative -translate-y-2 hover:scale-[1.02] transition">
+              <div className="absolute -top-3 px-3 py-0.5 bg-amber-500 text-white text-[10px] font-black uppercase rounded-full tracking-wider shadow">
+                👑 Top Reader
+              </div>
+              <div className="w-12 h-12 rounded-full bg-amber-400 text-amber-950 flex items-center justify-center font-black text-base mb-2 shadow-md">
+                #1
+              </div>
+              <div className="text-base font-extrabold text-slate-900 truncate max-w-full">
+                {top1?.student?.fullName}
+              </div>
+              <div className="text-xs text-slate-600 mt-0.5">
+                {top1?.student?.class?.name} • {top1?.student?.school?.name}
+              </div>
+              <div className="mt-3 px-4 py-1.5 bg-amber-400 text-amber-950 rounded-xl font-mono font-black text-sm shadow-sm">
+                {top1?.readingScore} pts • {top1?.booksRead} books
+              </div>
+            </div>
+
+            {/* Rank 3 */}
+            <div className="bg-gradient-to-b from-orange-100/50 to-white border border-orange-200 p-5 rounded-2xl shadow-subtle flex flex-col items-center text-center relative hover:scale-[1.02] transition">
+              <div className="w-10 h-10 rounded-full bg-orange-200 text-orange-800 flex items-center justify-center font-black text-sm mb-2 shadow-inner">
+                #3
+              </div>
+              <div className="text-sm font-bold text-slate-900 truncate max-w-full">
+                {top3?.student?.fullName}
+              </div>
+              <div className="text-[11px] text-slate-500 mt-0.5">
+                {top3?.student?.class?.name} • {top3?.student?.school?.name}
+              </div>
+              <div className="mt-3 px-3 py-1 bg-orange-100 text-orange-900 rounded-xl font-mono font-black text-xs">
+                {top3?.readingScore} pts • {top3?.booksRead} books
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Bulk Action Toolbar */}
         {selectedRecordIds.length > 0 && (
@@ -293,7 +362,7 @@ export default function LibraryPage() {
             <div className="flex items-center space-x-2">
               <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
               <span className="text-xs font-bold text-rose-950">
-                {selectedRecordIds.length} reading record(s) selected
+                {selectedRecordIds.length} leaderboard record(s) selected
               </span>
             </div>
             <div className="flex items-center space-x-2">
@@ -316,14 +385,14 @@ export default function LibraryPage() {
           </div>
         )}
 
-        {/* Reading Champions Leaderboard */}
+        {/* Reading Champions Leaderboard Table */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden">
           <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <BookOpen className="w-4 h-4 text-purple-700" />
-              <span className="text-xs font-bold text-slate-800">Kuthbakhana Reading Records & Ranking</span>
+              <BookOpen className="w-4 h-4 text-rose-700" />
+              <span className="text-xs font-bold text-slate-800">Library Leaderboard Standings</span>
             </div>
-            <span className="text-xs text-slate-500">{records.length} reader profiles</span>
+            <span className="text-xs text-slate-500 font-semibold">{records.length} Scored Readers</span>
           </div>
 
           <div className="overflow-x-auto">
@@ -339,31 +408,38 @@ export default function LibraryPage() {
                       title="Select All"
                     />
                   </th>
-                  <th className="py-2.5 px-4">Reading Rank</th>
+                  <th className="py-2.5 px-4">Rank</th>
                   <th className="py-2.5 px-4">Student</th>
                   <th className="py-2.5 px-4">Class & School</th>
                   <th className="py-2.5 px-4 text-center">Books Read</th>
-                  <th className="py-2.5 px-4">Period</th>
-                  <th className="py-2.5 px-4 text-right">Reading Score</th>
+                  <th className="py-2.5 px-4 text-right">Leaderboard Points</th>
                   <th className="py-2.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="py-10 text-center">
-                      <VideoLoader size="md" text="Loading library reading logs..." subtext="Syncing Kuthbakhana catalog" />
+                    <td colSpan={7} className="py-10 text-center">
+                      <VideoLoader size="md" text="Loading library leaderboard..." subtext="Connecting to Imthiyaaz Library" />
                     </td>
                   </tr>
                 ) : records.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-slate-500">
-                      No reading records logged yet.
+                    <td colSpan={7} className="py-12 text-center text-slate-500">
+                      <Trophy className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <p className="font-semibold">No leaderboard records found.</p>
+                      <button
+                        onClick={handleTriggerSync}
+                        className="mt-3 px-4 py-2 bg-madin-900 text-white rounded-xl font-bold text-xs shadow hover:bg-madin-950"
+                      >
+                        Sync Now from MSOE Library
+                      </button>
                     </td>
                   </tr>
                 ) : (
                   records.map((r: any, idx: number) => {
                     const isSelected = selectedRecordIds.includes(r.id);
+                    const rankNum = r.readingRank || idx + 1;
                     return (
                       <tr key={r.id} className={`hover:bg-slate-50 ${isSelected ? 'bg-rose-50/50' : ''}`}>
                         <td className="py-2.5 px-4 text-center">
@@ -374,27 +450,42 @@ export default function LibraryPage() {
                             className="w-4 h-4 rounded text-blue-600 focus:ring-blue-600 cursor-pointer"
                           />
                         </td>
-                        <td className="py-2.5 px-4 font-mono font-bold text-purple-800">
-                          #{r.readingRank || idx + 1}
+                        <td className="py-2.5 px-4 font-mono font-bold">
+                          {rankNum === 1 ? (
+                            <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 font-extrabold">
+                              🥇 #1
+                            </span>
+                          ) : rankNum === 2 ? (
+                            <span className="px-2 py-0.5 rounded-md bg-slate-200 text-slate-800 border border-slate-300 font-extrabold">
+                              🥈 #2
+                            </span>
+                          ) : rankNum === 3 ? (
+                            <span className="px-2 py-0.5 rounded-md bg-orange-100 text-orange-900 border border-orange-300 font-extrabold">
+                              🥉 #3
+                            </span>
+                          ) : (
+                            <span className="text-slate-600 font-bold">#{rankNum}</span>
+                          )}
                         </td>
                         <td className="py-2.5 px-4 font-bold text-slate-900">{r.student?.fullName}</td>
                         <td className="py-2.5 px-4 text-slate-600">
                           {r.student?.class?.name} • {r.student?.school?.name}
                         </td>
                         <td className="py-2.5 px-4 text-center">
-                          <span className="px-2.5 py-1 rounded-lg bg-purple-50 text-purple-900 font-bold border border-purple-200">
+                          <span className="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-900 font-bold border border-rose-200">
                             📖 {r.booksRead} books
                           </span>
                         </td>
-                        <td className="py-2.5 px-4 text-slate-500">{r.readingPeriod || 'Term 1 2026'}</td>
-                        <td className="py-2.5 px-4 text-right font-black text-madin-900">
-                          {r.readingScore}%
+                        <td className="py-2.5 px-4 text-right">
+                          <span className="px-3 py-1 bg-slate-900 text-gold-300 rounded-lg font-mono font-black text-xs shadow-xs">
+                            {r.readingScore} pts
+                          </span>
                         </td>
                         <td className="py-2.5 px-4 text-right">
                           <button
                             onClick={() => handleDeleteRecord(r)}
                             className="p-1 text-slate-400 hover:text-rose-600 rounded"
-                            title="Delete Reading Record"
+                            title="Delete Record"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -428,9 +519,21 @@ export default function LibraryPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Books Read *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Rank *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={manualData.readingRank}
+                    onChange={(e) => setManualData({ ...manualData, readingRank: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Books *</label>
                   <input
                     type="number"
                     min="0"
@@ -442,12 +545,10 @@ export default function LibraryPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Reading Score (%) *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Points *</label>
                   <input
                     type="number"
                     min="0"
-                    max="100"
-                    step="0.5"
                     required
                     value={manualData.readingScore}
                     onChange={(e) => setManualData({ ...manualData, readingScore: e.target.value })}
@@ -485,6 +586,7 @@ export default function LibraryPage() {
           </div>
         </div>
       )}
+
       {/* Bulk Delete Confirmation Modal */}
       {confirmBulkDeleteOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
@@ -522,7 +624,7 @@ export default function LibraryPage() {
                   <span>Deleting...</span>
                 ) : (
                   <>
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                     <span>Delete {selectedRecordIds.length} Record(s)</span>
                   </>
                 )}
