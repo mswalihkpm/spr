@@ -932,47 +932,47 @@ let homeAcademicMemory: any = null;
         </div>
 
         {newsUpdates.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 md:gap-5">
             {newsUpdates.map((item, idx) => (
               <Link
                 key={item.id}
                 href="/updates"
-                className="group bg-white rounded-2xl border border-slate-200 hover:border-amber-400 p-4 sm:p-5 shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between space-y-3 relative overflow-hidden"
+                className="group bg-white rounded-xl sm:rounded-2xl border border-slate-200 hover:border-amber-400 p-2.5 sm:p-5 shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between space-y-2 sm:space-y-3 relative overflow-hidden"
               >
-                <div className="space-y-2.5">
+                <div className="space-y-1.5 sm:space-y-2.5">
                   {item.imageUrl ? (
-                    <div className="relative w-full h-36 rounded-xl bg-slate-100 overflow-hidden border border-slate-200">
+                    <div className="relative w-full h-16 sm:h-36 rounded-lg sm:rounded-xl bg-slate-100 overflow-hidden border border-slate-200">
                       <Image src={item.imageUrl} alt={item.title} fill className="object-cover group-hover:scale-105 transition duration-500" unoptimized />
                     </div>
                   ) : (
-                    <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200">
-                      <Megaphone className="w-5 h-5" />
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200">
+                      <Megaphone className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
                   )}
 
-                  <div className="flex items-center space-x-2 text-[10px] text-slate-400 font-medium">
-                    <Calendar className="w-3 h-3 text-amber-600" />
-                    <span>{new Date(item.publishedAt).toLocaleDateString()}</span>
+                  <div className="flex items-center space-x-1 sm:space-x-2 text-[8px] sm:text-[10px] text-slate-400 font-medium">
+                    <Calendar className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-600 shrink-0" />
+                    <span className="truncate">{new Date(item.publishedAt).toLocaleDateString()}</span>
                   </div>
 
-                  <h4 className="text-sm font-bold text-slate-900 group-hover:text-amber-700 transition leading-snug line-clamp-2">
+                  <h4 className="text-[10px] sm:text-sm font-bold text-slate-900 group-hover:text-amber-700 transition leading-tight line-clamp-2">
                     {item.title}
                   </h4>
 
                   {item.subtitle && (
-                    <p className="text-xs text-blue-700 font-semibold line-clamp-1">
+                    <p className="hidden sm:block text-xs text-blue-700 font-semibold line-clamp-1">
                       {item.subtitle}
                     </p>
                   )}
 
-                  <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                  <p className="hidden sm:block text-xs text-slate-500 line-clamp-2 leading-relaxed">
                     {item.body}
                   </p>
                 </div>
 
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-amber-700">
-                  <span>Read More</span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition" />
+                <div className="pt-1.5 sm:pt-2 border-t border-slate-100 flex items-center justify-between text-[9px] sm:text-xs font-bold text-amber-700">
+                  <span className="truncate">Read More</span>
+                  <ArrowRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 group-hover:translate-x-1 transition shrink-0 ml-1" />
                 </div>
               </Link>
             ))}
@@ -1599,41 +1599,6 @@ let homeAcademicMemory: any = null;
 
       {/* Permanent Public Footer */}
       <PublicFooter />
-
-      {/* Fixed Mobile Bottom Navigation Bar */}
-      <nav className="sm:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl flex items-center justify-around py-2 px-1 print:hidden">
-        <Link
-          href="/"
-          className="flex flex-col items-center justify-center flex-1 py-1 text-blue-600 font-bold"
-        >
-          <Home className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px]">Home</span>
-        </Link>
-
-        <Link
-          href="/leaderboard"
-          className="flex flex-col items-center justify-center flex-1 py-1 text-slate-500 hover:text-slate-900"
-        >
-          <Award className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px]">Leaderboard</span>
-        </Link>
-
-        <a
-          href="#categories-section"
-          className="flex flex-col items-center justify-center flex-1 py-1 text-slate-500 hover:text-slate-900"
-        >
-          <Layers className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px]">Categories</span>
-        </a>
-
-        <Link
-          href="/updates"
-          className="flex flex-col items-center justify-center flex-1 py-1 text-slate-500 hover:text-amber-600"
-        >
-          <Megaphone className="w-5 h-5 mb-0.5 text-amber-600" />
-          <span className="text-[10px]">Updates</span>
-        </Link>
-      </nav>
     </div>
   );
 }

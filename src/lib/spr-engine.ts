@@ -350,6 +350,7 @@ export async function calculateAllLeaderboards(filters?: {
   classId?: string;
   schoolId?: string;
   categoryId?: string;
+  subcategoryId?: string;
   stream?: string; // e.g. 'JAMIATHUL_HIND', 'MADIN_ACADEMY'
   fest?: string; // e.g. 'SAHITYOTSAV', 'KALOTSAV', 'M_LIT', 'JAMIA_MAHRAJAN'
 }): Promise<LeaderboardEntry[]> {
@@ -386,9 +387,11 @@ export async function calculateAllLeaderboards(filters?: {
               literaryCompetition: {
                 include: { event: true },
               },
+              subcategory: true,
             }
           : {
               category: true,
+              subcategory: true,
             },
       },
       creativeWorks: true,
@@ -405,6 +408,20 @@ export async function calculateAllLeaderboards(filters?: {
     let weightedSum = 0;
     let activeWeightsTotal = 0;
     let totalRecords = student.performanceRecords.length + student.creativeWorks.length + student.libraryRecords.length;
+
+    // Subcategory-specific calculation if requested
+    let subcategoryScore = 0;
+    let subcategoryRecordsCount = 0;
+    if (filters?.subcategoryId) {
+      const subRecords = (student.performanceRecords as any[]).filter(
+        (r) => r.subcategoryId === filters.subcategoryId
+      );
+      if (subRecords.length > 0) {
+        const sum = subRecords.reduce((acc, r) => acc + (r.percentage || 0), 0);
+        subcategoryScore = Number((sum / subRecords.length).toFixed(1));
+        subcategoryRecordsCount = subRecords.length;
+      }
+    }
 
     // Stream-specific Islamic calculation if requested
     let streamIslamicScore = 0;
@@ -512,7 +529,10 @@ export async function calculateAllLeaderboards(filters?: {
     }
 
     let finalScore = 0;
-    if (filters?.fest) {
+    if (filters?.subcategoryId) {
+      finalScore = subcategoryScore;
+      totalRecords = subcategoryRecordsCount;
+    } else if (filters?.fest) {
       finalScore = festScore;
       totalRecords = festRecordsCount;
     } else if (filters?.stream) {
@@ -547,8 +567,14 @@ export async function calculateAllLeaderboards(filters?: {
     });
   }
 
+  // Determine if this is an overall institutional leaderboard or a specific category/fest/stream/subcategory leaderboard
+  const isOverall = !filters?.categoryId && !filters?.subcategoryId && !filters?.fest && !filters?.stream;
+
+  // In all leaderboards except Overall, exclude 0% students from ranking
+  let rankedEntries = isOverall ? entries : entries.filter((e) => (e.spr || 0) > 0);
+
   // Sort descending by score, then secondary tie-breaker by total recordsCount, then alphabetically by name
-  entries.sort((a, b) => {
+  rankedEntries.sort((a, b) => {
     if (b.spr !== a.spr) return b.spr - a.spr;
     if ((b.recordsCount || 0) !== (a.recordsCount || 0)) {
       return (b.recordsCount || 0) - (a.recordsCount || 0);
@@ -557,21 +583,22 @@ export async function calculateAllLeaderboards(filters?: {
   });
 
   // Assign sequential clean ranks (1, 2, 3, 4, 5, 6, 7, 8, 9, 10...) based on deterministic tie-breaking
-  for (let i = 0; i < entries.length; i++) {
-    entries[i].rank = i + 1;
+  for (let i = 0; i < rankedEntries.length; i++) {
+    rankedEntries[i].rank = i + 1;
   }
 
   // Mark tie flags and count of tied peers
   const scoreCounts: Record<number, number> = {};
-  entries.forEach((e) => {
+  rankedEntries.forEach((e) => {
     scoreCounts[e.spr] = (scoreCounts[e.spr] || 0) + 1;
   });
-  entries.forEach((e: any) => {
+  rankedEntries.forEach((e: any) => {
     e.isTied = scoreCounts[e.spr] > 1;
     e.tiedCount = scoreCounts[e.spr];
   });
 
-  leaderboardCache.set(cacheKey, { timestamp: now, data: entries });
-  return entries;
+  leaderboardCache.set(cacheKey, { timestamp: now, data: rankedEntries });
+  return rankedEntries;
+}
 }
 
