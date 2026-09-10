@@ -53,6 +53,7 @@ export default function StudentsPage() {
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
+  const [modalDeleteError, setModalDeleteError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     studentId: '',
     sprStudentId: '',
@@ -289,6 +290,7 @@ export default function StudentsPage() {
   const handleBulkDeleteSubmit = async () => {
     if (selectedStudentIds.length === 0) return;
     setBulkDeleting(true);
+    setModalDeleteError(null);
     try {
       const res = await fetch('/api/students', {
         method: 'DELETE',
@@ -300,9 +302,10 @@ export default function StudentsPage() {
 
       setSelectedStudentIds([]);
       setConfirmBulkDeleteOpen(false);
+      setModalDeleteError(null);
       fetchStudents();
     } catch (err: any) {
-      alert(err.message || 'Error bulk deleting students.');
+      setModalDeleteError(err.message || 'Error bulk deleting students.');
     } finally {
       setBulkDeleting(false);
     }
@@ -849,6 +852,13 @@ export default function StudentsPage() {
                 <p className="text-xs text-slate-500">This action cannot be undone.</p>
               </div>
             </div>
+
+            {modalDeleteError && (
+              <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                <span>{modalDeleteError}</span>
+              </div>
+            )}
 
             <p className="text-xs text-slate-600 leading-relaxed mb-6">
               Are you sure you want to permanently delete <strong className="text-rose-600">{selectedStudentIds.length}</strong> selected student record(s)? All associated performance records, scores, creative hub entries, and dossiers will also be removed permanently.

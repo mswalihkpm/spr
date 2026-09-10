@@ -381,12 +381,14 @@ export async function DELETE(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     const idsParam = searchParams.get('ids');
-    const examId = searchParams.get('examId');
-    const categoryId = searchParams.get('categoryId');
-    const studentId = searchParams.get('studentId');
+    let deleteCategoryId = searchParams.get('categoryId');
+    let deleteExamId = searchParams.get('examId');
+    let deleteStudentId = searchParams.get('studentId');
+    let deleteSubjectId = searchParams.get('subjectId');
+    let deleteClassId = searchParams.get('classId');
+    let deleteAll = searchParams.get('all') === 'true';
 
     const idsSet = new Set<string>();
-
     if (id) idsSet.add(id.trim());
     if (idsParam) idsParam.split(',').forEach((s) => s.trim() && idsSet.add(s.trim()));
 
@@ -402,6 +404,12 @@ export async function DELETE(req: NextRequest) {
         if (Array.isArray(body.scoreIds)) {
           body.scoreIds.forEach((s: any) => s && idsSet.add(String(s).trim()));
         }
+        if (body.categoryId) deleteCategoryId = body.categoryId;
+        if (body.examId) deleteExamId = body.examId;
+        if (body.subjectId) deleteSubjectId = body.subjectId;
+        if (body.studentId) deleteStudentId = body.studentId;
+        if (body.classId) deleteClassId = body.classId;
+        if (body.all) deleteAll = true;
       }
     } catch {
       // Body not JSON or empty
@@ -415,13 +423,28 @@ export async function DELETE(req: NextRequest) {
       deleteResult = await prisma.performanceRecord.deleteMany({
         where: { id: { in: idsToDelete } },
       });
-    } else if (examId) {
+    } else if (deleteAll && deleteCategoryId) {
       deleteResult = await prisma.performanceRecord.deleteMany({
-        where: { examId, ...(categoryId ? { categoryId } : {}) },
+        where: { categoryId: deleteCategoryId },
       });
-    } else if (studentId && categoryId) {
+    } else if (deleteExamId) {
       deleteResult = await prisma.performanceRecord.deleteMany({
-        where: { studentId, categoryId },
+        where: { examId: deleteExamId, ...(deleteCategoryId ? { categoryId: deleteCategoryId } : {}) },
+      });
+    } else if (deleteSubjectId) {
+      deleteResult = await prisma.performanceRecord.deleteMany({
+        where: { subjectId: deleteSubjectId, ...(deleteCategoryId ? { categoryId: deleteCategoryId } : {}) },
+      });
+    } else if (deleteClassId) {
+      deleteResult = await prisma.performanceRecord.deleteMany({
+        where: {
+          student: { classId: deleteClassId },
+          ...(deleteCategoryId ? { categoryId: deleteCategoryId } : {}),
+        },
+      });
+    } else if (deleteStudentId && deleteCategoryId) {
+      deleteResult = await prisma.performanceRecord.deleteMany({
+        where: { studentId: deleteStudentId, categoryId: deleteCategoryId },
       });
     } else {
       return NextResponse.json({ error: 'Score record ID(s) or filter parameters are required for deletion.' }, { status: 400 });
@@ -432,7 +455,7 @@ export async function DELETE(req: NextRequest) {
       userName: user?.name,
       action: 'DELETE_SCORE',
       entity: 'PerformanceRecord',
-      newValue: { count: deleteResult.count, ids: idsToDelete, examId },
+      newValue: { count: deleteResult.count, idsSample: idsToDelete.slice(0, 50), examId: deleteExamId },
     });
 
     invalidateEngineCache();

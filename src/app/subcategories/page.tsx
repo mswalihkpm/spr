@@ -109,6 +109,7 @@ export default function OtherSubcategoriesPage() {
   const [selectedSubcategoryIds, setSelectedSubcategoryIds] = useState<string[]>([]);
   const [bulkDeletingSubs, setBulkDeletingSubs] = useState(false);
   const [confirmBulkDeleteSubsOpen, setConfirmBulkDeleteSubsOpen] = useState(false);
+  const [modalDeleteError, setModalDeleteError] = useState<string | null>(null);
 
   // Record Score Form State
   const [recordForm, setRecordForm] = useState({
@@ -148,7 +149,7 @@ export default function OtherSubcategoriesPage() {
         getAcademicMasterData(),
         fetch('/api/subcategories'),
         fetch('/api/students?all=true'),
-        fetch('/api/scores'),
+        fetch('/api/scores?limit=1000'),
       ]);
 
       const dataSubs = await resSubs.json();
@@ -427,6 +428,7 @@ export default function OtherSubcategoriesPage() {
   const handleBulkDeleteRecords = async () => {
     if (selectedRecordIds.length === 0) return;
     setBulkDeletingRecords(true);
+    setModalDeleteError(null);
     try {
       const res = await fetch('/api/scores', {
         method: 'DELETE',
@@ -439,10 +441,13 @@ export default function OtherSubcategoriesPage() {
       const count = selectedRecordIds.length;
       setSelectedRecordIds([]);
       setConfirmBulkDeleteRecordsOpen(false);
+      setModalDeleteError(null);
       setStatusMsg({ type: 'success', text: `Successfully deleted ${count} subcategory score record(s).` });
       fetchData();
     } catch (err: any) {
-      setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting records.' });
+      const errMsg = err.message || 'Error bulk deleting records.';
+      setModalDeleteError(errMsg);
+      setStatusMsg({ type: 'error', text: errMsg });
     } finally {
       setBulkDeletingRecords(false);
     }
@@ -467,6 +472,7 @@ export default function OtherSubcategoriesPage() {
   const handleBulkDeleteSubcategories = async () => {
     if (selectedSubcategoryIds.length === 0) return;
     setBulkDeletingSubs(true);
+    setModalDeleteError(null);
     try {
       const res = await fetch('/api/subcategories', {
         method: 'DELETE',
@@ -479,10 +485,13 @@ export default function OtherSubcategoriesPage() {
       const count = selectedSubcategoryIds.length;
       setSelectedSubcategoryIds([]);
       setConfirmBulkDeleteSubsOpen(false);
+      setModalDeleteError(null);
       setStatusMsg({ type: 'success', text: `Successfully deleted ${count} subcategory(ies) and all associated scores.` });
       fetchData();
     } catch (err: any) {
-      setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting subcategories.' });
+      const errMsg = err.message || 'Error bulk deleting subcategories.';
+      setModalDeleteError(errMsg);
+      setStatusMsg({ type: 'error', text: errMsg });
     } finally {
       setBulkDeletingSubs(false);
     }
@@ -1467,6 +1476,13 @@ export default function OtherSubcategoriesPage() {
                 </div>
               </div>
 
+              {modalDeleteError && (
+                <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium flex items-center space-x-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>{modalDeleteError}</span>
+                </div>
+              )}
+
               <p className="text-xs text-slate-600 leading-relaxed mb-6">
                 Are you sure you want to permanently delete <strong className="text-rose-600">{selectedRecordIds.length}</strong> selected subcategory score record(s)? Student aggregates and leaderboards will recalculate automatically.
               </p>
@@ -1513,6 +1529,13 @@ export default function OtherSubcategoriesPage() {
                   <p className="text-xs text-slate-500">Cascade Deletion Warning</p>
                 </div>
               </div>
+
+              {modalDeleteError && (
+                <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium flex items-center space-x-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>{modalDeleteError}</span>
+                </div>
+              )}
 
               <p className="text-xs text-slate-600 leading-relaxed mb-6">
                 Are you sure you want to permanently delete <strong className="text-rose-600">{selectedSubcategoryIds.length}</strong> selected subcategory(ies)? <strong className="text-rose-700">All historical scores and performance logs associated with these subcategories will also be deleted permanently.</strong>

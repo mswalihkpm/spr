@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
       prisma.academicClass.findMany({ orderBy: { numericGrade: 'asc' } }),
       prisma.academicYear.findMany({ orderBy: { name: 'desc' } }),
       prisma.term.findMany({ orderBy: { name: 'asc' } }),
-      prisma.exam.findMany({ include: { category: true, term: true }, orderBy: { name: 'asc' } }),
+      prisma.exam.findMany({ include: { category: true, term: true, _count: { select: { performanceRecords: true } } }, orderBy: { name: 'asc' } }),
       prisma.subject.findMany({ include: { category: true, institution: true, board: true }, orderBy: { name: 'asc' } }),
       prisma.level.findMany({ orderBy: { displayOrder: 'asc' } }),
       prisma.academicInstitution.findMany({ orderBy: { name: 'asc' } }),

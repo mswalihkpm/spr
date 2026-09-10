@@ -24,7 +24,7 @@ import {
   Upload,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
-import { getAcademicMasterData } from '@/lib/academic-client';
+import { getAcademicMasterData, invalidateClientAcademicCache } from '@/lib/academic-client';
 
 
 interface DynamicSubject {
@@ -63,14 +63,25 @@ export default function IslamicStudiesPage() {
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
+  const [modalDeleteError, setModalDeleteError] = useState<string | null>(null);
+
+  // History Filter states
+  const [historyExamFilter, setHistoryExamFilter] = useState<string>('ALL');
+  const [historyClassFilter, setHistoryClassFilter] = useState<string>('ALL');
+
+  const filteredHistoryRecords = historyRecords.filter((r) => {
+    if (historyExamFilter !== 'ALL' && r.examId !== historyExamFilter) return false;
+    if (historyClassFilter !== 'ALL' && r.student?.classId !== historyClassFilter) return false;
+    return true;
+  });
 
   const handleToggleSelectAll = () => {
-    const allSelected = historyRecords.length > 0 && historyRecords.every((r) => selectedRecordIds.includes(r.id));
+    const allSelected = filteredHistoryRecords.length > 0 && filteredHistoryRecords.every((r) => selectedRecordIds.includes(r.id));
     if (allSelected) {
-      const recordIdSet = new Set(historyRecords.map((r) => r.id));
+      const recordIdSet = new Set(filteredHistoryRecords.map((r) => r.id));
       setSelectedRecordIds((prev) => prev.filter((id) => !recordIdSet.has(id)));
     } else {
-      setSelectedRecordIds((prev) => Array.from(new Set([...prev, ...historyRecords.map((r) => r.id)])));
+      setSelectedRecordIds((prev) => Array.from(new Set([...prev, ...filteredHistoryRecords.map((r) => r.id)])));
     }
   };
 
@@ -83,22 +94,27 @@ export default function IslamicStudiesPage() {
   const handleBulkDelete = async () => {
     if (selectedRecordIds.length === 0) return;
     setBulkDeleting(true);
+    setModalDeleteError(null);
     try {
       const res = await fetch('/api/scores', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: selectedRecordIds }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Failed to bulk delete scores.');
 
-      const count = selectedRecordIds.length;
+      const count = data.count || data.deletedCount || selectedRecordIds.length;
       setSelectedRecordIds([]);
       setConfirmBulkDeleteOpen(false);
+      setModalDeleteError(null);
       setStatusMsg({ type: 'success', text: `Successfully deleted ${count} Islamic exam score record(s).` });
+      invalidateClientAcademicCache();
       fetchScoreHistory();
     } catch (err: any) {
-      setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting records.' });
+      const msg = err.message || 'Error bulk deleting records.';
+      setModalDeleteError(msg);
+      setStatusMsg({ type: 'error', text: msg });
     } finally {
       setBulkDeleting(false);
     }
@@ -167,7 +183,7 @@ export default function IslamicStudiesPage() {
       const islamicCat = dataMaster.categories?.find((c: any) => c.code === 'ISLAMIC');
 
       if (islamicCat) {
-        const res = await fetch(`/api/scores?categoryId=${islamicCat.id}&limit=100`);
+        const res = await fetch(`/api/scores?categoryId=${islamicCat.id}&limit=1000`);
         const data = await res.json();
         if (data.records) setHistoryRecords(data.records);
       }
@@ -825,9 +841,42 @@ export default function IslamicStudiesPage() {
 
         {/* Score History Table */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-900">Recent Islamic Exam Records</h3>
-            <span className="text-xs text-slate-500">{historyRecords.length} recorded entries</span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Recent Islamic Exam Records</h3>
+              <p className="text-[11px] text-slate-500">
+                Showing {filteredHistoryRecords.length} of {historyRecords.length} recorded entries
+              </p>
+            </div>
+
+            {/* Filter controls */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={historyClassFilter}
+                onChange={(e) => setHistoryClassFilter(e.target.value)}
+                className="px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none"
+              >
+                <option value="ALL">All Classes</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={historyExamFilter}
+                onChange={(e) => setHistoryExamFilter(e.target.value)}
+                className="px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none max-w-[180px] truncate"
+              >
+                <option value="ALL">All Exams</option>
+                {exams.map((ex) => (
+                  <option key={ex.id} value={ex.id}>
+                    {ex.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="overflow-x-auto max-h-96">
@@ -837,7 +886,7 @@ export default function IslamicStudiesPage() {
                   <th className="py-2.5 px-3 w-10 text-center">
                     <input
                       type="checkbox"
-                      checked={historyRecords.length > 0 && historyRecords.every((r) => selectedRecordIds.includes(r.id))}
+                      checked={filteredHistoryRecords.length > 0 && filteredHistoryRecords.every((r) => selectedRecordIds.includes(r.id))}
                       onChange={handleToggleSelectAll}
                       className="w-4 h-4 rounded text-blue-600 focus:ring-blue-600 cursor-pointer"
                       title="Select All"
@@ -857,14 +906,14 @@ export default function IslamicStudiesPage() {
                       <VideoLoader size="md" text="Loading score logs..." subtext="Accessing Islamic studies historical scores" />
                     </td>
                   </tr>
-                ) : historyRecords.length === 0 ? (
+                ) : filteredHistoryRecords.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-slate-500">
-                      No score records found yet.
+                      No score records match the selected filter.
                     </td>
                   </tr>
                 ) : (
-                  historyRecords.map((r: any) => {
+                  filteredHistoryRecords.map((r: any) => {
                     const isSelected = selectedRecordIds.includes(r.id);
                     return (
                       <tr key={r.id} className={`hover:bg-slate-50 ${isSelected ? 'bg-rose-50/50' : ''}`}>
@@ -1229,6 +1278,13 @@ export default function IslamicStudiesPage() {
               </div>
             </div>
 
+            {modalDeleteError && (
+              <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-semibold flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{modalDeleteError}</span>
+              </div>
+            )}
+
             <p className="text-xs text-slate-600 leading-relaxed mb-6">
               Are you sure you want to permanently delete <strong className="text-rose-600">{selectedRecordIds.length}</strong> selected Islamic studies examination score record(s)? Student Islamic academic aggregates and 360° dossiers will update automatically.
             </p>
@@ -1237,7 +1293,10 @@ export default function IslamicStudiesPage() {
               <button
                 type="button"
                 disabled={bulkDeleting}
-                onClick={() => setConfirmBulkDeleteOpen(false)}
+                onClick={() => {
+                  setConfirmBulkDeleteOpen(false);
+                  setModalDeleteError(null);
+                }}
                 className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
               >
                 Cancel

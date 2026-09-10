@@ -95,6 +95,8 @@ export default function ProgramsPage() {
     }
   };
 
+  const [modalDeleteError, setModalDeleteError] = useState<string | null>(null);
+
   const handleToggleSelectRecord = (id: string) => {
     setSelectedRecordIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
@@ -104,22 +106,26 @@ export default function ProgramsPage() {
   const handleBulkDelete = async () => {
     if (selectedRecordIds.length === 0) return;
     setBulkDeleting(true);
+    setModalDeleteError(null);
     try {
       const res = await fetch('/api/scores', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: selectedRecordIds }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Failed to bulk delete scores.');
 
-      const count = selectedRecordIds.length;
+      const count = data.count || data.deletedCount || selectedRecordIds.length;
       setSelectedRecordIds([]);
       setConfirmBulkDeleteOpen(false);
+      setModalDeleteError(null);
       setStatusMsg({ type: 'success', text: `Successfully deleted ${count} score record(s).` });
       fetchData();
     } catch (err: any) {
-      setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting records.' });
+      const msg = err.message || 'Error bulk deleting records.';
+      setModalDeleteError(msg);
+      setStatusMsg({ type: 'error', text: msg });
     } finally {
       setBulkDeleting(false);
     }
@@ -138,7 +144,7 @@ export default function ProgramsPage() {
       setLoading(true);
       const [dataMaster, resScores, resStudents] = await Promise.all([
         getAcademicMasterData(),
-        fetch('/api/scores'),
+        fetch('/api/scores?limit=1000'),
         fetch('/api/students?all=true'),
       ]);
 
@@ -1112,15 +1118,25 @@ export default function ProgramsPage() {
               </div>
             </div>
 
+            {modalDeleteError && (
+              <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-semibold flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{modalDeleteError}</span>
+              </div>
+            )}
+
             <p className="text-xs text-slate-600 leading-relaxed mb-6">
-              Are you sure you want to permanently delete <strong className="text-rose-600">{selectedRecordIds.length}</strong> selected competition score record(s)? Student aggregate leaderboards and 360° dossiers will update automatically.
+              Are you sure you want to permanently delete <strong className="text-rose-600">{selectedRecordIds.length}</strong> selected program performance score record(s)? Overall institutional standings and student dossiers will update automatically.
             </p>
 
             <div className="flex items-center justify-end space-x-3">
               <button
                 type="button"
                 disabled={bulkDeleting}
-                onClick={() => setConfirmBulkDeleteOpen(false)}
+                onClick={() => {
+                  setConfirmBulkDeleteOpen(false);
+                  setModalDeleteError(null);
+                }}
                 className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
               >
                 Cancel

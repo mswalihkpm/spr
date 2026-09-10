@@ -157,6 +157,7 @@ export async function DELETE(req: NextRequest) {
 
     const url = new URL(req.url);
     const id = url.searchParams.get('id');
+    const idsParam = url.searchParams.get('ids');
 
     let body: any = {};
     try {
@@ -165,7 +166,20 @@ export async function DELETE(req: NextRequest) {
       // url param fallback
     }
 
-    const ids: string[] = body.ids || (id ? [id] : []);
+    const idsSet = new Set<string>();
+    if (id) idsSet.add(id.trim());
+    if (idsParam) idsParam.split(',').forEach((s) => s.trim() && idsSet.add(s.trim()));
+    if (body.id) idsSet.add(String(body.id).trim());
+    if (Array.isArray(body.ids)) {
+      body.ids.forEach((s: any) => s && idsSet.add(String(s).trim()));
+    } else if (typeof body.ids === 'string') {
+      body.ids.split(',').forEach((s: string) => s.trim() && idsSet.add(s.trim()));
+    }
+    if (Array.isArray(body.recordIds)) {
+      body.recordIds.forEach((s: any) => s && idsSet.add(String(s).trim()));
+    }
+
+    const ids = Array.from(idsSet);
 
     if (ids.length === 0) {
       return NextResponse.json({ error: 'No record IDs provided for deletion.' }, { status: 400 });

@@ -48,6 +48,7 @@ export default function LiteraryProgramsPage() {
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
+  const [modalDeleteError, setModalDeleteError] = useState<string | null>(null);
 
   const handleToggleSelectAll = () => {
     const allSelected = recentRecords.length > 0 && recentRecords.every((r) => selectedRecordIds.includes(r.id));
@@ -68,6 +69,7 @@ export default function LiteraryProgramsPage() {
   const handleBulkDelete = async () => {
     if (selectedRecordIds.length === 0) return;
     setBulkDeleting(true);
+    setModalDeleteError(null);
     try {
       const res = await fetch('/api/scores', {
         method: 'DELETE',
@@ -80,10 +82,13 @@ export default function LiteraryProgramsPage() {
       const count = selectedRecordIds.length;
       setSelectedRecordIds([]);
       setConfirmBulkDeleteOpen(false);
+      setModalDeleteError(null);
       setStatusMsg({ type: 'success', text: `Successfully deleted ${count} literary score record(s).` });
       fetchData();
     } catch (err: any) {
-      setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting records.' });
+      const errMsg = err.message || 'Error bulk deleting records.';
+      setModalDeleteError(errMsg);
+      setStatusMsg({ type: 'error', text: errMsg });
     } finally {
       setBulkDeleting(false);
     }
@@ -141,7 +146,7 @@ export default function LiteraryProgramsPage() {
       const [dataMaster, resStudents, resScores] = await Promise.all([
         getAcademicMasterData(),
         fetch('/api/students?all=true'),
-        fetch('/api/scores'),
+        fetch('/api/scores?limit=1000'),
       ]);
 
       const dataStudents = await resStudents.json();
@@ -1387,6 +1392,13 @@ export default function LiteraryProgramsPage() {
                 <p className="text-xs text-slate-500">This action cannot be undone.</p>
               </div>
             </div>
+
+            {modalDeleteError && (
+              <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                <span>{modalDeleteError}</span>
+              </div>
+            )}
 
             <p className="text-xs text-slate-600 leading-relaxed mb-6">
               Are you sure you want to permanently delete <strong className="text-rose-600">{selectedRecordIds.length}</strong> selected literary / arts festival score record(s)? Student aggregate leaderboards and 360° dossiers will update automatically.
