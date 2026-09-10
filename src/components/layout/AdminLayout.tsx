@@ -575,17 +575,17 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
           </button>
 
           <button
-            onClick={() => router.push('/updates/manage')}
+            onClick={() => router.push('/categories')}
             className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
-              pathname.startsWith('/updates')
+              pathname.startsWith('/categories')
                 ? 'text-madin-900 font-bold scale-105'
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <div className={`p-1 rounded-lg ${pathname.startsWith('/updates') ? 'bg-amber-50 text-amber-700' : ''}`}>
-              <Megaphone className="w-5 h-5 text-amber-600" />
+            <div className={`p-1 rounded-lg ${pathname.startsWith('/categories') ? 'bg-emerald-50 text-emerald-800' : ''}`}>
+              <Layers className="w-5 h-5 text-emerald-700" />
             </div>
-            <span className="text-[10px] tracking-tight">Updates</span>
+            <span className="text-[10px] tracking-tight">Categories</span>
           </button>
 
           <button

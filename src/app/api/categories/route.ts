@@ -7,10 +7,54 @@ import { logAuditAction } from '@/lib/audit';
 
 export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (id) {
+      const category = await prisma.category.findUnique({
+        where: { id },
+        include: {
+          subcategories: {
+            include: {
+              _count: { select: { performanceRecords: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+          },
+          categoryWeights: true,
+          _count: {
+            select: {
+              subcategories: true,
+              performanceRecords: true,
+              subjects: true,
+              exams: true,
+            },
+          },
+        },
+      });
+
+      if (!category) {
+        return NextResponse.json({ error: 'Category not found.' }, { status: 404 });
+      }
+
+      return NextResponse.json({ category });
+    }
+
     const categories = await prisma.category.findMany({
       include: {
-        subcategories: true,
+        subcategories: {
+          include: {
+            _count: { select: { performanceRecords: true } },
+          },
+        },
         categoryWeights: true,
+        _count: {
+          select: {
+            subcategories: true,
+            performanceRecords: true,
+            subjects: true,
+            exams: true,
+          },
+        },
       },
       orderBy: { displayOrder: 'asc' },
     });
