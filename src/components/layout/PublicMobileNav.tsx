@@ -22,8 +22,6 @@ function PublicMobileNavContent() {
     pathname.startsWith('/analytics') ||
     pathname.startsWith('/settings') ||
     pathname.startsWith('/updates/manage') ||
-    pathname.startsWith('/categories') ||
-    pathname.startsWith('/subcategories') ||
     pathname.startsWith('/display');
 
   if (isAdminPath) {
@@ -41,7 +39,10 @@ function PublicMobileNavContent() {
 
   const isHome = pathname === '/';
   const isLeaderboard = pathname === '/leaderboard' && !hasCategoryParam;
-  const isCategories = pathname.startsWith('/leaderboard') && hasCategoryParam;
+  const isCategories =
+    pathname.startsWith('/categories') ||
+    pathname.startsWith('/subcategories') ||
+    (pathname.startsWith('/leaderboard') && hasCategoryParam);
   const isUpdates = pathname.startsWith('/updates');
 
   return (
@@ -73,9 +74,9 @@ function PublicMobileNavContent() {
         <span className="text-[10px]">Leaderboard</span>
       </Link>
 
-      {/* 3. Categories & Qualification Standings (Public View) */}
+      {/* 3. Categories & Wings */}
       <Link
-        href="/leaderboard?cat=QUALIFICATION"
+        href="/categories"
         className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors relative ${
           isCategories ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-900'
         }`}

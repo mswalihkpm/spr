@@ -47,7 +47,7 @@ export default function PublicFooter() {
           <span>•</span>
           <Link href="/leaderboard" className="hover:text-white transition">Leaderboard</Link>
           <span>•</span>
-          <Link href="/leaderboard?cat=QUALIFICATION" className="hover:text-white transition">Categories</Link>
+          <Link href="/categories" className="hover:text-white transition">Categories</Link>
           <span>•</span>
           <Link href="/updates" className="hover:text-white transition">Updates</Link>
           <span>•</span>

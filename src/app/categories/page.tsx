@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import AdminLayout from '@/components/layout/AdminLayout';
 import {
   Layers,
   Plus,
@@ -22,12 +23,17 @@ import {
   Check,
   Search,
   ArrowRight,
+  ArrowLeft,
   ChevronRight,
   Compass,
   Star,
   ExternalLink,
+  Lock,
+  Megaphone,
+  ShieldAlert,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import PublicFooter from '@/components/layout/PublicFooter';
 
 // Helper icon resolver for categories
 export function getCategoryIcon(code: string, iconName?: string) {
@@ -80,8 +86,9 @@ export default function CategoriesPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentUser, setCurrentUser] = useState<any | null>(null);
 
-  // Modal State
+  // Modal State for Admin Management
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<any | null>(null);
   const [formData, setFormData] = useState({
@@ -99,6 +106,18 @@ export default function CategoriesPage() {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
+
+  // Check auth silently
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.user) setCurrentUser(data.user);
+      })
+      .catch(() => {});
+  }, []);
+
+  const isAdmin = currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN';
 
   const fetchCategories = async () => {
     try {
@@ -289,34 +308,86 @@ export default function CategoriesPage() {
   };
 
   return (
-    <AdminLayout>
-      <div className="max-w-6xl mx-auto space-y-5 pb-16">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/80 shadow-subtle">
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-900 border border-emerald-200">
-                SPR Assessment Matrix
-              </span>
-              <span className="text-xs text-slate-400">•</span>
-              <span className="text-xs text-slate-500 font-semibold">{categories.length} Total Categories</span>
-            </div>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center space-x-2.5">
-              <Layers className="w-6 h-6 text-madin-900" />
-              <span>Assessment Categories & Wings</span>
-            </h2>
-            <p className="text-xs text-slate-500 max-w-2xl">
-              Tap any category box to explore its subcategories, record marks, and view dynamic SPR weighting.
-            </p>
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans selection:bg-blue-600 selection:text-white antialiased">
+      {/* Top Universal Header */}
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-xs print:hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-3.5 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Link
+              href="/"
+              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition active:scale-95"
+              title="Return to Standings"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Link>
+            <Link href="/" className="flex items-center space-x-2.5 group">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white p-0.5 flex items-center justify-center shrink-0 border border-slate-200 shadow-xs">
+                <Image
+                  src="/logo.png"
+                  alt="Madin School of Excellence"
+                  width={36}
+                  height={36}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div>
+                <h1 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight leading-none uppercase">
+                  MADIN EXCELLENCE
+                </h1>
+                <div className="text-[10px] font-bold text-blue-600 tracking-wider uppercase mt-0.5">
+                  SPR Assessment Wings
+                </div>
+              </div>
+            </Link>
           </div>
 
-          <button
-            onClick={handleOpenCreate}
-            className="px-4 py-2.5 rounded-2xl bg-madin-900 hover:bg-madin-950 text-white text-xs font-bold flex items-center justify-center space-x-2 shadow-sm transition active:scale-95 self-start sm:self-auto"
-          >
-            <Plus className="w-4 h-4 text-gold-400" />
-            <span>+ Create Category</span>
-          </button>
+          <div className="flex items-center space-x-2">
+            <Link
+              href="/leaderboard"
+              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center space-x-1.5"
+            >
+              <Trophy className="w-3.5 h-3.5 text-amber-500" />
+              <span className="hidden sm:inline">Leaderboard</span>
+            </Link>
+
+            {isAdmin ? (
+              <button
+                onClick={handleOpenCreate}
+                className="px-3.5 py-1.5 rounded-xl bg-madin-900 hover:bg-madin-950 text-white text-xs font-bold flex items-center space-x-1.5 shadow-sm transition active:scale-95"
+              >
+                <Plus className="w-3.5 h-3.5 text-gold-400" />
+                <span>+ Add Category</span>
+              </button>
+            ) : (
+              <Link
+                href="/login"
+                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-700 text-xs font-bold flex items-center space-x-1 transition"
+                title="Staff Login"
+              >
+                <Lock className="w-3 h-3" />
+                <span className="hidden sm:inline">Staff</span>
+              </Link>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-7 space-y-5">
+        {/* Hero Section */}
+        <div className="rounded-3xl bg-gradient-to-r from-blue-900 via-indigo-900 to-madin-950 text-white p-5 sm:p-7 shadow-lg relative overflow-hidden">
+          <div className="relative z-10 max-w-2xl space-y-1.5">
+            <div className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-gold-400/20 text-gold-300 border border-gold-400/30 text-[11px] font-bold">
+              <Layers className="w-3.5 h-3.5 text-gold-400" />
+              <span>SPR Assessment Matrix</span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+              Evaluation Categories & Wings
+            </h2>
+            <p className="text-xs sm:text-sm text-blue-100/90 leading-relaxed">
+              Tap any category box below to explore its subcategories, view scoring criteria, and check performance records.
+            </p>
+          </div>
         </div>
 
         {/* Status Message */}
@@ -354,25 +425,31 @@ export default function CategoriesPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search category wings..."
-              className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-madin-900 transition"
+              className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-600 transition"
             />
           </div>
 
-          {deletableCategories.length > 0 && (
-            <button
-              type="button"
-              onClick={handleToggleSelectAll}
-              className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition self-start sm:self-auto"
-            >
-              {deletableCategories.every((c) => selectedCategoryIds.includes(c.id))
-                ? 'Deselect All Custom'
-                : 'Select All Custom Categories'}
-            </button>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl">
+              {filteredCategories.length} Categories
+            </span>
+
+            {isAdmin && deletableCategories.length > 0 && (
+              <button
+                type="button"
+                onClick={handleToggleSelectAll}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition"
+              >
+                {deletableCategories.every((c) => selectedCategoryIds.includes(c.id))
+                  ? 'Deselect All Custom'
+                  : 'Select All Custom'}
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Bulk Action Toolbar */}
-        {selectedCategoryIds.length > 0 && (
+        {/* Bulk Action Toolbar (Admin Only) */}
+        {isAdmin && selectedCategoryIds.length > 0 && (
           <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-2xl flex items-center justify-between shadow-xs animate-fade-in">
             <div className="flex items-center space-x-2">
               <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
@@ -447,90 +524,57 @@ export default function CategoriesPage() {
 
                       {/* Top Badges / Selection */}
                       <div className="flex items-center space-x-1">
-                        {!cat.isSystem && (
-                          <div
-                            onClick={(e) => handleToggleSelectCategory(cat.id, e)}
-                            className="p-1 hover:bg-slate-100 rounded-lg cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => {}}
-                              className="w-3.5 h-3.5 rounded text-blue-600 cursor-pointer pointer-events-none"
-                            />
-                          </div>
+                        {isAdmin && !cat.isSystem && (
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => handleToggleSelectCategory(cat.id, e as any)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-4 h-4 text-rose-600 rounded border-slate-300 focus:ring-rose-500 cursor-pointer"
+                          />
                         )}
-                        <span className="text-[10px] sm:text-xs font-black font-mono text-madin-900 bg-gold-50 px-2 py-0.5 rounded-lg border border-gold-200/80">
+
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200/80">
                           {cat.defaultWeight}%
                         </span>
                       </div>
                     </div>
 
-                    {/* Category Title & Info */}
+                    {/* Category Title & Description */}
                     <div>
-                      <div className="flex items-center space-x-1 mb-1">
-                        <span
-                          className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                            cat.isSystem
-                              ? 'bg-slate-100 text-slate-600'
-                              : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                          }`}
-                        >
-                          {cat.isSystem ? 'Core' : 'Custom'}
-                        </span>
-                      </div>
-
-                      <h3 className="text-xs sm:text-sm font-black text-slate-900 leading-tight group-hover:text-madin-900 transition-colors line-clamp-2">
+                      <h3 className="text-xs sm:text-sm font-black text-slate-900 leading-snug group-hover:text-blue-600 transition-colors line-clamp-2">
                         {cat.name}
                       </h3>
-                      <p className="text-[10px] sm:text-[11px] text-slate-400 mt-1 line-clamp-2 leading-relaxed">
-                        {cat.description || 'Comprehensive evaluation assessment wing.'}
+                      <p className="text-[10px] sm:text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+                        {cat.description || (cat.isSystem ? 'Core system assessment wing' : 'Custom assessment category')}
                       </p>
                     </div>
                   </div>
 
                   {/* Bottom Footer inside Box */}
-                  <div className="pt-3 mt-3 border-t border-slate-100/90 flex items-center justify-between text-xs">
-                    {/* Subcategories or Module Badge */}
-                    <div className="flex items-center space-x-1">
-                      {subCount > 0 ? (
-                        <span className="text-[10px] sm:text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-200">
-                          {subCount} Subcategories
-                        </span>
-                      ) : modulePath ? (
-                        <span className="text-[10px] sm:text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-lg">
-                          Direct Wing
-                        </span>
-                      ) : (
-                        <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400">
-                          Explore Wing
-                        </span>
-                      )}
-                    </div>
+                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[10px] sm:text-xs">
+                    {subCount > 0 ? (
+                      <span className="inline-flex items-center font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100">
+                        {subCount} Subcategories
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-100">
+                        {cat.isSystem ? 'Direct Wing' : '0 Subcategories'}
+                      </span>
+                    )}
 
-                    {/* Action Links / Chevron */}
-                    <div className="flex items-center space-x-1 text-slate-400 group-hover:text-madin-900 transition-colors">
-                      {!cat.isSystem && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={(e) => handleOpenEdit(cat, e)}
-                            className="p-1 hover:text-blue-600 hover:bg-blue-50 rounded"
-                            title="Edit Category"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => handleDeleteCategory(cat, e)}
-                            className="p-1 hover:text-rose-600 hover:bg-rose-50 rounded"
-                            title="Delete Category"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </>
+                    <div className="flex items-center space-x-1 text-slate-400 group-hover:text-blue-600 transition-colors">
+                      {isAdmin && !cat.isSystem && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleOpenEdit(cat, e)}
+                          className="p-1 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-slate-100 transition"
+                          title="Edit Category"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
                       )}
-                      <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                      <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                     </div>
                   </div>
                 </div>
@@ -538,121 +582,144 @@ export default function CategoriesPage() {
             })}
           </div>
         )}
-      </div>
+      </main>
 
-      {/* Create / Edit Category Modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-madin-950/70 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-zoom-up max-h-[90vh] overflow-y-auto space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-sm font-black text-slate-900">
-                {editingCategory ? 'Edit Performance Category' : 'Create New Performance Category'}
-              </h3>
+      {/* Public Footer & Mobile Bottom Navigation */}
+      <PublicFooter />
+
+      {/* Admin Add/Edit Category Modal */}
+      {isAdmin && modalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 animate-scale-up">
+            <div className="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-xl bg-madin-900 p-1 flex items-center justify-center text-white">
+                  <Layers className="w-4 h-4 text-gold-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black text-slate-900">
+                    {editingCategory ? 'Edit Category' : 'Create Custom Category'}
+                  </h3>
+                  <p className="text-[10px] text-slate-500 font-medium">Configure Category details and subcategories</p>
+                </div>
+              </div>
               <button
                 onClick={() => setModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveCategory} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Category Name *</label>
+            <form onSubmit={handleSaveCategory} className="p-5 sm:p-6 space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700">Category Name *</label>
                 <input
                   type="text"
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g. Public Speaking & Debate"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
+                  placeholder="e.g., Robotics & AI Club"
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:ring-2 focus:ring-madin-900"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Description</label>
-                <input
-                  type="text"
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700">Description</label>
+                <textarea
+                  rows={2}
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="e.g. Oratory skills, debates, and presentations"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
+                  placeholder="Brief description of the assessment scope..."
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:ring-2 focus:ring-madin-900"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">SPR Weight (%) *</label>
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700">Default SPR Weight (%)</label>
                   <input
                     type="number"
-                    min="1"
+                    min="0"
                     max="100"
                     required
                     value={formData.defaultWeight}
-                    onChange={(e) => setFormData({ ...formData, defaultWeight: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
+                    onChange={(e) => setFormData({ ...formData, defaultWeight: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:ring-2 focus:ring-madin-900"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Include in SPR</label>
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700">Icon</label>
                   <select
-                    value={formData.includeInSPR ? 'YES' : 'NO'}
-                    onChange={(e) => setFormData({ ...formData, includeInSPR: e.target.value === 'YES' })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
+                    value={formData.icon}
+                    onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:ring-2 focus:ring-madin-900"
                   >
-                    <option value="YES">Yes, Include in SPR</option>
-                    <option value="NO">No, Standalone Only</option>
+                    <option value="Award">Award (Default)</option>
+                    <option value="Trophy">Trophy / Sports</option>
+                    <option value="Sparkles">Sparkles / Arts</option>
+                    <option value="BookOpen">Book / Academic</option>
+                    <option value="GraduationCap">Graduation Cap</option>
+                    <option value="Feather">Feather / Literary</option>
+                    <option value="Library">Library</option>
                   </select>
                 </div>
               </div>
 
-              {/* Subcategories */}
-              <div className="pt-2 border-t border-slate-100 space-y-2">
+              {/* Subcategories Builder */}
+              <div className="space-y-2 pt-2 border-t border-slate-100">
                 <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold text-slate-700">Subcategories / Items</label>
+                  <label className="font-bold text-slate-700 flex items-center space-x-1.5">
+                    <span>Subcategories</span>
+                    <span className="text-[10px] text-slate-400 font-normal">({formData.subcategories.length})</span>
+                  </label>
                   <button
                     type="button"
                     onClick={handleAddSubcategoryRow}
-                    className="text-xs font-bold text-indigo-700 hover:text-indigo-900 flex items-center space-x-1"
+                    className="text-[11px] font-bold text-blue-600 hover:text-blue-800 flex items-center space-x-1"
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Item</span>
+                    <Plus className="w-3 h-3" />
+                    <span>Add Subcategory</span>
                   </button>
                 </div>
 
-                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                   {formData.subcategories.map((sub, idx) => (
-                    <div key={idx} className="flex items-center space-x-2">
+                    <div key={idx} className="flex items-center space-x-2 bg-slate-50 p-2 rounded-xl border border-slate-200">
                       <input
                         type="text"
-                        placeholder="Subcategory Name (e.g. English Elocution)"
+                        required
+                        placeholder="Subcategory Name"
                         value={sub.name}
                         onChange={(e) => {
                           const updated = [...formData.subcategories];
                           updated[idx].name = e.target.value;
                           setFormData({ ...formData, subcategories: updated });
                         }}
-                        className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none"
+                        className="flex-1 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-madin-900"
                       />
                       <input
                         type="number"
+                        min="1"
                         placeholder="Max"
                         value={sub.maxScore}
                         onChange={(e) => {
                           const updated = [...formData.subcategories];
-                          updated[idx].maxScore = Number(e.target.value);
+                          updated[idx].maxScore = parseFloat(e.target.value) || 100;
                           setFormData({ ...formData, subcategories: updated });
                         }}
-                        className="w-20 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-center outline-none"
+                        className="w-16 px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none text-center"
+                        title="Max Score"
                       />
                       {formData.subcategories.length > 1 && (
                         <button
                           type="button"
                           onClick={() => handleRemoveSubcategoryRow(idx)}
-                          className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                          className="p-1 text-slate-400 hover:text-rose-600 transition"
+                          title="Remove"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <X className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>
@@ -660,18 +727,18 @@ export default function CategoriesPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end space-x-2 pt-4 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-5 py-2.5 bg-madin-900 hover:bg-madin-950 text-white rounded-xl text-xs font-bold shadow transition disabled:opacity-50"
+                  className="px-5 py-2 rounded-xl bg-madin-900 hover:bg-madin-950 text-white font-bold transition active:scale-95 disabled:opacity-50"
                 >
                   {saving ? 'Saving...' : editingCategory ? 'Update Category' : 'Create Category'}
                 </button>
@@ -681,52 +748,40 @@ export default function CategoriesPage() {
         </div>
       )}
 
-      {/* Bulk Delete Custom Categories Modal */}
-      {confirmBulkDeleteOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-madin-950/70 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-zoom-up">
-            <div className="flex items-center space-x-3 text-rose-600 mb-4">
-              <div className="p-3 bg-rose-100 rounded-2xl">
-                <AlertCircle className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-base font-black text-slate-900">Confirm Deletion</h3>
-                <p className="text-xs text-slate-500">This action cannot be undone.</p>
-              </div>
+      {/* Confirm Bulk Delete Modal (Admin Only) */}
+      {isAdmin && confirmBulkDeleteOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl border border-slate-200 animate-scale-up">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+              <ShieldAlert className="w-6 h-6" />
             </div>
-
-            <p className="text-xs text-slate-600 leading-relaxed mb-6">
-              Are you sure you want to delete <strong className="text-rose-600">{selectedCategoryIds.length}</strong> custom category(s)? Any associated subcategories and records will be purged.
-            </p>
-
-            <div className="flex items-center justify-end space-x-3">
+            <div>
+              <h3 className="text-base font-black text-slate-900">Confirm Bulk Deletion</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Are you sure you want to permanently delete <strong className="text-rose-600">{selectedCategoryIds.length}</strong> custom categories and their subcategories?
+              </p>
+            </div>
+            <div className="flex items-center space-x-2 pt-2">
               <button
                 type="button"
-                disabled={bulkDeleting}
                 onClick={() => setConfirmBulkDeleteOpen(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                disabled={bulkDeleting}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                disabled={bulkDeleting}
                 onClick={handleBulkDelete}
-                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md transition hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center space-x-2"
+                disabled={bulkDeleting}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition shadow-sm"
               >
-                {bulkDeleting ? (
-                  <span>Deleting...</span>
-                ) : (
-                  <>
-                    <Trash2 className="w-4 h-4" />
-                    <span>Delete {selectedCategoryIds.length} Category(s)</span>
-                  </>
-                )}
+                {bulkDeleting ? 'Deleting...' : 'Delete Now'}
               </button>
             </div>
           </div>
         </div>
       )}
-    </AdminLayout>
+    </div>
   );
 }
