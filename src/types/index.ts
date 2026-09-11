@@ -41,8 +41,16 @@ export interface CategorySummary {
   categoryCode: string;
   categoryName: string;
   icon?: string | null;
+  priority?: number;
   weight: number;
+  score?: number;
   percentage: number;
+  normalizedPercentage?: number;
+  rawInput?: string;
+  earnedPoints?: number;
+  normalizationRef?: number;
+  weightedContribution?: number;
+  formula?: string;
   recordsCount: number;
   isIncluded: boolean;
   records?: any[];
@@ -50,18 +58,24 @@ export interface CategorySummary {
 
 export interface StudentSPRProfile {
   student: StudentWithRelations;
-  overallSPR: number; // e.g. 94.6
+  overallSPR: number; // e.g. 78.1
+  overallScore?: number;
   rank: number;
   classRank: number;
   schoolRank: number;
   totalStudentsInClass: number;
   totalStudentsInSchool: number;
   totalStudentsOverall: number;
+  rawWeightedTotal?: number;
+  maxWeightedTotal?: number;
+  normalizedScore?: string;
   categoryScores: CategorySummary[];
+  categoryBreakdown?: CategorySummary[];
   missingCategoriesCount: number;
   recentRecords: {
     id: string;
     categoryName: string;
+    categoryCode?: string;
     eventName: string;
     obtainedScore: number;
     maxScore: number;
@@ -69,6 +83,9 @@ export interface StudentSPRProfile {
     date: string;
     levelName?: string | null;
   }[];
+  subjectWiseRecords?: any[];
+  programmeWiseRecords?: any[];
+  allRecords?: any[];
 }
 
 export interface LeaderboardEntry {

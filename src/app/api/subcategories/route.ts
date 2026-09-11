@@ -21,7 +21,10 @@ export async function GET(req: NextRequest) {
         category: true,
         _count: { select: { performanceRecords: true } },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [
+        { displayOrder: 'asc' },
+        { createdAt: 'asc' },
+      ],
     });
 
     return NextResponse.json({ subcategories });
@@ -49,6 +52,7 @@ export async function POST(req: NextRequest) {
       hasMaxScore,
       maxScore,
       weight,
+      displayOrder,
       active,
     } = body;
 
@@ -84,6 +88,7 @@ export async function POST(req: NextRequest) {
         hasMaxScore: hasMaxScore !== undefined ? Boolean(hasMaxScore) : true,
         maxScore: Number(maxScore) || 100.0,
         weight: Number(weight) || 1.0,
+        displayOrder: Number(displayOrder) || 0,
         active: active !== undefined ? Boolean(active) : true,
       },
       include: { category: true },
@@ -114,6 +119,20 @@ export async function PUT(req: NextRequest) {
     if (errorResponse) return errorResponse;
 
     const body = await req.json();
+
+    if (body.reorder && Array.isArray(body.reorder)) {
+      for (const item of body.reorder) {
+        if (item.id) {
+          await prisma.subcategory.update({
+            where: { id: item.id },
+            data: { displayOrder: Number(item.displayOrder) || 0 },
+          });
+        }
+      }
+      invalidateEngineCache();
+      return NextResponse.json({ success: true, message: 'Subcategory priorities updated successfully.' });
+    }
+
     const {
       id,
       categoryId,
@@ -125,6 +144,7 @@ export async function PUT(req: NextRequest) {
       hasMaxScore,
       maxScore,
       weight,
+      displayOrder,
       active,
     } = body;
 
@@ -157,6 +177,7 @@ export async function PUT(req: NextRequest) {
         ...(hasMaxScore !== undefined ? { hasMaxScore: Boolean(hasMaxScore) } : {}),
         ...(maxScore !== undefined ? { maxScore: Number(maxScore) } : {}),
         ...(weight !== undefined ? { weight: Number(weight) } : {}),
+        ...(displayOrder !== undefined ? { displayOrder: Number(displayOrder) } : {}),
         ...(active !== undefined ? { active: Boolean(active) } : {}),
       },
       include: { category: true },

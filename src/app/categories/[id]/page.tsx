@@ -34,7 +34,7 @@ import {
 import VideoLoader from '@/components/ui/VideoLoader';
 import SearchableStudentSelect from '@/components/ui/SearchableStudentSelect';
 import PublicFooter from '@/components/layout/PublicFooter';
-import { getCategoryIcon, getCategoryColor } from '../page';
+import { getCategoryIcon, getCategoryColor } from '@/lib/category-utils';
 import { invalidateClientAcademicCache } from '@/lib/academic-client';
 
 const LEVEL_PRESETS = [

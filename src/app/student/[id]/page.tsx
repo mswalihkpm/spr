@@ -23,6 +23,10 @@ import {
   FileText,
   ChevronRight,
   Percent,
+  Calculator,
+  Info,
+  X,
+  HelpCircle,
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import VideoLoader from '@/components/ui/VideoLoader';
@@ -39,6 +43,7 @@ export default function PublicStudentScorecardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [detailsModalCategory, setDetailsModalCategory] = useState<any | null>(null);
 
   useEffect(() => {
     if (!studentId) return;
@@ -83,14 +88,16 @@ export default function PublicStudentScorecardPage() {
         return BookOpen;
       case 'SCHOOL':
         return GraduationCap;
-      case 'PROGRAMS':
-        return Trophy;
+      case 'QUALIFICATION':
+        return Award;
       case 'CREATIVE_HUB':
         return Sparkles;
-      case 'LITERARY':
-        return Feather;
       case 'LIBRARY':
         return Library;
+      case 'LITERARY':
+        return Feather;
+      case 'PROGRAMS':
+        return Trophy;
       default:
         return Award;
     }
@@ -142,7 +149,7 @@ export default function PublicStudentScorecardPage() {
         percentage: lib.readingScore,
         readingScore: lib.readingScore,
         obtainedScore: lib.booksRead,
-        maxScore: 10,
+        maxScore: 500,
         remarks: lib.remarks,
         date: lib.createdAt,
       }));
@@ -166,7 +173,7 @@ export default function PublicStudentScorecardPage() {
 
   const formatScore = (val: any) => {
     const num = typeof val === 'number' ? val : parseFloat(val);
-    return isNaN(num) ? '0.0' : num.toFixed(1);
+    return isNaN(num) ? '0.00' : num.toFixed(2);
   };
 
   const formatClassNumber = (val?: string) => {
@@ -213,9 +220,17 @@ export default function PublicStudentScorecardPage() {
   const activeRecords = getCategoryRecords(activeCategory);
   const ActiveIcon = getCategoryIcon(activeCategory?.categoryCode);
 
-  const activeRawScore = activeCategory ? parseFloat(formatScore(activeCategory.score ?? activeCategory.percentage)) : 0;
+  const activeRawScore = activeCategory ? parseFloat(formatScore(activeCategory.normalizedPercentage ?? activeCategory.percentage)) : 0;
   const activeWeight = activeCategory?.weight || 0;
-  const activeContribution = ((activeRawScore * activeWeight) / 100).toFixed(2);
+  const activeContribution = activeCategory?.weightedContribution !== undefined ? activeCategory.weightedContribution.toFixed(2) : ((activeRawScore * activeWeight) / 100).toFixed(2);
+
+  // Library category specific extraction for Section 9 table
+  const libraryCategory = categoriesList.find((c: any) => c.categoryCode === 'LIBRARY');
+  const libraryEarnedPoints = libraryCategory?.earnedPoints ?? (libraryRecords.reduce((acc, r) => acc + (r.readingScore || 0), 0));
+  const libraryNormRef = libraryCategory?.normalizationRef ?? 500;
+  const libraryNormPct = libraryCategory ? Number(libraryCategory.normalizedPercentage || libraryCategory.percentage || 0).toFixed(2) : '0.00';
+  const libraryWeight = libraryCategory?.weight ?? 12;
+  const libraryContribution = libraryCategory ? Number(libraryCategory.weightedContribution || 0).toFixed(2) : '0.00';
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans py-6 px-4 sm:px-6 lg:px-8 print:p-0 print:bg-white">
@@ -284,7 +299,7 @@ export default function PublicStudentScorecardPage() {
                   alert('Scorecard URL copied to clipboard!');
                 }
               }}
-              className="inline-flex items-center space-x-1.5 text-xs font-bold text-slate-700 bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-xs hover:bg-slate-50 transition hover:scale-105 active:scale-95 btn-interactive"
+              className="inline-flex items-center space-x-1.5 text-xs font-bold text-slate-700 bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-xs hover:bg-slate-50 transition hover:scale-105 active:scale-95 btn-interactive cursor-pointer"
             >
               <Share2 className="w-3.5 h-3.5" />
               <span>Share</span>
@@ -292,7 +307,7 @@ export default function PublicStudentScorecardPage() {
 
             <button
               onClick={() => window.print()}
-              className="inline-flex items-center space-x-1.5 text-xs font-bold text-white bg-blue-600 px-4 py-2 rounded-xl shadow-md hover:bg-blue-700 transition hover:scale-105 active:scale-95 btn-interactive"
+              className="inline-flex items-center space-x-1.5 text-xs font-bold text-white bg-blue-600 px-4 py-2 rounded-xl shadow-md hover:bg-blue-700 transition hover:scale-105 active:scale-95 btn-interactive cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5 text-amber-300" />
               <span>Print Official Scorecard</span>
@@ -372,14 +387,14 @@ export default function PublicStudentScorecardPage() {
               </div>
             </div>
 
-            {/* Overall Rating Badge */}
-            <div className="text-center bg-blue-600 text-white px-5 py-3 rounded-2xl shadow-md min-w-[130px] print:py-1.5 print:px-3 print:rounded-xl print:min-w-[100px]">
-              <div className="text-[9px] uppercase font-bold text-blue-100 tracking-wider print:text-[7.5px]">Cumulative SPR</div>
-              <div className="text-2xl sm:text-3xl font-black text-white mt-0.5 print:text-base">
+            {/* Section 21: Overall Rating Badge */}
+            <div className="text-center bg-blue-600 text-white px-5 py-3 rounded-2xl shadow-md min-w-[140px] print:py-1.5 print:px-3 print:rounded-xl print:min-w-[100px]">
+              <div className="text-[9px] uppercase font-bold text-blue-100 tracking-wider print:text-[7.5px]">FINAL SPR SCORE</div>
+              <div className="text-2xl sm:text-3xl font-black text-white mt-0.5 print:text-base font-mono">
                 {overallSprScore}%
               </div>
-              <div className="text-[9px] text-blue-200 font-medium print:text-[8px]">
-                Grade: {numericScore >= 90 ? 'A+ (Distinction)' : numericScore >= 80 ? 'A (Excellent)' : 'B+ (Good)'}
+              <div className="text-[9.5px] text-blue-200 font-medium print:text-[8px]">
+                Normalized: {profile.normalizedScore || `${overallSprScore} / 100`}
               </div>
             </div>
           </div>
@@ -409,72 +424,40 @@ export default function PublicStudentScorecardPage() {
             </div>
           </div>
 
-          {/* Multi-Wing Category Breakdown Table (Interactive: Click any row to reveal score breakdown below) */}
-          <div className="space-y-2 print:space-y-1 page-break-avoid">
+          {/* SECTION 19 & 20: COMPLETE SPR PERCENTAGE TABLE */}
+          <div className="space-y-2.5 print:space-y-1 page-break-avoid">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 print:text-[9.5px]">
-                  Performance Wing Analysis
+                <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 print:text-[9.5px] flex items-center space-x-1.5">
+                  <Calculator className="w-4 h-4 text-blue-700 print:w-3 print:h-3" />
+                  <span>SPR Percentage Calculation Matrix</span>
                 </h3>
                 <p className="text-[10px] text-slate-500 print:hidden font-medium">
-                  Click on any category below to view how the student earned their score and points:
+                  Authoritative score breakdown across all 7 evaluation pillars:
                 </p>
               </div>
               <span className="hidden sm:inline-flex items-center space-x-1 text-[10px] font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200 print:hidden">
-                <span>Interactive Breakdown</span>
+                <span>Normalized (0–100%)</span>
               </span>
-            </div>
-
-            {/* Category selection quick pills (for quick tapping on mobile & tablet) */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 print:hidden scrollbar-none">
-              {categoriesList.map((cat: any) => {
-                const isSelected =
-                  (selectedCategoryId && cat.categoryId === selectedCategoryId) ||
-                  cat.categoryCode === selectedCategoryId ||
-                  (!selectedCategoryId && activeCategory?.categoryId === cat.categoryId);
-                const IconComp = getCategoryIcon(cat.categoryCode);
-                const catScore = parseFloat(formatScore(cat.score ?? cat.percentage));
-
-                return (
-                  <button
-                    key={cat.categoryId}
-                    onClick={() => setSelectedCategoryId(cat.categoryId || cat.categoryCode)}
-                    className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-blue-600 text-white shadow-md scale-102'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200/80 hover:text-slate-900 border border-slate-200/70'
-                    }`}
-                  >
-                    <IconComp className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-blue-600'}`} />
-                    <span>{cat.categoryName}</span>
-                    <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded-md font-mono ${
-                        isSelected ? 'bg-blue-800 text-blue-100' : 'bg-slate-200/80 text-slate-800'
-                      }`}
-                    >
-                      {catScore.toFixed(1)}%
-                    </span>
-                  </button>
-                );
-              })}
             </div>
 
             <div className="overflow-x-auto rounded-2xl border border-slate-200 print:rounded-lg overflow-hidden shadow-xs">
               <table className="w-full text-left text-xs print:text-[9.5px]">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider font-semibold">
                   <tr>
-                    <th className="py-2.5 px-3 print:py-1 print:px-2">Evaluation Wing</th>
-                    <th className="py-2.5 px-3 text-center print:py-1 print:px-2">SPR Weight</th>
-                    <th className="py-2.5 px-3 text-right print:py-1 print:px-2">Raw Benchmark %</th>
+                    <th className="py-2.5 px-3 print:py-1 print:px-2">Category</th>
+                    <th className="py-2.5 px-3 print:py-1 print:px-2">Earned / Input</th>
+                    <th className="py-2.5 px-3 text-right print:py-1 print:px-2">Normalized %</th>
+                    <th className="py-2.5 px-3 text-center print:py-1 print:px-2">Weight</th>
                     <th className="py-2.5 px-3 text-right print:py-1 print:px-2">Weighted Contribution</th>
-                    <th className="py-2.5 px-2 text-center w-8 print:hidden"></th>
+                    <th className="py-2.5 px-2 text-center w-12 print:hidden">Details</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {categoriesList.map((cat: any) => {
-                    const rawScore = parseFloat(formatScore(cat.score ?? cat.percentage));
+                    const normScore = parseFloat(formatScore(cat.normalizedPercentage ?? cat.percentage));
                     const weightVal = cat.weight || 0;
-                    const weightedContrib = ((rawScore * weightVal) / 100).toFixed(1);
+                    const weightedContrib = cat.weightedContribution !== undefined ? Number(cat.weightedContribution).toFixed(2) : ((normScore * weightVal) / 100).toFixed(2);
                     const isSelected =
                       (selectedCategoryId && cat.categoryId === selectedCategoryId) ||
                       cat.categoryCode === selectedCategoryId ||
@@ -483,14 +466,14 @@ export default function PublicStudentScorecardPage() {
 
                     return (
                       <tr
-                        key={cat.categoryId}
+                        key={cat.categoryId || cat.categoryCode}
                         onClick={() => setSelectedCategoryId(cat.categoryId || cat.categoryCode)}
                         className={`cursor-pointer transition-all duration-150 ${
                           isSelected
                             ? 'bg-blue-50/90 font-semibold text-blue-950 ring-1 ring-inset ring-blue-300'
                             : 'hover:bg-slate-50 text-slate-800'
                         }`}
-                        title="Click to inspect exact score origin below"
+                        title="Click to view assessment records below"
                       >
                         <td className="py-2.5 px-3 print:py-0.5 print:px-2">
                           <div className="flex items-center space-x-2">
@@ -502,41 +485,106 @@ export default function PublicStudentScorecardPage() {
                               <IconComp className="w-3.5 h-3.5" />
                             </div>
                             <span className="font-bold text-slate-900">{cat.categoryName}</span>
-                            {isSelected && (
-                              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-blue-200/80 text-blue-900 font-bold uppercase tracking-wider print:hidden">
-                                Selected
-                              </span>
-                            )}
                           </div>
                         </td>
-                        <td className="py-2.5 px-3 print:py-0.5 print:px-2 text-center font-semibold text-slate-600">
-                          {weightVal}%
+                        <td className="py-2.5 px-3 print:py-0.5 print:px-2 font-medium text-slate-700 font-mono">
+                          {cat.rawInput || '—'}
                         </td>
-                        <td className="py-2.5 px-3 print:py-0.5 print:px-2 text-right font-bold text-slate-800">
-                          {rawScore.toFixed(1)}%
+                        <td className="py-2.5 px-3 print:py-0.5 print:px-2 text-right font-bold text-slate-800 font-mono">
+                          {normScore.toFixed(2)}%
                         </td>
-                        <td className="py-2.5 px-3 print:py-0.5 print:px-2 text-right font-extrabold text-blue-700">
+                        <td className="py-2.5 px-3 print:py-0.5 print:px-2 text-center font-semibold text-slate-600 font-mono">
+                          {weightVal}
+                        </td>
+                        <td className="py-2.5 px-3 print:py-0.5 print:px-2 text-right font-extrabold text-blue-700 font-mono">
                           +{weightedContrib}%
                         </td>
                         <td className="py-2.5 px-2 text-center print:hidden">
-                          <ChevronRight
-                            className={`w-4 h-4 transition-transform ${
-                              isSelected ? 'text-blue-600 rotate-90' : 'text-slate-300'
-                            }`}
-                          />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDetailsModalCategory(cat);
+                            }}
+                            className="p-1 hover:bg-blue-200/60 rounded-md text-blue-700 transition cursor-pointer"
+                            title="View Calculation Formula & Details"
+                          >
+                            <HelpCircle className="w-3.5 h-3.5" />
+                          </button>
                         </td>
                       </tr>
                     );
                   })}
                 </tbody>
+                <tfoot className="bg-slate-50 font-bold border-t-2 border-slate-300">
+                  <tr>
+                    <td colSpan={2} className="py-2.5 px-3 text-slate-900 font-black uppercase text-xs print:text-[9.5px]">
+                      FINAL SPR SCORE
+                    </td>
+                    <td colSpan={2} className="py-2.5 px-3 text-center text-slate-500 font-medium text-[11px] print:text-[8px]">
+                      Normalized (0.00% – 100.00%)
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-black text-sm text-blue-800 font-mono print:text-xs">
+                      {overallSprScore}%
+                    </td>
+                    <td className="print:hidden"></td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
 
-          {/* Dedicated Category Score Origin & Calculation Breakdown Section */}
+          {/* SECTION 9: DEDICATED LIBRARY PERCENTAGE CALCULATION TABLE */}
+          <div className="rounded-2xl border border-teal-200 bg-teal-50/40 p-4 space-y-2 print:p-2 print:rounded-lg page-break-avoid">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Library className="w-4 h-4 text-teal-700" />
+                <h4 className="text-xs font-black uppercase tracking-wider text-teal-950 print:text-[9px]">
+                  Library & Reading Milestone Calculation
+                </h4>
+              </div>
+              <span className="text-[10.5px] font-bold text-teal-800 bg-teal-100 px-2 py-0.5 rounded-md font-mono print:text-[8px]">
+                Weight: {libraryWeight}
+              </span>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-teal-200 bg-white">
+              <table className="w-full text-left text-xs print:text-[9px]">
+                <thead className="bg-teal-50/80 border-b border-teal-200 text-teal-900 font-semibold">
+                  <tr>
+                    <th className="py-2 px-3">Library Metric</th>
+                    <th className="py-2 px-3 text-right">Value</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-teal-100">
+                  <tr>
+                    <td className="py-2 px-3 text-slate-700 font-medium">Earned Points</td>
+                    <td className="py-2 px-3 text-right font-bold text-slate-900 font-mono">{libraryEarnedPoints} pts</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 px-3 text-slate-700 font-medium">Normalization Reference</td>
+                    <td className="py-2 px-3 text-right font-bold text-slate-900 font-mono">{libraryNormRef} pts</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 px-3 text-slate-700 font-medium">Normalized Percentage</td>
+                    <td className="py-2 px-3 text-right font-black text-teal-800 font-mono">{libraryNormPct}%</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 px-3 text-slate-700 font-medium">Category Weight</td>
+                    <td className="py-2 px-3 text-right font-bold text-slate-700 font-mono">{libraryWeight}</td>
+                  </tr>
+                  <tr className="bg-teal-50/40">
+                    <td className="py-2 px-3 font-bold text-teal-950">Weighted Contribution</td>
+                    <td className="py-2 px-3 text-right font-black text-teal-800 font-mono">+{libraryContribution}%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* SECTION 22: SELECTED CATEGORY ITEMIZATION & VIEW DETAILS */}
           {activeCategory && (
             <div className="rounded-2xl border-2 border-blue-200/80 bg-gradient-to-b from-blue-50/40 via-white to-white p-4 sm:p-5 space-y-4 shadow-sm animate-fade-in page-break-avoid">
-              {/* Category Score Origin Header */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-blue-100">
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md shrink-0">
@@ -545,23 +593,23 @@ export default function PublicStudentScorecardPage() {
                   <div>
                     <div className="flex items-center space-x-2">
                       <h4 className="text-sm sm:text-base font-black text-slate-900">
-                        {activeCategory.categoryName} Assessment Breakdown
+                        {activeCategory.categoryName} Assessment Records
                       </h4>
                       <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-100 text-blue-900 border border-blue-200 font-mono">
-                        Weight: {activeWeight}%
+                        Weight: {activeWeight}
                       </span>
                     </div>
                     <div className="text-[11px] text-slate-600 font-medium mt-0.5">
-                      Itemized percentage breakdown logged under this assessment wing
+                      Itemized records evaluated under this pillar
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center space-x-2 self-end sm:self-center">
                   <div className="text-right bg-white px-3 py-1.5 rounded-xl border border-blue-200 shadow-2xs">
-                    <div className="text-[9px] uppercase font-bold text-slate-500">Benchmark Score</div>
+                    <div className="text-[9px] uppercase font-bold text-slate-500">Normalized Score</div>
                     <div className="text-base font-black text-blue-700 font-mono leading-none mt-0.5">
-                      {activeRawScore.toFixed(1)}%
+                      {activeRawScore.toFixed(2)}%
                     </div>
                   </div>
                   <div className="text-right bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 shadow-2xs">
@@ -573,14 +621,14 @@ export default function PublicStudentScorecardPage() {
                 </div>
               </div>
 
-              {/* Mathematical Explanation Banner */}
+              {/* Step-by-Step Formula Banner */}
               <div className="p-3 bg-blue-50/80 rounded-xl border border-blue-200/90 text-xs text-blue-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                 <div className="flex items-start sm:items-center space-x-2">
                   <div className="font-bold flex items-center space-x-1 shrink-0">
-                    <span>📐 Mathematical Formula:</span>
+                    <span>📐 Calculation Formula:</span>
                   </div>
                   <span className="font-mono text-[11px] text-blue-900">
-                    {activeCategory.categoryName} Contribution = {activeRawScore.toFixed(1)}% (Raw Score) × {activeWeight}% (Weight) = +{activeContribution}% towards Cumulative SPR
+                    {activeCategory.formula || `${activeCategory.categoryName} = ${activeRawScore.toFixed(2)}%`}
                   </span>
                 </div>
                 <div className="text-[10px] font-semibold text-blue-800 shrink-0">
@@ -588,7 +636,7 @@ export default function PublicStudentScorecardPage() {
                 </div>
               </div>
 
-              {/* Itemized Records List / Table */}
+              {/* Itemized Records Table */}
               <div className="space-y-2">
                 {activeRecords.length === 0 ? (
                   <div className="p-6 text-center rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
@@ -599,7 +647,7 @@ export default function PublicStudentScorecardPage() {
                       No assessment records logged yet for {activeCategory.categoryName}.
                     </div>
                     <p className="text-[11px] text-slate-500 max-w-md mx-auto">
-                      The benchmark score for this evaluation wing is currently 0.0%, contributing +0.00% towards the student&apos;s overall SPR.
+                      The benchmark score for this evaluation wing is currently 0.00%, contributing +0.00% towards the student&apos;s overall SPR.
                     </p>
                   </div>
                 ) : (
@@ -608,8 +656,8 @@ export default function PublicStudentScorecardPage() {
                       <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
                         <tr>
                           <th className="py-2.5 px-3">Subject / Event Record</th>
-                          <th className="py-2.5 px-3">Assessment / Fest / Context</th>
-                          <th className="py-2.5 px-3 text-right">Percentage</th>
+                          <th className="py-2.5 px-3">Assessment / Context</th>
+                          <th className="py-2.5 px-3 text-right">Percentage / Score</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 bg-white">
@@ -638,6 +686,7 @@ export default function PublicStudentScorecardPage() {
                             r.institutionName ||
                             (r.levelName ? `Level: ${r.levelName}` : null) ||
                             (r.booksRead !== undefined ? `${r.booksRead} Books Read` : null) ||
+                            (r.achievementPoints ? `${r.achievementPoints} Achievement Pts` : null) ||
                             (r.publicationStatus ? `Status: ${r.publicationStatus}` : null);
 
                           return (
@@ -669,21 +718,19 @@ export default function PublicStudentScorecardPage() {
                               </td>
 
                               <td className="py-2.5 px-3 text-right">
-                                <div className="inline-flex items-center space-x-1.5">
-                                  <span
-                                    className={`px-2 py-0.5 rounded-md font-mono font-extrabold text-xs ${
-                                      recordPct >= 85
-                                        ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
-                                        : recordPct >= 70
-                                        ? 'bg-blue-100 text-blue-900 border border-blue-200'
-                                        : recordPct >= 50
-                                        ? 'bg-amber-100 text-amber-900 border border-amber-200'
-                                        : 'bg-slate-100 text-slate-700'
-                                    }`}
-                                  >
-                                    {recordPct.toFixed(1)}%
-                                  </span>
-                                </div>
+                                <span
+                                  className={`px-2 py-0.5 rounded-md font-mono font-extrabold text-xs ${
+                                    recordPct >= 85
+                                      ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                                      : recordPct >= 70
+                                      ? 'bg-blue-100 text-blue-900 border border-blue-200'
+                                      : recordPct >= 50
+                                      ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                                      : 'bg-slate-100 text-slate-700'
+                                  }`}
+                                >
+                                  {recordPct.toFixed(2)}%
+                                </span>
                               </td>
                             </tr>
                           );
@@ -696,48 +743,8 @@ export default function PublicStudentScorecardPage() {
             </div>
           )}
 
-          {/* Published Creative Works & Library Achievements (if available) */}
-          {(creativeWorks.length > 0 || libraryRecords.length > 0) && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 print:gap-1.5 page-break-avoid">
-              {creativeWorks.length > 0 && (
-                <div className="p-3 rounded-xl bg-purple-50/40 border border-purple-100 space-y-1.5 print:p-1.5 print:rounded-lg print:space-y-0.5">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-purple-900 flex items-center space-x-1.5 print:text-[8px]">
-                    <Sparkles className="w-3 h-3 text-purple-600 print:w-2.5 print:h-2.5" />
-                    <span>Creative Hub Works ({creativeWorks.length})</span>
-                  </div>
-                  <div className="space-y-1 text-xs print:space-y-0.5 print:text-[8.5px]">
-                    {creativeWorks.slice(0, 3).map((w) => (
-                      <div key={w.id} className="flex items-center justify-between p-1.5 rounded-lg bg-white border border-purple-100 print:p-0.5">
-                        <span className="font-bold text-slate-800 text-[11px] truncate print:text-[8.5px]">{w.title}</span>
-                        <span className="text-[9px] text-purple-700 font-semibold shrink-0 ml-1 print:text-[8px]">{w.category?.name}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {libraryRecords.length > 0 && (
-                <div className="p-3 rounded-xl bg-teal-50/40 border border-teal-100 space-y-1.5 print:p-1.5 print:rounded-lg print:space-y-0.5">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-teal-900 flex items-center space-x-1.5 print:text-[8px]">
-                    <Library className="w-3 h-3 text-teal-600 print:w-2.5 print:h-2.5" />
-                    <span>Digital Library Milestones</span>
-                  </div>
-                  <div className="space-y-1 text-xs print:space-y-0.5 print:text-[8.5px]">
-                    {libraryRecords.slice(0, 3).map((lib) => (
-                      <div key={lib.id} className="flex items-center justify-between p-1.5 rounded-lg bg-white border border-teal-100 print:p-0.5">
-                        <span className="font-bold text-slate-800 text-[11px] print:text-[8.5px]">{lib.readingPeriod || 'Recent Period'}</span>
-                        <span className="text-teal-800 font-extrabold text-[11px] print:text-[8.5px]">{lib.booksRead} Books Read ({lib.readingScore ? `${lib.readingScore.toFixed(0)}%` : '100%'})</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Official Verification Signatures & Stamp Block (Formatted for A4 Print) */}
+          {/* Official Verification Signatures & Stamp Block */}
           <div className="pt-4 border-t border-slate-200 space-y-3 print:pt-2 print:space-y-1.5 page-break-avoid">
-            {/* Signature Columns */}
             <div className="hidden print:grid grid-cols-3 gap-4 pt-4 pb-1 text-center">
               <div className="space-y-6">
                 <div className="h-6"></div>
@@ -759,7 +766,6 @@ export default function PublicStudentScorecardPage() {
               </div>
             </div>
 
-            {/* Official Institutional Footer */}
             <div className="flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2 print:pt-1 print:gap-0 print:border-t print:mt-auto">
               <div>
                 <div className="font-bold text-slate-800 text-xs print:text-[9px]">Students Performance Rate (SPR) System</div>
@@ -774,6 +780,79 @@ export default function PublicStudentScorecardPage() {
           </div>
         </div>
       </div>
+
+      {/* SECTION 22: CALCULATION DETAILS MODAL */}
+      {detailsModalCategory && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full space-y-4 border border-slate-200 shadow-2xl animate-zoom-up">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center space-x-2">
+                <Calculator className="w-5 h-5 text-blue-700" />
+                <h3 className="text-sm font-black text-slate-900">
+                  {detailsModalCategory.categoryName} — Calculation Details
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDetailsModalCategory(null)}
+                className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+                <span className="font-bold text-slate-600">Input / Earned Score:</span>
+                <span className="font-black text-slate-900 font-mono text-sm">{detailsModalCategory.rawInput || '—'}</span>
+              </div>
+
+              <div className="p-3 bg-blue-50/60 rounded-2xl border border-blue-200 space-y-1">
+                <div className="font-bold text-blue-950">Normalization Formula:</div>
+                <div className="font-mono text-blue-900 text-[11px] bg-white p-2 rounded-xl border border-blue-200">
+                  {detailsModalCategory.formula || 'Direct Score Normalization'}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-indigo-50/50 rounded-2xl border border-indigo-200">
+                  <div className="text-[10px] uppercase font-bold text-indigo-700">Normalized Percentage</div>
+                  <div className="text-base font-black text-indigo-950 font-mono mt-0.5">
+                    {Number(detailsModalCategory.normalizedPercentage || detailsModalCategory.percentage || 0).toFixed(2)}%
+                  </div>
+                </div>
+
+                <div className="p-3 bg-purple-50/50 rounded-2xl border border-purple-200">
+                  <div className="text-[10px] uppercase font-bold text-purple-700">Category Weight</div>
+                  <div className="text-base font-black text-purple-950 font-mono mt-0.5">
+                    {detailsModalCategory.weight}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] uppercase font-bold text-emerald-800">Weighted Contribution</div>
+                  <div className="text-[10.5px] text-emerald-700">Added directly to Cumulative SPR</div>
+                </div>
+                <span className="text-base font-black text-emerald-900 font-mono">
+                  +{Number(detailsModalCategory.weightedContribution || 0).toFixed(2)}%
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setDetailsModalCategory(null)}
+                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-black transition cursor-pointer"
+              >
+                Close Breakdown
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Permanent Public Footer */}
       <PublicFooter />

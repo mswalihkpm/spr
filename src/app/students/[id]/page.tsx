@@ -26,6 +26,9 @@ import {
   UploadCloud,
   Trash2,
   Loader2,
+  Info,
+  X,
+  ChevronRight,
 } from 'lucide-react';
 import { StudentAvatar } from '@/components/ui/StudentAvatar';
 import VideoLoader from '@/components/ui/VideoLoader';
@@ -43,6 +46,7 @@ export default function StudentProfilePage() {
   const [activeTab, setActiveTab] = useState<string>('OVERVIEW');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [isDraggingPhoto, setIsDraggingPhoto] = useState(false);
+  const [selectedCatDetails, setSelectedCatDetails] = useState<any | null>(null);
 
   const handlePhotoFile = async (file: File) => {
     if (!file) return;
@@ -376,21 +380,193 @@ export default function StudentProfilePage() {
         {/* Tab Content */}
         {activeTab === 'OVERVIEW' && (
           <div className="space-y-6">
-            {/* Category Performance Cards Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              {categoryScores.map((cat: any) => (
-                <div
-                  key={cat.categoryId}
-                  className="bg-white p-4 rounded-2xl border border-slate-200 shadow-subtle text-center space-y-1"
-                >
-                  <div className="text-[11px] font-semibold text-slate-500 truncate">{cat.categoryName}</div>
-                  <div className="text-xl font-black text-slate-900">{cat.percentage}%</div>
-                  <div className="text-[10px] font-medium text-gold-700 bg-gold-50 py-0.5 rounded">
-                    {cat.weight}% Weight
-                  </div>
-                  <div className="text-[10px] text-slate-400">{cat.recordsCount} records</div>
+            {/* 1. Complete SPR Percentage Calculation Table */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden">
+              <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 flex items-center space-x-2">
+                    <Award className="w-4 h-4 text-madin-900" />
+                    <span>Authoritative SPR Percentage Calculation Matrix</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    7 Main Categories • Standardized Weights & Normalization
+                  </p>
                 </div>
-              ))}
+                <div className="text-xs font-semibold text-slate-500 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
+                  Raw Weight Total: <strong className="text-slate-800">155</strong> • Normalized to 100%
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
+                    <tr>
+                      <th className="py-3 px-4">#</th>
+                      <th className="py-3 px-4">Category</th>
+                      <th className="py-3 px-4 text-center">Earned / Input</th>
+                      <th className="py-3 px-4 text-right">Normalized %</th>
+                      <th className="py-3 px-4 text-right">Category Weight</th>
+                      <th className="py-3 px-4 text-right">Weighted Contribution</th>
+                      <th className="py-3 px-4 text-center">Formula & Details</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {categoryScores.map((cat: any, idx: number) => {
+                      const isLibrary = cat.categoryCode === 'LIBRARY' || cat.categoryName?.includes('Library');
+                      return (
+                        <tr key={cat.categoryId || idx} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3 px-4 font-mono font-bold text-slate-400">
+                            {cat.priority || idx + 1}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="font-bold text-slate-900 flex items-center space-x-1.5">
+                              <span>{cat.categoryName}</span>
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-mono">
+                              {cat.recordsCount || 0} assessment records
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-center font-mono">
+                            {isLibrary ? (
+                              <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                                {cat.rawInput || `${cat.earnedPoints || 0} pts`}
+                              </span>
+                            ) : cat.rawInput ? (
+                              <span className="text-slate-700 font-semibold">{cat.rawInput}</span>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                            {(cat.normalizedPercentage ?? cat.percentage ?? 0).toFixed(2)}%
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-700">
+                            {cat.weight}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-indigo-900">
+                            {(cat.weightedContribution ?? ((cat.percentage * cat.weight) / 155)).toFixed(2)}%
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCatDetails(cat)}
+                              className="px-2 py-1 bg-slate-100 hover:bg-indigo-50 text-indigo-700 hover:text-indigo-900 rounded-lg text-[11px] font-bold transition flex items-center justify-center space-x-1 mx-auto"
+                            >
+                              <Info className="w-3 h-3" />
+                              <span>View Details</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot className="bg-gradient-to-r from-slate-900 to-madin-950 text-white font-bold border-t-2 border-slate-900">
+                    <tr>
+                      <td colSpan={3} className="py-3.5 px-4 text-sm font-black text-gold-300">
+                        FINAL SPR SCORE (Normalized 0.00% – 100.00%)
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono text-slate-300 text-xs">
+                        Normalized
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono text-slate-300 text-xs">
+                        Max: 155
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono text-base font-black text-gold-400">
+                        {profileData.overallSPR}%
+                      </td>
+                      <td className="py-3.5 px-4 text-center text-xs text-emerald-400 font-bold">
+                        VERIFIED
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
+            {/* 2. Detailed Library Percentage Table (Section 9) */}
+            {(() => {
+              const libCat = categoryScores.find(
+                (c: any) => c.categoryCode === 'LIBRARY' || c.categoryName?.includes('Library')
+              );
+              const earnedPts = libCat?.earnedPoints ?? 0;
+              const normRef = libCat?.normalizationRef ?? 500;
+              const normPct = libCat?.normalizedPercentage ?? Math.min((earnedPts / normRef) * 100, 100);
+              const weight = libCat?.weight ?? 12;
+              const weightedContrib = libCat?.weightedContribution ?? (normPct * weight) / 155;
+
+              return (
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle p-5 space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                    <div>
+                      <h4 className="text-sm font-black text-slate-900 flex items-center space-x-2">
+                        <Library className="w-4 h-4 text-teal-700" />
+                        <span>Dedicated Library & Reading Percentage Breakdown</span>
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        Earned points have no fixed maximum. Normalized against 500 points reference: MIN(Earned / 500 × 100, 100)
+                      </p>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-teal-50 text-teal-900 border border-teal-200">
+                      Category Weight: {weight}
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border border-slate-200 rounded-xl overflow-hidden">
+                      <thead className="bg-slate-50 text-slate-700 font-bold uppercase tracking-wider text-[11px]">
+                        <tr>
+                          <th className="py-2.5 px-3">Library Metric</th>
+                          <th className="py-2.5 px-3 text-right">Value</th>
+                          <th className="py-2.5 px-3">Notes & Rules</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        <tr>
+                          <td className="py-2 px-3 font-semibold text-slate-800">Earned Points</td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-teal-800">{earnedPts} pts</td>
+                          <td className="py-2 px-3 text-slate-500 text-[11px]">Actual earned points (uncapped & preserved)</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 px-3 font-semibold text-slate-800">Normalization Reference</td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-slate-700">{normRef} pts</td>
+                          <td className="py-2 px-3 text-slate-500 text-[11px]">Standard reference for 100% capacity</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 px-3 font-semibold text-slate-800">Normalized Percentage</td>
+                          <td className="py-2 px-3 text-right font-mono font-black text-indigo-900">{normPct.toFixed(2)}%</td>
+                          <td className="py-2 px-3 text-slate-500 text-[11px]">MIN({earnedPts} / {normRef} × 100, 100)%</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 px-3 font-semibold text-slate-800">Category Weight</td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-slate-700">{weight}</td>
+                          <td className="py-2 px-3 text-slate-500 text-[11px]">Assigned SPR weight matrix value</td>
+                        </tr>
+                        <tr className="bg-teal-50/60 font-bold">
+                          <td className="py-2.5 px-3 text-teal-950">Weighted Contribution</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-black text-teal-900 text-sm">{weightedContrib.toFixed(2)}%</td>
+                          <td className="py-2.5 px-3 text-teal-800 text-[11px]">({normPct.toFixed(2)}% × {weight}) / 155</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 3. Final SPR Summary Card (Section 21) */}
+            <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-madin-950 to-indigo-950 p-6 text-white text-center shadow-lg border border-gold-400/30">
+              <div className="text-xs uppercase font-black tracking-widest text-gold-400">
+                AUTHORITATIVE FINAL SPR SCORE
+              </div>
+              <div className="text-4xl sm:text-5xl font-black text-white mt-1 font-mono tracking-tight">
+                {profileData.overallSPR}%
+              </div>
+              <div className="text-xs text-slate-300 mt-2 flex items-center justify-center space-x-2">
+                <span className="font-semibold">Normalized Score:</span>
+                <span className="font-mono font-bold text-gold-300">{profileData.overallSPR} / 100</span>
+                <span>•</span>
+                <span className="text-emerald-400 font-semibold">Capped strictly 0.00% – 100.00%</span>
+              </div>
             </div>
 
             {/* Recent Score History Timeline */}
@@ -563,6 +739,106 @@ export default function StudentProfilePage() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* Calculation Details Modal (Section 22) */}
+        {selectedCatDetails && (
+          <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-scale-up space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 rounded-xl bg-madin-900 text-white flex items-center justify-center">
+                    <Info className="w-4 h-4 text-gold-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900">
+                      Calculation Details: {selectedCatDetails.categoryName}
+                    </h3>
+                    <p className="text-[11px] text-slate-500">Transparent 5-Stage Calculation Breakdown</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCatDetails(null)}
+                  className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Stage Flow */}
+              <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    1. Input / Earned Score
+                  </span>
+                  <div className="font-mono font-bold text-sm text-slate-900">
+                    {selectedCatDetails.rawInput || `${selectedCatDetails.percentage}% avg score`}
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Calculated from {selectedCatDetails.recordsCount || 0} performance assessments
+                  </p>
+                </div>
+
+                <div className="text-center text-slate-400 font-bold text-xs">↓</div>
+
+                <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    2. Normalization Formula
+                  </span>
+                  <div className="font-mono font-bold text-xs text-indigo-900 bg-indigo-50/50 p-2 rounded-lg border border-indigo-100">
+                    {selectedCatDetails.formula || 'MIN(Earned Score / Normalization Ref * 100, 100)'}
+                  </div>
+                </div>
+
+                <div className="text-center text-slate-400 font-bold text-xs">↓</div>
+
+                <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    3. Normalized Percentage (0% – 100%)
+                  </span>
+                  <div className="font-mono font-black text-base text-slate-900">
+                    {(selectedCatDetails.normalizedPercentage ?? selectedCatDetails.percentage).toFixed(2)}%
+                  </div>
+                </div>
+
+                <div className="text-center text-slate-400 font-bold text-xs">↓</div>
+
+                <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    4. Category Weight
+                  </span>
+                  <div className="font-mono font-bold text-sm text-slate-800">
+                    {selectedCatDetails.weight} (Weight out of 155 Total Weight Matrix)
+                  </div>
+                </div>
+
+                <div className="text-center text-slate-400 font-bold text-xs">↓</div>
+
+                <div className="p-3 bg-madin-900 text-white rounded-xl shadow-xs space-y-1">
+                  <span className="text-[10px] font-bold text-gold-400 uppercase tracking-wider block">
+                    5. Weighted Contribution to Final SPR
+                  </span>
+                  <div className="font-mono font-black text-lg text-white">
+                    {(selectedCatDetails.weightedContribution ?? ((selectedCatDetails.percentage * selectedCatDetails.weight) / 155)).toFixed(2)}%
+                  </div>
+                  <p className="text-[10px] text-slate-300">
+                    Formula: ({(selectedCatDetails.normalizedPercentage ?? selectedCatDetails.percentage).toFixed(2)}% × {selectedCatDetails.weight}) / 155
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedCatDetails(null)}
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         )}

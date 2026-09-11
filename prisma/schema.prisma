@@ -145,6 +145,7 @@ model Subcategory {
   hasMaxScore        Boolean             @default(true)
   maxScore           Float               @default(100.0)
   weight             Float               @default(1.0)
+  displayOrder       Int                 @default(0)
   active             Boolean             @default(true)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
@@ -274,6 +275,7 @@ model CreativeHubCategory {
   name        String                  @unique // Poem, Story, Article, Letter, Response, Others
   code        String                  @unique
   weight      Float                   @default(1.0)
+  displayOrder Int                  @default(0)
   active      Boolean                 @default(true)
   createdAt   DateTime                @default(now())
   updatedAt   DateTime                @updatedAt

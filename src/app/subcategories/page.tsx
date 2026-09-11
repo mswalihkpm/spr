@@ -28,6 +28,10 @@ import {
   Info,
   ChevronRight,
   ShieldAlert,
+  ArrowUp,
+  ArrowDown,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import SearchableStudentSelect from '@/components/ui/SearchableStudentSelect';
@@ -530,6 +534,50 @@ export default function OtherSubcategoriesPage() {
     }
   };
 
+  const handleMovePriority = async (index: number, direction: 'UP' | 'DOWN') => {
+    const targetIndex = direction === 'UP' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= subcategories.length) return;
+
+    const newSubs = [...subcategories];
+    const temp = newSubs[index];
+    newSubs[index] = newSubs[targetIndex];
+    newSubs[targetIndex] = temp;
+
+    const reordered = newSubs.map((s, idx) => ({ id: s.id, displayOrder: idx + 1 }));
+    setSubcategories(newSubs);
+
+    try {
+      const res = await fetch('/api/subcategories', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reorder: reordered }),
+      });
+      if (!res.ok) throw new Error('Failed to update priority order');
+      setStatusMsg({ type: 'success', text: 'Subcategory priority updated.' });
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: err.message });
+      fetchData();
+    }
+  };
+
+  const handleToggleActive = async (sub: any) => {
+    try {
+      const res = await fetch('/api/subcategories', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: sub.id, active: !sub.active }),
+      });
+      if (!res.ok) throw new Error('Failed to toggle status');
+      setStatusMsg({
+        type: 'success',
+        text: `Subcategory "${sub.name}" ${!sub.active ? 'enabled' : 'disabled (historical records preserved)'}.`,
+      });
+      fetchData();
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: err.message });
+    }
+  };
+
   const getLevelPresetName = (sub: any) => {
     if (!sub.hasLevels) return 'Direct / No Levels';
     const preset = LEVEL_PRESETS.find((p) => p.id === sub.levelGroup);
@@ -626,7 +674,7 @@ export default function OtherSubcategoriesPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {subcategories.map((sub) => {
+              {subcategories.map((sub, idx) => {
                 const isSelected = sub.id === selectedSubcategoryId;
                 const levelText = getLevelPresetName(sub);
                 return (
@@ -637,7 +685,7 @@ export default function OtherSubcategoriesPage() {
                       isSelected
                         ? 'border-indigo-600 shadow-md ring-2 ring-indigo-600/20'
                         : 'border-slate-200 hover:border-indigo-400 hover:shadow-sm'
-                    }`}
+                    } ${sub.active === false ? 'opacity-60 bg-slate-50' : ''}`}
                   >
                     <div className="flex items-start justify-between">
                       {sub.logoUrl ? (
@@ -650,6 +698,9 @@ export default function OtherSubcategoriesPage() {
                         </div>
                       )}
                       <div className="flex flex-col items-end space-y-1">
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-indigo-600 text-white shadow-2xs">
+                          Priority {idx + 1}
+                        </span>
                         <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-indigo-100 text-indigo-900 border border-indigo-200">
                           {sub.category?.name || 'Qualification'}
                         </span>
@@ -1055,16 +1106,41 @@ export default function OtherSubcategoriesPage() {
               </div>
 
               <div className="divide-y divide-slate-100">
-                {subcategories.map((sub) => {
+                {subcategories.map((sub, idx) => {
                   const isSelected = selectedSubcategoryIds.includes(sub.id);
                   return (
                     <div
                       key={sub.id}
                       className={`py-4 first:pt-0 px-3 rounded-xl flex items-center justify-between gap-4 transition-colors ${
-                        isSelected ? 'bg-rose-50/50' : ''
+                        isSelected ? 'bg-rose-50/50' : sub.active === false ? 'opacity-60 bg-slate-50' : ''
                       }`}
                     >
                       <div className="flex items-center space-x-3.5 min-w-0">
+                        {/* Priority Reordering Controls */}
+                        <div className="flex flex-col items-center space-y-0.5 shrink-0">
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            onClick={() => handleMovePriority(idx, 'UP')}
+                            className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-20 hover:bg-slate-100 rounded"
+                            title="Move Up in Priority"
+                          >
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="text-[10px] font-black font-mono text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">
+                            #{idx + 1}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={idx === subcategories.length - 1}
+                            onClick={() => handleMovePriority(idx, 'DOWN')}
+                            className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-20 hover:bg-slate-100 rounded"
+                            title="Move Down in Priority"
+                          >
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -1082,7 +1158,10 @@ export default function OtherSubcategoriesPage() {
                         )}
 
                         <div>
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                            <span className="text-[10px] font-black uppercase text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                              Priority {idx + 1}
+                            </span>
                             <h4 className="text-sm font-bold text-slate-900">{sub.name}</h4>
                             <span className="px-2 py-0.2 rounded-md bg-slate-100 text-slate-700 text-[10px] font-bold">
                               {sub.category?.name || 'Qualification'}
@@ -1090,6 +1169,11 @@ export default function OtherSubcategoriesPage() {
                             <span className="px-2 py-0.2 rounded-md bg-indigo-50 text-indigo-800 text-[10px] font-bold border border-indigo-200">
                               {getLevelPresetName(sub)}
                             </span>
+                            {sub.active === false && (
+                              <span className="px-2 py-0.2 rounded-md bg-amber-100 text-amber-900 text-[10px] font-bold border border-amber-300">
+                                Disabled (History Safe)
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center space-x-2 text-xs text-slate-500 mt-1">
                             <span>Levels: {sub.hasLevels ? 'Enabled' : 'Disabled'}</span>
@@ -1104,6 +1188,18 @@ export default function OtherSubcategoriesPage() {
                       </div>
 
                       <div className="flex items-center space-x-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleActive(sub)}
+                          className={`p-2 rounded-lg transition ${
+                            sub.active === false
+                              ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                          title={sub.active === false ? 'Enable Subcategory' : 'Disable Subcategory (History Safe)'}
+                        >
+                          {sub.active === false ? <EyeOff className="w-4 h-4 text-amber-600" /> : <Eye className="w-4 h-4 text-slate-600" />}
+                        </button>
                         <button
                           onClick={() => handleOpenEditSub(sub)}
                           className="p-2 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-slate-100"
