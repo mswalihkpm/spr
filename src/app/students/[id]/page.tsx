@@ -321,13 +321,13 @@ export default function StudentProfilePage() {
 
             {/* Overall SPR Score & Ranks Badge */}
             <div className="flex items-center justify-around md:justify-end gap-3 sm:gap-4 bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10">
-              {/* Overall SPR */}
+              {/* Overall SPR Points */}
               <div className="text-center px-2">
-                <div className="text-[10px] uppercase font-bold text-gold-400 tracking-wider">Overall SPR</div>
-                <div className="text-2xl sm:text-3xl font-black text-white mt-0.5">
-                  {overallSPR}%
+                <div className="text-[10px] uppercase font-bold text-gold-400 tracking-wider">Total SPR Points</div>
+                <div className="text-2xl sm:text-3xl font-black text-white mt-0.5 font-mono">
+                  {typeof overallSPR === 'number' ? overallSPR.toLocaleString('en-US') : overallSPR}
                 </div>
-                <div className="text-[10px] text-emerald-400 font-semibold">Tier 1 Rating</div>
+                <div className="text-[10px] text-emerald-400 font-semibold">Points Scoring</div>
               </div>
 
               <div className="h-10 w-px bg-white/20" />
@@ -380,20 +380,20 @@ export default function StudentProfilePage() {
         {/* Tab Content */}
         {activeTab === 'OVERVIEW' && (
           <div className="space-y-6">
-            {/* 1. Complete SPR Percentage Calculation Table */}
+            {/* 1. Complete SPR Points Breakdown Matrix */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden">
               <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <h3 className="text-sm font-black text-slate-900 flex items-center space-x-2">
                     <Award className="w-4 h-4 text-madin-900" />
-                    <span>Authoritative SPR Percentage Calculation Matrix</span>
+                    <span>Authoritative SPR Points Scoring Matrix</span>
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    7 Main Categories • Standardized Weights & Normalization
+                    7 Main Categories • Base Points × Multipliers = Unlimited Cumulative SPR Points
                   </p>
                 </div>
                 <div className="text-xs font-semibold text-slate-500 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
-                  Total Weight: <strong className="text-slate-800">100.00%</strong> • Full Precision
+                  Scoring Engine: <strong className="text-slate-800">Pure Numerical Points</strong>
                 </div>
               </div>
 
@@ -403,18 +403,14 @@ export default function StudentProfilePage() {
                     <tr>
                       <th className="py-3 px-4">#</th>
                       <th className="py-3 px-4">Category</th>
-                      <th className="py-3 px-4 text-center">Earned / Input</th>
-                      <th className="py-3 px-4 text-right">Normalized %</th>
-                      <th className="py-3 px-4 text-right">Category Weight</th>
-                      <th className="py-3 px-4 text-right">Weighted Contribution</th>
+                      <th className="py-3 px-4 text-center">Records / Entries</th>
+                      <th className="py-3 px-4 text-right">Earned SPR Points</th>
                       <th className="py-3 px-4 text-center">Formula & Details</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {categoryScores.map((cat: any, idx: number) => {
-                      const isLibrary = cat.categoryCode === 'LIBRARY' || cat.categoryName?.includes('Library');
-                      const weightDisplay = typeof cat.weight === 'number' ? `${cat.weight.toFixed(2)}%` : `${cat.weight}%`;
-                      const contribDisplay = (cat.weightedContribution ?? ((cat.percentage * cat.weight) / 100)).toFixed(2);
+                      const pts = cat.earnedPoints ?? 0;
                       return (
                         <tr key={cat.categoryId || idx} className="hover:bg-slate-50/80 transition-colors">
                           <td className="py-3 px-4 font-mono font-bold text-slate-400">
@@ -425,37 +421,23 @@ export default function StudentProfilePage() {
                               <span>{cat.categoryName}</span>
                             </div>
                             <div className="text-[10px] text-slate-400 font-mono">
-                              {cat.recordsCount || 0} assessment records
+                              {cat.recordsCount || 0} valid entries
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-center font-mono">
-                            {isLibrary ? (
-                              <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
-                                {cat.rawInput || `${cat.earnedPoints || 0} pts`}
-                              </span>
-                            ) : cat.rawInput ? (
-                              <span className="text-slate-700 font-semibold">{cat.rawInput}</span>
-                            ) : (
-                              <span className="text-slate-400">—</span>
-                            )}
+                          <td className="py-3 px-4 text-center font-mono text-slate-600">
+                            {cat.recordsCount || 0} assessment(s)
                           </td>
-                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
-                            {(cat.normalizedPercentage ?? cat.percentage ?? 0).toFixed(2)}%
-                          </td>
-                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-700">
-                            {weightDisplay}
-                          </td>
-                          <td className="py-3 px-4 text-right font-mono font-bold text-indigo-900">
-                            +{contribDisplay}%
+                          <td className="py-3 px-4 text-right font-mono font-black text-indigo-900 text-sm">
+                            +{pts.toLocaleString('en-US')} pts
                           </td>
                           <td className="py-3 px-4 text-center">
                             <button
                               type="button"
                               onClick={() => setSelectedCatDetails(cat)}
-                              className="px-2 py-1 bg-slate-100 hover:bg-indigo-50 text-indigo-700 hover:text-indigo-900 rounded-lg text-[11px] font-bold transition flex items-center justify-center space-x-1 mx-auto"
+                              className="px-2.5 py-1 bg-slate-100 hover:bg-indigo-50 text-indigo-700 hover:text-indigo-900 rounded-lg text-[11px] font-bold transition flex items-center justify-center space-x-1 mx-auto"
                             >
                               <Info className="w-3 h-3" />
-                              <span>View Details</span>
+                              <span>View Itemized Points</span>
                             </button>
                           </td>
                         </tr>
@@ -465,16 +447,10 @@ export default function StudentProfilePage() {
                   <tfoot className="bg-gradient-to-r from-slate-900 to-madin-950 text-white font-bold border-t-2 border-slate-900">
                     <tr>
                       <td colSpan={3} className="py-3.5 px-4 text-sm font-black text-gold-300">
-                        FINAL SPR SCORE (Normalized 0.00% – 100.00%)
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-mono text-slate-300 text-xs">
-                        Normalized
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-mono text-base font-black text-white">
-                        100.00%
+                        TOTAL ACCUMULATED SPR POINTS (Direct Sum)
                       </td>
                       <td className="py-3.5 px-4 text-right font-mono text-base font-black text-gold-400">
-                        {profileData.overallSPR}%
+                        {typeof overallSPR === 'number' ? overallSPR.toLocaleString('en-US') : overallSPR} PTS
                       </td>
                       <td className="py-3.5 px-4 text-center text-xs text-emerald-400 font-bold">
                         VERIFIED
@@ -485,17 +461,12 @@ export default function StudentProfilePage() {
               </div>
             </div>
 
-            {/* 2. Detailed Library Percentage Table (Section 9) */}
+            {/* 2. Detailed Library Reading Pure Points Registry */}
             {(() => {
               const libCat = categoryScores.find(
                 (c: any) => c.categoryCode === 'LIBRARY' || c.categoryName?.includes('Library')
               );
               const earnedPts = libCat?.earnedPoints ?? 0;
-              const normRef = libCat?.normalizationRef ?? 500;
-              const normPct = libCat?.normalizedPercentage ?? Math.min((earnedPts / normRef) * 100, 100);
-              const weight = libCat?.weight ?? (80 / 6);
-              const weightedContrib = libCat?.weightedContribution ?? (normPct * weight) / 100;
-              const weightDisplay = typeof weight === 'number' ? `${weight.toFixed(2)}%` : `${weight}%`;
 
               return (
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle p-5 space-y-3">
@@ -503,14 +474,14 @@ export default function StudentProfilePage() {
                     <div>
                       <h4 className="text-sm font-black text-slate-900 flex items-center space-x-2">
                         <Library className="w-4 h-4 text-teal-700" />
-                        <span>Dedicated Library & Reading Percentage Breakdown</span>
+                        <span>Dedicated Library & Reading Points Registry</span>
                       </h4>
                       <p className="text-xs text-slate-500">
-                        Earned points have no fixed maximum. Normalized against 500 points reference: MIN(Earned / 500 × 100, 100)
+                        Pure numerical points with zero artificial caps or ceilings.
                       </p>
                     </div>
                     <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-teal-50 text-teal-900 border border-teal-200">
-                      Category Weight: {weightDisplay}
+                      Uncapped Points
                     </span>
                   </div>
 
@@ -519,35 +490,25 @@ export default function StudentProfilePage() {
                       <thead className="bg-slate-50 text-slate-700 font-bold uppercase tracking-wider text-[11px]">
                         <tr>
                           <th className="py-2.5 px-3">Library Metric</th>
-                          <th className="py-2.5 px-3 text-right">Value</th>
-                          <th className="py-2.5 px-3">Notes & Rules</th>
+                          <th className="py-2.5 px-3 text-right">Points / Value</th>
+                          <th className="py-2.5 px-3">Scoring Rule & Details</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         <tr>
-                          <td className="py-2 px-3 font-semibold text-slate-800">Earned Points</td>
-                          <td className="py-2 px-3 text-right font-mono font-bold text-teal-800">{earnedPts} pts</td>
-                          <td className="py-2 px-3 text-slate-500 text-[11px]">Actual earned points (uncapped & preserved)</td>
+                          <td className="py-2 px-3 font-semibold text-slate-800">Earned Reading Points</td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-teal-800">{earnedPts.toLocaleString('en-US')} pts</td>
+                          <td className="py-2 px-3 text-slate-500 text-[11px]">Total accumulated reading points added directly to overall SPR</td>
                         </tr>
                         <tr>
-                          <td className="py-2 px-3 font-semibold text-slate-800">Normalization Reference</td>
-                          <td className="py-2 px-3 text-right font-mono font-bold text-slate-700">{normRef} pts</td>
-                          <td className="py-2 px-3 text-slate-500 text-[11px]">Standard reference for 100% capacity</td>
-                        </tr>
-                        <tr>
-                          <td className="py-2 px-3 font-semibold text-slate-800">Normalized Percentage</td>
-                          <td className="py-2 px-3 text-right font-mono font-black text-indigo-900">{normPct.toFixed(2)}%</td>
-                          <td className="py-2 px-3 text-slate-500 text-[11px]">MIN({earnedPts} / {normRef} × 100, 100)%</td>
-                        </tr>
-                        <tr>
-                          <td className="py-2 px-3 font-semibold text-slate-800">Category Weight</td>
-                          <td className="py-2 px-3 text-right font-mono font-bold text-slate-700">{weightDisplay}</td>
-                          <td className="py-2 px-3 text-slate-500 text-[11px]">Assigned SPR weight matrix value</td>
+                          <td className="py-2 px-3 font-semibold text-slate-800">Category Maximum</td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-slate-700">None (Unlimited)</td>
+                          <td className="py-2 px-3 text-slate-500 text-[11px]">No 500-point ceiling or normalization applied</td>
                         </tr>
                         <tr className="bg-teal-50/60 font-bold">
-                          <td className="py-2.5 px-3 text-teal-950">Weighted Contribution</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-black text-teal-900 text-sm">+{weightedContrib.toFixed(2)}%</td>
-                          <td className="py-2.5 px-3 text-teal-800 text-[11px]">({normPct.toFixed(2)}% × {weightDisplay}) / 100</td>
+                          <td className="py-2.5 px-3 text-teal-950">Net SPR Contribution</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-black text-teal-900 text-sm">+{earnedPts.toLocaleString('en-US')} PTS</td>
+                          <td className="py-2.5 px-3 text-teal-800 text-[11px]">100% direct sum contribution</td>
                         </tr>
                       </tbody>
                     </table>
@@ -556,19 +517,19 @@ export default function StudentProfilePage() {
               );
             })()}
 
-            {/* 3. Final SPR Summary Card (Section 21) */}
+            {/* 3. Final SPR Points Card */}
             <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-madin-950 to-indigo-950 p-6 text-white text-center shadow-lg border border-gold-400/30">
               <div className="text-xs uppercase font-black tracking-widest text-gold-400">
-                AUTHORITATIVE FINAL SPR SCORE
+                AUTHORITATIVE FINAL SPR POINTS
               </div>
               <div className="text-4xl sm:text-5xl font-black text-white mt-1 font-mono tracking-tight">
-                {profileData.overallSPR}%
+                {typeof overallSPR === 'number' ? overallSPR.toLocaleString('en-US') : overallSPR} PTS
               </div>
               <div className="text-xs text-slate-300 mt-2 flex items-center justify-center space-x-2">
-                <span className="font-semibold">Normalized Score:</span>
-                <span className="font-mono font-bold text-gold-300">{profileData.overallSPR} / 100</span>
+                <span className="font-semibold">Direct Sum Scoring:</span>
+                <span className="font-mono font-bold text-gold-300">Sum of 7 Categories</span>
                 <span>•</span>
-                <span className="text-emerald-400 font-semibold">Capped strictly 0.00% – 100.00%</span>
+                <span className="text-emerald-400 font-semibold">Rank #{rank} Overall</span>
               </div>
             </div>
 
@@ -582,7 +543,7 @@ export default function StudentProfilePage() {
                       <th className="py-2.5 px-3">Date</th>
                       <th className="py-2.5 px-3">Category</th>
                       <th className="py-2.5 px-3">Assessment / Subject</th>
-                      <th className="py-2.5 px-3 text-right">Standardized %</th>
+                      <th className="py-2.5 px-3 text-right">Academic Mark / %</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -757,9 +718,9 @@ export default function StudentProfilePage() {
                   </div>
                   <div>
                     <h3 className="text-sm font-black text-slate-900">
-                      Calculation Details: {selectedCatDetails.categoryName}
+                      Calculation Breakdown: {selectedCatDetails.categoryName}
                     </h3>
-                    <p className="text-[11px] text-slate-500">Transparent 5-Stage Calculation Breakdown</p>
+                    <p className="text-[11px] text-slate-500">Numerical Points Scoring & Itemized Audit</p>
                   </div>
                 </div>
                 <button
@@ -771,64 +732,68 @@ export default function StudentProfilePage() {
                 </button>
               </div>
 
-              {/* Stage Flow */}
+              {/* Pure Points Scoring Audit */}
               <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
                 <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-1">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    1. Input / Earned Score
+                    1. Mathematical Scoring Formula
                   </span>
-                  <div className="font-mono font-bold text-sm text-slate-900">
-                    {selectedCatDetails.rawInput || `${selectedCatDetails.percentage}% avg score`}
+                  <div className="font-mono font-bold text-xs text-indigo-900 bg-indigo-50/50 p-2 rounded-lg border border-indigo-100">
+                    Earned Points = Base Points × Applicable Multiplier(s)
                   </div>
                   <p className="text-[11px] text-slate-500">
-                    Calculated from {selectedCatDetails.recordsCount || 0} performance assessments
+                    Formula detail: {selectedCatDetails.formula || 'Base Points × Multiplier = Earned Points'}
                   </p>
                 </div>
 
-                <div className="text-center text-slate-400 font-bold text-xs">↓</div>
-
                 <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-1">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    2. Normalization Formula
-                  </span>
-                  <div className="font-mono font-bold text-xs text-indigo-900 bg-indigo-50/50 p-2 rounded-lg border border-indigo-100">
-                    {selectedCatDetails.formula || 'MIN(Earned Score / Normalization Ref * 100, 100)'}
-                  </div>
-                </div>
-
-                <div className="text-center text-slate-400 font-bold text-xs">↓</div>
-
-                <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-1">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    3. Normalized Percentage (0% – 100%)
+                    2. Category Point Total
                   </span>
                   <div className="font-mono font-black text-base text-slate-900">
-                    {(selectedCatDetails.normalizedPercentage ?? selectedCatDetails.percentage).toFixed(2)}%
+                    +{Number(selectedCatDetails.earnedPoints ?? 0).toLocaleString('en-US')} SPR Points
                   </div>
+                  <p className="text-[11px] text-slate-500">
+                    Summed from {selectedCatDetails.recordsCount || (selectedCatDetails.records?.length || 0)} assessment/submission record(s)
+                  </p>
                 </div>
 
-                <div className="text-center text-slate-400 font-bold text-xs">↓</div>
-
-                <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-1">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    4. Category Weight
-                  </span>
-                  <div className="font-mono font-bold text-sm text-slate-800">
-                    {typeof selectedCatDetails.weight === 'number' ? `${selectedCatDetails.weight.toFixed(2)}%` : `${selectedCatDetails.weight}%`} (Category Weight in 100% System)
+                {selectedCatDetails.records && selectedCatDetails.records.length > 0 && (
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      3. Itemized Records & Applied Multipliers
+                    </span>
+                    <div className="divide-y divide-slate-200 border border-slate-200 rounded-xl bg-white overflow-hidden text-xs">
+                      {selectedCatDetails.records.map((r: any, rIdx: number) => (
+                        <div key={r.id || rIdx} className="p-2.5 flex items-center justify-between">
+                          <div className="min-w-0 pr-2">
+                            <div className="font-bold text-slate-900 truncate">
+                              {r.name || r.title || r.subjectName || 'Entry'}
+                            </div>
+                            <div className="text-[10px] text-slate-500 flex items-center space-x-2">
+                              {r.levelName && <span>Level: {r.levelName}</span>}
+                              {r.multiplier && <span>Mult: {r.multiplier}×</span>}
+                              {r.position && <span>Prize: {r.position}</span>}
+                            </div>
+                          </div>
+                          <div className="text-right font-mono font-bold text-indigo-900 shrink-0">
+                            +{Number(r.earnedPoints ?? r.obtainedScore ?? 0).toLocaleString('en-US')} pts
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-
-                <div className="text-center text-slate-400 font-bold text-xs">↓</div>
+                )}
 
                 <div className="p-3 bg-madin-900 text-white rounded-xl shadow-xs space-y-1">
                   <span className="text-[10px] font-bold text-gold-400 uppercase tracking-wider block">
-                    5. Weighted Contribution to Final SPR
+                    Net SPR Point Contribution
                   </span>
                   <div className="font-mono font-black text-lg text-white">
-                    +{(selectedCatDetails.weightedContribution ?? ((selectedCatDetails.percentage * selectedCatDetails.weight) / 100)).toFixed(2)}%
+                    +{Number(selectedCatDetails.earnedPoints ?? 0).toLocaleString('en-US')} PTS
                   </div>
                   <p className="text-[10px] text-slate-300">
-                    Formula: ({(selectedCatDetails.normalizedPercentage ?? selectedCatDetails.percentage).toFixed(2)}% × {typeof selectedCatDetails.weight === 'number' ? selectedCatDetails.weight.toFixed(2) : selectedCatDetails.weight}%) / 100
+                    Added directly to overall student ranking without percentage scaling or ceilings.
                   </p>
                 </div>
               </div>

@@ -8,6 +8,7 @@ let cachedMissingDataRule: { timestamp: number; value: MissingDataRule } | null 
 let cachedCategories: { timestamp: number; data: any[] } | null = null;
 let cachedSettings: { timestamp: number; data: Record<string, string> } | null = null;
 let cachedLevels: { timestamp: number; data: any[] } | null = null;
+let cachedCreativeCategories: { timestamp: number; data: any[] } | null = null;
 
 const CACHE_TTL_MS = 30 * 1000; // 30 seconds TTL
 
@@ -18,6 +19,16 @@ export function invalidateEngineCache() {
   cachedCategories = null;
   cachedSettings = null;
   cachedLevels = null;
+  cachedCreativeCategories = null;
+}
+
+export function formatPoints(val: number): string {
+  if (isNaN(val) || val === null || val === undefined) return '0';
+  if (Number.isInteger(val)) {
+    return val.toLocaleString('en-US');
+  }
+  const fixed = Number(val.toFixed(2));
+  return fixed.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
 export function normalizeScoreToPercentage(obtainedScore: number, maxScore: number): number {
@@ -41,8 +52,15 @@ export async function getCachedSettings(): Promise<Record<string, string>> {
     PRIZE_SCORE_1ST: '100',
     PRIZE_SCORE_2ND: '75',
     PRIZE_SCORE_3RD: '50',
-    LIBRARY_NORMALIZATION_REF: '500',
-    ACHIEVEMENT_NORMALIZATION_REF: '500',
+    CREATIVE_BASE_ARTICLE: '50',
+    CREATIVE_BASE_RESEARCH: '100',
+    CREATIVE_BASE_STORY: '75',
+    CREATIVE_BASE_POEM: '50',
+    CREATIVE_BASE_RESPONSE: '40',
+    CREATIVE_BASE_LETTER: '30',
+    CREATIVE_BASE_REVIEW: '50',
+    CREATIVE_BASE_OTHERS: '30',
+    QUALIFICATION_BASE_DEFAULT: '50',
   };
   settingsList.forEach((s) => {
     map[s.key] = s.value;
@@ -67,6 +85,19 @@ export async function getCachedLevels() {
   });
   cachedLevels = { timestamp: now, data: levels };
   return levels;
+}
+
+export async function getCachedCreativeCategories() {
+  const now = Date.now();
+  if (cachedCreativeCategories && now - cachedCreativeCategories.timestamp < CACHE_TTL_MS) {
+    return cachedCreativeCategories.data;
+  }
+  const creativeCats = await prisma.creativeHubCategory.findMany({
+    where: { active: true },
+    orderBy: { displayOrder: 'asc' },
+  });
+  cachedCreativeCategories = { timestamp: now, data: creativeCats };
+  return creativeCats;
 }
 
 export async function getCachedCategories() {
@@ -103,13 +134,27 @@ export function resolveLevelMultiplier(level: any, levelsList: any[]): number {
     return matched.weightMultiplier;
   }
 
-  // Fallback defaults
+// Fallback defaults
   if (levelCode.includes('INTER')) return 5.0;
   if (levelCode.includes('NATION')) return 4.5;
   if (levelCode.includes('STATE') || levelCode.includes('JAMIA')) return 4.0;
   if (levelCode.includes('DAAERA') || levelCode.includes('DAEERA')) return 3.0;
   if (levelCode.includes('DISTRICT')) return 2.5;
   if (levelCode.includes('DIVISION') || levelCode.includes('SUB_DISTRICT') || levelCode.includes('KULLIYA')) return 2.0;
+  return 1.0;
+}
+
+export const DEFAULT_CATEGORY_WEIGHTS: Record<string, number> = {
+  ISLAMIC: 1.0,
+  SCHOOL: 1.0,
+  QUALIFICATION: 1.0,
+  CREATIVE_HUB: 1.0,
+  LIBRARY: 1.0,
+  LITERARY: 1.0,
+  PROGRAMS: 1.0,
+};
+
+export function resolveCategoryWeight(cat: any): number {
   return 1.0;
 }
 
@@ -126,33 +171,17 @@ export function resolvePrizeBaseScore(position: string | null | undefined, setti
   return 0;
 }
 
-export const DEFAULT_CATEGORY_WEIGHTS: Record<string, number> = {
-  ISLAMIC: 20.0,
-  SCHOOL: 80 / 6, // 13.333333333333334
-  QUALIFICATION: 80 / 6,
-  CREATIVE_HUB: 80 / 6,
-  LIBRARY: 80 / 6,
-  LITERARY: 80 / 6,
-  PROGRAMS: 80 / 6,
-};
-
-export function resolveCategoryWeight(cat: any): number {
-  const activeWeightRecord = cat.categoryWeights?.find((w: any) => w.weight > 0) || cat.categoryWeights?.[0];
-  const customWeight = activeWeightRecord?.weight ?? cat.defaultWeight;
-  if (customWeight !== undefined && customWeight !== null && customWeight > 0) {
-    if (Math.abs(customWeight - 13.33) < 0.05 || Math.abs(customWeight - 13.3333) < 0.01) {
-      return 80 / 6;
-    }
-    if (cat.code === 'ISLAMIC' && (customWeight === 40 || customWeight === 20)) {
-      return 20.0;
-    }
-    if (cat.code !== 'ISLAMIC' && (customWeight === 35 || customWeight === 45 || customWeight === 10 || customWeight === 12 || customWeight === 8 || customWeight === 5)) {
-      return 80 / 6;
-    }
-    return customWeight;
-  }
-  if (cat.code === 'ISLAMIC') return 20.0;
-  return 80 / 6;
+// Helper to resolve creative hub base score
+export function resolveCreativeBaseScore(codeOrName: string, settings: Record<string, string>): number {
+  const key = (codeOrName || '').toUpperCase();
+  if (key.includes('RESEARCH')) return parseFloat(settings.CREATIVE_BASE_RESEARCH || '100') || 100;
+  if (key.includes('STORY')) return parseFloat(settings.CREATIVE_BASE_STORY || '75') || 75;
+  if (key.includes('ARTICLE')) return parseFloat(settings.CREATIVE_BASE_ARTICLE || '50') || 50;
+  if (key.includes('POEM')) return parseFloat(settings.CREATIVE_BASE_POEM || '50') || 50;
+  if (key.includes('REVIEW')) return parseFloat(settings.CREATIVE_BASE_REVIEW || '50') || 50;
+  if (key.includes('RESPONSE')) return parseFloat(settings.CREATIVE_BASE_RESPONSE || '40') || 40;
+  if (key.includes('LETTER')) return parseFloat(settings.CREATIVE_BASE_LETTER || '30') || 30;
+  return parseFloat(settings.CREATIVE_BASE_OTHERS || '30') || 30;
 }
 
 export async function calculateStudentSPR(
@@ -223,33 +252,20 @@ export async function calculateStudentSPR(
 
   if (!student) return null;
 
-  const [categories, settings, levelsList] = await Promise.all([
+  const [categories, settings, levelsList, creativeCatsList] = await Promise.all([
     getCachedCategories(),
     getCachedSettings(),
     getCachedLevels(),
+    getCachedCreativeCategories(),
   ]);
 
-  const missingDataRule = (settings.MISSING_DATA_RULE as MissingDataRule) || 'IGNORE_NORMALIZE';
-  const libraryRefPoints = parseFloat(settings.LIBRARY_NORMALIZATION_REF || '500') || 500;
-  const achievementRefPoints = parseFloat(settings.ACHIEVEMENT_NORMALIZATION_REF || '500') || 500;
-
-  // Compute Total Active Configured Weight Denominator
-  let totalActiveConfiguredWeight = 0;
-  let activeIncludedWeightsSumWithData = 0;
-
   const parsedCategories = categories.map((cat) => {
-    const activeWeightRecord = cat.categoryWeights?.find((w: any) => w.weight > 0) || cat.categoryWeights?.[0];
+    const activeWeightRecord = cat.categoryWeights?.find((w: any) => w.isActive !== false) || cat.categoryWeights?.[0];
     const isCatActive = activeWeightRecord?.isActive ?? cat.active;
     const isIncluded = activeWeightRecord?.isIncludedInSPR ?? cat.includeInSPR;
-    const weight = resolveCategoryWeight(cat);
-
-    if (isCatActive && isIncluded) {
-      totalActiveConfiguredWeight += weight;
-    }
 
     return {
       cat,
-      weight,
       isCatActive,
       isIncluded,
     };
@@ -258,15 +274,13 @@ export async function calculateStudentSPR(
   const categorySummaries: CategorySummary[] = [];
   let missingCategoriesCount = 0;
 
-  for (const { cat, weight, isCatActive, isIncluded } of parsedCategories) {
+  for (const { cat, isCatActive, isIncluded } of parsedCategories) {
     if (!isCatActive) continue;
 
-    let categoryRecords = student.performanceRecords.filter((r) => r.categoryId === cat.id);
-    let normalizedPercentage = 0;
+    const categoryRecords = student.performanceRecords.filter((r) => r.categoryId === cat.id);
     let earnedPoints = 0;
     let rawInput = '—';
     let formula = '';
-    let normalizationRef: number | undefined = undefined;
     let recordsCount = categoryRecords.length;
     let itemizedRecords: any[] = [];
     let hasData = false;
@@ -275,28 +289,38 @@ export async function calculateStudentSPR(
     if (cat.code === 'ISLAMIC') {
       if (categoryRecords.length > 0) {
         hasData = true;
-        const totalPct = categoryRecords.reduce((acc, r) => acc + (r.percentage || 0), 0);
-        normalizedPercentage = Math.min(Math.max(Number((totalPct / categoryRecords.length).toFixed(2)), 0), 100);
-        rawInput = `${normalizedPercentage.toFixed(2)}%`;
-        formula = `Average of ${categoryRecords.length} Islamic Studies Assessment(s) = ${normalizedPercentage.toFixed(2)}%`;
-        itemizedRecords = categoryRecords.map((r: any) => ({
-          id: r.id,
-          categoryId: r.categoryId,
-          categoryCode: 'ISLAMIC',
-          categoryName: cat.name,
-          name: r.subject?.name || r.exam?.name || 'Islamic Studies Assessment',
-          subjectName: r.subject?.name,
-          institutionName: r.subject?.institution?.name,
-          examName: r.exam?.name,
-          termName: r.exam?.term?.name,
-          obtainedScore: r.obtainedScore,
-          maxScore: r.maxScore,
-          percentage: r.percentage,
-          remarks: r.remarks,
-          date: r.date ? r.date.toISOString() : null,
-        }));
+        let sumPoints = 0;
+        itemizedRecords = categoryRecords.map((r: any) => {
+          const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
+          const baseScore = r.obtainedScore || 0;
+          const pts = Number((baseScore * mult).toFixed(2));
+          sumPoints += pts;
+
+          return {
+            id: r.id,
+            categoryId: r.categoryId,
+            categoryCode: 'ISLAMIC',
+            categoryName: cat.name,
+            name: r.subject?.name || r.exam?.name || 'Islamic Studies Assessment',
+            subjectName: r.subject?.name,
+            institutionName: r.subject?.institution?.name,
+            examName: r.exam?.name,
+            termName: r.exam?.term?.name,
+            obtainedScore: r.obtainedScore,
+            maxScore: r.maxScore,
+            percentage: r.percentage,
+            earnedPoints: pts,
+            multiplier: mult,
+            remarks: r.remarks,
+            date: r.date ? r.date.toISOString() : null,
+          };
+        });
+
+        earnedPoints = Number(sumPoints.toFixed(2));
+        rawInput = `${formatPoints(earnedPoints)} pts`;
+        formula = `${categoryRecords.length} assessment(s) = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
-        formula = `No Islamic Studies assessments logged (0.00%)`;
+        formula = `No Islamic Studies assessments logged (+0 SPR Points)`;
       }
     }
 
@@ -304,28 +328,38 @@ export async function calculateStudentSPR(
     else if (cat.code === 'SCHOOL') {
       if (categoryRecords.length > 0) {
         hasData = true;
-        const totalPct = categoryRecords.reduce((acc, r) => acc + (r.percentage || 0), 0);
-        normalizedPercentage = Math.min(Math.max(Number((totalPct / categoryRecords.length).toFixed(2)), 0), 100);
-        rawInput = `${normalizedPercentage.toFixed(2)}%`;
-        formula = `Average of ${categoryRecords.length} School Subject Mark(s) = ${normalizedPercentage.toFixed(2)}%`;
-        itemizedRecords = categoryRecords.map((r: any) => ({
-          id: r.id,
-          categoryId: r.categoryId,
-          categoryCode: 'SCHOOL',
-          categoryName: cat.name,
-          name: r.subject?.name || r.exam?.name || 'School Academic Mark',
-          subjectName: r.subject?.name,
-          boardName: r.subject?.board?.name,
-          examName: r.exam?.name,
-          termName: r.exam?.term?.name,
-          obtainedScore: r.obtainedScore,
-          maxScore: r.maxScore,
-          percentage: r.percentage,
-          remarks: r.remarks,
-          date: r.date ? r.date.toISOString() : null,
-        }));
+        let sumPoints = 0;
+        itemizedRecords = categoryRecords.map((r: any) => {
+          const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
+          const baseScore = r.obtainedScore || 0;
+          const pts = Number((baseScore * mult).toFixed(2));
+          sumPoints += pts;
+
+          return {
+            id: r.id,
+            categoryId: r.categoryId,
+            categoryCode: 'SCHOOL',
+            categoryName: cat.name,
+            name: r.subject?.name || r.exam?.name || 'School Academic Mark',
+            subjectName: r.subject?.name,
+            boardName: r.subject?.board?.name,
+            examName: r.exam?.name,
+            termName: r.exam?.term?.name,
+            obtainedScore: r.obtainedScore,
+            maxScore: r.maxScore,
+            percentage: r.percentage,
+            earnedPoints: pts,
+            multiplier: mult,
+            remarks: r.remarks,
+            date: r.date ? r.date.toISOString() : null,
+          };
+        });
+
+        earnedPoints = Number(sumPoints.toFixed(2));
+        rawInput = `${formatPoints(earnedPoints)} pts`;
+        formula = `${categoryRecords.length} school subject mark(s) = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
-        formula = `No School academic marks logged (0.00%)`;
+        formula = `No School academic marks logged (+0 SPR Points)`;
       }
     }
 
@@ -333,28 +367,38 @@ export async function calculateStudentSPR(
     else if (cat.code === 'QUALIFICATION') {
       if (categoryRecords.length > 0) {
         hasData = true;
-        const totalPct = categoryRecords.reduce((acc, r) => acc + (r.percentage || 0), 0);
-        normalizedPercentage = Math.min(Math.max(Number((totalPct / categoryRecords.length).toFixed(2)), 0), 100);
-        rawInput = `${normalizedPercentage.toFixed(2)}%`;
-        formula = `Average of ${categoryRecords.length} Qualification Assessment(s) = ${normalizedPercentage.toFixed(2)}%`;
-        itemizedRecords = categoryRecords.map((r: any) => ({
-          id: r.id,
-          categoryId: r.categoryId,
-          categoryCode: 'QUALIFICATION',
-          categoryName: cat.name,
-          name: r.subcategory?.name || r.subject?.name || 'Qualification Milestone',
-          subCategoryName: r.subcategory?.name || 'General Assessment',
-          levelName: r.level?.name,
-          obtainedScore: r.obtainedScore,
-          maxScore: r.maxScore,
-          percentage: r.percentage,
-          position: r.position,
-          grade: r.grade,
-          remarks: r.remarks,
-          date: r.date ? r.date.toISOString() : null,
-        }));
+        let sumPoints = 0;
+        itemizedRecords = categoryRecords.map((r: any) => {
+          const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
+          const baseScore = r.obtainedScore > 0 ? r.obtainedScore : (r.subcategory?.maxScore || 50);
+          const pts = Number((baseScore * mult).toFixed(2));
+          sumPoints += pts;
+
+          return {
+            id: r.id,
+            categoryId: r.categoryId,
+            categoryCode: 'QUALIFICATION',
+            categoryName: cat.name,
+            name: r.subcategory?.name || r.subject?.name || 'Qualification Milestone',
+            subCategoryName: r.subcategory?.name || 'General Qualification',
+            levelName: r.level?.name,
+            obtainedScore: r.obtainedScore,
+            maxScore: r.maxScore,
+            percentage: r.percentage,
+            earnedPoints: pts,
+            multiplier: mult,
+            position: r.position,
+            grade: r.grade,
+            remarks: r.remarks,
+            date: r.date ? r.date.toISOString() : null,
+          };
+        });
+
+        earnedPoints = Number(sumPoints.toFixed(2));
+        rawInput = `${formatPoints(earnedPoints)} pts`;
+        formula = `${categoryRecords.length} qualification(s) = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
-        formula = `No Qualification records logged (0.00%)`;
+        formula = `No Qualification records logged (+0 SPR Points)`;
       }
     }
 
@@ -364,78 +408,96 @@ export async function calculateStudentSPR(
       if (works.length > 0) {
         hasData = true;
         recordsCount = works.length;
-        const totalPct = works.reduce((acc, w) => acc + (w.percentage || 0), 0);
-        normalizedPercentage = Math.min(Math.max(Number((totalPct / works.length).toFixed(2)), 0), 100);
-        rawInput = `${works.length} submission(s)`;
-        formula = `Average of ${works.length} Creative Work(s) = ${normalizedPercentage.toFixed(2)}%`;
-        itemizedRecords = works.map((w: any) => ({
-          id: w.id,
-          title: w.title,
-          name: w.title,
-          categoryName: cat.name,
-          categoryCode: 'CREATIVE_HUB',
-          subCategoryName: w.category?.name || 'Creative Submission',
-          type: 'CREATIVE',
-          publicationStatus: w.publicationStatus,
-          rating: w.rating,
-          percentage: w.percentage,
-          obtainedScore: w.score ?? w.percentage,
-          maxScore: w.maxScore || 100,
-          mediaUrl: w.mediaUrl,
-          date: w.date ? w.date.toISOString() : null,
-          remarks: w.remarks || w.description,
-        }));
+        let sumPoints = 0;
+
+        itemizedRecords = works.map((w: any) => {
+          const base = resolveCreativeBaseScore(w.category?.code || w.category?.name || '', settings);
+          const mult = typeof w.category?.weight === 'number' && w.category.weight > 0 ? w.category.weight : 1.0;
+          // If score is given, e.g. explicit points awarded or rating
+          const rawScore = typeof w.score === 'number' && w.score > 0 ? w.score : base;
+          const pts = Number((rawScore * mult).toFixed(2));
+          sumPoints += pts;
+
+          return {
+            id: w.id,
+            title: w.title,
+            name: w.title,
+            categoryName: cat.name,
+            categoryCode: 'CREATIVE_HUB',
+            subCategoryName: w.category?.name || 'Creative Work',
+            type: 'CREATIVE',
+            publicationStatus: w.publicationStatus,
+            rating: w.rating,
+            percentage: w.percentage,
+            obtainedScore: rawScore,
+            basePoints: base,
+            multiplier: mult,
+            earnedPoints: pts,
+            mediaUrl: w.mediaUrl,
+            date: w.date ? w.date.toISOString() : null,
+            remarks: w.remarks || w.description,
+          };
+        });
+
+        earnedPoints = Number(sumPoints.toFixed(2));
+        rawInput = `${formatPoints(earnedPoints)} pts`;
+        formula = `${works.length} creative work(s) = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
-        formula = `No Creative Hub submissions logged (0.00%)`;
+        formula = `No Creative Hub submissions logged (+0 SPR Points)`;
       }
     }
 
     // 5. LIBRARY & READING
     else if (cat.code === 'LIBRARY') {
       const libRecords = student.libraryRecords || [];
-      normalizationRef = libraryRefPoints;
       if (libRecords.length > 0) {
         hasData = true;
         recordsCount = libRecords.length;
-        earnedPoints = libRecords.reduce((acc, r) => acc + (r.readingScore || 0), 0);
-        normalizedPercentage = Math.min(Math.max(Number(((earnedPoints / libraryRefPoints) * 100).toFixed(2)), 0), 100);
-        rawInput = `${earnedPoints} pts`;
-        formula = `MIN(${earnedPoints} / ${libraryRefPoints} × 100, 100) = ${normalizedPercentage.toFixed(2)}%`;
-        itemizedRecords = libRecords.map((lib: any) => ({
-          id: lib.id,
-          name: lib.readingPeriod || 'Reading Milestone',
-          title: lib.readingPeriod || 'Reading Milestone',
-          categoryName: cat.name,
-          categoryCode: 'LIBRARY',
-          readingPeriod: lib.readingPeriod,
-          booksRead: lib.booksRead,
-          pagesRead: lib.pagesRead,
-          type: 'LIBRARY',
-          earnedPoints: lib.readingScore,
-          obtainedScore: lib.readingScore,
-          percentage: Math.min(Math.max(Number(((lib.readingScore / libraryRefPoints) * 100).toFixed(2)), 0), 100),
-          readingScore: lib.readingScore,
-          maxScore: libraryRefPoints,
-          remarks: lib.remarks,
-          date: lib.createdAt ? lib.createdAt.toISOString() : null,
-        }));
+        let sumPoints = 0;
+
+        itemizedRecords = libRecords.map((lib: any) => {
+          const pts = typeof lib.readingScore === 'number' && lib.readingScore > 0
+            ? lib.readingScore
+            : ((lib.booksRead || 0) * 20);
+          sumPoints += pts;
+
+          return {
+            id: lib.id,
+            name: lib.readingPeriod || 'Reading Milestone',
+            title: lib.readingPeriod || 'Reading Milestone',
+            categoryName: cat.name,
+            categoryCode: 'LIBRARY',
+            readingPeriod: lib.readingPeriod,
+            booksRead: lib.booksRead,
+            pagesRead: lib.pagesRead,
+            type: 'LIBRARY',
+            earnedPoints: pts,
+            obtainedScore: pts,
+            readingScore: lib.readingScore,
+            remarks: lib.remarks,
+            date: lib.createdAt ? lib.createdAt.toISOString() : null,
+          };
+        });
+
+        earnedPoints = Number(sumPoints.toFixed(2));
+        rawInput = `${formatPoints(earnedPoints)} pts`;
+        formula = `Pure Reading Points (No Cap) = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
-        formula = `MIN(0 / ${libraryRefPoints} × 100, 100) = 0.00%`;
+        formula = `No Reading records logged (+0 SPR Points)`;
       }
     }
 
     // 6. LITERARY PROGRAMMES
     else if (cat.code === 'LITERARY') {
-      normalizationRef = achievementRefPoints;
       if (categoryRecords.length > 0) {
         hasData = true;
-        let totalAchievementPoints = 0;
+        let sumPoints = 0;
         itemizedRecords = categoryRecords.map((r: any) => {
           const mult = resolveLevelMultiplier(r.level, levelsList);
           const prizeBase = resolvePrizeBaseScore(r.position, settings);
           const baseScore = prizeBase > 0 ? prizeBase : (r.obtainedScore || 0);
-          const eventPoints = Number((baseScore * mult).toFixed(2));
-          totalAchievementPoints += eventPoints;
+          const pts = Number((baseScore * mult).toFixed(2));
+          sumPoints += pts;
 
           return {
             id: r.id,
@@ -448,39 +510,33 @@ export async function calculateStudentSPR(
             levelMultiplier: mult,
             position: r.position,
             prizeBaseScore: baseScore,
-            achievementPoints: eventPoints,
-            obtainedScore: eventPoints,
-            maxScore: achievementRefPoints,
-            percentage: normalizeScoreToPercentage(eventPoints, achievementRefPoints),
+            basePoints: baseScore,
+            earnedPoints: pts,
+            obtainedScore: pts,
             remarks: r.remarks,
             date: r.date ? r.date.toISOString() : null,
           };
         });
 
-        earnedPoints = Number(totalAchievementPoints.toFixed(2));
-        normalizedPercentage = Math.min(
-          Math.max(Number(((earnedPoints / achievementRefPoints) * 100).toFixed(2)), 0),
-          100
-        );
-        rawInput = `${earnedPoints} pts`;
-        formula = `MIN(${earnedPoints} / ${achievementRefPoints} × 100, 100) = ${normalizedPercentage.toFixed(2)}%`;
+        earnedPoints = Number(sumPoints.toFixed(2));
+        rawInput = `${formatPoints(earnedPoints)} pts`;
+        formula = `${categoryRecords.length} literary achievement(s) = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
-        formula = `MIN(0 / ${achievementRefPoints} × 100, 100) = 0.00%`;
+        formula = `No Literary achievements logged (+0 SPR Points)`;
       }
     }
 
     // 7. PROGRAMMES & COMPETITIONS
     else if (cat.code === 'PROGRAMS') {
-      normalizationRef = achievementRefPoints;
       if (categoryRecords.length > 0) {
         hasData = true;
-        let totalAchievementPoints = 0;
+        let sumPoints = 0;
         itemizedRecords = categoryRecords.map((r: any) => {
           const mult = resolveLevelMultiplier(r.level, levelsList);
           const prizeBase = resolvePrizeBaseScore(r.position, settings);
           const baseScore = prizeBase > 0 ? prizeBase : (r.obtainedScore || 0);
-          const eventPoints = Number((baseScore * mult).toFixed(2));
-          totalAchievementPoints += eventPoints;
+          const pts = Number((baseScore * mult).toFixed(2));
+          sumPoints += pts;
 
           return {
             id: r.id,
@@ -493,24 +549,19 @@ export async function calculateStudentSPR(
             levelMultiplier: mult,
             position: r.position,
             prizeBaseScore: baseScore,
-            achievementPoints: eventPoints,
-            obtainedScore: eventPoints,
-            maxScore: achievementRefPoints,
-            percentage: normalizeScoreToPercentage(eventPoints, achievementRefPoints),
+            basePoints: baseScore,
+            earnedPoints: pts,
+            obtainedScore: pts,
             remarks: r.remarks,
             date: r.date ? r.date.toISOString() : null,
           };
         });
 
-        earnedPoints = Number(totalAchievementPoints.toFixed(2));
-        normalizedPercentage = Math.min(
-          Math.max(Number(((earnedPoints / achievementRefPoints) * 100).toFixed(2)), 0),
-          100
-        );
-        rawInput = `${earnedPoints} pts`;
-        formula = `MIN(${earnedPoints} / ${achievementRefPoints} × 100, 100) = ${normalizedPercentage.toFixed(2)}%`;
+        earnedPoints = Number(sumPoints.toFixed(2));
+        rawInput = `${formatPoints(earnedPoints)} pts`;
+        formula = `${categoryRecords.length} competition achievement(s) = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
-        formula = `MIN(0 / ${achievementRefPoints} × 100, 100) = 0.00%`;
+        formula = `No Competition achievements logged (+0 SPR Points)`;
       }
     }
 
@@ -518,32 +569,33 @@ export async function calculateStudentSPR(
     else {
       if (categoryRecords.length > 0) {
         hasData = true;
-        const totalPct = categoryRecords.reduce((acc, r) => acc + (r.percentage || 0), 0);
-        normalizedPercentage = Math.min(Math.max(Number((totalPct / categoryRecords.length).toFixed(2)), 0), 100);
-        rawInput = `${normalizedPercentage.toFixed(2)}%`;
-        formula = `Average Assessment = ${normalizedPercentage.toFixed(2)}%`;
-        itemizedRecords = categoryRecords.map((r: any) => ({
-          id: r.id,
-          categoryId: r.categoryId,
-          categoryCode: cat.code,
-          categoryName: cat.name,
-          name: r.subcategory?.name || r.subject?.name || 'Assessment',
-          obtainedScore: r.obtainedScore,
-          maxScore: r.maxScore,
-          percentage: r.percentage,
-          date: r.date ? r.date.toISOString() : null,
-        }));
+        let sumPoints = 0;
+        itemizedRecords = categoryRecords.map((r: any) => {
+          const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
+          const baseScore = r.obtainedScore || 0;
+          const pts = Number((baseScore * mult).toFixed(2));
+          sumPoints += pts;
+          return {
+            id: r.id,
+            categoryId: r.categoryId,
+            categoryCode: cat.code,
+            categoryName: cat.name,
+            name: r.subcategory?.name || r.subject?.name || 'Assessment',
+            obtainedScore: r.obtainedScore,
+            earnedPoints: pts,
+            date: r.date ? r.date.toISOString() : null,
+          };
+        });
+        earnedPoints = Number(sumPoints.toFixed(2));
+        rawInput = `${formatPoints(earnedPoints)} pts`;
+        formula = `+${formatPoints(earnedPoints)} SPR Points`;
       } else {
-        formula = `No records logged (0.00%)`;
+        formula = `No records logged (+0 SPR Points)`;
       }
     }
 
     if (!hasData) {
       missingCategoriesCount++;
-    }
-
-    if (isIncluded && hasData) {
-      activeIncludedWeightsSumWithData += weight;
     }
 
     categorySummaries.push({
@@ -552,14 +604,8 @@ export async function calculateStudentSPR(
       categoryName: cat.name,
       icon: cat.icon,
       priority: cat.displayOrder || 1,
-      weight,
-      score: normalizedPercentage,
-      percentage: normalizedPercentage,
-      normalizedPercentage,
-      rawInput,
       earnedPoints,
-      normalizationRef,
-      weightedContribution: 0, // Computed below after weight total is final
+      rawInput,
       formula,
       recordsCount,
       isIncluded,
@@ -567,22 +613,10 @@ export async function calculateStudentSPR(
     });
   }
 
-  // Calculate Weighted Contributions and Final SPR Score
-  // Formula: Weighted Contribution = (Normalized Category Percentage / 100) * Category Weight
-  // Final SPR = SUM(all 7 weighted contributions)
-  let finalSPRSum = 0;
-  for (const cs of categorySummaries) {
-    if (cs.isIncluded) {
-      const contrib = (cs.normalizedPercentage! * cs.weight) / 100;
-      cs.weightedContribution = Number(contrib.toFixed(2));
-      finalSPRSum += contrib;
-    } else {
-      cs.weightedContribution = 0;
-    }
-  }
-
-  // Final SPR Score clamped to 0.00% – 100.00%
-  const finalSPR = Math.min(Math.max(Number(finalSPRSum.toFixed(2)), 0), 100);
+  // OVERALL SPR POINTS = Direct SUM of all valid earned numerical points across included categories
+  const finalSPR = Number(
+    categorySummaries.reduce((sum, cs) => sum + (cs.isIncluded ? cs.earnedPoints : 0), 0).toFixed(2)
+  );
 
   const recentRecords = student.performanceRecords
     .slice(0, 20)
@@ -650,9 +684,10 @@ export async function calculateStudentSPR(
     },
     overallSPR: finalSPR,
     overallScore: finalSPR,
-    rawWeightedTotal: Number(finalSPR.toFixed(2)),
-    maxWeightedTotal: 100,
-    normalizedScore: `${finalSPR.toFixed(2)} / 100`,
+    totalPoints: finalSPR,
+    rawWeightedTotal: finalSPR,
+    maxWeightedTotal: finalSPR,
+    normalizedScore: `${formatPoints(finalSPR)} Points`,
     rank: 1,
     classRank: 1,
     schoolRank: 1,
@@ -732,7 +767,11 @@ export async function calculateAllLeaderboards(filters?: {
               level: true,
             },
       },
-      creativeWorks: true,
+      creativeWorks: {
+        include: {
+          category: true,
+        },
+      },
       libraryRecords: true,
     },
   });
@@ -743,24 +782,13 @@ export async function calculateAllLeaderboards(filters?: {
     getCachedLevels(),
   ]);
 
-  const missingDataRule = (settings.MISSING_DATA_RULE as MissingDataRule) || 'IGNORE_NORMALIZE';
-  const libraryRefPoints = parseFloat(settings.LIBRARY_NORMALIZATION_REF || '500') || 500;
-  const achievementRefPoints = parseFloat(settings.ACHIEVEMENT_NORMALIZATION_REF || '500') || 500;
-
-  let totalActiveConfiguredWeight = 0;
   const parsedCategories = categories.map((cat) => {
-    const activeWeightRecord = cat.categoryWeights?.find((w: any) => w.weight > 0) || cat.categoryWeights?.[0];
+    const activeWeightRecord = cat.categoryWeights?.find((w: any) => w.isActive !== false) || cat.categoryWeights?.[0];
     const isCatActive = activeWeightRecord?.isActive ?? cat.active;
     const isIncluded = activeWeightRecord?.isIncludedInSPR ?? cat.includeInSPR;
-    const weight = resolveCategoryWeight(cat);
-
-    if (isCatActive && isIncluded) {
-      totalActiveConfiguredWeight += weight;
-    }
 
     return {
       cat,
-      weight,
       isCatActive,
       isIncluded,
     };
@@ -769,8 +797,8 @@ export async function calculateAllLeaderboards(filters?: {
   const entries: LeaderboardEntry[] = [];
 
   for (const student of students) {
-    const categoryPercentages: Record<string, number> = {};
-    let weightedSum = 0;
+    const categoryPoints: Record<string, number> = {};
+    let totalPoints = 0;
     let totalRecords = student.performanceRecords.length + student.creativeWorks.length + student.libraryRecords.length;
 
     // Subcategory-specific calculation if requested
@@ -781,8 +809,13 @@ export async function calculateAllLeaderboards(filters?: {
         (r) => r.subcategoryId === filters.subcategoryId
       );
       if (subRecords.length > 0) {
-        const sum = subRecords.reduce((acc, r) => acc + (r.percentage || 0), 0);
-        subcategoryScore = Number((sum / subRecords.length).toFixed(2));
+        let subSum = 0;
+        subRecords.forEach((r) => {
+          const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
+          const base = r.obtainedScore || 0;
+          subSum += (base * mult);
+        });
+        subcategoryScore = Number(subSum.toFixed(2));
         subcategoryRecordsCount = subRecords.length;
       }
     }
@@ -806,8 +839,13 @@ export async function calculateAllLeaderboards(filters?: {
       });
 
       if (streamRecords.length > 0) {
-        const sum = streamRecords.reduce((acc, r) => acc + (r.percentage || 0), 0);
-        streamIslamicScore = Number((sum / streamRecords.length).toFixed(2));
+        let streamSum = 0;
+        streamRecords.forEach((r) => {
+          const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
+          const base = r.obtainedScore || 0;
+          streamSum += (base * mult);
+        });
+        streamIslamicScore = Number(streamSum.toFixed(2));
         streamIslamicRecordsCount = streamRecords.length;
       }
     }
@@ -839,63 +877,72 @@ export async function calculateAllLeaderboards(filters?: {
       });
 
       if (festRecords.length > 0) {
-        const sum = festRecords.reduce((acc, r) => acc + (r.percentage || 0), 0);
-        festScore = Number((sum / festRecords.length).toFixed(2));
+        let fSum = 0;
+        festRecords.forEach((r) => {
+          const mult = resolveLevelMultiplier(r.level, levelsList);
+          const prizeBase = resolvePrizeBaseScore(r.position, settings);
+          const base = prizeBase > 0 ? prizeBase : (r.obtainedScore || 0);
+          fSum += (base * mult);
+        });
+        festScore = Number(fSum.toFixed(2));
         festRecordsCount = festRecords.length;
       } else {
         const litRecords = student.performanceRecords.filter((r) => r.category?.code === 'LITERARY');
         if (litRecords.length > 0) {
-          const sum = litRecords.reduce((acc, r) => acc + (r.percentage || 0), 0);
-          festScore = Number((sum / litRecords.length).toFixed(2));
+          let fSum = 0;
+          litRecords.forEach((r) => {
+            const mult = resolveLevelMultiplier(r.level, levelsList);
+            const prizeBase = resolvePrizeBaseScore(r.position, settings);
+            const base = prizeBase > 0 ? prizeBase : (r.obtainedScore || 0);
+            fSum += (base * mult);
+          });
+          festScore = Number(fSum.toFixed(2));
           festRecordsCount = litRecords.length;
         }
       }
     }
 
-    for (const { cat, weight, isCatActive, isIncluded } of parsedCategories) {
+    for (const { cat, isCatActive, isIncluded } of parsedCategories) {
       if (!isCatActive) continue;
 
-      let catPct = 0;
-      let hasData = false;
+      let catEarned = 0;
 
       if (cat.code === 'CREATIVE_HUB') {
-        if (student.creativeWorks.length > 0) {
-          const sum = student.creativeWorks.reduce((acc, w) => acc + (w.percentage || 0), 0);
-          catPct = Math.min(Math.max(Number((sum / student.creativeWorks.length).toFixed(2)), 0), 100);
-          hasData = true;
-        }
+        student.creativeWorks.forEach((w) => {
+          const base = resolveCreativeBaseScore(w.category?.code || w.category?.name || '', settings);
+          const mult = typeof w.category?.weight === 'number' && w.category.weight > 0 ? w.category.weight : 1.0;
+          const rawScore = typeof w.score === 'number' && w.score > 0 ? w.score : base;
+          catEarned += (rawScore * mult);
+        });
       } else if (cat.code === 'LIBRARY') {
-        if (student.libraryRecords.length > 0) {
-          const earned = student.libraryRecords.reduce((acc, r) => acc + (r.readingScore || 0), 0);
-          catPct = Math.min(Math.max(Number(((earned / libraryRefPoints) * 100).toFixed(2)), 0), 100);
-          hasData = true;
-        }
+        student.libraryRecords.forEach((lib) => {
+          const pts = typeof lib.readingScore === 'number' && lib.readingScore > 0
+            ? lib.readingScore
+            : ((lib.booksRead || 0) * 20);
+          catEarned += pts;
+        });
       } else if (cat.code === 'LITERARY' || cat.code === 'PROGRAMS') {
         const records = student.performanceRecords.filter((r) => r.categoryId === cat.id);
-        if (records.length > 0) {
-          let totalPts = 0;
-          records.forEach((r) => {
-            const mult = resolveLevelMultiplier(r.level, levelsList);
-            const prizeBase = resolvePrizeBaseScore(r.position, settings);
-            const baseScore = prizeBase > 0 ? prizeBase : (r.obtainedScore || 0);
-            totalPts += (baseScore * mult);
-          });
-          catPct = Math.min(Math.max(Number(((totalPts / achievementRefPoints) * 100).toFixed(2)), 0), 100);
-          hasData = true;
-        }
+        records.forEach((r) => {
+          const mult = resolveLevelMultiplier(r.level, levelsList);
+          const prizeBase = resolvePrizeBaseScore(r.position, settings);
+          const baseScore = prizeBase > 0 ? prizeBase : (r.obtainedScore || 0);
+          catEarned += (baseScore * mult);
+        });
       } else {
         const records = student.performanceRecords.filter((r) => r.categoryId === cat.id);
-        if (records.length > 0) {
-          const sum = records.reduce((acc, r) => acc + (r.percentage || 0), 0);
-          catPct = Math.min(Math.max(Number((sum / records.length).toFixed(2)), 0), 100);
-          hasData = true;
-        }
+        records.forEach((r) => {
+          const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
+          const base = r.obtainedScore || 0;
+          catEarned += (base * mult);
+        });
       }
 
-      categoryPercentages[cat.id] = catPct;
+      catEarned = Number(catEarned.toFixed(2));
+      categoryPoints[cat.id] = catEarned;
 
       if (isIncluded) {
-        weightedSum += (catPct * weight) / 100;
+        totalPoints += catEarned;
       }
     }
 
@@ -916,9 +963,9 @@ export async function calculateAllLeaderboards(filters?: {
           c.code?.toUpperCase() === filters.categoryId?.toUpperCase() ||
           c.name?.toLowerCase() === filters.categoryId?.toLowerCase()
       );
-      finalScore = matchedCategory ? (categoryPercentages[matchedCategory.id] || 0) : (categoryPercentages[filters.categoryId] || 0);
+      finalScore = matchedCategory ? (categoryPoints[matchedCategory.id] || 0) : (categoryPoints[filters.categoryId] || 0);
     } else {
-      finalScore = Math.min(Math.max(Number(weightedSum.toFixed(2)), 0), 100);
+      finalScore = Number(totalPoints.toFixed(2));
     }
 
     entries.push({
@@ -933,9 +980,11 @@ export async function calculateAllLeaderboards(filters?: {
       schoolName: student.school.name,
       spr: finalScore,
       overallScore: finalScore,
+      totalSprPoints: finalScore,
       photoUrl: student.photoUrl,
       division: student.division,
-      categoryPercentages,
+      categoryPoints,
+      categoryPercentages: categoryPoints,
       recordsCount: totalRecords,
     });
   }
@@ -971,3 +1020,4 @@ export async function calculateAllLeaderboards(filters?: {
   leaderboardCache.set(cacheKey, { timestamp: now, data: rankedEntries });
   return rankedEntries;
 }
+

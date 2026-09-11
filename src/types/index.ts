@@ -42,12 +42,14 @@ export interface CategorySummary {
   categoryName: string;
   icon?: string | null;
   priority?: number;
-  weight: number;
+  weight?: number;
   score?: number;
-  percentage: number;
+  percentage?: number;
   normalizedPercentage?: number;
   rawInput?: string;
-  earnedPoints?: number;
+  earnedPoints: number;
+  basePoints?: number;
+  multiplier?: number;
   normalizationRef?: number;
   weightedContribution?: number;
   formula?: string;
@@ -58,7 +60,8 @@ export interface CategorySummary {
 
 export interface StudentSPRProfile {
   student: StudentWithRelations;
-  overallSPR: number; // e.g. 78.1
+  overallSPR: number; // e.g. 5650 (pure numerical points)
+  totalPoints?: number;
   overallScore?: number;
   rank: number;
   classRank: number;
@@ -98,10 +101,12 @@ export interface LeaderboardEntry {
   studentName?: string;
   className: string;
   schoolName: string;
-  spr: number;
+  spr: number; // Total SPR Points (e.g. 8500)
+  totalSprPoints?: number;
   overallScore?: number;
   photoUrl?: string | null;
   division?: string;
+  categoryPoints?: Record<string, number>;
   categoryPercentages?: Record<string, number>;
   recordsCount: number;
 }

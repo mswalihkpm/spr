@@ -280,7 +280,10 @@ function LeaderboardContent() {
 
   const formatScore = (val: any) => {
     const num = typeof val === 'number' ? val : parseFloat(val);
-    return isNaN(num) ? '0.0' : num.toFixed(1);
+    if (isNaN(num)) return '0';
+    if (Number.isInteger(num)) return num.toLocaleString('en-US');
+    const fixed = Number(num.toFixed(2));
+    return fixed.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   };
 
   // Format Class to show ONLY number (e.g., "Class 8" -> "8", "Class 10" -> "10")
@@ -397,7 +400,7 @@ function LeaderboardContent() {
     glowColor: 'from-white/25 via-blue-300/10 to-transparent',
     borderColor: 'border-blue-400/30',
     title: 'Overall Institutional SPR Leaderboard',
-    subtitle: 'Continuous multi-dimensional evaluation covering 117 students with normalized scoring.',
+    subtitle: 'Continuous multi-dimensional evaluation covering evaluated students with pure numerical points scoring.',
     badge: 'Overall Institutional Standings',
     badgeClass: 'bg-blue-500/20 text-blue-200 border-blue-400/40',
     logo: '/logo.png',
@@ -1050,7 +1053,7 @@ function LeaderboardContent() {
                       </div>
                       <div className="mt-2 pt-2 border-t border-amber-100 flex items-center justify-center">
                         <span className="text-sm sm:text-2xl font-black text-amber-800">
-                          {formatScore(student.spr ?? student.overallScore)}%
+                          {formatScore(student.spr ?? student.overallScore)} pts
                         </span>
                       </div>
                     </div>
@@ -1105,7 +1108,7 @@ function LeaderboardContent() {
                         <span className={`text-xs sm:text-lg font-black ${
                           isGold ? 'text-amber-800' : 'text-slate-800'
                         }`}>
-                          {formatScore(student.spr ?? student.overallScore)}%
+                          {formatScore(student.spr ?? student.overallScore)} pts
                         </span>
                       </div>
                     </div>
@@ -1136,7 +1139,7 @@ function LeaderboardContent() {
                       </div>
                       <div className="mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t border-amber-100 flex items-center justify-center">
                         <span className="text-xs sm:text-2xl font-black text-amber-800">
-                          {formatScore(student.spr ?? student.overallScore)}%
+                          {formatScore(student.spr ?? student.overallScore)} pts
                         </span>
                       </div>
                     </div>
@@ -1188,7 +1191,7 @@ function LeaderboardContent() {
                         <span className={`text-xs sm:text-lg font-black ${
                           isGold ? 'text-amber-800' : 'text-slate-800'
                         }`}>
-                          {formatScore(student.spr ?? student.overallScore)}%
+                          {formatScore(student.spr ?? student.overallScore)} pts
                         </span>
                       </div>
                     </div>
@@ -1205,7 +1208,7 @@ function LeaderboardContent() {
                 <div className="p-3.5 bg-amber-50/90 border border-amber-200/90 rounded-2xl text-center shadow-xs animate-fade-in">
                   <div className="text-xs font-black text-amber-950 flex items-center justify-center space-x-1.5">
                     <span>🏆</span>
-                    <span>{rank1Students.length} Students Jointly Share 1st Rank ({formatScore(rank1Students[0]?.spr ?? 100)}% SPR)</span>
+                    <span>{rank1Students.length} Students Jointly Share 1st Rank ({formatScore(rank1Students[0]?.spr ?? 0)} SPR Points)</span>
                   </div>
                   <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 mt-2">
                     {rank1Students.map((st) => (
@@ -1341,15 +1344,9 @@ function LeaderboardContent() {
 
                         <td className="py-2 sm:py-3.5 px-2 sm:px-4 text-right">
                           <span
-                            className={`px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg text-[11px] sm:text-xs font-black ${
-                              numericScore >= 90
-                                ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
-                                : numericScore >= 80
-                                ? 'bg-blue-50 text-blue-900 border border-blue-200'
-                                : 'bg-slate-100 text-slate-800'
-                            }`}
+                            className="px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg text-[11px] sm:text-xs font-black bg-blue-50 text-blue-900 border border-blue-200"
                           >
-                            {sprScore}%
+                            {sprScore} pts
                           </span>
                         </td>
 
@@ -1424,9 +1421,9 @@ function LeaderboardContent() {
 
                   {/* Cumulative SPR Badge */}
                   <div className="text-center bg-blue-600 text-white p-4 rounded-2xl shadow-md min-w-[120px]">
-                    <div className="text-[10px] uppercase font-bold text-blue-100">Cumulative SPR</div>
-                    <div className="text-2xl font-black text-white mt-0.5">
-                      {formatScore(studentProfile.overallScore ?? studentProfile.overallSPR)}%
+                    <div className="text-[10px] uppercase font-bold text-blue-100">Total SPR Points</div>
+                    <div className="text-2xl font-black text-white mt-0.5 font-mono">
+                      {formatScore(studentProfile.overallScore ?? studentProfile.overallSPR)} PTS
                     </div>
                     <div className="text-[10px] text-blue-200 mt-0.5">
                       Rank #{studentProfile.rank || 1} of {studentProfile.totalStudentsOverall || leaderboard.length || 1}
@@ -1470,7 +1467,7 @@ function LeaderboardContent() {
                     <div className="flex items-center space-x-1.5">
                       <Percent className="w-4 h-4 text-blue-600" />
                       <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                        Exact % Calculation Breakdown
+                        Points Scoring Breakdown
                       </h4>
                     </div>
                     <div className="flex items-center space-x-1 p-0.5 rounded-xl bg-slate-100 text-[10px] font-bold">
@@ -1480,7 +1477,7 @@ function LeaderboardContent() {
                           modalCalcTab === 'OVERALL' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
-                        SPR Formula %
+                        SPR Points
                       </button>
                       <button
                         onClick={() => setModalCalcTab('SUBJECTS')}
@@ -1488,7 +1485,7 @@ function LeaderboardContent() {
                           modalCalcTab === 'SUBJECTS' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
-                        Subject-Wise %
+                        Academic Marks
                       </button>
                       <button
                         onClick={() => setModalCalcTab('PROGRAMMES')}
@@ -1496,47 +1493,38 @@ function LeaderboardContent() {
                           modalCalcTab === 'PROGRAMMES' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
-                        Fest & Events %
+                        Competitions
                       </button>
                     </div>
                   </div>
 
-                  {/* 1. OVERALL SPR CALCULATION FORMULA (%) */}
+                  {/* 1. OVERALL SPR CALCULATION FORMULA (POINTS) */}
                   {modalCalcTab === 'OVERALL' && (
                     <div className="space-y-3 animate-fade-in">
                       <div className="p-3 bg-blue-50/90 rounded-2xl border border-blue-200 text-xs text-blue-950 space-y-1">
                         <div className="font-bold flex items-center space-x-1.5">
-                          <span>📐 Cumulative SPR Mathematical Formula:</span>
+                          <span>📐 SPR Mathematical Scoring Principle:</span>
                         </div>
                         <p className="text-[11px] text-blue-900 font-mono leading-relaxed">
-                          Overall SPR = Σ (Category Normalized % × Category Weight / 100)
+                          Overall SPR Points = SUM of all valid earned numerical points across 7 categories
                         </p>
                       </div>
 
                       <div className="space-y-2">
                         {(studentProfile.categoryBreakdown || studentProfile.categoryScores || []).map((cat: any) => {
-                          const catScore = parseFloat(formatScore(cat.score ?? cat.percentage));
-                          const weightVal = cat.weight !== undefined ? Number(cat.weight) : (80 / 6);
-                          const weightDisplay = typeof weightVal === 'number' ? `${weightVal.toFixed(2)}%` : `${weightVal}%`;
-                          const contribution = (cat.weightedContribution !== undefined ? Number(cat.weightedContribution) : ((catScore * weightVal) / 100)).toFixed(2);
-
+                          const pts = cat.earnedPoints ?? 0;
                           return (
-                            <div key={cat.categoryId} className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-                              <div className="flex items-center justify-between text-xs">
+                            <div key={cat.categoryId} className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs">
+                              <div className="space-y-0.5">
                                 <span className="font-bold text-slate-900">{cat.categoryName}</span>
-                                <div className="text-right">
-                                  <span className="font-mono font-extrabold text-blue-700 text-xs">{catScore.toFixed(1)}%</span>
-                                  <span className="text-[10px] text-slate-400 font-normal ml-1">× {weightDisplay} wt = </span>
-                                  <span className="font-mono font-bold text-emerald-700 text-xs ml-1">+{contribution}%</span>
+                                <div className="text-[10px] text-slate-400">
+                                  {cat.recordsCount || 0} valid record(s)
                                 </div>
                               </div>
-                              <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full transition-all duration-500 ${
-                                    catScore >= 85 ? 'bg-emerald-600' : catScore >= 70 ? 'bg-blue-600' : 'bg-amber-600'
-                                  }`}
-                                  style={{ width: `${Math.min(catScore, 100)}%` }}
-                                />
+                              <div className="text-right">
+                                <span className="font-mono font-extrabold text-blue-700 text-sm">
+                                  +{typeof pts === 'number' ? pts.toLocaleString('en-US') : pts} pts
+                                </span>
                               </div>
                             </div>
                           );

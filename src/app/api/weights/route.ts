@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
       icon: cat.icon,
       priority: cat.displayOrder,
       displayOrder: cat.displayOrder,
-      weight: cat.categoryWeights[0]?.weight ?? cat.defaultWeight,
+      weight: cat.categoryWeights[0]?.weight ?? cat.defaultWeight ?? 1.0,
       isActive: cat.categoryWeights[0]?.isActive ?? cat.active,
       isIncludedInSPR: cat.categoryWeights[0]?.isIncludedInSPR ?? cat.includeInSPR,
     }));
@@ -63,15 +63,21 @@ export async function GET(req: NextRequest) {
         prizeScore1st: settings.PRIZE_SCORE_1ST || '100',
         prizeScore2nd: settings.PRIZE_SCORE_2ND || '75',
         prizeScore3rd: settings.PRIZE_SCORE_3RD || '50',
-        libraryNormalizationRef: settings.LIBRARY_NORMALIZATION_REF || '500',
-        achievementNormalizationRef: settings.ACHIEVEMENT_NORMALIZATION_REF || '500',
+        creativeBaseArticle: settings.CREATIVE_BASE_ARTICLE || '50',
+        creativeBaseResearch: settings.CREATIVE_BASE_RESEARCH || '100',
+        creativeBaseStory: settings.CREATIVE_BASE_STORY || '75',
+        creativeBasePoem: settings.CREATIVE_BASE_POEM || '50',
+        creativeBaseResponse: settings.CREATIVE_BASE_RESPONSE || '40',
+        creativeBaseLetter: settings.CREATIVE_BASE_LETTER || '30',
+        creativeBaseReview: settings.CREATIVE_BASE_REVIEW || '50',
+        creativeBaseOthers: settings.CREATIVE_BASE_OTHERS || '30',
+        qualificationBaseDefault: settings.QUALIFICATION_BASE_DEFAULT || '50',
       },
-      missingDataRule: settings.MISSING_DATA_RULE || 'IGNORE_NORMALIZE',
       academicYear: currentYear,
     });
   } catch (error: any) {
     console.error('Weights fetch error:', error);
-    return NextResponse.json({ error: 'Failed to fetch weights.' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch scoring configuration.' }, { status: 500 });
   }
 }
 
@@ -91,18 +97,32 @@ async function handleUpdateWeights(req: NextRequest) {
       prizeScore1st,
       prizeScore2nd,
       prizeScore3rd,
-      libraryNormalizationRef,
-      achievementNormalizationRef,
+      creativeBaseArticle,
+      creativeBaseResearch,
+      creativeBaseStory,
+      creativeBasePoem,
+      creativeBaseResponse,
+      creativeBaseLetter,
+      creativeBaseReview,
+      creativeBaseOthers,
+      qualificationBaseDefault,
     } = body;
 
-    // 1. Update System Settings
+    // 1. Update System Settings for Scoring
     const settingsToUpdate: Record<string, string> = {};
     if (missingDataRule !== undefined) settingsToUpdate.MISSING_DATA_RULE = missingDataRule;
     if (prizeScore1st !== undefined) settingsToUpdate.PRIZE_SCORE_1ST = String(prizeScore1st);
     if (prizeScore2nd !== undefined) settingsToUpdate.PRIZE_SCORE_2ND = String(prizeScore2nd);
     if (prizeScore3rd !== undefined) settingsToUpdate.PRIZE_SCORE_3RD = String(prizeScore3rd);
-    if (libraryNormalizationRef !== undefined) settingsToUpdate.LIBRARY_NORMALIZATION_REF = String(libraryNormalizationRef);
-    if (achievementNormalizationRef !== undefined) settingsToUpdate.ACHIEVEMENT_NORMALIZATION_REF = String(achievementNormalizationRef);
+    if (creativeBaseArticle !== undefined) settingsToUpdate.CREATIVE_BASE_ARTICLE = String(creativeBaseArticle);
+    if (creativeBaseResearch !== undefined) settingsToUpdate.CREATIVE_BASE_RESEARCH = String(creativeBaseResearch);
+    if (creativeBaseStory !== undefined) settingsToUpdate.CREATIVE_BASE_STORY = String(creativeBaseStory);
+    if (creativeBasePoem !== undefined) settingsToUpdate.CREATIVE_BASE_POEM = String(creativeBasePoem);
+    if (creativeBaseResponse !== undefined) settingsToUpdate.CREATIVE_BASE_RESPONSE = String(creativeBaseResponse);
+    if (creativeBaseLetter !== undefined) settingsToUpdate.CREATIVE_BASE_LETTER = String(creativeBaseLetter);
+    if (creativeBaseReview !== undefined) settingsToUpdate.CREATIVE_BASE_REVIEW = String(creativeBaseReview);
+    if (creativeBaseOthers !== undefined) settingsToUpdate.CREATIVE_BASE_OTHERS = String(creativeBaseOthers);
+    if (qualificationBaseDefault !== undefined) settingsToUpdate.QUALIFICATION_BASE_DEFAULT = String(qualificationBaseDefault);
 
     for (const [key, value] of Object.entries(settingsToUpdate)) {
       await prisma.systemSetting.upsert({
@@ -115,7 +135,7 @@ async function handleUpdateWeights(req: NextRequest) {
     const currentYear = await prisma.academicYear.findFirst({ where: { isCurrent: true } }) ||
       await prisma.academicYear.findFirst();
 
-    // 2. Update Core Category Weights & Priority
+    // 2. Update Core Category Multipliers & Priority
     if (weights && Array.isArray(weights)) {
       for (let i = 0; i < weights.length; i++) {
         const item = weights[i];
@@ -133,7 +153,7 @@ async function handleUpdateWeights(req: NextRequest) {
             await prisma.categoryWeight.update({
               where: { id: existingWeight.id },
               data: {
-                weight: Number(item.weight),
+                weight: Number(item.weight) || 1.0,
                 isActive: item.isActive !== undefined ? item.isActive : true,
                 isIncludedInSPR: item.isIncludedInSPR !== undefined ? item.isIncludedInSPR : true,
               },
@@ -144,7 +164,7 @@ async function handleUpdateWeights(req: NextRequest) {
                 id: `weight-${item.categoryId}-${currentYear.id}`,
                 categoryId: item.categoryId,
                 academicYearId: currentYear.id,
-                weight: Number(item.weight),
+                weight: Number(item.weight) || 1.0,
                 isActive: item.isActive !== undefined ? item.isActive : true,
                 isIncludedInSPR: item.isIncludedInSPR !== undefined ? item.isIncludedInSPR : true,
               },
@@ -156,7 +176,7 @@ async function handleUpdateWeights(req: NextRequest) {
         await prisma.category.update({
           where: { id: item.categoryId },
           data: {
-            defaultWeight: Number(item.weight),
+            defaultWeight: Number(item.weight) || 1.0,
             displayOrder: Number(displayOrder),
             includeInSPR: item.isIncludedInSPR !== undefined ? item.isIncludedInSPR : true,
             active: item.isActive !== undefined ? item.isActive : true,
@@ -212,7 +232,7 @@ async function handleUpdateWeights(req: NextRequest) {
       }
     }
 
-    // 5. Update Creative Forms Weights & Orders
+    // 5. Update Creative Forms Base Points, Weights & Orders
     if (creativeForms && Array.isArray(creativeForms)) {
       for (let i = 0; i < creativeForms.length; i++) {
         const cf = creativeForms[i];
@@ -240,7 +260,7 @@ async function handleUpdateWeights(req: NextRequest) {
       }
     }
 
-    // 6. Update Published Media Weights
+    // 6. Update Published Media Multipliers
     if (publishedMedia && Array.isArray(publishedMedia)) {
       for (const pm of publishedMedia) {
         if (pm.id) {
@@ -262,7 +282,7 @@ async function handleUpdateWeights(req: NextRequest) {
       userId: user?.id,
       userName: user?.name,
       action: 'UPDATE',
-      entity: 'CategoryWeight',
+      entity: 'ScoringRule',
       newValue: {
         weights,
         missingDataRule,
@@ -276,11 +296,11 @@ async function handleUpdateWeights(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'All category weights, priorities, festival multipliers, and prize rules updated successfully.',
+      message: 'All SPR Scoring Rules, Base Points, Multipliers, and Level settings updated successfully.',
     });
   } catch (error: any) {
-    console.error('Update weights error:', error);
-    return NextResponse.json({ error: error.message || 'Failed to update weights.' }, { status: 500 });
+    console.error('Update scoring settings error:', error);
+    return NextResponse.json({ error: error.message || 'Failed to update scoring settings.' }, { status: 500 });
   }
 }
 

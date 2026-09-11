@@ -7,18 +7,14 @@ import {
   Save,
   CheckCircle2,
   AlertCircle,
-  Percent,
   HelpCircle,
   RefreshCw,
   Layers,
-  Scale,
   Trophy,
   Sparkles,
   BookOpen,
   GraduationCap,
   Award,
-  Newspaper,
-  Flame,
   Feather,
   Library,
   ArrowUp,
@@ -32,8 +28,11 @@ import {
   Check,
   ChevronRight,
   Info,
+  X,
+  Zap,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import { formatPoints } from '@/lib/spr-engine';
 
 export default function WeightsPage() {
   const [weights, setWeights] = useState<any[]>([]);
@@ -43,18 +42,31 @@ export default function WeightsPage() {
   const [publishedMedia, setPublishedMedia] = useState<any[]>([]);
   const [missingDataRule, setMissingDataRule] = useState<string>('IGNORE_NORMALIZE');
 
-  // Prize Scores & Normalization References
+  // Prize Base Scores & Creative Base Settings
   const [prizeScore1st, setPrizeScore1st] = useState<number>(100);
   const [prizeScore2nd, setPrizeScore2nd] = useState<number>(75);
   const [prizeScore3rd, setPrizeScore3rd] = useState<number>(50);
-  const [libraryNormalizationRef, setLibraryNormalizationRef] = useState<number>(500);
-  const [achievementNormalizationRef, setAchievementNormalizationRef] = useState<number>(500);
+  const [creativeBaseArticle, setCreativeBaseArticle] = useState<number>(50);
+  const [creativeBaseResearch, setCreativeBaseResearch] = useState<number>(100);
+  const [creativeBaseStory, setCreativeBaseStory] = useState<number>(75);
+  const [creativeBasePoem, setCreativeBasePoem] = useState<number>(50);
+  const [creativeBaseResponse, setCreativeBaseResponse] = useState<number>(40);
+  const [creativeBaseLetter, setCreativeBaseLetter] = useState<number>(30);
+  const [creativeBaseReview, setCreativeBaseReview] = useState<number>(50);
+  const [creativeBaseOthers, setCreativeBaseOthers] = useState<number>(30);
 
   // New Level Modal
   const [newLevelModalOpen, setNewLevelModalOpen] = useState(false);
   const [newLevelName, setNewLevelName] = useState('');
   const [newLevelCode, setNewLevelCode] = useState('');
   const [newLevelMultiplier, setNewLevelMultiplier] = useState<number>(1.0);
+
+  // Interactive Scoring Calculator Sandbox State
+  const [calcBasePoints, setCalcBasePoints] = useState<number>(100);
+  const [calcMultiplier1, setCalcMultiplier1] = useState<number>(2.5);
+  const [calcMultiplier2, setCalcMultiplier2] = useState<number>(1.0);
+  const [calcSelectedPrize, setCalcSelectedPrize] = useState<number>(100);
+  const [calcSelectedLevelMult, setCalcSelectedLevelMult] = useState<number>(2.5);
 
   // Live Student Preview State
   const [studentsList, setStudentsList] = useState<any[]>([]);
@@ -74,7 +86,7 @@ export default function WeightsPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to fetch weights.');
+        throw new Error(data.error || 'Failed to fetch scoring configuration.');
       }
 
       if (data.weights) setWeights(data.weights);
@@ -88,14 +100,18 @@ export default function WeightsPage() {
         if (data.settings.prizeScore1st) setPrizeScore1st(parseFloat(data.settings.prizeScore1st) || 100);
         if (data.settings.prizeScore2nd) setPrizeScore2nd(parseFloat(data.settings.prizeScore2nd) || 75);
         if (data.settings.prizeScore3rd) setPrizeScore3rd(parseFloat(data.settings.prizeScore3rd) || 50);
-        if (data.settings.libraryNormalizationRef)
-          setLibraryNormalizationRef(parseFloat(data.settings.libraryNormalizationRef) || 500);
-        if (data.settings.achievementNormalizationRef)
-          setAchievementNormalizationRef(parseFloat(data.settings.achievementNormalizationRef) || 500);
+        if (data.settings.creativeBaseArticle) setCreativeBaseArticle(parseFloat(data.settings.creativeBaseArticle) || 50);
+        if (data.settings.creativeBaseResearch) setCreativeBaseResearch(parseFloat(data.settings.creativeBaseResearch) || 100);
+        if (data.settings.creativeBaseStory) setCreativeBaseStory(parseFloat(data.settings.creativeBaseStory) || 75);
+        if (data.settings.creativeBasePoem) setCreativeBasePoem(parseFloat(data.settings.creativeBasePoem) || 50);
+        if (data.settings.creativeBaseResponse) setCreativeBaseResponse(parseFloat(data.settings.creativeBaseResponse) || 40);
+        if (data.settings.creativeBaseLetter) setCreativeBaseLetter(parseFloat(data.settings.creativeBaseLetter) || 30);
+        if (data.settings.creativeBaseReview) setCreativeBaseReview(parseFloat(data.settings.creativeBaseReview) || 50);
+        if (data.settings.creativeBaseOthers) setCreativeBaseOthers(parseFloat(data.settings.creativeBaseOthers) || 30);
       }
     } catch (err: any) {
       console.error(err);
-      setStatusMsg({ type: 'error', text: err.message || 'Failed to load weights' });
+      setStatusMsg({ type: 'error', text: err.message || 'Failed to load scoring configuration' });
     } finally {
       setLoading(false);
     }
@@ -136,9 +152,9 @@ export default function WeightsPage() {
       .finally(() => setLoadingPreview(false));
   }, [selectedStudentId]);
 
-  const handleCategoryWeightChange = (categoryId: string, val: number) => {
+  const handleCategoryMultiplierChange = (categoryId: string, val: number) => {
     setWeights((prev) =>
-      prev.map((w) => (w.categoryId === categoryId ? { ...w, weight: Math.max(0, val) } : w))
+      prev.map((w) => (w.categoryId === categoryId ? { ...w, weight: Math.max(0.1, val) } : w))
     );
   };
 
@@ -212,30 +228,7 @@ export default function WeightsPage() {
     setNewLevelModalOpen(false);
   };
 
-  const handleSubcategoryWeightChange = (subId: string, val: number) => {
-    setSubcategories((prev) =>
-      prev.map((s) => (s.id === subId ? { ...s, weight: Math.max(0.1, val) } : s))
-    );
-  };
-
-  const moveSubcategoryOrder = (index: number, direction: 'UP' | 'DOWN') => {
-    setSubcategories((prev) => {
-      const copy = [...prev];
-      const targetIndex = direction === 'UP' ? index - 1 : index + 1;
-      if (targetIndex < 0 || targetIndex >= copy.length) return prev;
-
-      const temp = copy[index];
-      copy[index] = copy[targetIndex];
-      copy[targetIndex] = temp;
-
-      return copy.map((item, idx) => ({
-        ...item,
-        displayOrder: idx + 1,
-      }));
-    });
-  };
-
-  const handleCreativeFormWeightChange = (formId: string, val: number) => {
+  const handleCreativeFormMultiplierChange = (formId: string, val: number) => {
     setCreativeForms((prev) =>
       prev.map((cf) => (cf.id === formId ? { ...cf, weight: Math.max(0.1, val) } : cf))
     );
@@ -258,7 +251,7 @@ export default function WeightsPage() {
     });
   };
 
-  const handleMediaWeightChange = (mediaId: string, val: number) => {
+  const handleMediaMultiplierChange = (mediaId: string, val: number) => {
     setPublishedMedia((prev) =>
       prev.map((pm) => (pm.id === mediaId ? { ...pm, weight: Math.max(0.1, val) } : pm))
     );
@@ -290,10 +283,6 @@ export default function WeightsPage() {
     return <Layers className="w-4 h-4 text-slate-700" />;
   };
 
-  const totalIncludedWeight = weights
-    .filter((w) => w.isIncludedInSPR && w.isActive)
-    .reduce((acc, curr) => acc + (parseFloat(curr.weight) || 0), 0);
-
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatusMsg(null);
@@ -313,19 +302,25 @@ export default function WeightsPage() {
           prizeScore1st,
           prizeScore2nd,
           prizeScore3rd,
-          libraryNormalizationRef,
-          achievementNormalizationRef,
+          creativeBaseArticle,
+          creativeBaseResearch,
+          creativeBaseStory,
+          creativeBasePoem,
+          creativeBaseResponse,
+          creativeBaseLetter,
+          creativeBaseReview,
+          creativeBaseOthers,
         }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to update weight settings.');
+        throw new Error(data.error || 'Failed to update scoring settings.');
       }
 
       setStatusMsg({
         type: 'success',
-        text: 'All SPR category weights, priorities, prize rules, festival multipliers, and normalization parameters updated successfully!',
+        text: 'All SPR Numerical Scoring Rules, Base Points, Multipliers, and Level settings saved successfully!',
       });
 
       // Refresh calculation preview
@@ -348,11 +343,14 @@ export default function WeightsPage() {
       s.sprStudentId?.toLowerCase().includes(previewSearch.toLowerCase())
   );
 
+  const calcDirectPoints = Number((calcBasePoints * calcMultiplier1 * calcMultiplier2).toFixed(2));
+  const calcCompetitionPoints = Number((calcSelectedPrize * calcSelectedLevelMult).toFixed(2));
+
   if (loading) {
     return (
       <AdminLayout>
         <div className="py-24 flex items-center justify-center">
-          <VideoLoader size="xl" text="Loading weights configuration..." subtext="Accessing SPR normalization matrix" />
+          <VideoLoader size="xl" text="Loading scoring configuration..." subtext="Accessing SPR numerical scoring engine" />
         </div>
       </AdminLayout>
     );
@@ -366,18 +364,18 @@ export default function WeightsPage() {
           <div>
             <div className="flex items-center space-x-2">
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                SPR Engine Configuration
+                SPR Numerical Scoring System
               </span>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-900 border border-blue-300">
-                Normalized 0–100%
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                Pure Unlimited Points
               </span>
             </div>
             <h2 className="text-xl font-black text-slate-900 tracking-tight mt-1 flex items-center space-x-2">
               <Sliders className="w-5 h-5 text-madin-900" />
-              <span>SPR Weight Management & Scoring Matrix</span>
+              <span>SPR Scoring Settings &amp; Points Matrix</span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Configure Category Weights, Priority Order, Festival Level Multipliers, Prize Base Scores, and Normalization Benchmarks.
+              Configure Category Base Points, Level Multipliers, Prize Points, and Custom X Multipliers without editing code.
             </p>
           </div>
 
@@ -409,50 +407,172 @@ export default function WeightsPage() {
           </div>
         )}
 
-        {/* 1. MAIN SPR CATEGORY WEIGHTS & PRIORITY */}
-        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
-            <div className="flex items-center space-x-2">
-              <Scale className="w-5 h-5 text-blue-700" />
-              <div>
-                <h3 className="text-base font-black text-slate-900">Main SPR Categories & Weight Configuration</h3>
-                <p className="text-xs text-slate-500">
-                  Configure contribution weights and reorder category priority (1 to 7)
-                </p>
-              </div>
+        {/* Core Formula & Architecture Banner */}
+        <div className="p-4 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white rounded-3xl shadow-md space-y-2">
+          <div className="flex items-center space-x-2 text-gold-400 font-black text-xs uppercase tracking-wider">
+            <Zap className="w-4 h-4" />
+            <span>Pure Numerical Scoring Architecture</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1 text-xs">
+            <div className="p-3 bg-white/10 rounded-2xl border border-white/10">
+              <span className="text-slate-300 block text-[10px] font-bold">CORE SCORING FORMULA</span>
+              <span className="text-sm font-mono font-bold text-white mt-0.5 block">
+                Points = Base × Mult₁ × Mult₂
+              </span>
             </div>
-            <div className="flex items-center space-x-2 self-end sm:self-auto">
-              <div className="px-3 py-1 bg-amber-50 border border-amber-200 rounded-xl text-xs font-bold text-amber-900">
-                Total Weight: <span className="font-mono font-black">{totalIncludedWeight.toFixed(2)}%</span>
-              </div>
-              <div className="px-3 py-1 bg-blue-50 border border-blue-200 rounded-xl text-xs font-bold text-blue-950">
-                Final Result: <span className="font-mono font-black">0.00% – 100.00%</span>
-              </div>
+            <div className="p-3 bg-white/10 rounded-2xl border border-white/10">
+              <span className="text-slate-300 block text-[10px] font-bold">OVERALL SPR TOTAL</span>
+              <span className="text-sm font-mono font-bold text-white mt-0.5 block">
+                Overall SPR = Σ Earned Points
+              </span>
+            </div>
+            <div className="p-3 bg-white/10 rounded-2xl border border-white/10">
+              <span className="text-slate-300 block text-[10px] font-bold">RANKING PRINCIPLE</span>
+              <span className="text-sm font-mono font-bold text-gold-300 mt-0.5 block">
+                Highest Points = Rank #1
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* INTERACTIVE SCORING CALCULATOR / PREVIEW TOOL */}
+        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <div className="flex items-center space-x-2 pb-3 border-b border-slate-100">
+            <Calculator className="w-5 h-5 text-indigo-700" />
+            <div>
+              <h3 className="text-base font-black text-slate-900">Interactive Admin Scoring Preview &amp; Calculator</h3>
+              <p className="text-xs text-slate-500">Test how base points and custom multipliers calculate numerical SPR points in real-time</p>
             </div>
           </div>
 
-          <div className="p-3.5 bg-blue-50/80 rounded-2xl border border-blue-200 text-xs text-blue-950 flex items-start space-x-2.5 shadow-2xs">
-            <Info className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
-            <div className="text-[11px] leading-relaxed space-y-1">
-              <p className="font-bold text-blue-950">
-                Islamic Studies has special priority (20.00%). All other 6 categories have equal priority (13.33% each). Total = 100.00%.
-              </p>
-              <p className="text-blue-900">
-                Formula: Final SPR = SUM(all 7 weighted contributions) where Weighted Contribution = (Normalized % / 100) × Weight. Full mathematical precision (80/6 for equal categories) is used internally.
-              </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* General Formula Sandbox */}
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+              <div className="text-xs font-bold text-slate-800 flex items-center justify-between">
+                <span>Multi-Multiplier Sandbox</span>
+                <span className="text-[10px] font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                  Base × Mult₁ × Mult₂
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-1">Base Points</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={calcBasePoints}
+                    onChange={(e) => setCalcBasePoints(parseFloat(e.target.value) || 0)}
+                    className="w-full px-2.5 py-1.5 text-center font-mono font-bold text-xs bg-white border border-slate-300 rounded-xl"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-1">Multiplier 1</label>
+                  <input
+                    type="number"
+                    step="0.05"
+                    min="0.1"
+                    value={calcMultiplier1}
+                    onChange={(e) => setCalcMultiplier1(parseFloat(e.target.value) || 1)}
+                    className="w-full px-2.5 py-1.5 text-center font-mono font-bold text-xs bg-white border border-slate-300 rounded-xl"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-1">Multiplier 2</label>
+                  <input
+                    type="number"
+                    step="0.05"
+                    min="0.1"
+                    value={calcMultiplier2}
+                    onChange={(e) => setCalcMultiplier2(parseFloat(e.target.value) || 1)}
+                    className="w-full px-2.5 py-1.5 text-center font-mono font-bold text-xs bg-white border border-slate-300 rounded-xl"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 bg-indigo-50/80 rounded-xl border border-indigo-200 flex items-center justify-between">
+                <span className="text-xs font-mono font-bold text-indigo-950">
+                  {calcBasePoints} × {calcMultiplier1}× {calcMultiplier2 !== 1 ? `× ${calcMultiplier2}×` : ''}
+                </span>
+                <span className="text-sm font-mono font-black text-indigo-900 bg-white px-2.5 py-1 rounded-lg border border-indigo-300 shadow-2xs">
+                  = {formatPoints(calcDirectPoints)} SPR Points
+                </span>
+              </div>
+            </div>
+
+            {/* Competition Prize + Level Sandbox */}
+            <div className="p-4 bg-amber-50/40 rounded-2xl border border-amber-200 space-y-3">
+              <div className="text-xs font-bold text-amber-950 flex items-center justify-between">
+                <span>Competition Prize &amp; Level Calculator</span>
+                <span className="text-[10px] font-mono text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                  Prize Base × Level Mult
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 block mb-1">Prize Base</label>
+                  <select
+                    value={calcSelectedPrize}
+                    onChange={(e) => setCalcSelectedPrize(parseFloat(e.target.value))}
+                    className="w-full px-2 py-1.5 font-mono text-xs bg-white border border-amber-300 rounded-xl font-bold"
+                  >
+                    <option value={prizeScore1st}>🥇 1st Prize ({prizeScore1st} pts)</option>
+                    <option value={prizeScore2nd}>🥈 2nd Prize ({prizeScore2nd} pts)</option>
+                    <option value={prizeScore3rd}>🥉 3rd Prize ({prizeScore3rd} pts)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 block mb-1">Level Multiplier</label>
+                  <select
+                    value={calcSelectedLevelMult}
+                    onChange={(e) => setCalcSelectedLevelMult(parseFloat(e.target.value))}
+                    className="w-full px-2 py-1.5 font-mono text-xs bg-white border border-amber-300 rounded-xl font-bold"
+                  >
+                    {levels.map((l) => (
+                      <option key={l.id || l.code} value={l.weightMultiplier}>
+                        {l.name} ({l.weightMultiplier}×)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="p-3 bg-white rounded-xl border border-amber-300 flex items-center justify-between">
+                <span className="text-xs font-mono font-bold text-amber-950">
+                  {calcSelectedPrize} × {calcSelectedLevelMult}×
+                </span>
+                <span className="text-sm font-mono font-black text-amber-900 bg-amber-100 px-2.5 py-1 rounded-lg border border-amber-300 shadow-2xs">
+                  = {formatPoints(calcCompetitionPoints)} SPR Points
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 1. TOP-LEVEL SPR CATEGORIES */}
+        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
+            <div className="flex items-center space-x-2">
+              <Layers className="w-5 h-5 text-blue-700" />
+              <div>
+                <h3 className="text-base font-black text-slate-900">Main SPR Categories (7 Core Domains)</h3>
+                <p className="text-xs text-slate-500">
+                  All points earned in these categories add directly to Total SPR Points. Priority order determines reporting sequence.
+                </p>
+              </div>
+            </div>
+            <div className="px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-950 self-end sm:self-auto">
+              Scoring Mode: <span className="font-mono font-black">Unlimited Points</span>
             </div>
           </div>
 
           <div className="space-y-2.5">
             {weights.map((w, index) => {
-              const weightNum = parseFloat(w.weight) || 0;
-              const weightDisplay = weightNum > 0 ? `${weightNum.toFixed(2)}%` : '0.00%';
+              const multNum = parseFloat(w.weight) || 1.0;
               return (
                 <div
                   key={w.categoryId || w.code}
                   className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-slate-100/70 transition"
                 >
-                  {/* Priority & Category Info */}
                   <div className="flex items-center space-x-3 min-w-0">
                     <div className="flex flex-col items-center justify-center w-7 shrink-0">
                       <button
@@ -486,41 +606,34 @@ export default function WeightsPage() {
                       <div className="text-xs sm:text-sm font-bold text-slate-900 flex items-center space-x-2">
                         <span>{w.name}</span>
                         <span className="text-[10px] text-slate-400 font-mono">({w.code})</span>
-                        <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 font-mono">
-                          {weightDisplay}
+                        <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-mono">
+                          + Earned Points
                         </span>
                       </div>
                       <div className="text-[11px] text-slate-500 font-medium">
-                        {w.code === 'ISLAMIC' ? 'Special Priority (20.00%)' : 'Equal Priority (13.33%)'}
+                        {w.code === 'ISLAMIC' && 'Islamic Studies assessments contribute numerical points directly to Overall SPR.'}
+                        {w.code === 'SCHOOL' && 'School subject marks contribute numerical points directly to Overall SPR.'}
+                        {w.code === 'QUALIFICATION' && 'Certificates, degrees, and qualification milestones earn configured base points.'}
+                        {w.code === 'CREATIVE_HUB' && 'Articles, stories, research papers earn base points × subcategory multipliers.'}
+                        {w.code === 'LIBRARY' && 'Reading points accumulate directly without caps or normalization.'}
+                        {w.code === 'LITERARY' && 'Literary competitions calculate Prize Base Points × Festival Level Multiplier.'}
+                        {w.code === 'PROGRAMS' && 'Competitions calculate Prize Base Points × Festival Level Multiplier.'}
                       </div>
                     </div>
                   </div>
 
-                  {/* Weight Input & Slider */}
-                  <div className="flex items-center space-x-4 ml-10 md:ml-0">
-                    <div className="flex items-center space-x-2 w-48 sm:w-64">
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        value={w.weight}
-                        onChange={(e) => handleCategoryWeightChange(w.categoryId, parseFloat(e.target.value))}
-                        className="w-full accent-blue-600 cursor-pointer"
-                      />
-                    </div>
-
+                  <div className="flex items-center space-x-3 ml-10 md:ml-0">
                     <div className="flex items-center space-x-1.5 shrink-0">
+                      <span className="text-[11px] font-bold text-slate-500">Category Multiplier:</span>
                       <input
                         type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
+                        min="0.1"
+                        step="0.05"
                         value={w.weight}
-                        onChange={(e) => handleCategoryWeightChange(w.categoryId, parseFloat(e.target.value) || 0)}
-                        className="w-20 px-2 py-1 text-center font-mono font-black text-xs bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+                        onChange={(e) => handleCategoryMultiplierChange(w.categoryId, parseFloat(e.target.value) || 1)}
+                        className="w-16 px-2 py-1 text-center font-mono font-black text-xs bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500"
                       />
-                      <span className="text-xs font-bold text-slate-500">%</span>
+                      <span className="text-xs font-bold text-slate-600">×</span>
                     </div>
                   </div>
                 </div>
@@ -529,15 +642,15 @@ export default function WeightsPage() {
           </div>
         </div>
 
-        {/* 2. PRIZE BASE SCORES & NORMALIZATION BENCHMARKS */}
+        {/* 2. PRIZE BASE POINTS & CREATIVE HUB BASE POINTS */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Prize Base Scores */}
+          {/* Prize Base Points */}
           <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
             <div className="flex items-center space-x-2 pb-3 border-b border-slate-100">
               <Trophy className="w-5 h-5 text-amber-600" />
               <div>
-                <h3 className="text-sm font-black text-slate-900">Prize Base Scores</h3>
-                <p className="text-[11px] text-slate-500">Base points awarded for competition prizes (1st &gt; 2nd &gt; 3rd)</p>
+                <h3 className="text-sm font-black text-slate-900">Competition Prize Base Points</h3>
+                <p className="text-[11px] text-slate-500">Base points for 1st, 2nd, and 3rd prize achievements</p>
               </div>
             </div>
 
@@ -545,13 +658,12 @@ export default function WeightsPage() {
               <div className="p-3.5 bg-amber-50/50 rounded-2xl border border-amber-200 flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <span className="text-base">🥇</span>
-                  <span className="text-xs font-bold text-slate-900">1st Prize Base Score</span>
+                  <span className="text-xs font-bold text-slate-900">1st Prize Base Points</span>
                 </div>
                 <div className="flex items-center space-x-1.5">
                   <input
                     type="number"
                     min="1"
-                    max="500"
                     value={prizeScore1st}
                     onChange={(e) => setPrizeScore1st(parseFloat(e.target.value) || 0)}
                     className="w-20 px-2.5 py-1 text-center font-mono font-black text-xs bg-white border border-amber-300 rounded-xl"
@@ -563,16 +675,15 @@ export default function WeightsPage() {
               <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <span className="text-base">🥈</span>
-                  <span className="text-xs font-bold text-slate-900">2nd Prize Base Score</span>
+                  <span className="text-xs font-bold text-slate-900">2nd Prize Base Points</span>
                 </div>
                 <div className="flex items-center space-x-1.5">
                   <input
                     type="number"
                     min="1"
-                    max="500"
                     value={prizeScore2nd}
                     onChange={(e) => setPrizeScore2nd(parseFloat(e.target.value) || 0)}
-                    className="w-20 px-2.5 py-1 text-center font-mono font-black text-xs bg-white border border-slate-300 rounded-xl"
+                    className="w-20 px-2.5 py-1 text-center font-mono font-black text-xs bg-white border border-amber-300 rounded-xl"
                   />
                   <span className="text-[11px] font-semibold text-slate-500">pts</span>
                 </div>
@@ -581,16 +692,15 @@ export default function WeightsPage() {
               <div className="p-3.5 bg-amber-50/30 rounded-2xl border border-amber-100 flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <span className="text-base">🥉</span>
-                  <span className="text-xs font-bold text-slate-900">3rd Prize Base Score</span>
+                  <span className="text-xs font-bold text-slate-900">3rd Prize Base Points</span>
                 </div>
                 <div className="flex items-center space-x-1.5">
                   <input
                     type="number"
                     min="1"
-                    max="500"
                     value={prizeScore3rd}
                     onChange={(e) => setPrizeScore3rd(parseFloat(e.target.value) || 0)}
-                    className="w-20 px-2.5 py-1 text-center font-mono font-black text-xs bg-white border border-slate-300 rounded-xl"
+                    className="w-20 px-2.5 py-1 text-center font-mono font-black text-xs bg-white border border-amber-300 rounded-xl"
                   />
                   <span className="text-[11px] font-semibold text-slate-500">pts</span>
                 </div>
@@ -598,67 +708,99 @@ export default function WeightsPage() {
             </div>
           </div>
 
-          {/* Normalization References */}
+          {/* Creative Hub Base Points */}
           <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
             <div className="flex items-center space-x-2 pb-3 border-b border-slate-100">
-              <Calculator className="w-5 h-5 text-teal-700" />
+              <Sparkles className="w-5 h-5 text-purple-700" />
               <div>
-                <h3 className="text-sm font-black text-slate-900">Normalization References</h3>
-                <p className="text-[11px] text-slate-500">Points reference used for 100% benchmark normalization</p>
+                <h3 className="text-sm font-black text-slate-900">Creative Hub Base Points</h3>
+                <p className="text-[11px] text-slate-500">Points awarded per creative submission type</p>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="p-3.5 bg-teal-50/50 rounded-2xl border border-teal-200 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-teal-950">Library & Reading Normalization Reference</span>
-                  <div className="flex items-center space-x-1.5">
-                    <input
-                      type="number"
-                      min="50"
-                      max="2000"
-                      value={libraryNormalizationRef}
-                      onChange={(e) => setLibraryNormalizationRef(parseFloat(e.target.value) || 500)}
-                      className="w-20 px-2.5 py-1 text-center font-mono font-black text-xs bg-white border border-teal-300 rounded-xl"
-                    />
-                    <span className="text-[11px] font-semibold text-slate-500">pts</span>
-                  </div>
+            <div className="grid grid-cols-2 gap-2.5 text-xs">
+              <div className="p-2.5 bg-purple-50/40 rounded-xl border border-purple-200 flex items-center justify-between">
+                <span className="font-bold text-slate-900">Article</span>
+                <div className="flex items-center space-x-1">
+                  <input
+                    type="number"
+                    min="1"
+                    value={creativeBaseArticle}
+                    onChange={(e) => setCreativeBaseArticle(parseFloat(e.target.value) || 0)}
+                    className="w-14 px-1.5 py-0.5 text-center font-mono font-bold text-xs bg-white border border-purple-300 rounded-lg"
+                  />
+                  <span className="text-[10px] text-slate-500">pts</span>
                 </div>
-                <p className="text-[10.5px] text-slate-500">Formula: MIN(Earned Points / {libraryNormalizationRef} × 100, 100)%</p>
               </div>
 
-              <div className="p-3.5 bg-indigo-50/50 rounded-2xl border border-indigo-200 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-indigo-950">Achievement Normalization Reference (Literary / Competitions)</span>
-                  <div className="flex items-center space-x-1.5">
-                    <input
-                      type="number"
-                      min="50"
-                      max="2000"
-                      value={achievementNormalizationRef}
-                      onChange={(e) => setAchievementNormalizationRef(parseFloat(e.target.value) || 500)}
-                      className="w-20 px-2.5 py-1 text-center font-mono font-black text-xs bg-white border border-indigo-300 rounded-xl"
-                    />
-                    <span className="text-[11px] font-semibold text-slate-500">pts</span>
-                  </div>
+              <div className="p-2.5 bg-purple-50/40 rounded-xl border border-purple-200 flex items-center justify-between">
+                <span className="font-bold text-slate-900">Research Paper</span>
+                <div className="flex items-center space-x-1">
+                  <input
+                    type="number"
+                    min="1"
+                    value={creativeBaseResearch}
+                    onChange={(e) => setCreativeBaseResearch(parseFloat(e.target.value) || 0)}
+                    className="w-14 px-1.5 py-0.5 text-center font-mono font-bold text-xs bg-white border border-purple-300 rounded-lg"
+                  />
+                  <span className="text-[10px] text-slate-500">pts</span>
                 </div>
-                <p className="text-[10.5px] text-slate-500">Formula: MIN(Earned Achievement Points / {achievementNormalizationRef} × 100, 100)%</p>
               </div>
 
-              {/* Missing data rule */}
-              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-bold text-slate-900">Missing Data Strategy</div>
-                  <div className="text-[10px] text-slate-500">How categories without records are normalized</div>
+              <div className="p-2.5 bg-purple-50/40 rounded-xl border border-purple-200 flex items-center justify-between">
+                <span className="font-bold text-slate-900">Story</span>
+                <div className="flex items-center space-x-1">
+                  <input
+                    type="number"
+                    min="1"
+                    value={creativeBaseStory}
+                    onChange={(e) => setCreativeBaseStory(parseFloat(e.target.value) || 0)}
+                    className="w-14 px-1.5 py-0.5 text-center font-mono font-bold text-xs bg-white border border-purple-300 rounded-lg"
+                  />
+                  <span className="text-[10px] text-slate-500">pts</span>
                 </div>
-                <select
-                  value={missingDataRule}
-                  onChange={(e) => setMissingDataRule(e.target.value)}
-                  className="text-xs font-bold bg-white border border-slate-300 rounded-xl px-2.5 py-1"
-                >
-                  <option value="IGNORE_NORMALIZE">Ignore & Normalize (Fair)</option>
-                  <option value="TREAT_AS_ZERO">Treat Missing as 0%</option>
-                </select>
+              </div>
+
+              <div className="p-2.5 bg-purple-50/40 rounded-xl border border-purple-200 flex items-center justify-between">
+                <span className="font-bold text-slate-900">Poem</span>
+                <div className="flex items-center space-x-1">
+                  <input
+                    type="number"
+                    min="1"
+                    value={creativeBasePoem}
+                    onChange={(e) => setCreativeBasePoem(parseFloat(e.target.value) || 0)}
+                    className="w-14 px-1.5 py-0.5 text-center font-mono font-bold text-xs bg-white border border-purple-300 rounded-lg"
+                  />
+                  <span className="text-[10px] text-slate-500">pts</span>
+                </div>
+              </div>
+
+              <div className="p-2.5 bg-purple-50/40 rounded-xl border border-purple-200 flex items-center justify-between">
+                <span className="font-bold text-slate-900">Book Review</span>
+                <div className="flex items-center space-x-1">
+                  <input
+                    type="number"
+                    min="1"
+                    value={creativeBaseReview}
+                    onChange={(e) => setCreativeBaseReview(parseFloat(e.target.value) || 0)}
+                    className="w-14 px-1.5 py-0.5 text-center font-mono font-bold text-xs bg-white border border-purple-300 rounded-lg"
+                  />
+                  <span className="text-[10px] text-slate-500">pts</span>
+                </div>
+              </div>
+
+              <div className="p-2.5 bg-purple-50/40 rounded-xl border border-purple-200 flex items-center justify-between">
+                <span className="font-bold text-slate-900">Response</span>
+                <div className="flex items-center space-x-1">
+                  <input
+                    type="number"
+                    min="1"
+                    value={creativeBaseResponse}
+                    onChange={(e) => setCreativeBaseResponse(parseFloat(e.target.value) || 0)}
+                    className="w-14 px-1.5 py-0.5 text-center font-mono font-bold text-xs bg-white border border-purple-300 rounded-lg"
+                  />
+                  <span className="text-[10px] text-slate-500">pts</span>
+                </div>
               </div>
             </div>
           </div>
@@ -670,7 +812,7 @@ export default function WeightsPage() {
             <div className="flex items-center space-x-2">
               <Trophy className="w-5 h-5 text-amber-600" />
               <div>
-                <h3 className="text-base font-black text-slate-900">Festival & Competition Level Multipliers</h3>
+                <h3 className="text-base font-black text-slate-900">Competition &amp; Festival Level Multipliers</h3>
                 <p className="text-xs text-slate-500">
                   Campus, School, Division, Sub-district, District, Kulliya, Da&apos;eera, State, Jamia, National, International
                 </p>
@@ -713,7 +855,7 @@ export default function WeightsPage() {
                   <input
                     type="range"
                     min="0.5"
-                    max="5.0"
+                    max="10.0"
                     step="0.05"
                     value={lvl.weightMultiplier}
                     onChange={(e) => handleLevelMultiplierChange(lvl.id, parseFloat(e.target.value))}
@@ -758,15 +900,15 @@ export default function WeightsPage() {
           </div>
         </div>
 
-        {/* 4. CREATIVE HUB PRIORITY & PUBLISHED MEDIA */}
+        {/* 4. CREATIVE HUB WINGS & PUBLISHED MEDIA */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Creative Forms */}
           <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
             <div className="flex items-center space-x-2 pb-3 border-b border-slate-100">
               <Sparkles className="w-5 h-5 text-purple-700" />
               <div>
-                <h3 className="text-sm font-black text-slate-900">Creative Hub Priority & Wings</h3>
-                <p className="text-[11px] text-slate-500">1. Article, 2. Research Paper, 3. Story, 4. Poem, 5. Response, etc.</p>
+                <h3 className="text-sm font-black text-slate-900">Creative Hub Multipliers</h3>
+                <p className="text-[11px] text-slate-500">Multipliers applied to creative submissions</p>
               </div>
             </div>
 
@@ -801,16 +943,17 @@ export default function WeightsPage() {
                       </button>
                     </div>
 
-                    <input
-                      type="number"
-                      min="0.1"
-                      max="5.0"
-                      step="0.05"
-                      value={cf.weight || 1.0}
-                      onChange={(e) => handleCreativeFormWeightChange(cf.id, parseFloat(e.target.value) || 1.0)}
-                      className="w-14 px-1.5 py-0.5 text-center font-mono text-xs bg-white border border-purple-300 rounded-lg"
-                    />
-                    <span className="text-[10px] font-bold text-purple-900">x</span>
+                    <div className="flex items-center space-x-1">
+                      <input
+                        type="number"
+                        min="0.1"
+                        step="0.05"
+                        value={cf.weight}
+                        onChange={(e) => handleCreativeFormMultiplierChange(cf.id, parseFloat(e.target.value) || 1)}
+                        className="w-14 px-1.5 py-0.5 text-center font-mono font-bold text-xs bg-white border border-purple-300 rounded-lg"
+                      />
+                      <span className="text-xs font-bold text-slate-500">×</span>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -820,31 +963,30 @@ export default function WeightsPage() {
           {/* Published Media */}
           <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
             <div className="flex items-center space-x-2 pb-3 border-b border-slate-100">
-              <Newspaper className="w-5 h-5 text-emerald-700" />
+              <Feather className="w-5 h-5 text-rose-600" />
               <div>
                 <h3 className="text-sm font-black text-slate-900">Published Media Multipliers</h3>
-                <p className="text-[11px] text-slate-500">Risala, Siraj, Suprabhaatham, Daily Newspapers, etc.</p>
+                <p className="text-[11px] text-slate-500">Special event multiplier for published literary media</p>
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
               {publishedMedia.map((pm) => (
                 <div
-                  key={pm.id}
-                  className="p-2.5 bg-emerald-50/40 rounded-2xl border border-emerald-200 flex items-center justify-between"
+                  key={pm.id || pm.name}
+                  className="p-2.5 bg-rose-50/40 rounded-2xl border border-rose-200 flex items-center justify-between"
                 >
                   <span className="text-xs font-bold text-slate-900">{pm.name}</span>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-1">
                     <input
                       type="number"
                       min="0.1"
-                      max="5.0"
                       step="0.05"
-                      value={pm.weight || 1.0}
-                      onChange={(e) => handleMediaWeightChange(pm.id, parseFloat(e.target.value) || 1.0)}
-                      className="w-14 px-1.5 py-0.5 text-center font-mono text-xs bg-white border border-emerald-300 rounded-lg"
+                      value={pm.weight}
+                      onChange={(e) => handleMediaMultiplierChange(pm.id, parseFloat(e.target.value) || 1)}
+                      className="w-14 px-1.5 py-0.5 text-center font-mono font-bold text-xs bg-white border border-rose-300 rounded-lg"
                     />
-                    <span className="text-[10px] font-bold text-emerald-900">x</span>
+                    <span className="text-xs font-bold text-slate-500">×</span>
                   </div>
                 </div>
               ))}
@@ -852,27 +994,38 @@ export default function WeightsPage() {
           </div>
         </div>
 
-        {/* 5. ADMIN CALCULATION PREVIEW & TESTER (SECTION 23) */}
-        <div className="bg-white rounded-3xl p-6 border-2 border-blue-300/80 shadow-md space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-blue-100 gap-3">
+        {/* 5. LIVE STUDENT SPR PROFILE PREVIEW */}
+        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
             <div className="flex items-center space-x-2">
-              <Eye className="w-5 h-5 text-blue-700" />
+              <Eye className="w-5 h-5 text-madin-900" />
               <div>
-                <h3 className="text-base font-black text-slate-900">Admin Calculation Preview & Live Tester</h3>
-                <p className="text-xs text-slate-500">Select any student to test and verify the complete SPR calculation matrix</p>
+                <h3 className="text-base font-black text-slate-900">Live Student Performance Dossier Preview</h3>
+                <p className="text-xs text-slate-500">Inspect real student SPR Points breakdown calculated live from database records</p>
               </div>
             </div>
 
-            {/* Student Search / Selector */}
+            {/* Student Search & Select */}
             <div className="flex items-center space-x-2">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Filter student..."
+                  value={previewSearch}
+                  onChange={(e) => setPreviewSearch(e.target.value)}
+                  className="pl-8 pr-3 py-1 text-xs border border-slate-300 rounded-xl bg-slate-50 w-44 focus:bg-white"
+                />
+              </div>
+
               <select
                 value={selectedStudentId}
                 onChange={(e) => setSelectedStudentId(e.target.value)}
-                className="text-xs font-bold bg-blue-50 border border-blue-300 rounded-xl px-3 py-1.5 max-w-xs focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-1 text-xs font-bold bg-white border border-slate-300 rounded-xl max-w-xs"
               >
-                {studentsList.map((s) => (
+                {filteredStudents.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.fullName} ({s.studentId} • {s.class?.name || 'Class'})
+                    {s.sprStudentId || s.studentId} — {s.fullName} ({s.class?.name})
                   </option>
                 ))}
               </select>
@@ -880,158 +1033,112 @@ export default function WeightsPage() {
           </div>
 
           {loadingPreview ? (
-            <div className="py-8 text-center text-xs text-slate-500">Computing SPR calculation preview...</div>
+            <div className="py-8 text-center text-xs text-slate-400">Loading student calculation...</div>
           ) : studentPreviewData ? (
             <div className="space-y-4">
-              {/* Student Header */}
-              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="p-4 bg-slate-900 text-white rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <div className="text-xs font-bold text-slate-900">
-                    {studentPreviewData.student?.fullName}
+                  <div className="text-[10px] font-bold text-gold-400 uppercase tracking-wider">
+                    {studentPreviewData.student?.sprStudentId || studentPreviewData.student?.studentId}
                   </div>
-                  <div className="text-[11px] text-slate-500">
-                    SPR ID: <span className="font-mono font-bold text-blue-900">{studentPreviewData.student?.sprStudentId || studentPreviewData.student?.studentId}</span> • Class: {studentPreviewData.student?.class?.name} • School: {studentPreviewData.student?.school?.name}
-                  </div>
+                  <h4 className="text-base font-black text-white">{studentPreviewData.student?.fullName}</h4>
+                  <p className="text-xs text-slate-400">
+                    {studentPreviewData.student?.class?.name} • {studentPreviewData.student?.school?.name}
+                  </p>
                 </div>
-
-                <div className="text-center sm:text-right bg-blue-600 text-white px-4 py-2 rounded-xl shadow-xs">
-                  <div className="text-[9px] uppercase tracking-wider font-bold text-blue-100">Final SPR Score</div>
-                  <div className="text-xl font-black">{studentPreviewData.overallSPR}%</div>
-                  <div className="text-[9px] text-blue-200 font-mono">{studentPreviewData.normalizedScore}</div>
+                <div className="text-right sm:text-right">
+                  <div className="text-[10px] font-bold text-slate-400">TOTAL SPR POINTS</div>
+                  <div className="text-2xl font-black font-mono text-gold-400">
+                    {formatPoints(studentPreviewData.overallScore ?? studentPreviewData.overallSPR)} PTS
+                  </div>
                 </div>
               </div>
 
-              {/* Complete SPR Percentage Table */}
-              <div className="overflow-x-auto rounded-2xl border border-slate-200">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
-                    <tr>
-                      <th className="py-2.5 px-3">Main Category</th>
-                      <th className="py-2.5 px-3">Earned / Input</th>
-                      <th className="py-2.5 px-3 text-right">Normalized %</th>
-                      <th className="py-2.5 px-3 text-center">Category Weight</th>
-                      <th className="py-2.5 px-3 text-right">Weighted Contribution</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
-                    {studentPreviewData.categoryScores?.map((cat: any) => {
-                      const IconComp = renderCategoryIcon(cat.categoryCode);
-                      return (
-                        <tr key={cat.categoryId || cat.categoryCode} className="hover:bg-blue-50/30 transition">
-                          <td className="py-2.5 px-3">
-                            <div className="flex items-center space-x-2">
-                              <div className="w-5 h-5 rounded-md bg-slate-100 flex items-center justify-center shrink-0">
-                                {IconComp}
-                              </div>
-                              <span className="font-bold text-slate-900">{cat.categoryName}</span>
-                            </div>
-                          </td>
-                          <td className="py-2.5 px-3 text-slate-700 font-medium">
-                            {cat.rawInput || '—'}
-                          </td>
-                          <td className="py-2.5 px-3 text-right font-bold text-slate-800 font-mono">
-                            {Number(cat.normalizedPercentage || cat.percentage || 0).toFixed(2)}%
-                          </td>
-                          <td className="py-2.5 px-3 text-center font-semibold text-slate-600 font-mono">
-                            {typeof cat.weight === 'number' ? `${cat.weight.toFixed(2)}%` : `${cat.weight}%`}
-                          </td>
-                          <td className="py-2.5 px-3 text-right font-extrabold text-blue-700 font-mono">
-                            +{Number(cat.weightedContribution || 0).toFixed(2)}%
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot className="bg-slate-100/90 font-bold border-t-2 border-slate-300">
-                    <tr>
-                      <td colSpan={2} className="py-3 px-3 text-slate-900 font-black uppercase text-xs">
-                        Final SPR Calculation Summary
-                      </td>
-                      <td className="py-3 px-3 text-right font-mono font-medium text-slate-500 text-xs">
-                        Normalized: {studentPreviewData.overallSPR}% / 100%
-                      </td>
-                      <td className="py-3 px-3 text-center font-mono font-black text-slate-900 text-xs">
-                        100.00%
-                      </td>
-                      <td className="py-3 px-3 text-right font-mono font-black text-sm text-blue-800">
-                        {studentPreviewData.overallSPR}%
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
+              {/* Category Points Breakdown */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {(studentPreviewData.categoryBreakdown || studentPreviewData.categoryScores || []).map((cs: any) => (
+                  <div key={cs.categoryId || cs.categoryCode} className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900">{cs.categoryName}</span>
+                      <span className="text-xs font-black font-mono text-indigo-900 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                        +{formatPoints(cs.earnedPoints || 0)} pts
+                      </span>
+                    </div>
+                    <div className="text-[10.5px] text-slate-500 font-mono">{cs.formula || `${cs.recordsCount} record(s)`}</div>
+                  </div>
+                ))}
               </div>
             </div>
           ) : (
-            <div className="py-6 text-center text-xs text-slate-400">No student selected for preview.</div>
+            <div className="py-8 text-center text-xs text-slate-400">No preview data available</div>
           )}
         </div>
 
         {/* Add Level Modal */}
         {newLevelModalOpen && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl p-6 max-w-md w-full space-y-4 border border-slate-200 shadow-2xl animate-zoom-up">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                <h4 className="text-sm font-black text-slate-900">Add Competition / Festival Level</h4>
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 className="text-sm font-black text-slate-900">Add Competition Level</h3>
                 <button
                   type="button"
                   onClick={() => setNewLevelModalOpen(false)}
-                  className="p-1 hover:bg-slate-100 rounded-lg text-slate-400"
+                  className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 cursor-pointer"
                 >
-                  ✕
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
               <div className="space-y-3">
                 <div>
-                  <label className="text-[11px] font-bold text-slate-700">Level Name</label>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Level Name</label>
                   <input
                     type="text"
-                    placeholder="e.g. Regional Zone"
+                    placeholder="e.g. International, Zone, Da'eera"
                     value={newLevelName}
                     onChange={(e) => setNewLevelName(e.target.value)}
-                    className="w-full mt-1 px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-bold text-slate-700">Level Code</label>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Level Code (Optional)</label>
                   <input
                     type="text"
-                    placeholder="e.g. REGIONAL_ZONE"
+                    placeholder="e.g. INTL, ZONE"
                     value={newLevelCode}
                     onChange={(e) => setNewLevelCode(e.target.value)}
-                    className="w-full mt-1 px-3 py-2 text-xs border border-slate-300 rounded-xl font-mono"
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl font-mono uppercase"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-bold text-slate-700">Multiplier (e.g. 2.50x)</label>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Level Multiplier (X)</label>
                   <input
                     type="number"
-                    min="0.1"
-                    max="10.0"
                     step="0.05"
+                    min="0.1"
                     value={newLevelMultiplier}
-                    onChange={(e) => setNewLevelMultiplier(parseFloat(e.target.value) || 1.0)}
-                    className="w-full mt-1 px-3 py-2 text-xs border border-slate-300 rounded-xl font-mono"
+                    onChange={(e) => setNewLevelMultiplier(parseFloat(e.target.value) || 1)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl font-mono font-bold"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-end space-x-2 pt-2">
+              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setNewLevelModalOpen(false)}
-                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleCreateLevel}
-                  className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl"
+                  className="px-5 py-2 text-xs font-bold text-white bg-madin-900 hover:bg-madin-950 rounded-xl shadow cursor-pointer"
                 >
-                  Add Level
+                  Create Level
                 </button>
               </div>
             </div>
