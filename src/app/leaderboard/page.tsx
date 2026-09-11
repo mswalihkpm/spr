@@ -78,10 +78,10 @@ function LeaderboardContent() {
     const streamParam = searchParams.get('stream') || '';
     const festParam = searchParams.get('fest') || '';
 
-    // Handle cat=QUALIFICATION alias
-    if (catParam === 'QUALIFICATION' && categories.length > 0) {
-      const qual = categories.find((c) => c.code === 'QUALIFICATION' || c.name?.toLowerCase().includes('qualif'));
-      if (qual) catParam = qual.id;
+    // Handle category code aliases (e.g. cat=LITERARY, cat=QUALIFICATION, etc.)
+    if (catParam && categories.length > 0) {
+      const matched = categories.find((c) => c.code === catParam.toUpperCase() || c.id === catParam);
+      if (matched) catParam = matched.id;
     }
 
     setSelectedCategory(catParam);
@@ -549,7 +549,7 @@ function LeaderboardContent() {
         subtitle: 'School curriculum benchmarks: Mathematics, Science, Social Sciences & Languages.',
         badge: 'Curriculum Wing Dedicated Page',
         badgeClass: 'bg-indigo-500/25 text-indigo-100 border-indigo-300/40',
-        logo: '/logo.png',
+        logo: '/madin-academy.png',
         isFest: false,
       };
     } else if (currentCategory.code === 'PROGRAMS') {

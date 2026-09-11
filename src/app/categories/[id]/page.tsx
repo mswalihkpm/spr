@@ -505,7 +505,7 @@ export default function CategorySubcategoriesPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredSubcategories.map((sub) => {
               const recordCount = sub._count?.performanceRecords || 0;
 
@@ -513,13 +513,9 @@ export default function CategorySubcategoriesPage() {
                 <div
                   key={sub.id}
                   onClick={() => {
-                    if (isAdmin) {
-                      handleOpenScoreModal(sub);
-                    } else {
-                      router.push(`/leaderboard?cat=${category?.id || categoryId}&sub=${sub.id}`);
-                    }
+                    router.push(`/leaderboard?subcategoryId=${sub.id}&categoryId=${category?.id || categoryId}`);
                   }}
-                  className="bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 border border-slate-200/90 shadow-subtle hover:shadow-md transition-all cursor-pointer group relative flex flex-col justify-between overflow-hidden active:scale-98 hover:border-blue-500"
+                  className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-subtle hover:shadow-lg transition-all cursor-pointer group relative flex flex-col justify-between overflow-hidden active:scale-98 hover:border-blue-500"
                 >
                   {/* Decorative Background Glow */}
                   <div
@@ -529,39 +525,60 @@ export default function CategorySubcategoriesPage() {
                   {/* Top Header inside Box */}
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-1.5">
-                      {/* Icon Badge */}
+                      {/* Logo Avatar Badge */}
                       <div
-                        className={`w-9 h-9 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center text-white shadow-xs transition-transform group-hover:scale-105 ${theme.bg}`}
+                        className="w-12 h-12 rounded-2xl bg-white p-1 border border-slate-200 shadow-xs flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform overflow-hidden"
                       >
-                        <Award className="w-4 h-4 sm:w-5 sm:h-5" />
+                        {sub.logoUrl ? (
+                          <img
+                            src={sub.logoUrl}
+                            alt={sub.name}
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          <div className={`w-full h-full rounded-xl flex items-center justify-center text-white ${theme.bg}`}>
+                            <Award className="w-5 h-5" />
+                          </div>
+                        )}
                       </div>
 
                       {/* Weight Badge */}
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200/80">
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200/80">
                         Max {sub.maxScore || 100}
                       </span>
                     </div>
 
                     {/* Subcategory Title & Description */}
                     <div>
-                      <h3 className="text-xs sm:text-sm font-black text-slate-900 leading-snug group-hover:text-blue-600 transition-colors line-clamp-2">
+                      <h3 className="text-sm sm:text-base font-black text-slate-900 leading-snug group-hover:text-blue-600 transition-colors">
                         {sub.name}
                       </h3>
-                      <p className="text-[10px] sm:text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+                      <p className="text-[11px] sm:text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
                         {sub.description || 'Specialized assessment criteria'}
                       </p>
                     </div>
                   </div>
 
                   {/* Bottom Footer inside Box */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[10px] sm:text-xs">
-                    <span className="inline-flex items-center font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100">
+                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                    <span className="inline-flex items-center font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-xl border border-blue-100">
                       {recordCount} Records
                     </span>
 
-                    <div className="flex items-center space-x-1 text-slate-400 group-hover:text-blue-600 transition-colors">
+                    <div className="flex items-center space-x-2 text-slate-400 group-hover:text-blue-600 transition-colors" onClick={(e) => e.stopPropagation()}>
                       {isAdmin && (
                         <>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenScoreModal(sub);
+                            }}
+                            className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[10px] font-bold transition"
+                            title="Add Score"
+                          >
+                            + Score
+                          </button>
                           <button
                             type="button"
                             onClick={(e) => handleOpenEditSub(sub, e)}
@@ -580,7 +597,7 @@ export default function CategorySubcategoriesPage() {
                           </button>
                         </>
                       )}
-                      <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                      <span className="text-[11px] font-bold text-blue-600 hidden sm:inline">Leaderboard →</span>
                     </div>
                   </div>
                 </div>

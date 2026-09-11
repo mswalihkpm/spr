@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
-import { getCategoryIcon, getCategoryColor, getCategoryModulePath } from '@/lib/category-utils';
+import { getCategoryIcon, getCategoryColor, getCategoryLogo, getCategoryModulePath } from '@/lib/category-utils';
 
 export default function CategoriesPage() {
   const router = useRouter();
@@ -247,19 +247,9 @@ export default function CategoriesPage() {
     }
   };
 
-  // Navigate to category subcategory page or module
+  // Direct click on category opens its Leaderboard
   const handleCategoryCardClick = (cat: any) => {
-    const subCount = cat.subcategories?.length || cat._count?.subcategories || 0;
-    const modulePath = getCategoryModulePath(cat.code);
-
-    // If category has subcategories or is Qualification or a custom category, open its subcategories page
-    if (subCount > 0 || !modulePath || cat.code === 'QUALIFICATION' || !cat.isSystem) {
-      router.push(`/categories/${cat.id}`);
-    } else if (modulePath) {
-      router.push(modulePath);
-    } else {
-      router.push(`/categories/${cat.id}`);
-    }
+    router.push(`/leaderboard?categoryId=${cat.id}`);
   };
 
   return (
@@ -340,7 +330,7 @@ export default function CategoriesPage() {
               Evaluation Categories & Wings
             </h2>
             <p className="text-xs sm:text-sm text-blue-100/90 leading-relaxed">
-              Tap any category box below to explore its subcategories, view scoring criteria, and check performance records.
+              Tap any category box below to open its dedicated leaderboard, or select a subcategory badge to view discipline standings.
             </p>
           </div>
         </div>
@@ -444,19 +434,19 @@ export default function CategoriesPage() {
             <p className="text-xs text-slate-400">Try adjusting your search filter or create a new custom category.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredCategories.map((cat) => {
               const IconComponent = getCategoryIcon(cat.code, cat.icon);
+              const catLogo = getCategoryLogo(cat.code, cat.icon);
               const theme = getCategoryColor(cat.code);
               const isSelected = selectedCategoryIds.includes(cat.id);
               const subCount = cat.subcategories?.length || cat._count?.subcategories || 0;
-              const modulePath = getCategoryModulePath(cat.code);
 
               return (
                 <div
                   key={cat.id}
                   onClick={() => handleCategoryCardClick(cat)}
-                  className={`bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 border shadow-subtle hover:shadow-md transition-all cursor-pointer group relative flex flex-col justify-between overflow-hidden active:scale-98 ${
+                  className={`bg-white rounded-3xl p-5 border shadow-subtle hover:shadow-lg transition-all cursor-pointer group relative flex flex-col justify-between overflow-hidden active:scale-98 ${
                     isSelected
                       ? 'border-rose-400 bg-rose-50/40 ring-2 ring-rose-300'
                       : `border-slate-200/90 ${theme.border}`
@@ -464,21 +454,31 @@ export default function CategoriesPage() {
                 >
                   {/* Decorative Background Glow */}
                   <div
-                    className={`absolute -right-6 -bottom-6 w-24 h-24 rounded-full opacity-5 group-hover:opacity-15 transition-opacity ${theme.bg}`}
+                    className={`absolute -right-8 -bottom-8 w-28 h-28 rounded-full opacity-5 group-hover:opacity-15 transition-opacity ${theme.bg}`}
                   ></div>
 
                   {/* Top Header inside Box */}
                   <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-1.5">
-                      {/* Icon Avatar */}
+                    <div className="flex items-start justify-between gap-2">
+                      {/* Authentic Category Logo Avatar or Icon */}
                       <div
-                        className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center text-white shadow-sm transition-transform group-hover:scale-105 ${theme.bg}`}
+                        className="w-12 h-12 rounded-2xl bg-white p-1 border border-slate-200 shadow-xs flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform overflow-hidden"
                       >
-                        <IconComponent className="w-5 h-5 sm:w-6 sm:h-6" />
+                        {catLogo ? (
+                          <img
+                            src={catLogo}
+                            alt={cat.name}
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          <div className={`w-full h-full rounded-xl flex items-center justify-center text-white ${theme.bg}`}>
+                            <IconComponent className="w-6 h-6" />
+                          </div>
+                        )}
                       </div>
 
                       {/* Top Badges / Selection */}
-                      <div className="flex items-center space-x-1">
+                      <div className="flex items-center space-x-1.5">
                         {isAdmin && !cat.isSystem && (
                           <input
                             type="checkbox"
@@ -489,7 +489,7 @@ export default function CategoriesPage() {
                           />
                         )}
 
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200/80">
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200/80">
                           {cat.defaultWeight}%
                         </span>
                       </div>
@@ -497,39 +497,74 @@ export default function CategoriesPage() {
 
                     {/* Category Title & Description */}
                     <div>
-                      <h3 className="text-xs sm:text-sm font-black text-slate-900 leading-snug group-hover:text-blue-600 transition-colors line-clamp-2">
+                      <h3 className="text-sm sm:text-base font-black text-slate-900 leading-snug group-hover:text-blue-600 transition-colors">
                         {cat.name}
                       </h3>
-                      <p className="text-[10px] sm:text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+                      <p className="text-[11px] sm:text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
                         {cat.description || (cat.isSystem ? 'Core system assessment wing' : 'Custom assessment category')}
                       </p>
                     </div>
+
+                    {/* Subcategories Logos & Badges rendered right on the main category box */}
+                    {cat.subcategories && cat.subcategories.length > 0 && (
+                      <div className="pt-2.5 border-t border-slate-100 space-y-1.5" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">
+                          <span>Subcategories</span>
+                          <Link
+                            href={`/categories/${cat.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-blue-600 hover:underline flex items-center space-x-0.5 normal-case font-bold"
+                          >
+                            <span>Explore All</span>
+                            <ChevronRight className="w-3 h-3" />
+                          </Link>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {cat.subcategories.map((sub: any) => (
+                            <button
+                              key={sub.id}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/leaderboard?subcategoryId=${sub.id}&categoryId=${cat.id}`);
+                              }}
+                              title={`View ${sub.name} Leaderboard`}
+                              className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-800 hover:text-blue-700 text-[11px] font-bold transition active:scale-95 shadow-2xs"
+                            >
+                              {sub.logoUrl ? (
+                                <div className="w-4 h-4 rounded-full overflow-hidden bg-white shrink-0 border border-slate-200/60 p-0.5">
+                                  <img src={sub.logoUrl} alt={sub.name} className="w-full h-full object-contain" />
+                                </div>
+                              ) : (
+                                <Award className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                              )}
+                              <span className="truncate max-w-[120px]">{sub.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Bottom Footer inside Box */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[10px] sm:text-xs">
+                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                     {subCount > 0 ? (
-                      <span className="inline-flex items-center font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100">
-                        {subCount} Subcategories
-                      </span>
+                      <Link
+                        href={`/categories/${cat.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-xl border border-blue-200/80 transition"
+                      >
+                        <span>{subCount} Subcategories</span>
+                      </Link>
                     ) : (
-                      <span className="inline-flex items-center font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-100">
+                      <span className="inline-flex items-center font-medium text-slate-500 bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-100">
                         {cat.isSystem ? 'Direct Wing' : '0 Subcategories'}
                       </span>
                     )}
 
-                    <div className="flex items-center space-x-1 text-slate-400 group-hover:text-blue-600 transition-colors">
-                      {isAdmin && !cat.isSystem && (
-                        <button
-                          type="button"
-                          onClick={(e) => handleOpenEdit(cat, e)}
-                          className="p-1 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-slate-100 transition"
-                          title="Edit Category"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                    <div className="flex items-center space-x-2 text-blue-600 font-bold">
+                      <span className="text-[11px] group-hover:underline">Open Leaderboard</span>
+                      <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                     </div>
                   </div>
                 </div>

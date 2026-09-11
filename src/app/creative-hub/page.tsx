@@ -354,7 +354,7 @@ export default function CreativeHubPage() {
                   <option value="">All Creative Wings / Forms</option>
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name} ({c.weight}x Weight)
+                      {c.name} ({c.weight} pts)
                     </option>
                   ))}
                 </select>
@@ -430,6 +430,7 @@ export default function CreativeHubPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {submissions.map((sub) => {
                   const isSelected = selectedSubmissionIds.includes(sub.id);
+                  const earnedPoints = sub.score !== undefined && sub.score !== null ? sub.score : (sub.category?.weight || 20);
                   return (
                     <div
                       key={sub.id}
@@ -481,8 +482,8 @@ export default function CreativeHubPage() {
                           {new Date(sub.date).toLocaleDateString()}
                         </span>
                         <div className="flex items-center space-x-2">
-                          <span className="text-xs font-black text-purple-900 bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-200">
-                            {sub.percentage}% Points
+                          <span className="text-xs font-black text-purple-900 bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-200">
+                            {earnedPoints} Points
                           </span>
                           <button
                             onClick={() => handleDeleteWork(sub)}
@@ -565,12 +566,12 @@ export default function CreativeHubPage() {
                   <Layers className="w-5 h-5 text-purple-700" />
                   <div>
                     <h3 className="text-sm font-black text-slate-900">Creative Wings / Forms</h3>
-                    <p className="text-[11px] text-slate-500">Manage literary forms (Article, Poem, etc.) and weight</p>
+                    <p className="text-[11px] text-slate-500">Manage literary forms (Article, Poem, etc.) and base points</p>
                   </div>
                 </div>
                 <button
                   onClick={() => {
-                    setFormCategoryData({ id: '', name: '', weight: 1.0, description: '' });
+                    setFormCategoryData({ id: '', name: '', weight: 20, description: '' });
                     setNewFormModalOpen(true);
                   }}
                   className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1 shadow-xs"
@@ -589,7 +590,7 @@ export default function CreativeHubPage() {
                     </div>
                     <div className="flex items-center space-x-3">
                       <span className="text-xs font-extrabold text-purple-900 bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-200">
-                        {c.weight}x Weight
+                        {c.weight} pts
                       </span>
                       <button
                         onClick={() => {
@@ -616,115 +617,136 @@ export default function CreativeHubPage() {
       </div>
 
       {/* SUBMIT REPORT MODAL (Clean, simplified as requested) */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center space-x-2">
-                <Sparkles className="w-5 h-5 text-purple-700" />
-                <h3 className="text-sm font-bold text-slate-900">Add Creative Publication Report</h3>
-              </div>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl bg-slate-100"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      {modalOpen && (() => {
+        const selectedCatObj = categories.find((c) => c.id === formData.categoryId) || categories[0];
+        const selectedMediaObj = publishedMediaList.find((m) => m.id === formData.publishedMediaId) || publishedMediaList[0];
+        const wingPts = selectedCatObj?.weight || 20;
+        const mediaMult = selectedMediaObj?.weight || 1.0;
+        const calculatedFinalPts = Number((wingPts * mediaMult).toFixed(2));
 
-            <form onSubmit={handleSaveReport} className="mt-4 space-y-4">
-              {/* Searchable Student Selection */}
-              <div>
-                <SearchableStudentSelect
-                  students={students}
-                  value={formData.studentId}
-                  onChange={(stId) => setFormData((prev) => ({ ...prev, studentId: stId }))}
-                  required
-                  label="Author / Student *"
-                />
-              </div>
-
-              {/* Creative Wing / Form Selection */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Creative Wing / Form *</label>
-                  <select
-                    required
-                    value={formData.categoryId}
-                    onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-purple-600"
-                  >
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name} ({cat.weight}x)
-                      </option>
-                    ))}
-                  </select>
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center space-x-2">
+                  <Sparkles className="w-5 h-5 text-purple-700" />
+                  <h3 className="text-sm font-bold text-slate-900">Add Creative Publication Report</h3>
                 </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Published Media *</label>
-                  <select
-                    required
-                    value={formData.publishedMediaId}
-                    onChange={(e) => setFormData({ ...formData, publishedMediaId: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-purple-600"
-                  >
-                    {publishedMediaList.map((media) => (
-                      <option key={media.id} value={media.id}>
-                        {media.name} ({media.weight}x)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Publication Date</label>
-                  <input
-                    type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-purple-600"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Publication Link <span className="text-slate-400 font-normal">(Optional)</span>
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.publicationLink}
-                    onChange={(e) => setFormData({ ...formData, publicationLink: e.target.value })}
-                    placeholder="https://..."
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-purple-600"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
                 <button
-                  type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl bg-slate-100"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center space-x-1.5 disabled:opacity-50"
-                >
-                  <Save className="w-4 h-4 text-purple-200" />
-                  <span>{saving ? 'Recording...' : 'Register Publication'}</span>
+                  <X className="w-4 h-4" />
                 </button>
               </div>
-            </form>
+
+              <form onSubmit={handleSaveReport} className="mt-4 space-y-4">
+                {/* Searchable Student Selection */}
+                <div>
+                  <SearchableStudentSelect
+                    students={students}
+                    value={formData.studentId}
+                    onChange={(stId) => setFormData((prev) => ({ ...prev, studentId: stId }))}
+                    required
+                    label="Author / Student *"
+                  />
+                </div>
+
+                {/* Creative Wing / Form Selection */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Creative Wing / Form *</label>
+                    <select
+                      required
+                      value={formData.categoryId}
+                      onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-purple-600"
+                    >
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name} ({cat.weight} pts)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Published Media *</label>
+                    <select
+                      required
+                      value={formData.publishedMediaId}
+                      onChange={(e) => setFormData({ ...formData, publishedMediaId: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-purple-600"
+                    >
+                      {publishedMediaList.map((media) => (
+                        <option key={media.id} value={media.id}>
+                          {media.name} ({media.weight}x)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Calculated Points Summary Box */}
+                <div className="p-3 bg-purple-50/80 border border-purple-200/80 rounded-2xl flex items-center justify-between">
+                  <div>
+                    <span className="text-[11px] font-bold text-purple-950 block">Accredited Score Formula</span>
+                    <span className="text-[10px] text-purple-700 font-medium">
+                      {wingPts} pts (Wing) × {mediaMult}x (Media Weight)
+                    </span>
+                  </div>
+                  <div className="px-3 py-1 bg-purple-600 text-white rounded-xl text-xs font-black shadow-xs">
+                    + {calculatedFinalPts} Points
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Publication Date</label>
+                    <input
+                      type="date"
+                      value={formData.date}
+                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-purple-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Publication Link <span className="text-slate-400 font-normal">(Optional)</span>
+                    </label>
+                    <input
+                      type="url"
+                      value={formData.publicationLink}
+                      onChange={(e) => setFormData({ ...formData, publicationLink: e.target.value })}
+                      placeholder="https://..."
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-purple-600"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setModalOpen(false)}
+                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center space-x-1.5 disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4 text-purple-200" />
+                    <span>{saving ? 'Recording...' : 'Register Publication'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* MEDIA CREATE/EDIT MODAL */}
       {newMediaModalOpen && (
@@ -819,12 +841,12 @@ export default function CreativeHubPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Weightage Multiplier</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Base Points (pts) *</label>
                 <input
                   type="number"
-                  step="0.05"
-                  min="0.1"
-                  max="10"
+                  step="1"
+                  min="1"
+                  max="1000"
                   required
                   value={formCategoryData.weight}
                   onChange={(e) => setFormCategoryData({ ...formCategoryData, weight: Number(e.target.value) })}

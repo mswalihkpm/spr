@@ -43,6 +43,19 @@ export function getCategoryColor(code: string) {
   return { bg: 'bg-madin-900', light: 'bg-slate-100 text-slate-900 border-slate-200', text: 'text-slate-800', border: 'hover:border-madin-800' };
 }
 
+// Helper logo resolver for categories
+export function getCategoryLogo(code: string, logoUrl?: string | null): string | null {
+  if (logoUrl) return logoUrl;
+  const c = code?.toUpperCase() || '';
+  if (c === 'ISLAMIC' || c.includes('ISLAM')) return '/jamiathul-hind.png';
+  if (c === 'SCHOOL' || c.includes('ACADEMIC')) return '/madin-academy.png';
+  if (c === 'CREATIVE_HUB' || c.includes('CREATIVE')) return '/creative-hub-logo.png';
+  if (c === 'LITERARY' || c.includes('LIT')) return '/sahityotsav.png';
+  if (c === 'PROGRAMS' || c.includes('COMPETITION')) return '/kalotsav.png';
+  if (c === 'QUALIFICATION' || c.includes('QUALIF')) return 'https://arabreadingchallenge.com/assets/frontend/dist/images/logo.svg';
+  return null;
+}
+
 // Category direct module link resolver (if applicable)
 export function getCategoryModulePath(code: string) {
   const c = code?.toUpperCase() || '';

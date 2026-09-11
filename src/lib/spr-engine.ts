@@ -411,11 +411,10 @@ export async function calculateStudentSPR(
         let sumPoints = 0;
 
         itemizedRecords = works.map((w: any) => {
-          const base = resolveCreativeBaseScore(w.category?.code || w.category?.name || '', settings);
-          const mult = typeof w.category?.weight === 'number' && w.category.weight > 0 ? w.category.weight : 1.0;
-          // If score is given, e.g. explicit points awarded or rating
-          const rawScore = typeof w.score === 'number' && w.score > 0 ? w.score : base;
-          const pts = Number((rawScore * mult).toFixed(2));
+          const rawScore = typeof w.score === 'number' && w.score > 0
+            ? w.score
+            : (typeof w.category?.weight === 'number' && w.category.weight > 0 ? w.category.weight : 20);
+          const pts = Number(rawScore.toFixed(2));
           sumPoints += pts;
 
           return {
@@ -430,8 +429,8 @@ export async function calculateStudentSPR(
             rating: w.rating,
             percentage: w.percentage,
             obtainedScore: rawScore,
-            basePoints: base,
-            multiplier: mult,
+            basePoints: rawScore,
+            multiplier: 1.0,
             earnedPoints: pts,
             mediaUrl: w.mediaUrl,
             date: w.date ? w.date.toISOString() : null,
@@ -909,10 +908,10 @@ export async function calculateAllLeaderboards(filters?: {
 
       if (cat.code === 'CREATIVE_HUB') {
         student.creativeWorks.forEach((w) => {
-          const base = resolveCreativeBaseScore(w.category?.code || w.category?.name || '', settings);
-          const mult = typeof w.category?.weight === 'number' && w.category.weight > 0 ? w.category.weight : 1.0;
-          const rawScore = typeof w.score === 'number' && w.score > 0 ? w.score : base;
-          catEarned += (rawScore * mult);
+          const rawScore = typeof w.score === 'number' && w.score > 0
+            ? w.score
+            : (typeof w.category?.weight === 'number' && w.category.weight > 0 ? w.category.weight : 20);
+          catEarned += rawScore;
         });
       } else if (cat.code === 'LIBRARY') {
         student.libraryRecords.forEach((lib) => {

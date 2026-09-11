@@ -82,13 +82,13 @@ export async function POST(req: NextRequest) {
     ]);
 
     const resolvedMediaName = media?.name || publishedMediaName || 'General Publication';
-    const formWeight = category?.weight || 1.0;
+    const formPoints = category?.weight || 20.0;
     const mediaWeight = media?.weight || 1.0;
 
-    // Direct score or calculated from weightage
-    let obtainedScore = score !== undefined && score !== null && score !== '' ? Number(score) : 100 * formWeight * mediaWeight;
+    // Direct score or calculated from wing points * media weightage
+    let obtainedScore = score !== undefined && score !== null && score !== '' ? Number(score) : Number((formPoints * mediaWeight).toFixed(2));
     const maximum = maxScore ? Number(maxScore) : 100;
-    const percentage = Math.min(100, Math.round((obtainedScore / maximum) * 100 * 10) / 10);
+    const percentage = 100;
 
     const submissionTitle = (title && title.trim())
       ? title.trim()
