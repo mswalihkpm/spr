@@ -44,15 +44,24 @@ export function getCategoryColor(code: string) {
 }
 
 // Helper logo resolver for categories
-export function getCategoryLogo(code: string, logoUrl?: string | null): string | null {
-  if (logoUrl) return logoUrl;
+export function getCategoryLogo(code?: string, logoUrl?: string | null): string | null {
+  if (
+    logoUrl &&
+    (logoUrl.startsWith('/') ||
+      logoUrl.startsWith('http://') ||
+      logoUrl.startsWith('https://') ||
+      logoUrl.startsWith('data:'))
+  ) {
+    return logoUrl;
+  }
   const c = code?.toUpperCase() || '';
   if (c === 'ISLAMIC' || c.includes('ISLAM')) return '/jamiathul-hind.png';
-  if (c === 'SCHOOL' || c.includes('ACADEMIC')) return '/madin-academy.png';
-  if (c === 'CREATIVE_HUB' || c.includes('CREATIVE')) return '/creative-hub-logo.png';
+  if (c === 'SCHOOL' || c.includes('ACADEMIC') || c.includes('SCHO')) return '/madin-academy.png';
+  if (c === 'CREATIVE_HUB' || c.includes('CREATIVE') || c.includes('ART') || c.includes('CREA')) return '/creative-hub-logo.png';
   if (c === 'LITERARY' || c.includes('LIT')) return '/sahityotsav.png';
-  if (c === 'PROGRAMS' || c.includes('COMPETITION')) return '/kalotsav.png';
-  if (c === 'QUALIFICATION' || c.includes('QUALIF')) return 'https://arabreadingchallenge.com/assets/frontend/dist/images/logo.svg';
+  if (c === 'PROGRAMS' || c.includes('COMPETITION') || c.includes('PROG')) return '/kalotsav.png';
+  if (c === 'LIBRARY' || c.includes('READ') || c.includes('LIBRA')) return '/jamiathul-hind.png';
+  if (c === 'QUALIFICATION' || c.includes('QUALIF')) return '/jamiathul-hind.png';
   return null;
 }
 

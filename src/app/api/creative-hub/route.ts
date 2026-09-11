@@ -148,6 +148,10 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
     const {
       id,
+      studentId,
+      categoryId,
+      publishedMediaId,
+      publishedMediaName,
       title,
       content,
       score,
@@ -156,9 +160,8 @@ export async function PUT(req: NextRequest) {
       remarks,
       publicationStatus,
       publicationLink,
-      categoryId,
-      publishedMediaId,
-      publishedMediaName,
+      attachmentUrl,
+      date,
     } = body;
 
     if (!id) {
@@ -170,27 +173,60 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Submission not found.' }, { status: 404 });
     }
 
-    const obtainedScore = score !== undefined ? Number(score) : prev.score;
+    const targetCategoryId = categoryId || prev.categoryId;
+    const targetMediaId = publishedMediaId !== undefined ? publishedMediaId : prev.publishedMediaId;
+
+    const [category, media] = await Promise.all([
+      targetCategoryId ? prisma.creativeHubCategory.findUnique({ where: { id: targetCategoryId } }) : null,
+      targetMediaId ? prisma.publishedMedia.findUnique({ where: { id: targetMediaId } }) : null,
+    ]);
+
+    const resolvedMediaName = media?.name || publishedMediaName || prev.publishedMediaName || 'General Publication';
+    const formPoints = category?.weight || 20.0;
+    const mediaWeight = media?.weight || 1.0;
+
+    let obtainedScore: number;
+    if (score !== undefined && score !== null && score !== '') {
+      obtainedScore = Number(score);
+    } else if (categoryId || publishedMediaId !== undefined) {
+      obtainedScore = Number((formPoints * mediaWeight).toFixed(2));
+    } else {
+      obtainedScore = prev.score;
+    }
+
     const maximum = maxScore !== undefined ? Number(maxScore) : prev.maxScore;
-    const percentage = normalizeScoreToPercentage(obtainedScore, maximum);
+    const percentage = 100;
+
+    const submissionTitle = (title && title.trim())
+      ? title.trim()
+      : `${category?.name || 'Creative Work'} — ${resolvedMediaName}`;
 
     const updated = await prisma.creativeHubSubmission.update({
       where: { id },
       data: {
-        ...(title ? { title: title.trim() } : {}),
-        ...(content !== undefined ? { content: content?.trim() || null } : {}),
+        ...(studentId ? { studentId } : {}),
         ...(categoryId ? { categoryId } : {}),
-        ...(publishedMediaId !== undefined ? { publishedMediaId } : {}),
-        ...(publishedMediaName ? { publishedMediaName } : {}),
-        ...(score !== undefined ? { score: obtainedScore, percentage } : {}),
-        ...(maxScore !== undefined ? { maxScore: maximum, percentage } : {}),
+        publishedMediaId: targetMediaId || null,
+        publishedMediaName: resolvedMediaName,
+        title: submissionTitle,
+        ...(content !== undefined ? { content: content?.trim() || null } : {}),
+        ...(date ? { date: new Date(date) } : {}),
+        score: obtainedScore,
+        maxScore: maximum,
+        percentage,
         ...(reviewer !== undefined ? { reviewer: reviewer?.trim() || null } : {}),
-        ...(remarks !== undefined ? { remarks: remarks?.trim() || null } : {}),
+        remarks: remarks?.trim() || `Published in ${resolvedMediaName}`,
         ...(publicationStatus ? { publicationStatus } : {}),
         ...(publicationLink !== undefined ? { publicationLink: publicationLink?.trim() || null } : {}),
+        ...(attachmentUrl !== undefined ? { attachmentUrl: attachmentUrl?.trim() || null } : {}),
       },
       include: {
-        student: true,
+        student: {
+          include: {
+            class: true,
+            school: true,
+          },
+        },
         category: true,
       },
     });

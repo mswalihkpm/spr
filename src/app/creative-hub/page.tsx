@@ -37,6 +37,7 @@ export default function CreativeHubPage() {
 
   // Submit modal (simplified: Student, Creative Wing / Form, Published Media, Date, Link)
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingSubmission, setEditingSubmission] = useState<any | null>(null);
   const [formData, setFormData] = useState({
     studentId: '',
     categoryId: '',
@@ -145,6 +146,7 @@ export default function CreativeHubPage() {
   }, [selectedCategory, selectedMedia]);
 
   const handleOpenCreate = () => {
+    setEditingSubmission(null);
     setFormData({
       studentId: students[0]?.id || '',
       categoryId: categories[0]?.id || '',
@@ -155,17 +157,33 @@ export default function CreativeHubPage() {
     setModalOpen(true);
   };
 
-  // Submit creative report
+  const handleOpenEdit = (sub: any) => {
+    setEditingSubmission(sub);
+    setFormData({
+      studentId: sub.studentId || sub.student?.id || '',
+      categoryId: sub.categoryId || '',
+      publishedMediaId: sub.publishedMediaId || '',
+      publicationLink: sub.publicationLink || '',
+      date: sub.date ? new Date(sub.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+    });
+    setModalOpen(true);
+  };
+
+  // Submit or update creative report
   const handleSaveReport = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatusMsg(null);
     setSaving(true);
 
     try {
+      const isEdit = !!editingSubmission;
       const res = await fetch('/api/creative-hub', {
-        method: 'POST',
+        method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...(isEdit ? { id: editingSubmission.id } : {}),
+          ...formData,
+        }),
       });
 
       const json = await res.json();
@@ -173,9 +191,10 @@ export default function CreativeHubPage() {
 
       setStatusMsg({
         type: 'success',
-        text: 'Creative report successfully registered and accredited!',
+        text: `Creative report successfully ${isEdit ? 'updated' : 'registered and accredited'}!`,
       });
       setModalOpen(false);
+      setEditingSubmission(null);
       fetchData();
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
@@ -481,14 +500,21 @@ export default function CreativeHubPage() {
                         <span className="text-[10px] font-medium text-slate-400">
                           {new Date(sub.date).toLocaleDateString()}
                         </span>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-1.5">
                           <span className="text-xs font-black text-purple-900 bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-200">
                             {earnedPoints} Points
                           </span>
                           <button
+                            onClick={() => handleOpenEdit(sub)}
+                            className="p-1.5 text-slate-400 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition"
+                            title="Edit Publication Record"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => handleDeleteWork(sub)}
-                            className="p-1 text-slate-400 hover:text-rose-600 rounded transition"
-                            title="Delete Publication"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                            title="Delete Publication Record"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -630,10 +656,15 @@ export default function CreativeHubPage() {
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div className="flex items-center space-x-2">
                   <Sparkles className="w-5 h-5 text-purple-700" />
-                  <h3 className="text-sm font-bold text-slate-900">Add Creative Publication Report</h3>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    {editingSubmission ? 'Edit Creative Publication Report' : 'Add Creative Publication Report'}
+                  </h3>
                 </div>
                 <button
-                  onClick={() => setModalOpen(false)}
+                  onClick={() => {
+                    setModalOpen(false);
+                    setEditingSubmission(null);
+                  }}
                   className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl bg-slate-100"
                 >
                   <X className="w-4 h-4" />
@@ -728,7 +759,10 @@ export default function CreativeHubPage() {
                 <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
                   <button
                     type="button"
-                    onClick={() => setModalOpen(false)}
+                    onClick={() => {
+                      setModalOpen(false);
+                      setEditingSubmission(null);
+                    }}
                     className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
                   >
                     Cancel
@@ -739,7 +773,7 @@ export default function CreativeHubPage() {
                     className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center space-x-1.5 disabled:opacity-50"
                   >
                     <Save className="w-4 h-4 text-purple-200" />
-                    <span>{saving ? 'Recording...' : 'Register Publication'}</span>
+                    <span>{saving ? 'Saving...' : editingSubmission ? 'Update Publication' : 'Register Publication'}</span>
                   </button>
                 </div>
               </form>

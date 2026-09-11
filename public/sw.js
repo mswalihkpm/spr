@@ -1,10 +1,15 @@
-const CACHE_NAME = 'spr-madin-v1';
+const CACHE_NAME = 'spr-madin-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',
-  '/pwa-logo.png',
+  '/favicon.ico',
+  '/favicon-32x32.png',
   '/icon-192.png',
   '/icon-512.png',
+  '/icon-maskable-192.png',
+  '/icon-maskable-512.png',
+  '/apple-touch-icon.png',
+  '/pwa-logo.png',
   '/logo.png'
 ];
 

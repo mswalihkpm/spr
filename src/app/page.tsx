@@ -506,19 +506,37 @@ let homeAcademicMemory: any = null;
 
             {/* Quick Counters */}
             <div className="pt-2 grid grid-cols-2 gap-3 sm:gap-4 max-w-md mx-auto relative z-10">
-              <div className="p-2.5 sm:p-3.5 bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-200/90 shadow-sm animate-slide-left delay-200 card-interactive">
-                <div className="text-xl sm:text-2xl font-black text-blue-600">{loadingLeaderboard ? '...' : leaderboard.length}</div>
+              <div className="p-2.5 sm:p-3.5 bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-200/90 shadow-sm animate-slide-left delay-200 card-interactive flex flex-col justify-center">
+                <div className="text-xl sm:text-2xl font-black text-blue-600 flex items-center space-x-1.5">
+                  {loadingLeaderboard ? (
+                    <span className="inline-flex items-center space-x-1 text-xs font-bold text-blue-600 animate-pulse">
+                      <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping inline-block mr-1"></span>
+                      <span>Calculating...</span>
+                    </span>
+                  ) : (
+                    <span>{leaderboard.length}</span>
+                  )}
+                </div>
                 <div className="text-[11px] sm:text-xs font-semibold text-slate-600 mt-0.5">Evaluated Students</div>
               </div>
-              <div className="p-2.5 sm:p-3.5 bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-200/90 shadow-sm animate-slide-right delay-200 card-interactive">
+              <div className="p-2.5 sm:p-3.5 bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-200/90 shadow-sm animate-slide-right delay-200 card-interactive flex flex-col justify-center">
                 <div className="text-xl sm:text-2xl font-black text-indigo-600">6 Wings</div>
                 <div className="text-[11px] sm:text-xs font-semibold text-slate-600 mt-0.5">Curricular & Co-curricular</div>
               </div>
             </div>
           </div>
 
+          {/* Loading Process Video Container */}
+          {loadingLeaderboard && (
+            <div className="mt-4 pb-6 relative z-10 flex justify-center animate-fade-in">
+              <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-md max-w-sm w-full flex flex-col items-center justify-center text-center">
+                <VideoLoader size="lg" text="Loading SPR Live Standings..." subtext="Accessing Student Performance Registry" />
+              </div>
+            </div>
+          )}
+
           {/* Top 3 Institutional Podium Showcase (Dynamic Rank & Tie-Aware Layout) */}
-          {top3.length >= 3 && (
+          {!loadingLeaderboard && top3.length >= 3 && (
             <div className="mt-2 pb-6 relative z-10">
               <div className="text-center mb-5 animate-slide-up delay-200">
                 <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-blue-800 bg-blue-50/90 px-3 py-1 rounded-full border border-blue-200 shadow-2xs">
