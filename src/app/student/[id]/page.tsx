@@ -221,15 +221,17 @@ export default function PublicStudentScorecardPage() {
   const ActiveIcon = getCategoryIcon(activeCategory?.categoryCode);
 
   const activeRawScore = activeCategory ? parseFloat(formatScore(activeCategory.normalizedPercentage ?? activeCategory.percentage)) : 0;
-  const activeWeight = activeCategory?.weight || 0;
-  const activeContribution = activeCategory?.weightedContribution !== undefined ? activeCategory.weightedContribution.toFixed(2) : ((activeRawScore * activeWeight) / 100).toFixed(2);
+  const activeWeightNum = activeCategory?.weight || 0;
+  const activeWeight = typeof activeWeightNum === 'number' && activeWeightNum > 0 ? `${activeWeightNum.toFixed(2)}%` : '13.33%';
+  const activeContribution = activeCategory?.weightedContribution !== undefined ? Number(activeCategory.weightedContribution).toFixed(2) : ((activeRawScore * activeWeightNum) / 100).toFixed(2);
 
   // Library category specific extraction for Section 9 table
   const libraryCategory = categoriesList.find((c: any) => c.categoryCode === 'LIBRARY');
   const libraryEarnedPoints = libraryCategory?.earnedPoints ?? (libraryRecords.reduce((acc, r) => acc + (r.readingScore || 0), 0));
   const libraryNormRef = libraryCategory?.normalizationRef ?? 500;
   const libraryNormPct = libraryCategory ? Number(libraryCategory.normalizedPercentage || libraryCategory.percentage || 0).toFixed(2) : '0.00';
-  const libraryWeight = libraryCategory?.weight ?? 12;
+  const libraryWeightNum = libraryCategory?.weight ?? (80 / 6);
+  const libraryWeight = typeof libraryWeightNum === 'number' ? `${libraryWeightNum.toFixed(2)}%` : `${libraryWeightNum}%`;
   const libraryContribution = libraryCategory ? Number(libraryCategory.weightedContribution || 0).toFixed(2) : '0.00';
 
   return (
@@ -494,7 +496,7 @@ export default function PublicStudentScorecardPage() {
                           {normScore.toFixed(2)}%
                         </td>
                         <td className="py-2.5 px-3 print:py-0.5 print:px-2 text-center font-semibold text-slate-600 font-mono">
-                          {weightVal}
+                          {typeof weightVal === 'number' ? `${weightVal.toFixed(2)}%` : `${weightVal}%`}
                         </td>
                         <td className="py-2.5 px-3 print:py-0.5 print:px-2 text-right font-extrabold text-blue-700 font-mono">
                           +{weightedContrib}%
@@ -525,7 +527,7 @@ export default function PublicStudentScorecardPage() {
                       Normalized (0–100%)
                     </td>
                     <td className="py-2.5 px-3 text-center font-black text-slate-900 font-mono text-xs print:text-[9px]">
-                      100%
+                      100.00%
                     </td>
                     <td className="py-2.5 px-3 text-right font-black text-sm text-blue-800 font-mono print:text-xs">
                       {overallSprScore}%
@@ -828,7 +830,7 @@ export default function PublicStudentScorecardPage() {
                 <div className="p-3 bg-purple-50/50 rounded-2xl border border-purple-200">
                   <div className="text-[10px] uppercase font-bold text-purple-700">Category Weight</div>
                   <div className="text-base font-black text-purple-950 font-mono mt-0.5">
-                    {detailsModalCategory.weight}
+                    {typeof detailsModalCategory.weight === 'number' ? `${Number(detailsModalCategory.weight).toFixed(2)}%` : `${detailsModalCategory.weight}%`}
                   </div>
                 </div>
               </div>

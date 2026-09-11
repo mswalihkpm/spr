@@ -393,7 +393,7 @@ export default function StudentProfilePage() {
                   </p>
                 </div>
                 <div className="text-xs font-semibold text-slate-500 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
-                  Raw Weight Total: <strong className="text-slate-800">155</strong> • Normalized to 100%
+                  Total Weight: <strong className="text-slate-800">100.00%</strong> • Full Precision
                 </div>
               </div>
 
@@ -413,6 +413,8 @@ export default function StudentProfilePage() {
                   <tbody className="divide-y divide-slate-100">
                     {categoryScores.map((cat: any, idx: number) => {
                       const isLibrary = cat.categoryCode === 'LIBRARY' || cat.categoryName?.includes('Library');
+                      const weightDisplay = typeof cat.weight === 'number' ? `${cat.weight.toFixed(2)}%` : `${cat.weight}%`;
+                      const contribDisplay = (cat.weightedContribution ?? ((cat.percentage * cat.weight) / 100)).toFixed(2);
                       return (
                         <tr key={cat.categoryId || idx} className="hover:bg-slate-50/80 transition-colors">
                           <td className="py-3 px-4 font-mono font-bold text-slate-400">
@@ -441,10 +443,10 @@ export default function StudentProfilePage() {
                             {(cat.normalizedPercentage ?? cat.percentage ?? 0).toFixed(2)}%
                           </td>
                           <td className="py-3 px-4 text-right font-mono font-bold text-slate-700">
-                            {cat.weight}
+                            {weightDisplay}
                           </td>
                           <td className="py-3 px-4 text-right font-mono font-bold text-indigo-900">
-                            {(cat.weightedContribution ?? ((cat.percentage * cat.weight) / 155)).toFixed(2)}%
+                            +{contribDisplay}%
                           </td>
                           <td className="py-3 px-4 text-center">
                             <button
@@ -469,7 +471,7 @@ export default function StudentProfilePage() {
                         Normalized
                       </td>
                       <td className="py-3.5 px-4 text-right font-mono text-base font-black text-white">
-                        100%
+                        100.00%
                       </td>
                       <td className="py-3.5 px-4 text-right font-mono text-base font-black text-gold-400">
                         {profileData.overallSPR}%
@@ -491,8 +493,9 @@ export default function StudentProfilePage() {
               const earnedPts = libCat?.earnedPoints ?? 0;
               const normRef = libCat?.normalizationRef ?? 500;
               const normPct = libCat?.normalizedPercentage ?? Math.min((earnedPts / normRef) * 100, 100);
-              const weight = libCat?.weight ?? 12;
-              const weightedContrib = libCat?.weightedContribution ?? (normPct * weight) / 155;
+              const weight = libCat?.weight ?? (80 / 6);
+              const weightedContrib = libCat?.weightedContribution ?? (normPct * weight) / 100;
+              const weightDisplay = typeof weight === 'number' ? `${weight.toFixed(2)}%` : `${weight}%`;
 
               return (
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle p-5 space-y-3">
@@ -507,7 +510,7 @@ export default function StudentProfilePage() {
                       </p>
                     </div>
                     <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-teal-50 text-teal-900 border border-teal-200">
-                      Category Weight: {weight}
+                      Category Weight: {weightDisplay}
                     </span>
                   </div>
 
@@ -538,13 +541,13 @@ export default function StudentProfilePage() {
                         </tr>
                         <tr>
                           <td className="py-2 px-3 font-semibold text-slate-800">Category Weight</td>
-                          <td className="py-2 px-3 text-right font-mono font-bold text-slate-700">{weight}</td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-slate-700">{weightDisplay}</td>
                           <td className="py-2 px-3 text-slate-500 text-[11px]">Assigned SPR weight matrix value</td>
                         </tr>
                         <tr className="bg-teal-50/60 font-bold">
                           <td className="py-2.5 px-3 text-teal-950">Weighted Contribution</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-black text-teal-900 text-sm">{weightedContrib.toFixed(2)}%</td>
-                          <td className="py-2.5 px-3 text-teal-800 text-[11px]">({normPct.toFixed(2)}% × {weight}) / 155</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-black text-teal-900 text-sm">+{weightedContrib.toFixed(2)}%</td>
+                          <td className="py-2.5 px-3 text-teal-800 text-[11px]">({normPct.toFixed(2)}% × {weightDisplay}) / 100</td>
                         </tr>
                       </tbody>
                     </table>
@@ -811,7 +814,7 @@ export default function StudentProfilePage() {
                     4. Category Weight
                   </span>
                   <div className="font-mono font-bold text-sm text-slate-800">
-                    {selectedCatDetails.weight} (Weight out of 155 Total Weight Matrix)
+                    {typeof selectedCatDetails.weight === 'number' ? `${selectedCatDetails.weight.toFixed(2)}%` : `${selectedCatDetails.weight}%`} (Category Weight in 100% System)
                   </div>
                 </div>
 
@@ -822,10 +825,10 @@ export default function StudentProfilePage() {
                     5. Weighted Contribution to Final SPR
                   </span>
                   <div className="font-mono font-black text-lg text-white">
-                    {(selectedCatDetails.weightedContribution ?? ((selectedCatDetails.percentage * selectedCatDetails.weight) / 155)).toFixed(2)}%
+                    +{(selectedCatDetails.weightedContribution ?? ((selectedCatDetails.percentage * selectedCatDetails.weight) / 100)).toFixed(2)}%
                   </div>
                   <p className="text-[10px] text-slate-300">
-                    Formula: ({(selectedCatDetails.normalizedPercentage ?? selectedCatDetails.percentage).toFixed(2)}% × {selectedCatDetails.weight}) / 155
+                    Formula: ({(selectedCatDetails.normalizedPercentage ?? selectedCatDetails.percentage).toFixed(2)}% × {typeof selectedCatDetails.weight === 'number' ? selectedCatDetails.weight.toFixed(2) : selectedCatDetails.weight}%) / 100
                   </p>
                 </div>
               </div>

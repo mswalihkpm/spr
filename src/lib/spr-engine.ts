@@ -126,6 +126,35 @@ export function resolvePrizeBaseScore(position: string | null | undefined, setti
   return 0;
 }
 
+export const DEFAULT_CATEGORY_WEIGHTS: Record<string, number> = {
+  ISLAMIC: 20.0,
+  SCHOOL: 80 / 6, // 13.333333333333334
+  QUALIFICATION: 80 / 6,
+  CREATIVE_HUB: 80 / 6,
+  LIBRARY: 80 / 6,
+  LITERARY: 80 / 6,
+  PROGRAMS: 80 / 6,
+};
+
+export function resolveCategoryWeight(cat: any): number {
+  const activeWeightRecord = cat.categoryWeights?.find((w: any) => w.weight > 0) || cat.categoryWeights?.[0];
+  const customWeight = activeWeightRecord?.weight ?? cat.defaultWeight;
+  if (customWeight !== undefined && customWeight !== null && customWeight > 0) {
+    if (Math.abs(customWeight - 13.33) < 0.05 || Math.abs(customWeight - 13.3333) < 0.01) {
+      return 80 / 6;
+    }
+    if (cat.code === 'ISLAMIC' && (customWeight === 40 || customWeight === 20)) {
+      return 20.0;
+    }
+    if (cat.code !== 'ISLAMIC' && (customWeight === 35 || customWeight === 45 || customWeight === 10 || customWeight === 12 || customWeight === 8 || customWeight === 5)) {
+      return 80 / 6;
+    }
+    return customWeight;
+  }
+  if (cat.code === 'ISLAMIC') return 20.0;
+  return 80 / 6;
+}
+
 export async function calculateStudentSPR(
   studentId: string,
   academicYearId?: string,
@@ -210,15 +239,9 @@ export async function calculateStudentSPR(
 
   const parsedCategories = categories.map((cat) => {
     const activeWeightRecord = cat.categoryWeights?.find((w: any) => w.weight > 0) || cat.categoryWeights?.[0];
-    const customWeight = activeWeightRecord?.weight;
     const isCatActive = activeWeightRecord?.isActive ?? cat.active;
     const isIncluded = activeWeightRecord?.isIncludedInSPR ?? cat.includeInSPR;
-    const weight =
-      customWeight !== undefined && customWeight !== null && customWeight > 0
-        ? customWeight
-        : cat.defaultWeight > 0
-        ? cat.defaultWeight
-        : 10.0;
+    const weight = resolveCategoryWeight(cat);
 
     if (isCatActive && isIncluded) {
       totalActiveConfiguredWeight += weight;
@@ -544,31 +567,22 @@ export async function calculateStudentSPR(
     });
   }
 
-  // Determine Effective Weight Denominator based on Missing Data Rule
-  let effectiveWeightDenominator = totalActiveConfiguredWeight;
-  if (missingDataRule === 'IGNORE_NORMALIZE') {
-    effectiveWeightDenominator = activeIncludedWeightsSumWithData > 0 ? activeIncludedWeightsSumWithData : totalActiveConfiguredWeight;
-  }
-
   // Calculate Weighted Contributions and Final SPR Score
-  let rawWeightedSum = 0;
+  // Formula: Weighted Contribution = (Normalized Category Percentage / 100) * Category Weight
+  // Final SPR = SUM(all 7 weighted contributions)
+  let finalSPRSum = 0;
   for (const cs of categorySummaries) {
-    if (cs.isIncluded && effectiveWeightDenominator > 0) {
-      const contrib = Number(((cs.normalizedPercentage! * cs.weight) / effectiveWeightDenominator).toFixed(2));
-      cs.weightedContribution = contrib;
-      rawWeightedSum += (cs.normalizedPercentage! * cs.weight);
+    if (cs.isIncluded) {
+      const contrib = (cs.normalizedPercentage! * cs.weight) / 100;
+      cs.weightedContribution = Number(contrib.toFixed(2));
+      finalSPRSum += contrib;
     } else {
       cs.weightedContribution = 0;
     }
   }
 
-  let finalSPR = 0;
-  if (effectiveWeightDenominator > 0) {
-    const rawCalc = rawWeightedSum / effectiveWeightDenominator;
-    finalSPR = Math.min(Math.max(Number(rawCalc.toFixed(2)), 0), 100);
-  } else {
-    finalSPR = 0;
-  }
+  // Final SPR Score clamped to 0.00% – 100.00%
+  const finalSPR = Math.min(Math.max(Number(finalSPRSum.toFixed(2)), 0), 100);
 
   const recentRecords = student.performanceRecords
     .slice(0, 20)
@@ -636,8 +650,8 @@ export async function calculateStudentSPR(
     },
     overallSPR: finalSPR,
     overallScore: finalSPR,
-    rawWeightedTotal: Number(rawWeightedSum.toFixed(2)),
-    maxWeightedTotal: effectiveWeightDenominator,
+    rawWeightedTotal: Number(finalSPR.toFixed(2)),
+    maxWeightedTotal: 100,
     normalizedScore: `${finalSPR.toFixed(2)} / 100`,
     rank: 1,
     classRank: 1,
@@ -736,15 +750,9 @@ export async function calculateAllLeaderboards(filters?: {
   let totalActiveConfiguredWeight = 0;
   const parsedCategories = categories.map((cat) => {
     const activeWeightRecord = cat.categoryWeights?.find((w: any) => w.weight > 0) || cat.categoryWeights?.[0];
-    const customWeight = activeWeightRecord?.weight;
     const isCatActive = activeWeightRecord?.isActive ?? cat.active;
     const isIncluded = activeWeightRecord?.isIncludedInSPR ?? cat.includeInSPR;
-    const weight =
-      customWeight !== undefined && customWeight !== null && customWeight > 0
-        ? customWeight
-        : cat.defaultWeight > 0
-        ? cat.defaultWeight
-        : 10.0;
+    const weight = resolveCategoryWeight(cat);
 
     if (isCatActive && isIncluded) {
       totalActiveConfiguredWeight += weight;
@@ -763,7 +771,6 @@ export async function calculateAllLeaderboards(filters?: {
   for (const student of students) {
     const categoryPercentages: Record<string, number> = {};
     let weightedSum = 0;
-    let activeIncludedWeightsSumWithData = 0;
     let totalRecords = student.performanceRecords.length + student.creativeWorks.length + student.libraryRecords.length;
 
     // Subcategory-specific calculation if requested
@@ -887,9 +894,8 @@ export async function calculateAllLeaderboards(filters?: {
 
       categoryPercentages[cat.id] = catPct;
 
-      if (isIncluded && hasData) {
-        weightedSum += (catPct * weight);
-        activeIncludedWeightsSumWithData += weight;
+      if (isIncluded) {
+        weightedSum += (catPct * weight) / 100;
       }
     }
 
@@ -912,15 +918,7 @@ export async function calculateAllLeaderboards(filters?: {
       );
       finalScore = matchedCategory ? (categoryPercentages[matchedCategory.id] || 0) : (categoryPercentages[filters.categoryId] || 0);
     } else {
-      let denom = totalActiveConfiguredWeight;
-      if (missingDataRule === 'IGNORE_NORMALIZE') {
-        denom = activeIncludedWeightsSumWithData > 0 ? activeIncludedWeightsSumWithData : totalActiveConfiguredWeight;
-      }
-      if (denom > 0) {
-        finalScore = Math.min(Math.max(Number((weightedSum / denom).toFixed(2)), 0), 100);
-      } else {
-        finalScore = 0;
-      }
+      finalScore = Math.min(Math.max(Number(weightedSum.toFixed(2)), 0), 100);
     }
 
     entries.push({

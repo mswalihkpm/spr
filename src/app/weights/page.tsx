@@ -423,7 +423,7 @@ export default function WeightsPage() {
             </div>
             <div className="flex items-center space-x-2 self-end sm:self-auto">
               <div className="px-3 py-1 bg-amber-50 border border-amber-200 rounded-xl text-xs font-bold text-amber-900">
-                Raw Weight Total: <span className="font-mono font-black">{totalIncludedWeight.toFixed(0)}</span>
+                Total Weight: <span className="font-mono font-black">{totalIncludedWeight.toFixed(2)}%</span>
               </div>
               <div className="px-3 py-1 bg-blue-50 border border-blue-200 rounded-xl text-xs font-bold text-blue-950">
                 Final Result: <span className="font-mono font-black">0.00% – 100.00%</span>
@@ -431,88 +431,101 @@ export default function WeightsPage() {
             </div>
           </div>
 
-          <div className="p-3 bg-blue-50/60 rounded-2xl border border-blue-100 text-xs text-blue-950 flex items-start space-x-2">
+          <div className="p-3.5 bg-blue-50/80 rounded-2xl border border-blue-200 text-xs text-blue-950 flex items-start space-x-2.5 shadow-2xs">
             <Info className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
-            <p className="text-[11px] leading-relaxed">
-              <strong className="font-bold">Normalization Principle:</strong> Every category first generates a Normalized Score (0–100%). The total raw weight ({totalIncludedWeight.toFixed(0)}) is used as the calculation denominator. The final SPR is always clamped and normalized to 0.00% – 100.00%.
-            </p>
+            <div className="text-[11px] leading-relaxed space-y-1">
+              <p className="font-bold text-blue-950">
+                Islamic Studies has special priority (20.00%). All other 6 categories have equal priority (13.33% each). Total = 100.00%.
+              </p>
+              <p className="text-blue-900">
+                Formula: Final SPR = SUM(all 7 weighted contributions) where Weighted Contribution = (Normalized % / 100) × Weight. Full mathematical precision (80/6 for equal categories) is used internally.
+              </p>
+            </div>
           </div>
 
           <div className="space-y-2.5">
-            {weights.map((w, index) => (
-              <div
-                key={w.categoryId || w.code}
-                className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-slate-100/70 transition"
-              >
-                {/* Priority & Category Info */}
-                <div className="flex items-center space-x-3 min-w-0">
-                  <div className="flex flex-col items-center justify-center w-7 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => moveCategoryPriority(index, 'UP')}
-                      disabled={index === 0}
-                      className="p-0.5 hover:bg-slate-200 rounded text-slate-500 disabled:opacity-20 cursor-pointer"
-                      title="Move Priority Up"
-                    >
-                      <ArrowUp className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="text-[10px] font-black text-slate-700 font-mono">
-                      #{index + 1}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => moveCategoryPriority(index, 'DOWN')}
-                      disabled={index === weights.length - 1}
-                      className="p-0.5 hover:bg-slate-200 rounded text-slate-500 disabled:opacity-20 cursor-pointer"
-                      title="Move Priority Down"
-                    >
-                      <ArrowDown className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-2xs">
-                    {renderCategoryIcon(w.code, w.icon)}
-                  </div>
-
-                  <div className="min-w-0">
-                    <div className="text-xs sm:text-sm font-bold text-slate-900 flex items-center space-x-2">
-                      <span>{w.name}</span>
-                      <span className="text-[10px] text-slate-400 font-mono">({w.code})</span>
+            {weights.map((w, index) => {
+              const weightNum = parseFloat(w.weight) || 0;
+              const weightDisplay = weightNum > 0 ? `${weightNum.toFixed(2)}%` : '0.00%';
+              return (
+                <div
+                  key={w.categoryId || w.code}
+                  className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-slate-100/70 transition"
+                >
+                  {/* Priority & Category Info */}
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <div className="flex flex-col items-center justify-center w-7 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => moveCategoryPriority(index, 'UP')}
+                        disabled={index === 0}
+                        className="p-0.5 hover:bg-slate-200 rounded text-slate-500 disabled:opacity-20 cursor-pointer"
+                        title="Move Priority Up"
+                      >
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="text-[10px] font-black text-slate-700 font-mono">
+                        #{index + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => moveCategoryPriority(index, 'DOWN')}
+                        disabled={index === weights.length - 1}
+                        className="p-0.5 hover:bg-slate-200 rounded text-slate-500 disabled:opacity-20 cursor-pointer"
+                        title="Move Priority Down"
+                      >
+                        <ArrowDown className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                    <div className="text-[11px] text-slate-500 font-medium">
-                      Priority Rank: Priority {index + 1}
+
+                    <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-2xs">
+                      {renderCategoryIcon(w.code, w.icon)}
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="text-xs sm:text-sm font-bold text-slate-900 flex items-center space-x-2">
+                        <span>{w.name}</span>
+                        <span className="text-[10px] text-slate-400 font-mono">({w.code})</span>
+                        <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 font-mono">
+                          {weightDisplay}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 font-medium">
+                        {w.code === 'ISLAMIC' ? 'Special Priority (20.00%)' : 'Equal Priority (13.33%)'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Weight Input & Slider */}
+                  <div className="flex items-center space-x-4 ml-10 md:ml-0">
+                    <div className="flex items-center space-x-2 w-48 sm:w-64">
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={w.weight}
+                        onChange={(e) => handleCategoryWeightChange(w.categoryId, parseFloat(e.target.value))}
+                        className="w-full accent-blue-600 cursor-pointer"
+                      />
+                    </div>
+
+                    <div className="flex items-center space-x-1.5 shrink-0">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={w.weight}
+                        onChange={(e) => handleCategoryWeightChange(w.categoryId, parseFloat(e.target.value) || 0)}
+                        className="w-20 px-2 py-1 text-center font-mono font-black text-xs bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="text-xs font-bold text-slate-500">%</span>
                     </div>
                   </div>
                 </div>
-
-                {/* Weight Input & Slider */}
-                <div className="flex items-center space-x-4 ml-10 md:ml-0">
-                  <div className="flex items-center space-x-2 w-48 sm:w-64">
-                    <input
-                      type="range"
-                      min="1"
-                      max="100"
-                      step="1"
-                      value={w.weight}
-                      onChange={(e) => handleCategoryWeightChange(w.categoryId, parseFloat(e.target.value))}
-                      className="w-full accent-blue-600 cursor-pointer"
-                    />
-                  </div>
-
-                  <div className="flex items-center space-x-1.5 shrink-0">
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={w.weight}
-                      onChange={(e) => handleCategoryWeightChange(w.categoryId, parseFloat(e.target.value) || 0)}
-                      className="w-16 px-2.5 py-1 text-center font-mono font-black text-xs bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500"
-                    />
-                    <span className="text-xs font-bold text-slate-500">Weight</span>
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -920,7 +933,7 @@ export default function WeightsPage() {
                             {Number(cat.normalizedPercentage || cat.percentage || 0).toFixed(2)}%
                           </td>
                           <td className="py-2.5 px-3 text-center font-semibold text-slate-600 font-mono">
-                            {cat.weight}
+                            {typeof cat.weight === 'number' ? `${cat.weight.toFixed(2)}%` : `${cat.weight}%`}
                           </td>
                           <td className="py-2.5 px-3 text-right font-extrabold text-blue-700 font-mono">
                             +{Number(cat.weightedContribution || 0).toFixed(2)}%
@@ -935,10 +948,10 @@ export default function WeightsPage() {
                         Final SPR Calculation Summary
                       </td>
                       <td className="py-3 px-3 text-right font-mono font-medium text-slate-500 text-xs">
-                        Raw Sum: {studentPreviewData.rawWeightedTotal} / {studentPreviewData.maxWeightedTotal}
+                        Normalized: {studentPreviewData.overallSPR}% / 100%
                       </td>
                       <td className="py-3 px-3 text-center font-mono font-black text-slate-900 text-xs">
-                        100%
+                        100.00%
                       </td>
                       <td className="py-3 px-3 text-right font-mono font-black text-sm text-blue-800">
                         {studentPreviewData.overallSPR}%

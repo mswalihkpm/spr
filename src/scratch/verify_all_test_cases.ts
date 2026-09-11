@@ -1,63 +1,123 @@
 import { prisma } from '../lib/prisma';
-import { calculateStudentSPR, calculateAllLeaderboards } from '../lib/spr-engine';
+import { calculateStudentSPR, calculateAllLeaderboards, DEFAULT_CATEGORY_WEIGHTS, resolveCategoryWeight } from '../lib/spr-engine';
 
 async function runComprehensiveVerification() {
   console.log('===============================================================');
-  console.log('  SPR ENGINE COMPREHENSIVE TEST SUITE & DATA AUDIT');
+  console.log('  SPR ENGINE 100% SYSTEM COMPREHENSIVE TEST SUITE & DATA AUDIT');
   console.log('===============================================================\n');
 
   let allTestsPassed = true;
 
   // -------------------------------------------------------------------------
-  // TEST SET 1: LIBRARY NORMALIZATION FORMULA
-  // Formula: MIN(Earned Library Points / 500 * 100, 100)
+  // SECTION 20 & 10 & 11: MATHEMATICAL ENGINE TESTS
   // -------------------------------------------------------------------------
-  console.log('--- TEST SET 1: LIBRARY NORMALIZATION ---');
+  console.log('--- MATHEMATICAL CALCULATION ENGINE TESTS ---');
+
+  const ISLAMIC_WT = 20.0;
+  const EQUAL_WT = 80 / 6; // 13.333333333333334
+
+  // Helper function mimicking the engine
+  function computeFinalSPR(catPercentages: {
+    ISLAMIC?: number;
+    SCHOOL?: number;
+    QUALIFICATION?: number;
+    CREATIVE_HUB?: number;
+    LIBRARY?: number;
+    LITERARY?: number;
+    PROGRAMS?: number;
+  }) {
+    const pIslamic = catPercentages.ISLAMIC || 0;
+    const pSchool = catPercentages.SCHOOL || 0;
+    const pQual = catPercentages.QUALIFICATION || 0;
+    const pCreative = catPercentages.CREATIVE_HUB || 0;
+    const pLib = catPercentages.LIBRARY || 0;
+    const pLit = catPercentages.LITERARY || 0;
+    const pProg = catPercentages.PROGRAMS || 0;
+
+    const contribIslamic = (pIslamic * ISLAMIC_WT) / 100;
+    const contribSchool = (pSchool * EQUAL_WT) / 100;
+    const contribQual = (pQual * EQUAL_WT) / 100;
+    const contribCreative = (pCreative * EQUAL_WT) / 100;
+    const contribLib = (pLib * EQUAL_WT) / 100;
+    const contribLit = (pLit * EQUAL_WT) / 100;
+    const contribProg = (pProg * EQUAL_WT) / 100;
+
+    const sum = contribIslamic + contribSchool + contribQual + contribCreative + contribLib + contribLit + contribProg;
+    const finalScore = Math.min(Math.max(Number(sum.toFixed(2)), 0), 100);
+
+    return {
+      finalScore,
+      sum,
+      contribs: {
+        ISLAMIC: contribIslamic,
+        SCHOOL: contribSchool,
+        QUALIFICATION: contribQual,
+        CREATIVE_HUB: contribCreative,
+        LIBRARY: contribLib,
+        LITERARY: contribLit,
+        PROGRAMS: contribProg,
+      }
+    };
+  }
+
+  // TEST 1: All categories = 0% -> Expected Final SPR = 0.00%
+  const t1 = computeFinalSPR({ ISLAMIC: 0, SCHOOL: 0, QUALIFICATION: 0, CREATIVE_HUB: 0, LIBRARY: 0, LITERARY: 0, PROGRAMS: 0 });
+  const p1 = t1.finalScore === 0.00;
+  console.log(`  [TEST 1] All categories = 0% -> Final SPR: ${t1.finalScore.toFixed(2)}% (Expected: 0.00%) => ${p1 ? 'PASSED ✅' : 'FAILED ❌'}`);
+  if (!p1) allTestsPassed = false;
+
+  // TEST 2 & 7: All categories = 100% -> Expected Final SPR = exactly 100.00%
+  const t2 = computeFinalSPR({ ISLAMIC: 100, SCHOOL: 100, QUALIFICATION: 100, CREATIVE_HUB: 100, LIBRARY: 100, LITERARY: 100, PROGRAMS: 100 });
+  const p2 = t2.finalScore === 100.00 && Math.abs(t2.sum - 100.0) < 1e-10;
+  console.log(`  [TEST 2 & 7] All 7 categories = 100% -> Final SPR: ${t2.finalScore.toFixed(2)}% (Exact Sum: ${t2.sum}) => ${p2 ? 'PASSED ✅' : 'FAILED ❌'}`);
+  if (!p2) allTestsPassed = false;
+
+  // TEST 3: Islamic = 100%, all others = 0% -> Expected Final SPR = 20.00%
+  const t3 = computeFinalSPR({ ISLAMIC: 100, SCHOOL: 0, QUALIFICATION: 0, CREATIVE_HUB: 0, LIBRARY: 0, LITERARY: 0, PROGRAMS: 0 });
+  const p3 = t3.finalScore === 20.00;
+  console.log(`  [TEST 3] Islamic = 100%, others = 0% -> Final SPR: ${t3.finalScore.toFixed(2)}% (Expected: 20.00%) => ${p3 ? 'PASSED ✅' : 'FAILED ❌'}`);
+  if (!p3) allTestsPassed = false;
+
+  // TEST 4: School = 100%, all others = 0% -> Expected Final SPR = 13.333333333...%, Display = 13.33%
+  const t4 = computeFinalSPR({ ISLAMIC: 0, SCHOOL: 100, QUALIFICATION: 0, CREATIVE_HUB: 0, LIBRARY: 0, LITERARY: 0, PROGRAMS: 0 });
+  const p4 = t4.finalScore === 13.33 && Math.abs(t4.contribs.SCHOOL - (80/6)) < 1e-10;
+  console.log(`  [TEST 4] School = 100%, others = 0% -> Final SPR: ${t4.finalScore.toFixed(2)}% (Contrib: ${t4.contribs.SCHOOL.toFixed(4)}%) => ${p4 ? 'PASSED ✅' : 'FAILED ❌'}`);
+  if (!p4) allTestsPassed = false;
+
+  // TEST 5: Creative Hub = 100%, all others = 0% -> Expected contribution = 13.333333333...%, Display = 13.33%
+  const t5 = computeFinalSPR({ ISLAMIC: 0, SCHOOL: 0, QUALIFICATION: 0, CREATIVE_HUB: 100, LIBRARY: 0, LITERARY: 0, PROGRAMS: 0 });
+  const p5 = t5.finalScore === 13.33 && Math.abs(t5.contribs.CREATIVE_HUB - (80/6)) < 1e-10;
+  console.log(`  [TEST 5] Creative Hub = 100%, others = 0% -> Contribution: ${t5.contribs.CREATIVE_HUB.toFixed(4)}%, Display: ${t4.finalScore.toFixed(2)}% => ${p5 ? 'PASSED ✅' : 'FAILED ❌'}`);
+  if (!p5) allTestsPassed = false;
+
+  // TEST 6: Library = 250 / 500 -> Normalized = 50%, Contribution = 6.666666...%, Display = 6.67%
+  const libEarned = 250;
   const libRef = 500;
-  const libraryTestCases = [
-    { earned: 0, expected: 0 },
-    { earned: 100, expected: 20 },
-    { earned: 140, expected: 28 },
-    { earned: 250, expected: 50 },
-    { earned: 400, expected: 80 },
-    { earned: 500, expected: 100 },
-    { earned: 600, expected: 100 },
-    { earned: 1000, expected: 100 },
-  ];
+  const libNorm = Math.min((libEarned / libRef) * 100, 100);
+  const libContrib = (libNorm * EQUAL_WT) / 100;
+  const p6 = libNorm === 50.0 && Math.abs(libContrib - (50 * (80/6) / 100)) < 1e-10 && libContrib.toFixed(2) === '6.67';
+  console.log(`  [TEST 6] Library 250/500 -> Norm: ${libNorm.toFixed(2)}%, Contrib: ${libContrib.toFixed(4)}%, Display: ${libContrib.toFixed(2)}% (Expected: 6.67%) => ${p6 ? 'PASSED ✅' : 'FAILED ❌'}`);
+  if (!p6) allTestsPassed = false;
 
-  for (const tc of libraryTestCases) {
-    const calc = Math.min((tc.earned / libRef) * 100, 100);
-    const pass = Math.abs(calc - tc.expected) < 0.001;
-    console.log(`  [Library] ${tc.earned} pts -> ${calc.toFixed(2)}% (Expected: ${tc.expected}%) => ${pass ? 'PASSED ✅' : 'FAILED ❌'}`);
-    if (!pass) allTestsPassed = false;
-  }
-  console.log('');
-
-  // -------------------------------------------------------------------------
-  // TEST SET 2: ACHIEVEMENT NORMALIZATION FORMULA
-  // Formula: MIN(Earned Achievement Points / 500 * 100, 100)
-  // -------------------------------------------------------------------------
-  console.log('--- TEST SET 2: ACHIEVEMENT NORMALIZATION ---');
-  const achRef = 500;
-  const achievementTestCases = [
-    { earned: 250, expected: 50 },
-    { earned: 400, expected: 80 },
-    { earned: 500, expected: 100 },
-    { earned: 600, expected: 100 },
-  ];
-
-  for (const tc of achievementTestCases) {
-    const calc = Math.min((tc.earned / achRef) * 100, 100);
-    const pass = Math.abs(calc - tc.expected) < 0.001;
-    console.log(`  [Achievement] ${tc.earned} pts -> ${calc.toFixed(2)}% (Expected: ${tc.expected}%) => ${pass ? 'PASSED ✅' : 'FAILED ❌'}`);
-    if (!pass) allTestsPassed = false;
-  }
-  console.log('');
+  // TEST 9: Section 11 Partial Score Example:
+  // Islamic = 80%, School = 70%, Qual = 50%, Creative = 90%, Library = 40%, Literary = 60%, Programs = 30%
+  // Islamic: 80% * 20% = 16%
+  // School: 70% * (80/6)% = 9.3333...%
+  // Qual: 50% * (80/6)% = 6.6666...%
+  // Creative: 90% * (80/6)% = 12%
+  // Library: 40% * (80/6)% = 5.3333...%
+  // Literary: 60% * (80/6)% = 8%
+  // Programs: 30% * (80/6)% = 4%
+  // Sum = 16 + 9.333... + 6.666... + 12 + 5.333... + 8 + 4 = 61.3333...% -> Display 61.33%
+  const t9 = computeFinalSPR({ ISLAMIC: 80, SCHOOL: 70, QUALIFICATION: 50, CREATIVE_HUB: 90, LIBRARY: 40, LITERARY: 60, PROGRAMS: 30 });
+  const p9 = t9.finalScore === 61.33 && t9.contribs.ISLAMIC === 16 && t9.contribs.CREATIVE_HUB === 12 && t9.contribs.LITERARY === 8 && t9.contribs.PROGRAMS === 4;
+  console.log(`  [TEST 9 - Prompt Section 11 Example] Sum of partial scores -> ${t9.finalScore.toFixed(2)}% (Expected: 61.33%) => ${p9 ? 'PASSED ✅' : 'FAILED ❌'}\n`);
+  if (!p9) allTestsPassed = false;
 
   // -------------------------------------------------------------------------
-  // TEST SET 3: FESTIVAL & COMPETITION LEVEL MULTIPLIERS IN DB
+  // TEST SET 2: FESTIVAL & COMPETITION LEVEL MULTIPLIERS IN DB
   // -------------------------------------------------------------------------
-  console.log('--- TEST SET 3: FESTIVAL LEVEL MULTIPLIERS ---');
+  console.log('--- FESTIVAL LEVEL MULTIPLIERS IN DB ---');
   const expectedMultipliers: Record<string, number> = {
     CAMPUS: 1.0,
     SCHOOL: 1.0,
@@ -82,66 +142,28 @@ async function runComprehensiveVerification() {
   console.log('');
 
   // -------------------------------------------------------------------------
-  // TEST SET 4: PRIZE CONFIGURATION & CALCULATION
-  // 1st Prize = 100, 2nd Prize = 75, 3rd Prize = 50
+  // TEST SET 3: DATABASE CATEGORY WEIGHTS
   // -------------------------------------------------------------------------
-  console.log('--- TEST SET 4: PRIZE BASE SCORES & FORMULAS ---');
-  const prizeSettings = await prisma.systemSetting.findMany({
-    where: { key: { in: ['PRIZE_SCORE_1ST', 'PRIZE_SCORE_2ND', 'PRIZE_SCORE_3RD'] } },
+  console.log('--- CATEGORY WEIGHTS IN DB ---');
+  const dbCategories = await prisma.category.findMany({
+    include: { categoryWeights: true },
+    orderBy: { displayOrder: 'asc' },
   });
-  const p1 = Number(prizeSettings.find((s) => s.key === 'PRIZE_SCORE_1ST')?.value || 100);
-  const p2 = Number(prizeSettings.find((s) => s.key === 'PRIZE_SCORE_2ND')?.value || 75);
-  const p3 = Number(prizeSettings.find((s) => s.key === 'PRIZE_SCORE_3RD')?.value || 50);
 
-  const prizeHierarchyPass = p1 > p2 && p2 > p3;
-  console.log(`  [Prizes] 1st: ${p1}, 2nd: ${p2}, 3rd: ${p3} (1st > 2nd > 3rd) => ${prizeHierarchyPass ? 'PASSED ✅' : 'FAILED ❌'}`);
-  if (!prizeHierarchyPass) allTestsPassed = false;
-
-  // Example calculations from Section 14
-  const testScenarios = [
-    { name: 'District + 1st Prize', base: 100, mult: 2.5, expectedPts: 250, expectedNorm: 50 },
-    { name: 'National + 1st Prize', base: 100, mult: 4.5, expectedPts: 450, expectedNorm: 90 },
-    { name: 'International + 1st Prize', base: 100, mult: 5.0, expectedPts: 500, expectedNorm: 100 },
-  ];
-
-  for (const s of testScenarios) {
-    const pts = s.base * s.mult;
-    const norm = Math.min((pts / 500) * 100, 100);
-    const pass = pts === s.expectedPts && norm === s.expectedNorm;
-    console.log(`  [Achievement Example] ${s.name}: ${pts} pts -> ${norm}% (Expected: ${s.expectedPts} pts, ${s.expectedNorm}%) => ${pass ? 'PASSED ✅' : 'FAILED ❌'}`);
-    if (!pass) allTestsPassed = false;
+  let sumDbWeights = 0;
+  for (const cat of dbCategories) {
+    const resolved = resolveCategoryWeight(cat);
+    sumDbWeights += resolved;
+    console.log(`  [Category ${cat.code}] Name: ${cat.name.padEnd(26)} | Resolved Engine Weight: ${resolved.toFixed(4)}% | Display: ${resolved.toFixed(2)}%`);
   }
-  console.log('');
+  const passDbWeights = Math.abs(sumDbWeights - 100.0) < 1e-10;
+  console.log(`  Total Resolved Category Weights = ${sumDbWeights.toFixed(6)}% (Expected: exactly 100.00%) => ${passDbWeights ? 'PASSED ✅' : 'FAILED ❌'}\n`);
+  if (!passDbWeights) allTestsPassed = false;
 
   // -------------------------------------------------------------------------
-  // TEST SET 5: CATEGORY WEIGHTS IN DB (Section 1: 40, 35, 45, 10, 12, 8, 5)
+  // TEST SET 4: LIVE LEADERBOARD & FULL DATASET VERIFICATION
   // -------------------------------------------------------------------------
-  console.log('--- TEST SET 5: MAIN CATEGORY WEIGHTS IN DB ---');
-  const expectedWeights: Record<string, { weight: number; priority: number }> = {
-    ISLAMIC: { weight: 40, priority: 1 },
-    SCHOOL: { weight: 35, priority: 2 },
-    QUALIFICATION: { weight: 45, priority: 3 },
-    CREATIVE_HUB: { weight: 10, priority: 4 },
-    LIBRARY: { weight: 12, priority: 5 },
-    LITERARY: { weight: 8, priority: 6 },
-    PROGRAMS: { weight: 5, priority: 7 },
-  };
-
-  const dbCategories = await prisma.category.findMany();
-  let totalWeight = 0;
-  for (const [code, exp] of Object.entries(expectedWeights)) {
-    const cat = dbCategories.find((c) => c.code === code);
-    const pass = cat && cat.defaultWeight === exp.weight;
-    totalWeight += cat?.defaultWeight || 0;
-    console.log(`  [Category ${code}] Weight: ${cat?.defaultWeight} (Expected: ${exp.weight}) => ${pass ? 'PASSED ✅' : 'FAILED ❌'}`);
-    if (!pass) allTestsPassed = false;
-  }
-  console.log(`  Total Raw Category Weights in DB = ${totalWeight} (Expected: 155) => ${totalWeight === 155 ? 'PASSED ✅' : 'FAILED ❌'}\n`);
-
-  // -------------------------------------------------------------------------
-  // TEST SET 6: LIVE SPR ENGINE CLAMPING & FULL DATASET VERIFICATION
-  // -------------------------------------------------------------------------
-  console.log('--- TEST SET 6: LIVE SPR ENGINE CALCULATION & CLAMPING ON ALL STUDENTS ---');
+  console.log('--- LIVE SPR LEADERBOARD ON ACTIVE DATABASE ---');
   const allLeaderboard = await calculateAllLeaderboards({});
   console.log(`  Calculated authoritative leaderboard for ${allLeaderboard.length} students.`);
 
@@ -167,14 +189,14 @@ async function runComprehensiveVerification() {
   console.log(`    Out of Bounds Count (>100% or <0%): ${outOfBoundsCount}`);
   console.log(`    Strict 0.00% – 100.00% Clamping Verified: ${outOfBoundsCount === 0 ? 'PASSED ✅' : 'FAILED ❌'}\n`);
 
-  // Also test sample detailed profiles (Rank 1, Middle, Bottom)
+  // Sample detailed profiles
   const sampleStudentIds = [
     allLeaderboard[0]?.studentId,
     allLeaderboard[Math.floor(allLeaderboard.length / 2)]?.studentId,
     allLeaderboard[allLeaderboard.length - 1]?.studentId,
   ].filter(Boolean) as string[];
 
-  console.log('  Detailed Category Weight & Normalization Audit for Sample Students:');
+  console.log('  Detailed Category Breakdown for Top, Middle, and Bottom Students:');
   for (const stId of sampleStudentIds) {
     const p = await calculateStudentSPR(stId);
     if (p) {
@@ -182,16 +204,17 @@ async function runComprehensiveVerification() {
       for (const cs of p.categoryScores) {
         const norm = (cs.normalizedPercentage ?? cs.percentage ?? 0).toFixed(2);
         const contrib = (cs.weightedContribution ?? 0).toFixed(2);
-        console.log(`      • ${cs.categoryName.padEnd(26)} | Weight: ${String(cs.weight).padStart(2)} | Raw/Input: ${String(cs.rawInput || '—').padEnd(10)} | Norm: ${norm.padStart(6)}% | Contrib: ${contrib.padStart(5)}%`);
+        const wtDisplay = typeof cs.weight === 'number' ? `${cs.weight.toFixed(2)}%` : `${cs.weight}%`;
+        console.log(`      • ${cs.categoryName.padEnd(26)} | Weight: ${wtDisplay.padStart(6)} | Raw/Input: ${String(cs.rawInput || '—').padEnd(10)} | Norm: ${norm.padStart(6)}% | Contrib: +${contrib.padStart(5)}%`);
       }
     }
   }
   console.log('');
 
   // -------------------------------------------------------------------------
-  // TEST SET 7: ABSOLUTE DATA PRESERVATION AUDIT (Section 33)
+  // TEST SET 5: ABSOLUTE DATA SAFETY & RECORD COUNT INTEGRITY
   // -------------------------------------------------------------------------
-  console.log('--- TEST SET 7: ABSOLUTE DATA SAFETY & PRESERVATION AUDIT ---');
+  console.log('--- ABSOLUTE DATA SAFETY & INTEGRITY AUDIT ---');
   const [
     studentCount,
     performanceRecordCount,

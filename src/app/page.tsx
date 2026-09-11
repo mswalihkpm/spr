@@ -1425,15 +1425,16 @@ let homeAcademicMemory: any = null;
                           <span>📐 Cumulative SPR Mathematical Formula:</span>
                         </div>
                         <p className="text-[11px] text-blue-800 font-mono leading-relaxed">
-                          Overall SPR = Σ (Category Score % × Category Weight %) ÷ Active Weights Sum
+                          Overall SPR = Σ (Category Normalized % × Category Weight / 100)
                         </p>
                       </div>
 
                       <div className="space-y-2">
                         {(studentProfile.categoryBreakdown || studentProfile.categoryScores || []).map((cat: any) => {
                           const catScore = parseFloat(formatScore(cat.score ?? cat.percentage));
-                          const weight = cat.weight || 10;
-                          const contribution = ((catScore * weight) / 100).toFixed(2);
+                          const weightVal = cat.weight !== undefined ? Number(cat.weight) : (80 / 6);
+                          const weightDisplay = typeof weightVal === 'number' ? `${weightVal.toFixed(2)}%` : `${weightVal}%`;
+                          const contribution = (cat.weightedContribution !== undefined ? Number(cat.weightedContribution) : ((catScore * weightVal) / 100)).toFixed(2);
 
                           return (
                             <div key={cat.categoryId} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 space-y-1.5">
@@ -1441,7 +1442,7 @@ let homeAcademicMemory: any = null;
                                 <span className="font-bold text-slate-900">{cat.categoryName}</span>
                                 <div className="text-right">
                                   <span className="font-mono font-extrabold text-blue-700">{catScore.toFixed(1)}%</span>
-                                  <span className="text-[10px] text-slate-400 font-normal ml-1">× {weight}% wt = </span>
+                                  <span className="text-[10px] text-slate-400 font-normal ml-1">× {weightDisplay} wt = </span>
                                   <span className="font-mono font-bold text-emerald-700 text-xs ml-1">+{contribution}%</span>
                                 </div>
                               </div>
