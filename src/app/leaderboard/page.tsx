@@ -1065,25 +1065,46 @@ function LeaderboardContent() {
                   const student = topThree[1];
                   const rank = student?.rank ?? 2;
                   const isTied = student?.isTied || filteredEntries.filter((s) => s.spr === student?.spr).length > 1;
+                  const isGold = rank === 1;
+                  const isSilver = rank === 2;
+                  const isBronze = rank === 3;
                   return (
                     <div
                       onClick={() => handleStudentRowClick(student.studentId)}
-                      className="rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 border-2 shadow-xs cursor-pointer hover:shadow-md transition-all flex flex-col justify-between order-1 text-center group bg-white border-slate-200 animate-slide-left"
+                      className={`rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 border-2 shadow-xs cursor-pointer hover:shadow-md transition-all flex flex-col justify-between order-1 text-center group animate-slide-left ${
+                        isGold
+                          ? 'bg-gradient-to-b from-amber-50/90 via-white to-white border-amber-400 -translate-y-2 sm:-translate-y-3'
+                          : isSilver
+                          ? 'bg-white border-slate-200'
+                          : 'bg-white border-amber-200'
+                      }`}
                     >
                       <div className="flex justify-center mb-1 sm:mb-2">
-                        <StudentAvatar photoUrl={student.photoUrl} name={student.name || student.studentName} size="lg" className="w-11 h-11 sm:w-18 sm:h-18" />
+                        <StudentAvatar photoUrl={student.photoUrl} name={student.name || student.studentName} size="lg" className={`w-11 h-11 sm:w-18 sm:h-18 ${isGold ? 'ring-3 sm:ring-4 ring-amber-300/60' : ''}`} />
                       </div>
-                      <div className="text-[8px] sm:text-xs font-black uppercase tracking-widest px-2 sm:px-3 py-0.5 rounded-full inline-block shadow-2xs border bg-slate-100/90 text-slate-700 border-slate-200">
-                        ★ {rank === 1 ? '1st' : rank === 2 ? '2nd' : `${rank}th`} Rank {isTied ? '(Joint)' : ''} ★
+                      <div className={`text-[8px] sm:text-xs font-black uppercase tracking-widest px-2 sm:px-3 py-0.5 rounded-full inline-block shadow-2xs border ${
+                        isGold
+                          ? 'bg-amber-100 text-amber-700 border-amber-300'
+                          : isSilver
+                          ? 'bg-slate-100/90 text-slate-700 border-slate-200'
+                          : 'bg-amber-100/90 text-amber-800 border-amber-200'
+                      }`}>
+                        ★ {rank === 1 ? '1st' : rank === 2 ? '2nd' : rank === 3 ? '3rd' : `${rank}th`} Rank {isTied ? '(Joint)' : ''} ★
                       </div>
-                      <div className="text-[10px] sm:text-base font-extrabold mt-1 transition-colors leading-tight break-words text-slate-900 group-hover:text-blue-600">
+                      <div className={`text-[10px] sm:text-base font-extrabold mt-1 transition-colors leading-tight break-words ${
+                        isGold ? 'text-slate-900 group-hover:text-amber-800' : 'text-slate-900 group-hover:text-blue-600'
+                      }`}>
                         {student.name || student.studentName}
                       </div>
                       <div className="text-[9px] sm:text-xs text-slate-500 mt-0.5">
                         Std {formatClassNumber(student.className)}
                       </div>
-                      <div className="mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t border-slate-100 flex items-center justify-center">
-                        <span className="text-xs sm:text-lg font-black text-slate-800">
+                      <div className={`mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t flex items-center justify-center ${
+                        isGold ? 'border-amber-100' : 'border-slate-100'
+                      }`}>
+                        <span className={`text-xs sm:text-lg font-black ${
+                          isGold ? 'text-amber-800' : 'text-slate-800'
+                        }`}>
                           {formatScore(student.spr ?? student.overallScore)}%
                         </span>
                       </div>
@@ -1127,25 +1148,46 @@ function LeaderboardContent() {
                   const student = topThree[2];
                   const rank = student?.rank ?? 3;
                   const isTied = student?.isTied || filteredEntries.filter((s) => s.spr === student?.spr).length > 1;
+                  const isGold = rank === 1;
+                  const isSilver = rank === 2;
+                  const isBronze = rank === 3;
                   return (
                     <div
                       onClick={() => handleStudentRowClick(student.studentId)}
-                      className="rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 border-2 shadow-xs cursor-pointer hover:shadow-md transition-all flex flex-col justify-between order-3 text-center group bg-white border-amber-200 animate-slide-right"
+                      className={`rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 border-2 shadow-xs cursor-pointer hover:shadow-md transition-all flex flex-col justify-between order-3 text-center group animate-slide-right ${
+                        isGold
+                          ? 'bg-gradient-to-b from-amber-50/90 via-white to-white border-amber-400 -translate-y-2 sm:-translate-y-3'
+                          : isSilver
+                          ? 'bg-white border-slate-200'
+                          : 'bg-white border-amber-200'
+                      }`}
                     >
                       <div className="flex justify-center mb-1 sm:mb-2">
-                        <StudentAvatar photoUrl={student.photoUrl} name={student.name || student.studentName} size="lg" className="w-11 h-11 sm:w-18 sm:h-18" />
+                        <StudentAvatar photoUrl={student.photoUrl} name={student.name || student.studentName} size="lg" className={`w-11 h-11 sm:w-18 sm:h-18 ${isGold ? 'ring-3 sm:ring-4 ring-amber-300/60' : ''}`} />
                       </div>
-                      <div className="text-[8px] sm:text-xs font-black uppercase tracking-widest px-2 sm:px-3 py-0.5 rounded-full inline-block shadow-2xs border bg-amber-100/90 text-amber-800 border-amber-200">
+                      <div className={`text-[8px] sm:text-xs font-black uppercase tracking-widest px-2 sm:px-3 py-0.5 rounded-full inline-block shadow-2xs border ${
+                        isGold
+                          ? 'bg-amber-100 text-amber-700 border-amber-300'
+                          : isSilver
+                          ? 'bg-slate-100/90 text-slate-700 border-slate-200'
+                          : 'bg-amber-100/90 text-amber-800 border-amber-200'
+                      }`}>
                         ★ {rank === 1 ? '1st' : rank === 2 ? '2nd' : rank === 3 ? '3rd' : `${rank}th`} Rank {isTied ? '(Joint)' : ''} ★
                       </div>
-                      <div className="text-[10px] sm:text-base font-extrabold mt-1 transition-colors leading-tight break-words text-slate-900 group-hover:text-blue-600">
+                      <div className={`text-[10px] sm:text-base font-extrabold mt-1 transition-colors leading-tight break-words ${
+                        isGold ? 'text-slate-900 group-hover:text-amber-800' : 'text-slate-900 group-hover:text-blue-600'
+                      }`}>
                         {student.name || student.studentName}
                       </div>
                       <div className="text-[9px] sm:text-xs text-slate-500 mt-0.5">
                         Std {formatClassNumber(student.className)}
                       </div>
-                      <div className="mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t border-slate-100 flex items-center justify-center">
-                        <span className="text-xs sm:text-lg font-black text-slate-800">
+                      <div className={`mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t flex items-center justify-center ${
+                        isGold ? 'border-amber-100' : 'border-slate-100'
+                      }`}>
+                        <span className={`text-xs sm:text-lg font-black ${
+                          isGold ? 'text-amber-800' : 'text-slate-800'
+                        }`}>
                           {formatScore(student.spr ?? student.overallScore)}%
                         </span>
                       </div>
@@ -1158,7 +1200,7 @@ function LeaderboardContent() {
             {/* Joint Rank 1 Cohort Recognition Pill Bar */}
             {(() => {
               const rank1Students = filteredEntries.filter((s) => s.rank === 1);
-              if (rank1Students.length <= 3) return null;
+              if (rank1Students.length <= 1) return null;
               return (
                 <div className="p-3.5 bg-amber-50/90 border border-amber-200/90 rounded-2xl text-center shadow-xs animate-fade-in">
                   <div className="text-xs font-black text-amber-950 flex items-center justify-center space-x-1.5">

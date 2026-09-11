@@ -934,11 +934,11 @@ export default function WeightsPage() {
                       <td colSpan={2} className="py-3 px-3 text-slate-900 font-black uppercase text-xs">
                         Final SPR Calculation Summary
                       </td>
-                      <td className="py-3 px-3 text-right font-mono font-bold text-slate-700 text-xs">
-                        Raw Sum: {studentPreviewData.rawWeightedTotal}
+                      <td className="py-3 px-3 text-right font-mono font-medium text-slate-500 text-xs">
+                        Raw Sum: {studentPreviewData.rawWeightedTotal} / {studentPreviewData.maxWeightedTotal}
                       </td>
-                      <td className="py-3 px-3 text-center font-mono font-bold text-slate-700 text-xs">
-                        Max Denom: {studentPreviewData.maxWeightedTotal}
+                      <td className="py-3 px-3 text-center font-mono font-black text-slate-900 text-xs">
+                        100%
                       </td>
                       <td className="py-3 px-3 text-right font-mono font-black text-sm text-blue-800">
                         {studentPreviewData.overallSPR}%

@@ -521,8 +521,11 @@ export default function PublicStudentScorecardPage() {
                     <td colSpan={2} className="py-2.5 px-3 text-slate-900 font-black uppercase text-xs print:text-[9.5px]">
                       FINAL SPR SCORE
                     </td>
-                    <td colSpan={2} className="py-2.5 px-3 text-center text-slate-500 font-medium text-[11px] print:text-[8px]">
-                      Normalized (0.00% – 100.00%)
+                    <td className="py-2.5 px-3 text-right text-slate-500 font-medium text-[11px] print:text-[8px]">
+                      Normalized (0–100%)
+                    </td>
+                    <td className="py-2.5 px-3 text-center font-black text-slate-900 font-mono text-xs print:text-[9px]">
+                      100%
                     </td>
                     <td className="py-2.5 px-3 text-right font-black text-sm text-blue-800 font-mono print:text-xs">
                       {overallSprScore}%

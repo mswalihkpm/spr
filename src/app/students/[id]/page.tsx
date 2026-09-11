@@ -468,8 +468,8 @@ export default function StudentProfilePage() {
                       <td className="py-3.5 px-4 text-right font-mono text-slate-300 text-xs">
                         Normalized
                       </td>
-                      <td className="py-3.5 px-4 text-right font-mono text-slate-300 text-xs">
-                        Max: 155
+                      <td className="py-3.5 px-4 text-right font-mono text-base font-black text-white">
+                        100%
                       </td>
                       <td className="py-3.5 px-4 text-right font-mono text-base font-black text-gold-400">
                         {profileData.overallSPR}%

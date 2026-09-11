@@ -697,10 +697,10 @@ let homeAcademicMemory: any = null;
                 })()}
               </div>
 
-              {/* Joint Rank 1 Cohort Recognition Pill Bar (if >3 students share 1st rank) */}
+              {/* Joint Rank 1 Cohort Recognition Pill Bar */}
               {(() => {
                 const rank1Students = leaderboard.filter((s) => s.rank === 1);
-                if (rank1Students.length <= 3) return null;
+                if (rank1Students.length <= 1) return null;
                 return (
                   <div className="mt-4 p-3.5 bg-amber-50/90 border border-amber-200/90 rounded-2xl max-w-4xl mx-auto text-center shadow-xs animate-fade-in">
                     <div className="text-xs font-black text-amber-950 flex items-center justify-center space-x-1.5">

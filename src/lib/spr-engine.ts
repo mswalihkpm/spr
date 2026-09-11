@@ -954,7 +954,11 @@ export async function calculateAllLeaderboards(filters?: {
   });
 
   for (let i = 0; i < rankedEntries.length; i++) {
-    rankedEntries[i].rank = i + 1;
+    if (i > 0 && rankedEntries[i].spr === rankedEntries[i - 1].spr) {
+      rankedEntries[i].rank = rankedEntries[i - 1].rank;
+    } else {
+      rankedEntries[i].rank = i + 1;
+    }
   }
 
   const scoreCounts: Record<number, number> = {};

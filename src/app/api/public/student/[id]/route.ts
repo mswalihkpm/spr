@@ -41,9 +41,25 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const classEntries = allLeaderboard.filter((e) => e.className === profile.student.class.name);
     const schoolEntries = allLeaderboard.filter((e) => e.schoolName === profile.student.school.name);
 
-    const overallRank = allLeaderboard.findIndex((e) => e.studentId === studentId) + 1 || 1;
-    const classRank = classEntries.findIndex((e) => e.studentId === studentId) + 1 || 1;
-    const schoolRank = schoolEntries.findIndex((e) => e.studentId === studentId) + 1 || 1;
+    const overallEntry = allLeaderboard.find((e) => e.studentId === studentId);
+    const overallRank = overallEntry?.rank || 1;
+
+    const computeTiedRank = (list: any[], id: string) => {
+      const sorted = [...list].sort((a, b) => (b.spr || 0) - (a.spr || 0));
+      let currentRank = 1;
+      for (let i = 0; i < sorted.length; i++) {
+        if (i > 0 && (sorted[i].spr || 0) < (sorted[i - 1].spr || 0)) {
+          currentRank = i + 1;
+        }
+        if (sorted[i].studentId === id) {
+          return currentRank;
+        }
+      }
+      return 1;
+    };
+
+    const classRank = computeTiedRank(classEntries, studentId);
+    const schoolRank = computeTiedRank(schoolEntries, studentId);
 
     profile.rank = overallRank;
     profile.classRank = classRank;
