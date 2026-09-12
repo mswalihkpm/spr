@@ -236,12 +236,13 @@ async function handleUpdateWeights(req: NextRequest) {
     if (creativeForms && Array.isArray(creativeForms)) {
       for (let i = 0; i < creativeForms.length; i++) {
         const cf = creativeForms[i];
+        const numWeight = cf.weight !== undefined ? Number(cf.weight) : undefined;
         if (cf.id) {
           await prisma.creativeHubCategory.update({
             where: { id: cf.id },
             data: {
               name: cf.name ? cf.name.trim() : undefined,
-              weight: cf.weight !== undefined ? Number(cf.weight) : undefined,
+              weight: numWeight,
               displayOrder: cf.displayOrder !== undefined ? Number(cf.displayOrder) : i + 1,
               active: cf.active !== undefined ? cf.active : undefined,
             },
@@ -251,11 +252,33 @@ async function handleUpdateWeights(req: NextRequest) {
             data: {
               name: cf.name.trim(),
               code: cf.code.trim().toUpperCase(),
-              weight: Number(cf.weight) || 1.0,
+              weight: Number(cf.weight) || 10,
               displayOrder: cf.displayOrder !== undefined ? Number(cf.displayOrder) : i + 1,
               active: cf.active !== undefined ? cf.active : true,
             },
           });
+        }
+
+        // Sync corresponding SystemSetting key if matched
+        if (numWeight !== undefined && !isNaN(numWeight)) {
+          const keyUpper = (cf.code || cf.name || '').toUpperCase();
+          let settingKey: string | null = null;
+          if (keyUpper.includes('ARTICLE')) settingKey = 'CREATIVE_BASE_ARTICLE';
+          else if (keyUpper.includes('RESEARCH')) settingKey = 'CREATIVE_BASE_RESEARCH';
+          else if (keyUpper.includes('STORY')) settingKey = 'CREATIVE_BASE_STORY';
+          else if (keyUpper.includes('POEM')) settingKey = 'CREATIVE_BASE_POEM';
+          else if (keyUpper.includes('RESPONSE')) settingKey = 'CREATIVE_BASE_RESPONSE';
+          else if (keyUpper.includes('LETTER')) settingKey = 'CREATIVE_BASE_LETTER';
+          else if (keyUpper.includes('REVIEW')) settingKey = 'CREATIVE_BASE_REVIEW';
+          else if (keyUpper.includes('OTHER')) settingKey = 'CREATIVE_BASE_OTHERS';
+
+          if (settingKey) {
+            await prisma.systemSetting.upsert({
+              where: { key: settingKey },
+              update: { value: String(numWeight) },
+              create: { key: settingKey, value: String(numWeight) },
+            });
+          }
         }
       }
     }

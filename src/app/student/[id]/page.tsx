@@ -615,7 +615,7 @@ export default function PublicStudentScorecardPage() {
                   </div>
                 ) : (
                   (() => {
-                    const groups: { key: string; title: string; records: any[]; avgPct: number }[] = [];
+                    const groups: { key: string; title: string; records: any[]; assessmentPct: number; totObt: number; totMax: number }[] = [];
                     const map = new Map<string, any[]>();
 
                     activeRecords.forEach((r: any) => {
@@ -633,12 +633,10 @@ export default function PublicStudentScorecardPage() {
                     });
 
                     map.forEach((recs, title) => {
-                      const sum = recs.reduce((acc, curr) => {
-                        const p = typeof curr.percentage === 'number' ? curr.percentage : parseFloat(curr.percentage || '0');
-                        return acc + (isNaN(p) ? 0 : p);
-                      }, 0);
-                      const avgPct = recs.length > 0 ? sum / recs.length : 0;
-                      groups.push({ key: title, title, records: recs, avgPct });
+                      const totObt = recs.reduce((acc, curr) => acc + (Number(curr.obtainedScore) || 0), 0);
+                      const totMax = recs.reduce((acc, curr) => acc + (Number(curr.maxScore) || 100), 0);
+                      const assessmentPct = totMax > 0 ? (totObt / totMax) * 100 : 0;
+                      groups.push({ key: title, title, records: recs, assessmentPct, totObt, totMax });
                     });
 
                     return groups.map((group) => {
@@ -671,14 +669,14 @@ export default function PublicStudentScorecardPage() {
                             <div className="flex items-center space-x-2.5">
                               <span
                                 className={`px-2 py-0.5 rounded-md font-mono font-bold text-[11px] ${
-                                  group.avgPct >= 85
+                                  group.assessmentPct >= 85
                                     ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                    : group.avgPct >= 70
+                                    : group.assessmentPct >= 70
                                     ? 'bg-blue-50 text-blue-800 border border-blue-200'
                                     : 'bg-slate-100 text-slate-700'
                                 }`}
                               >
-                                {group.avgPct.toFixed(1)}% Avg
+                                {group.assessmentPct.toFixed(1)}%
                               </span>
                               <ChevronRight
                                 className={`w-4 h-4 text-slate-400 transition-transform duration-200 print:hidden ${

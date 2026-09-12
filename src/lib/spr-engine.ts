@@ -306,15 +306,35 @@ export async function calculateStudentSPR(
     if (cat.code === 'ISLAMIC') {
       if (categoryRecords.length > 0) {
         hasData = true;
+
+        // Group records by assessment/exam session
+        const examGroups = new Map<string, any[]>();
+        categoryRecords.forEach((r: any) => {
+          const key = r.examId || r.exam?.name || 'DEFAULT_EXAM';
+          if (!examGroups.has(key)) examGroups.set(key, []);
+          examGroups.get(key)!.push(r);
+        });
+
         let sumPoints = 0;
+        const examSummaries: string[] = [];
+
+        examGroups.forEach((recs) => {
+          const examName = recs[0]?.exam?.name || 'Islamic Studies Assessment';
+          const examActualMax = recs[0]?.exam?.maxScore || 100;
+          const totObt = recs.reduce((sum: number, r: any) => sum + (r.obtainedScore || 0), 0);
+          const totMax = recs.reduce((sum: number, r: any) => sum + (r.maxScore || r.subject?.maxScore || 100), 0);
+          const assessmentPct = totMax > 0 ? (totObt / totMax) * 100 : 0;
+          const examScaledScore = Number(((assessmentPct / 100) * examActualMax).toFixed(2));
+          sumPoints += examScaledScore;
+          examSummaries.push(
+            `${examName}: ${assessmentPct.toFixed(2)}% (${totObt}/${totMax}) → ${examScaledScore}/${examActualMax}`
+          );
+        });
+
         itemizedRecords = categoryRecords.map((r: any) => {
           const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
-          const actualMax = r.exam?.maxScore || r.maxScore || 100;
-          const targetScore = r.exam?.targetScore || 100;
-          const recordPct = actualMax > 0 ? Number(((r.obtainedScore / actualMax) * targetScore).toFixed(2)) : (r.percentage || 0);
-          const baseScore = r.obtainedScore || 0;
-          const pts = Number((baseScore * mult).toFixed(2));
-          sumPoints += pts;
+          const subjectMax = r.maxScore || r.subject?.maxScore || 100;
+          const recordPct = subjectMax > 0 ? Number(((r.obtainedScore / subjectMax) * 100).toFixed(2)) : (r.percentage || 0);
 
           return {
             id: r.id,
@@ -329,7 +349,7 @@ export async function calculateStudentSPR(
             obtainedScore: r.obtainedScore,
             maxScore: r.maxScore,
             percentage: recordPct,
-            earnedPoints: pts,
+            earnedPoints: r.obtainedScore,
             multiplier: mult,
             remarks: r.remarks,
             date: r.date ? r.date.toISOString() : null,
@@ -339,7 +359,7 @@ export async function calculateStudentSPR(
         const catWeight = resolveCategoryWeight(cat);
         earnedPoints = Number((sumPoints * catWeight).toFixed(2));
         rawInput = `${formatPoints(earnedPoints)} pts`;
-        formula = `${categoryRecords.length} assessment(s) = +${formatPoints(earnedPoints)} SPR Points`;
+        formula = `${examSummaries.join('; ')} = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
         formula = `No Islamic Studies assessments logged (+0 SPR Points)`;
       }
@@ -350,7 +370,7 @@ export async function calculateStudentSPR(
       if (categoryRecords.length > 0) {
         hasData = true;
 
-        // Group records by exam session to compute % of total marks and convert to standardized scale
+        // Group records by assessment/exam session
         const examGroups = new Map<string, any[]>();
         categoryRecords.forEach((r: any) => {
           const key = r.examId || r.exam?.name || 'DEFAULT_EXAM';
@@ -363,23 +383,21 @@ export async function calculateStudentSPR(
 
         examGroups.forEach((recs) => {
           const examName = recs[0]?.exam?.name || 'School Examination';
-          const examMaxScale = recs[0]?.exam?.maxScore || 130;
+          const examActualMax = recs[0]?.exam?.maxScore || 130;
           const totObt = recs.reduce((sum: number, r: any) => sum + (r.obtainedScore || 0), 0);
-          const totMax = recs.reduce((sum: number, r: any) => sum + (r.exam?.maxScore || r.maxScore || 100), 0);
-          const pct = totMax > 0 ? (totObt / totMax) * 100 : 0;
-          const examScaledScore = Number(((pct / 100) * examMaxScale).toFixed(2));
+          const totMax = recs.reduce((sum: number, r: any) => sum + (r.maxScore || r.subject?.maxScore || 100), 0);
+          const assessmentPct = totMax > 0 ? (totObt / totMax) * 100 : 0;
+          const examScaledScore = Number(((assessmentPct / 100) * examActualMax).toFixed(2));
           sumPoints += examScaledScore;
           examSummaries.push(
-            `${examName}: ${pct.toFixed(1)}%`
+            `${examName}: ${assessmentPct.toFixed(2)}% (${totObt}/${totMax}) → ${examScaledScore}/${examActualMax}`
           );
         });
 
         itemizedRecords = categoryRecords.map((r: any) => {
           const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
-          const actualMax = r.exam?.maxScore || r.maxScore || 100;
-          const targetScore = r.exam?.targetScore || 100;
-          const recordPct = actualMax > 0 ? Number(((r.obtainedScore / actualMax) * targetScore).toFixed(2)) : (r.percentage || 0);
-          const scaledPts = Number(((recordPct / 100) * (r.exam?.maxScore || 130)).toFixed(2));
+          const subjectMax = r.maxScore || r.subject?.maxScore || 100;
+          const recordPct = subjectMax > 0 ? Number(((r.obtainedScore / subjectMax) * 100).toFixed(2)) : (r.percentage || 0);
 
           return {
             id: r.id,
@@ -394,7 +412,7 @@ export async function calculateStudentSPR(
             obtainedScore: r.obtainedScore,
             maxScore: r.maxScore,
             percentage: recordPct,
-            earnedPoints: scaledPts,
+            earnedPoints: r.obtainedScore,
             multiplier: mult,
             remarks: r.remarks,
             date: r.date ? r.date.toISOString() : null,
@@ -1046,7 +1064,7 @@ export async function calculateAllLeaderboards(filters?: {
           const baseScore = prizeBase > 0 ? prizeBase : (r.obtainedScore || 0);
           catEarned += (baseScore * prizeMult * mult);
         });
-      } else if (cat.code === 'SCHOOL') {
+      } else if (cat.code === 'SCHOOL' || cat.code === 'ISLAMIC') {
         const records = student.performanceRecords.filter((r) => r.categoryId === cat.id);
         if (records.length > 0) {
           const examGroups = new Map<string, any[]>();
@@ -1057,11 +1075,11 @@ export async function calculateAllLeaderboards(filters?: {
           });
           let catSum = 0;
           examGroups.forEach((recs) => {
-            const examMaxScale = recs[0]?.exam?.maxScore || 130;
+            const examActualMax = recs[0]?.exam?.maxScore || (cat.code === 'SCHOOL' ? 130 : 100);
             const totObt = recs.reduce((sum: number, r: any) => sum + (r.obtainedScore || 0), 0);
-            const totMax = recs.reduce((sum: number, r: any) => sum + (r.exam?.maxScore || r.maxScore || 100), 0);
+            const totMax = recs.reduce((sum: number, r: any) => sum + (r.maxScore || r.subject?.maxScore || 100), 0);
             const pct = totMax > 0 ? (totObt / totMax) * 100 : 0;
-            catSum += ((pct / 100) * examMaxScale);
+            catSum += ((pct / 100) * examActualMax);
           });
           catEarned = Number(catSum.toFixed(2));
         }

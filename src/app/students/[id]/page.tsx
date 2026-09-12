@@ -686,8 +686,9 @@ export default function StudentProfilePage() {
               return (
                 <div className="space-y-3">
                   {Array.from(groupsMap.entries()).map(([examTitle, recs]) => {
-                    const totalPcts = recs.reduce((acc, curr) => acc + (Number(curr.percentage) || 0), 0);
-                    const avgPct = recs.length > 0 ? totalPcts / recs.length : 0;
+                    const totObt = recs.reduce((acc, curr) => acc + (Number(curr.obtainedScore) || 0), 0);
+                    const totMax = recs.reduce((acc, curr) => acc + (Number(curr.maxScore) || 100), 0);
+                    const assessmentPct = totMax > 0 ? (totObt / totMax) * 100 : 0;
 
                     return (
                       <div key={examTitle} className="rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
@@ -698,7 +699,7 @@ export default function StudentProfilePage() {
                             <span className="text-[10px] text-slate-500 font-medium">({recs.length} subjects)</span>
                           </div>
                           <span className="px-2 py-0.5 rounded text-[11px] font-bold font-mono bg-blue-50 text-blue-800 border border-blue-200">
-                            {avgPct.toFixed(1)}% Avg
+                            {assessmentPct.toFixed(1)}%
                           </span>
                         </div>
 

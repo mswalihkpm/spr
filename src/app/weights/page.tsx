@@ -43,31 +43,29 @@ export default function WeightsPage() {
   const [publishedMedia, setPublishedMedia] = useState<any[]>([]);
   const [missingDataRule, setMissingDataRule] = useState<string>('IGNORE_NORMALIZE');
 
-  // Prize Base Scores & Creative Base Settings
-  const [prizeScore1st, setPrizeScore1st] = useState<number>(100);
-  const [prizeScore2nd, setPrizeScore2nd] = useState<number>(75);
-  const [prizeScore3rd, setPrizeScore3rd] = useState<number>(50);
-  const [creativeBaseArticle, setCreativeBaseArticle] = useState<number>(50);
-  const [creativeBaseResearch, setCreativeBaseResearch] = useState<number>(100);
-  const [creativeBaseStory, setCreativeBaseStory] = useState<number>(75);
-  const [creativeBasePoem, setCreativeBasePoem] = useState<number>(50);
-  const [creativeBaseResponse, setCreativeBaseResponse] = useState<number>(40);
-  const [creativeBaseLetter, setCreativeBaseLetter] = useState<number>(30);
-  const [creativeBaseReview, setCreativeBaseReview] = useState<number>(50);
-  const [creativeBaseOthers, setCreativeBaseOthers] = useState<number>(30);
+  // Prize Base Scores
+  const [prizeScore1st, setPrizeScore1st] = useState<number | string>(100);
+  const [prizeScore2nd, setPrizeScore2nd] = useState<number | string>(75);
+  const [prizeScore3rd, setPrizeScore3rd] = useState<number | string>(50);
 
   // New Level Modal
   const [newLevelModalOpen, setNewLevelModalOpen] = useState(false);
   const [newLevelName, setNewLevelName] = useState('');
   const [newLevelCode, setNewLevelCode] = useState('');
-  const [newLevelMultiplier, setNewLevelMultiplier] = useState<number>(1.0);
+  const [newLevelMultiplier, setNewLevelMultiplier] = useState<number | string>(1.0);
+
+  // New Creative Form Modal
+  const [newCreativeFormModalOpen, setNewCreativeFormModalOpen] = useState(false);
+  const [newFormName, setNewFormName] = useState('');
+  const [newFormCode, setNewFormCode] = useState('');
+  const [newFormPoints, setNewFormPoints] = useState<number | string>(10);
 
   // Interactive Scoring Calculator Sandbox State
-  const [calcBasePoints, setCalcBasePoints] = useState<number>(100);
-  const [calcMultiplier1, setCalcMultiplier1] = useState<number>(2.5);
-  const [calcMultiplier2, setCalcMultiplier2] = useState<number>(1.0);
-  const [calcSelectedPrize, setCalcSelectedPrize] = useState<number>(100);
-  const [calcSelectedLevelMult, setCalcSelectedLevelMult] = useState<number>(2.5);
+  const [calcBasePoints, setCalcBasePoints] = useState<number | string>(100);
+  const [calcMultiplier1, setCalcMultiplier1] = useState<number | string>(2.5);
+  const [calcMultiplier2, setCalcMultiplier2] = useState<number | string>(1.0);
+  const [calcSelectedPrize, setCalcSelectedPrize] = useState<number | string>(100);
+  const [calcSelectedLevelMult, setCalcSelectedLevelMult] = useState<number | string>(2.5);
 
   // Live Student Preview State
   const [studentsList, setStudentsList] = useState<any[]>([]);
@@ -98,17 +96,9 @@ export default function WeightsPage() {
       if (data.missingDataRule) setMissingDataRule(data.missingDataRule);
 
       if (data.settings) {
-        if (data.settings.prizeScore1st) setPrizeScore1st(parseFloat(data.settings.prizeScore1st) || 100);
-        if (data.settings.prizeScore2nd) setPrizeScore2nd(parseFloat(data.settings.prizeScore2nd) || 75);
-        if (data.settings.prizeScore3rd) setPrizeScore3rd(parseFloat(data.settings.prizeScore3rd) || 50);
-        if (data.settings.creativeBaseArticle) setCreativeBaseArticle(parseFloat(data.settings.creativeBaseArticle) || 50);
-        if (data.settings.creativeBaseResearch) setCreativeBaseResearch(parseFloat(data.settings.creativeBaseResearch) || 100);
-        if (data.settings.creativeBaseStory) setCreativeBaseStory(parseFloat(data.settings.creativeBaseStory) || 75);
-        if (data.settings.creativeBasePoem) setCreativeBasePoem(parseFloat(data.settings.creativeBasePoem) || 50);
-        if (data.settings.creativeBaseResponse) setCreativeBaseResponse(parseFloat(data.settings.creativeBaseResponse) || 40);
-        if (data.settings.creativeBaseLetter) setCreativeBaseLetter(parseFloat(data.settings.creativeBaseLetter) || 30);
-        if (data.settings.creativeBaseReview) setCreativeBaseReview(parseFloat(data.settings.creativeBaseReview) || 50);
-        if (data.settings.creativeBaseOthers) setCreativeBaseOthers(parseFloat(data.settings.creativeBaseOthers) || 30);
+        if (data.settings.prizeScore1st !== undefined) setPrizeScore1st(data.settings.prizeScore1st);
+        if (data.settings.prizeScore2nd !== undefined) setPrizeScore2nd(data.settings.prizeScore2nd);
+        if (data.settings.prizeScore3rd !== undefined) setPrizeScore3rd(data.settings.prizeScore3rd);
       }
     } catch (err: any) {
       console.error(err);
@@ -153,9 +143,9 @@ export default function WeightsPage() {
       .finally(() => setLoadingPreview(false));
   }, [selectedStudentId]);
 
-  const handleCategoryMultiplierChange = (categoryId: string, val: number) => {
+  const handleCategoryMultiplierChange = (categoryId: string, val: string | number) => {
     setWeights((prev) =>
-      prev.map((w) => (w.categoryId === categoryId ? { ...w, weight: Math.max(0.1, val) } : w))
+      prev.map((w) => (w.categoryId === categoryId ? { ...w, weight: val } : w))
     );
   };
 
@@ -177,9 +167,9 @@ export default function WeightsPage() {
     });
   };
 
-  const handleLevelMultiplierChange = (levelId: string, val: number) => {
+  const handleLevelMultiplierChange = (levelId: string, val: string | number) => {
     setLevels((prev) =>
-      prev.map((l) => (l.id === levelId ? { ...l, weightMultiplier: Math.max(0.1, val) } : l))
+      prev.map((l) => (l.id === levelId ? { ...l, weightMultiplier: val } : l))
     );
   };
 
@@ -217,7 +207,7 @@ export default function WeightsPage() {
     const newLvl = {
       name: newLevelName.trim(),
       code,
-      weightMultiplier: Number(newLevelMultiplier) || 1.0,
+      weightMultiplier: typeof newLevelMultiplier === 'string' ? parseFloat(newLevelMultiplier) || 1.0 : Number(newLevelMultiplier) || 1.0,
       displayOrder: levels.length + 1,
       active: true,
     };
@@ -229,9 +219,9 @@ export default function WeightsPage() {
     setNewLevelModalOpen(false);
   };
 
-  const handleCreativeFormMultiplierChange = (formId: string, val: number) => {
+  const handleCreativeFormMultiplierChange = (formId: string, val: string | number) => {
     setCreativeForms((prev) =>
-      prev.map((cf) => (cf.id === formId ? { ...cf, weight: Math.max(0.1, val) } : cf))
+      prev.map((cf) => (cf.id === formId ? { ...cf, weight: val } : cf))
     );
   };
 
@@ -252,9 +242,32 @@ export default function WeightsPage() {
     });
   };
 
-  const handleMediaMultiplierChange = (mediaId: string, val: number) => {
+  const handleCreateCreativeForm = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newFormName.trim()) return;
+
+    const code =
+      newFormCode.trim().toUpperCase().replace(/[^A-Z0-9]/g, '_') ||
+      newFormName.trim().toUpperCase().replace(/[^A-Z0-9]/g, '_');
+
+    const newForm = {
+      name: newFormName.trim(),
+      code,
+      weight: typeof newFormPoints === 'string' ? parseFloat(newFormPoints) || 10 : Number(newFormPoints) || 10,
+      displayOrder: creativeForms.length + 1,
+      active: true,
+    };
+
+    setCreativeForms((prev) => [...prev, newForm]);
+    setNewFormName('');
+    setNewFormCode('');
+    setNewFormPoints(10);
+    setNewCreativeFormModalOpen(false);
+  };
+
+  const handleMediaMultiplierChange = (mediaId: string, val: string | number) => {
     setPublishedMedia((prev) =>
-      prev.map((pm) => (pm.id === mediaId ? { ...pm, weight: Math.max(0.1, val) } : pm))
+      prev.map((pm) => (pm.id === mediaId ? { ...pm, weight: val } : pm))
     );
   };
 
@@ -290,27 +303,43 @@ export default function WeightsPage() {
     setSaving(true);
 
     try {
+      const sanitizedWeights = weights.map((w) => ({
+        ...w,
+        weight: typeof w.weight === 'string' ? parseFloat(w.weight) || 1.0 : Number(w.weight) || 1.0,
+      }));
+
+      const sanitizedLevels = levels.map((l) => ({
+        ...l,
+        weightMultiplier: typeof l.weightMultiplier === 'string' ? parseFloat(l.weightMultiplier) || 1.0 : Number(l.weightMultiplier) || 1.0,
+      }));
+
+      const sanitizedCreativeForms = creativeForms.map((cf) => ({
+        ...cf,
+        weight: typeof cf.weight === 'string' ? parseFloat(cf.weight) || 0 : Number(cf.weight) || 0,
+      }));
+
+      const sanitizedPublishedMedia = publishedMedia.map((pm) => ({
+        ...pm,
+        weight: typeof pm.weight === 'string' ? parseFloat(pm.weight) || 1.0 : Number(pm.weight) || 1.0,
+      }));
+
+      const p1 = typeof prizeScore1st === 'string' ? parseFloat(prizeScore1st) || 100 : Number(prizeScore1st) || 100;
+      const p2 = typeof prizeScore2nd === 'string' ? parseFloat(prizeScore2nd) || 75 : Number(prizeScore2nd) || 75;
+      const p3 = typeof prizeScore3rd === 'string' ? parseFloat(prizeScore3rd) || 50 : Number(prizeScore3rd) || 50;
+
       const res = await fetch('/api/weights', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          weights,
-          levels,
+          weights: sanitizedWeights,
+          levels: sanitizedLevels,
           subcategories,
-          creativeForms,
-          publishedMedia,
+          creativeForms: sanitizedCreativeForms,
+          publishedMedia: sanitizedPublishedMedia,
           missingDataRule,
-          prizeScore1st,
-          prizeScore2nd,
-          prizeScore3rd,
-          creativeBaseArticle,
-          creativeBaseResearch,
-          creativeBaseStory,
-          creativeBasePoem,
-          creativeBaseResponse,
-          creativeBaseLetter,
-          creativeBaseReview,
-          creativeBaseOthers,
+          prizeScore1st: p1,
+          prizeScore2nd: p2,
+          prizeScore3rd: p3,
         }),
       });
 
@@ -344,8 +373,14 @@ export default function WeightsPage() {
       s.sprStudentId?.toLowerCase().includes(previewSearch.toLowerCase())
   );
 
-  const calcDirectPoints = Number((calcBasePoints * calcMultiplier1 * calcMultiplier2).toFixed(2));
-  const calcCompetitionPoints = Number((calcSelectedPrize * calcSelectedLevelMult).toFixed(2));
+  const numBase = typeof calcBasePoints === 'string' ? parseFloat(calcBasePoints) || 0 : Number(calcBasePoints) || 0;
+  const numM1 = typeof calcMultiplier1 === 'string' ? parseFloat(calcMultiplier1) || 1 : Number(calcMultiplier1) || 1;
+  const numM2 = typeof calcMultiplier2 === 'string' ? parseFloat(calcMultiplier2) || 1 : Number(calcMultiplier2) || 1;
+  const numPrize = typeof calcSelectedPrize === 'string' ? parseFloat(calcSelectedPrize) || 100 : Number(calcSelectedPrize) || 100;
+  const numLevelMult = typeof calcSelectedLevelMult === 'string' ? parseFloat(calcSelectedLevelMult) || 1 : Number(calcSelectedLevelMult) || 1;
+
+  const calcDirectPoints = Number((numBase * numM1 * numM2).toFixed(2));
+  const calcCompetitionPoints = Number((numPrize * numLevelMult).toFixed(2));
 
   if (loading) {
     return (
@@ -376,7 +411,7 @@ export default function WeightsPage() {
               <span>SPR Scoring Settings &amp; Points Matrix</span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Configure Category Base Points, Level Multipliers, Prize Points, and Custom X Multipliers without editing code.
+              Configure Category Multipliers, Creative Hub Fixed Points, Level Multipliers, and Competition Base Points without editing code.
             </p>
           </div>
 
@@ -460,9 +495,10 @@ export default function WeightsPage() {
                   <label className="text-[10px] font-bold text-slate-500 block mb-1">Base Points</label>
                   <input
                     type="number"
-                    min="1"
+                    min="0"
+                    step="any"
                     value={calcBasePoints}
-                    onChange={(e) => setCalcBasePoints(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => setCalcBasePoints(e.target.value)}
                     className="w-full px-2.5 py-1.5 text-center font-mono font-bold text-xs bg-white border border-slate-300 rounded-xl"
                   />
                 </div>
@@ -470,10 +506,10 @@ export default function WeightsPage() {
                   <label className="text-[10px] font-bold text-slate-500 block mb-1">Multiplier 1</label>
                   <input
                     type="number"
-                    step="0.05"
-                    min="0.1"
+                    step="any"
+                    min="0"
                     value={calcMultiplier1}
-                    onChange={(e) => setCalcMultiplier1(parseFloat(e.target.value) || 1)}
+                    onChange={(e) => setCalcMultiplier1(e.target.value)}
                     className="w-full px-2.5 py-1.5 text-center font-mono font-bold text-xs bg-white border border-slate-300 rounded-xl"
                   />
                 </div>
@@ -481,10 +517,10 @@ export default function WeightsPage() {
                   <label className="text-[10px] font-bold text-slate-500 block mb-1">Multiplier 2</label>
                   <input
                     type="number"
-                    step="0.05"
-                    min="0.1"
+                    step="any"
+                    min="0"
                     value={calcMultiplier2}
-                    onChange={(e) => setCalcMultiplier2(parseFloat(e.target.value) || 1)}
+                    onChange={(e) => setCalcMultiplier2(e.target.value)}
                     className="w-full px-2.5 py-1.5 text-center font-mono font-bold text-xs bg-white border border-slate-300 rounded-xl"
                   />
                 </div>
@@ -492,7 +528,7 @@ export default function WeightsPage() {
 
               <div className="p-3 bg-indigo-50/80 rounded-xl border border-indigo-200 flex items-center justify-between">
                 <span className="text-xs font-mono font-bold text-indigo-950">
-                  {calcBasePoints} × {calcMultiplier1}× {calcMultiplier2 !== 1 ? `× ${calcMultiplier2}×` : ''}
+                  {calcBasePoints} × {calcMultiplier1}× {String(calcMultiplier2) !== '1' ? `× ${calcMultiplier2}×` : ''}
                 </span>
                 <span className="text-sm font-mono font-black text-indigo-900 bg-white px-2.5 py-1 rounded-lg border border-indigo-300 shadow-2xs">
                   = {formatPoints(calcDirectPoints)} SPR Points
@@ -513,11 +549,11 @@ export default function WeightsPage() {
                   <label className="text-[10px] font-bold text-slate-600 block mb-1">Prize Multiplier</label>
                   <CustomSelect
                     value={calcSelectedPrize}
-                    onChange={(val) => setCalcSelectedPrize(parseFloat(val))}
+                    onChange={(val) => setCalcSelectedPrize(val)}
                     options={[
-                      { value: prizeScore1st, label: `🥇 1st Prize (2x / ${prizeScore1st} pts)`, badge: '2x' },
-                      { value: prizeScore2nd, label: `🥈 2nd Prize (1.5x / ${prizeScore2nd} pts)`, badge: '1.5x' },
-                      { value: prizeScore3rd, label: `🥉 3rd Prize (1x / ${prizeScore3rd} pts)`, badge: '1x' },
+                      { value: prizeScore1st, label: `🥇 1st Prize (${prizeScore1st} pts)`, badge: '1st' },
+                      { value: prizeScore2nd, label: `🥈 2nd Prize (${prizeScore2nd} pts)`, badge: '2nd' },
+                      { value: prizeScore3rd, label: `🥉 3rd Prize (${prizeScore3rd} pts)`, badge: '3rd' },
                     ]}
                   />
                 </div>
@@ -525,7 +561,7 @@ export default function WeightsPage() {
                   <label className="text-[10px] font-bold text-slate-600 block mb-1">Level Multiplier</label>
                   <CustomSelect
                     value={calcSelectedLevelMult}
-                    onChange={(val) => setCalcSelectedLevelMult(parseFloat(val))}
+                    onChange={(val) => setCalcSelectedLevelMult(val)}
                     options={levels.map((l) => ({
                       value: l.weightMultiplier,
                       label: `${l.name} (${l.weightMultiplier}×)`,
@@ -566,7 +602,6 @@ export default function WeightsPage() {
 
           <div className="space-y-2.5">
             {weights.map((w, index) => {
-              const multNum = parseFloat(w.weight) || 1.0;
               return (
                 <div
                   key={w.categoryId || w.code}
@@ -626,11 +661,11 @@ export default function WeightsPage() {
                       <span className="text-[11px] font-bold text-slate-500">Category Multiplier:</span>
                       <input
                         type="number"
-                        min="0.1"
-                        step="0.05"
-                        value={w.weight}
-                        onChange={(e) => handleCategoryMultiplierChange(w.categoryId, parseFloat(e.target.value) || 1)}
-                        className="w-16 px-2 py-1 text-center font-mono font-black text-xs bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+                        min="0"
+                        step="any"
+                        value={w.weight ?? ''}
+                        onChange={(e) => handleCategoryMultiplierChange(w.categoryId, e.target.value)}
+                        className="w-20 px-2.5 py-1 text-center font-mono font-black text-xs bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       />
                       <span className="text-xs font-bold text-slate-600">×</span>
                     </div>
@@ -641,165 +676,77 @@ export default function WeightsPage() {
           </div>
         </div>
 
-        {/* 2. PRIZE BASE POINTS & CREATIVE HUB BASE POINTS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Prize Base Points */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
-            <div className="flex items-center space-x-2 pb-3 border-b border-slate-100">
-              <Trophy className="w-5 h-5 text-amber-600" />
-              <div>
-                <h3 className="text-sm font-black text-slate-900">Competition Prize Base Points</h3>
-                <p className="text-[11px] text-slate-500">Base points for 1st, 2nd, and 3rd prize achievements</p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="p-3.5 bg-amber-50/50 rounded-2xl border border-amber-200 flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <span className="text-base">🥇</span>
-                  <span className="text-xs font-bold text-slate-900">1st Prize Base Points</span>
-                </div>
-                <div className="flex items-center space-x-1.5">
-                  <input
-                    type="number"
-                    min="1"
-                    value={prizeScore1st}
-                    onChange={(e) => setPrizeScore1st(parseFloat(e.target.value) || 0)}
-                    className="w-20 px-2.5 py-1 text-center font-mono font-black text-xs bg-white border border-amber-300 rounded-xl"
-                  />
-                  <span className="text-[11px] font-semibold text-slate-500">pts</span>
-                </div>
-              </div>
-
-              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <span className="text-base">🥈</span>
-                  <span className="text-xs font-bold text-slate-900">2nd Prize Base Points</span>
-                </div>
-                <div className="flex items-center space-x-1.5">
-                  <input
-                    type="number"
-                    min="1"
-                    value={prizeScore2nd}
-                    onChange={(e) => setPrizeScore2nd(parseFloat(e.target.value) || 0)}
-                    className="w-20 px-2.5 py-1 text-center font-mono font-black text-xs bg-white border border-amber-300 rounded-xl"
-                  />
-                  <span className="text-[11px] font-semibold text-slate-500">pts</span>
-                </div>
-              </div>
-
-              <div className="p-3.5 bg-amber-50/30 rounded-2xl border border-amber-100 flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <span className="text-base">🥉</span>
-                  <span className="text-xs font-bold text-slate-900">3rd Prize Base Points</span>
-                </div>
-                <div className="flex items-center space-x-1.5">
-                  <input
-                    type="number"
-                    min="1"
-                    value={prizeScore3rd}
-                    onChange={(e) => setPrizeScore3rd(parseFloat(e.target.value) || 0)}
-                    className="w-20 px-2.5 py-1 text-center font-mono font-black text-xs bg-white border border-amber-300 rounded-xl"
-                  />
-                  <span className="text-[11px] font-semibold text-slate-500">pts</span>
-                </div>
-              </div>
+        {/* 2. PRIZE BASE POINTS & GENERAL SCORING RULES */}
+        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <div className="flex items-center space-x-2 pb-3 border-b border-slate-100">
+            <Trophy className="w-5 h-5 text-amber-600" />
+            <div>
+              <h3 className="text-sm font-black text-slate-900">Competition Prize Base Points</h3>
+              <p className="text-[11px] text-slate-500">Base points configured for 1st, 2nd, and 3rd prize achievements across Programmes and Competitions</p>
             </div>
           </div>
 
-          {/* Creative Hub Base Points */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
-            <div className="flex items-center space-x-2 pb-3 border-b border-slate-100">
-              <Sparkles className="w-5 h-5 text-purple-700" />
-              <div>
-                <h3 className="text-sm font-black text-slate-900">Creative Hub Base Points</h3>
-                <p className="text-[11px] text-slate-500">Points awarded per creative submission type</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="p-4 bg-amber-50/50 rounded-2xl border border-amber-200 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="text-xl">🥇</span>
+                <div>
+                  <span className="text-xs font-bold text-slate-900 block">1st Prize Base</span>
+                  <span className="text-[10px] text-slate-500 font-medium">Default points</span>
+                </div>
+              </div>
+              <div className="flex items-center space-x-1.5">
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={prizeScore1st ?? ''}
+                  onChange={(e) => setPrizeScore1st(e.target.value)}
+                  className="w-20 px-2.5 py-1 text-center font-mono font-black text-xs bg-white border border-amber-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                />
+                <span className="text-xs font-bold text-amber-900">pts</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5 text-xs">
-              <div className="p-2.5 bg-purple-50/40 rounded-xl border border-purple-200 flex items-center justify-between">
-                <span className="font-bold text-slate-900">Article</span>
-                <div className="flex items-center space-x-1">
-                  <input
-                    type="number"
-                    min="1"
-                    value={creativeBaseArticle}
-                    onChange={(e) => setCreativeBaseArticle(parseFloat(e.target.value) || 0)}
-                    className="w-14 px-1.5 py-0.5 text-center font-mono font-bold text-xs bg-white border border-purple-300 rounded-lg"
-                  />
-                  <span className="text-[10px] text-slate-500">pts</span>
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="text-xl">🥈</span>
+                <div>
+                  <span className="text-xs font-bold text-slate-900 block">2nd Prize Base</span>
+                  <span className="text-[10px] text-slate-500 font-medium">Default points</span>
                 </div>
               </div>
+              <div className="flex items-center space-x-1.5">
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={prizeScore2nd ?? ''}
+                  onChange={(e) => setPrizeScore2nd(e.target.value)}
+                  className="w-20 px-2.5 py-1 text-center font-mono font-black text-xs bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-400 focus:outline-none"
+                />
+                <span className="text-xs font-bold text-slate-700">pts</span>
+              </div>
+            </div>
 
-              <div className="p-2.5 bg-purple-50/40 rounded-xl border border-purple-200 flex items-center justify-between">
-                <span className="font-bold text-slate-900">Research Paper</span>
-                <div className="flex items-center space-x-1">
-                  <input
-                    type="number"
-                    min="1"
-                    value={creativeBaseResearch}
-                    onChange={(e) => setCreativeBaseResearch(parseFloat(e.target.value) || 0)}
-                    className="w-14 px-1.5 py-0.5 text-center font-mono font-bold text-xs bg-white border border-purple-300 rounded-lg"
-                  />
-                  <span className="text-[10px] text-slate-500">pts</span>
+            <div className="p-4 bg-amber-50/30 rounded-2xl border border-amber-100 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="text-xl">🥉</span>
+                <div>
+                  <span className="text-xs font-bold text-slate-900 block">3rd Prize Base</span>
+                  <span className="text-[10px] text-slate-500 font-medium">Default points</span>
                 </div>
               </div>
-
-              <div className="p-2.5 bg-purple-50/40 rounded-xl border border-purple-200 flex items-center justify-between">
-                <span className="font-bold text-slate-900">Story</span>
-                <div className="flex items-center space-x-1">
-                  <input
-                    type="number"
-                    min="1"
-                    value={creativeBaseStory}
-                    onChange={(e) => setCreativeBaseStory(parseFloat(e.target.value) || 0)}
-                    className="w-14 px-1.5 py-0.5 text-center font-mono font-bold text-xs bg-white border border-purple-300 rounded-lg"
-                  />
-                  <span className="text-[10px] text-slate-500">pts</span>
-                </div>
-              </div>
-
-              <div className="p-2.5 bg-purple-50/40 rounded-xl border border-purple-200 flex items-center justify-between">
-                <span className="font-bold text-slate-900">Poem</span>
-                <div className="flex items-center space-x-1">
-                  <input
-                    type="number"
-                    min="1"
-                    value={creativeBasePoem}
-                    onChange={(e) => setCreativeBasePoem(parseFloat(e.target.value) || 0)}
-                    className="w-14 px-1.5 py-0.5 text-center font-mono font-bold text-xs bg-white border border-purple-300 rounded-lg"
-                  />
-                  <span className="text-[10px] text-slate-500">pts</span>
-                </div>
-              </div>
-
-              <div className="p-2.5 bg-purple-50/40 rounded-xl border border-purple-200 flex items-center justify-between">
-                <span className="font-bold text-slate-900">Book Review</span>
-                <div className="flex items-center space-x-1">
-                  <input
-                    type="number"
-                    min="1"
-                    value={creativeBaseReview}
-                    onChange={(e) => setCreativeBaseReview(parseFloat(e.target.value) || 0)}
-                    className="w-14 px-1.5 py-0.5 text-center font-mono font-bold text-xs bg-white border border-purple-300 rounded-lg"
-                  />
-                  <span className="text-[10px] text-slate-500">pts</span>
-                </div>
-              </div>
-
-              <div className="p-2.5 bg-purple-50/40 rounded-xl border border-purple-200 flex items-center justify-between">
-                <span className="font-bold text-slate-900">Response</span>
-                <div className="flex items-center space-x-1">
-                  <input
-                    type="number"
-                    min="1"
-                    value={creativeBaseResponse}
-                    onChange={(e) => setCreativeBaseResponse(parseFloat(e.target.value) || 0)}
-                    className="w-14 px-1.5 py-0.5 text-center font-mono font-bold text-xs bg-white border border-purple-300 rounded-lg"
-                  />
-                  <span className="text-[10px] text-slate-500">pts</span>
-                </div>
+              <div className="flex items-center space-x-1.5">
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={prizeScore3rd ?? ''}
+                  onChange={(e) => setPrizeScore3rd(e.target.value)}
+                  className="w-20 px-2.5 py-1 text-center font-mono font-black text-xs bg-white border border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:outline-none"
+                />
+                <span className="text-xs font-bold text-amber-900">pts</span>
               </div>
             </div>
           </div>
@@ -841,23 +788,31 @@ export default function WeightsPage() {
                     <span className="text-[10px] font-mono font-bold text-slate-400">#{idx + 1}</span>
                     <span className="text-xs font-black text-slate-900">{lvl.name}</span>
                   </div>
-                  <span className="text-xs font-black text-amber-950 bg-white px-2 py-0.5 rounded-lg border border-amber-300 font-mono">
-                    {Number(lvl.weightMultiplier).toFixed(2)}×
-                  </span>
+                  <div className="flex items-center space-x-1">
+                    <input
+                      type="number"
+                      step="any"
+                      min="0.1"
+                      value={lvl.weightMultiplier ?? ''}
+                      onChange={(e) => handleLevelMultiplierChange(lvl.id, e.target.value)}
+                      className="w-16 px-1.5 py-0.5 text-center font-mono font-black text-xs bg-white border border-amber-300 rounded-lg focus:ring-1 focus:ring-amber-500 focus:outline-none"
+                    />
+                    <span className="text-xs font-bold text-amber-900">×</span>
+                  </div>
                 </div>
 
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-[10px] font-bold text-slate-500">
-                    <span>Multiplier</span>
-                    <span className="font-mono">×{Number(lvl.weightMultiplier).toFixed(2)}</span>
+                    <span>Slider Adjust</span>
+                    <span className="font-mono">×{Number(lvl.weightMultiplier || 1).toFixed(2)}</span>
                   </div>
                   <input
                     type="range"
                     min="0.5"
                     max="10.0"
                     step="0.05"
-                    value={lvl.weightMultiplier}
-                    onChange={(e) => handleLevelMultiplierChange(lvl.id, parseFloat(e.target.value))}
+                    value={Number(lvl.weightMultiplier) || 1}
+                    onChange={(e) => handleLevelMultiplierChange(lvl.id, parseFloat(e.target.value) || 1)}
                     className="w-full accent-amber-600 cursor-pointer"
                   />
                 </div>
@@ -899,23 +854,33 @@ export default function WeightsPage() {
           </div>
         </div>
 
-        {/* 4. CREATIVE HUB WINGS & PUBLISHED MEDIA */}
+        {/* 4. CREATIVE HUB FIXED POINTS & PUBLISHED MEDIA */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Creative Forms */}
+          {/* Creative Forms - FIXED POINTS */}
           <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
-            <div className="flex items-center space-x-2 pb-3 border-b border-slate-100">
-              <Sparkles className="w-5 h-5 text-purple-700" />
-              <div>
-                <h3 className="text-sm font-black text-slate-900">Creative Hub Multipliers</h3>
-                <p className="text-[11px] text-slate-500">Multipliers applied to creative submissions</p>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center space-x-2">
+                <Sparkles className="w-5 h-5 text-purple-700" />
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">Creative Hub Fixed Points</h3>
+                  <p className="text-[11px] text-slate-500">Fixed base points awarded per creative submission (e.g. Article, Story, Poem, etc.)</p>
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setNewCreativeFormModalOpen(true)}
+                className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-300 rounded-xl text-xs font-bold flex items-center space-x-1 cursor-pointer"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Add Form</span>
+              </button>
             </div>
 
             <div className="space-y-2">
               {creativeForms.map((cf, idx) => (
                 <div
                   key={cf.id || cf.code}
-                  className="p-2.5 bg-purple-50/40 rounded-2xl border border-purple-200 flex items-center justify-between"
+                  className="p-2.5 bg-purple-50/40 rounded-2xl border border-purple-200 flex items-center justify-between hover:bg-purple-50/70 transition"
                 >
                   <div className="flex items-center space-x-2">
                     <span className="text-[10px] font-mono font-bold text-slate-400 w-5">#{idx + 1}</span>
@@ -929,6 +894,7 @@ export default function WeightsPage() {
                         onClick={() => moveCreativeFormOrder(idx, 'UP')}
                         disabled={idx === 0}
                         className="p-1 hover:bg-purple-100 rounded text-slate-600 disabled:opacity-20 cursor-pointer"
+                        title="Move Priority Up"
                       >
                         <ArrowUp className="w-3 h-3" />
                       </button>
@@ -937,21 +903,22 @@ export default function WeightsPage() {
                         onClick={() => moveCreativeFormOrder(idx, 'DOWN')}
                         disabled={idx === creativeForms.length - 1}
                         className="p-1 hover:bg-purple-100 rounded text-slate-600 disabled:opacity-20 cursor-pointer"
+                        title="Move Priority Down"
                       >
                         <ArrowDown className="w-3 h-3" />
                       </button>
                     </div>
 
-                    <div className="flex items-center space-x-1">
+                    <div className="flex items-center space-x-1.5">
                       <input
                         type="number"
-                        min="0.1"
-                        step="0.05"
-                        value={cf.weight}
-                        onChange={(e) => handleCreativeFormMultiplierChange(cf.id, parseFloat(e.target.value) || 1)}
-                        className="w-14 px-1.5 py-0.5 text-center font-mono font-bold text-xs bg-white border border-purple-300 rounded-lg"
+                        min="0"
+                        step="any"
+                        value={cf.weight ?? ''}
+                        onChange={(e) => handleCreativeFormMultiplierChange(cf.id, e.target.value)}
+                        className="w-20 px-2 py-1 text-center font-mono font-black text-xs bg-white border border-purple-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none"
                       />
-                      <span className="text-xs font-bold text-slate-500">×</span>
+                      <span className="text-xs font-bold text-purple-900">pts</span>
                     </div>
                   </div>
                 </div>
@@ -959,7 +926,7 @@ export default function WeightsPage() {
             </div>
           </div>
 
-          {/* Published Media */}
+          {/* Published Media Multipliers */}
           <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
             <div className="flex items-center space-x-2 pb-3 border-b border-slate-100">
               <Feather className="w-5 h-5 text-rose-600" />
@@ -969,23 +936,23 @@ export default function WeightsPage() {
               </div>
             </div>
 
-            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
               {publishedMedia.map((pm) => (
                 <div
                   key={pm.id || pm.name}
                   className="p-2.5 bg-rose-50/40 rounded-2xl border border-rose-200 flex items-center justify-between"
                 >
                   <span className="text-xs font-bold text-slate-900">{pm.name}</span>
-                  <div className="flex items-center space-x-1">
+                  <div className="flex items-center space-x-1.5">
                     <input
                       type="number"
-                      min="0.1"
-                      step="0.05"
-                      value={pm.weight}
-                      onChange={(e) => handleMediaMultiplierChange(pm.id, parseFloat(e.target.value) || 1)}
-                      className="w-14 px-1.5 py-0.5 text-center font-mono font-bold text-xs bg-white border border-rose-300 rounded-lg"
+                      min="0"
+                      step="any"
+                      value={pm.weight ?? ''}
+                      onChange={(e) => handleMediaMultiplierChange(pm.id, e.target.value)}
+                      className="w-20 px-2 py-1 text-center font-mono font-black text-xs bg-white border border-rose-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none"
                     />
-                    <span className="text-xs font-bold text-slate-500">×</span>
+                    <span className="text-xs font-bold text-slate-600">×</span>
                   </div>
                 </div>
               ))}
@@ -1115,10 +1082,10 @@ export default function WeightsPage() {
                   <label className="text-xs font-bold text-slate-700 block mb-1">Level Multiplier (X)</label>
                   <input
                     type="number"
-                    step="0.05"
+                    step="any"
                     min="0.1"
                     value={newLevelMultiplier}
-                    onChange={(e) => setNewLevelMultiplier(parseFloat(e.target.value) || 1)}
+                    onChange={(e) => setNewLevelMultiplier(e.target.value)}
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl font-mono font-bold"
                   />
                 </div>
@@ -1138,6 +1105,77 @@ export default function WeightsPage() {
                   className="px-5 py-2 text-xs font-bold text-white bg-madin-900 hover:bg-madin-950 rounded-xl shadow cursor-pointer"
                 >
                   Create Level
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Creative Form Modal */}
+        {newCreativeFormModalOpen && (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 className="text-sm font-black text-slate-900">Add Creative Hub Form</h3>
+                <button
+                  type="button"
+                  onClick={() => setNewCreativeFormModalOpen(false)}
+                  className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Form Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Calligraphy, Feature Essay"
+                    value={newFormName}
+                    onChange={(e) => setNewFormName(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Form Code (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. CALLIGRAPHY, ESSAY"
+                    value={newFormCode}
+                    onChange={(e) => setNewFormCode(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl font-mono uppercase"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Fixed Base Points (pts)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    value={newFormPoints}
+                    onChange={(e) => setNewFormPoints(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setNewCreativeFormModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCreateCreativeForm}
+                  className="px-5 py-2 text-xs font-bold text-white bg-madin-900 hover:bg-madin-950 rounded-xl shadow cursor-pointer"
+                >
+                  Create Form
                 </button>
               </div>
             </div>
