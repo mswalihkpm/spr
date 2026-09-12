@@ -482,19 +482,27 @@ export default function ProgramsPage() {
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-subtle">
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-300">
-                Campus & Inter-School Events
-              </span>
+          <div className="flex items-start space-x-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200/80 p-1 flex items-center justify-center shrink-0 shadow-xs">
+              <img
+                src="/programs-logo.png"
+                alt="Programs & Leadership"
+                className="w-full h-full object-contain"
+              />
             </div>
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight mt-1 flex items-center space-x-2">
-              <Trophy className="w-5 h-5 text-amber-600" />
-              <span>Programs & Competitions Module</span>
-            </h2>
-            <p className="text-xs text-slate-500">
-              Record ontime scores, generate multi-activity bulk Excel templates, and upload batches seamlessly with level multipliers.
-            </p>
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-300">
+                  Campus & Inter-School Events
+                </span>
+              </div>
+              <h2 className="text-xl font-bold text-slate-900 tracking-tight mt-1 flex items-center space-x-2">
+                <span>Programs & Leadership Module</span>
+              </h2>
+              <p className="text-xs text-slate-500">
+                Record ontime scores, generate multi-activity bulk Excel templates, and upload batches seamlessly with level multipliers.
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center space-x-2">

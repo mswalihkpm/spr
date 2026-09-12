@@ -501,7 +501,7 @@ function LeaderboardContent() {
         subtitle: 'Certifications, Hifz Al-Quran, Language Proficiency, Sports & specialized institutional qualifications.',
         badge: 'Qualification & Subcategories',
         badgeClass: 'bg-blue-500/25 text-blue-100 border-blue-300/40',
-        logo: '/logo.png',
+        logo: '/qualification-logo.png',
         isFest: false,
       };
     } else if (currentCategory.code === 'ISLAMIC') {
@@ -525,7 +525,7 @@ function LeaderboardContent() {
         subtitle: 'Literary arts competitions: Sahityotsav, Kalotsavam, M-Lit Fest & Jamia Mahrajan.',
         badge: 'Assessment Wing Dedicated Page',
         badgeClass: 'bg-rose-500/25 text-rose-100 border-rose-300/40',
-        logo: '/sahityotsav.png',
+        logo: '/literary-logo.png',
         isFest: true,
       };
     } else if (currentCategory.code === 'CREATIVE_HUB') {
@@ -549,7 +549,7 @@ function LeaderboardContent() {
         subtitle: 'School curriculum benchmarks: Mathematics, Science, Social Sciences & Languages.',
         badge: 'Curriculum Wing Dedicated Page',
         badgeClass: 'bg-indigo-500/25 text-indigo-100 border-indigo-300/40',
-        logo: '/madin-academy.png',
+        logo: '/school-studies-logo.png',
         isFest: false,
       };
     } else if (currentCategory.code === 'PROGRAMS') {
@@ -561,7 +561,7 @@ function LeaderboardContent() {
         subtitle: 'Campus initiatives, workshops, seminars, public speaking, leadership camps & events.',
         badge: 'Leadership Wing Dedicated Page',
         badgeClass: 'bg-purple-500/25 text-purple-100 border-purple-300/40',
-        logo: '/logo.png',
+        logo: '/programs-logo.png',
         isFest: false,
       };
     } else if (currentCategory.code === 'LIBRARY') {
@@ -573,7 +573,7 @@ function LeaderboardContent() {
         subtitle: 'Book reading tracking, comprehensive book reviews, reading hours & literary digest.',
         badge: 'Literacy Wing Dedicated Page',
         badgeClass: 'bg-amber-500/25 text-amber-100 border-amber-300/40',
-        logo: '/logo.png',
+        logo: '/library-logo.png',
         isFest: false,
       };
     } else {

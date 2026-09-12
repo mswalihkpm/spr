@@ -661,23 +661,32 @@ export default function SchoolStudiesPage() {
       <div className="max-w-6xl mx-auto space-y-6 pb-12">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/80 shadow-subtle">
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2">
-              <span className="px-3 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-200/60 flex items-center space-x-1.5">
-                <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Kerala State / NCERT Academic Curriculum</span>
-              </span>
-              <span className="text-[11px] text-slate-400 font-medium">|</span>
-              <span className="text-[11px] text-slate-500 font-semibold">
-                {historyRecords.length} Total Score Records
-              </span>
+          <div className="flex items-start space-x-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200/80 p-1 flex items-center justify-center shrink-0 shadow-xs">
+              <img
+                src="/school-studies-logo.png"
+                alt="School Studies SCERT"
+                className="w-full h-full object-contain"
+              />
             </div>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center space-x-2.5">
-              <span>School Studies Examination & Scoring Hub</span>
-            </h2>
-            <p className="text-xs text-slate-500 max-w-2xl">
-              Manage ontime dynamic subject additions, Excel bulk score uploads, exam session management, and one-click bulk deletion.
-            </p>
+            <div className="space-y-1">
+              <div className="flex items-center space-x-2">
+                <span className="px-3 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-200/60 flex items-center space-x-1.5">
+                  <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Kerala State / NCERT Academic Curriculum</span>
+                </span>
+                <span className="text-[11px] text-slate-400 font-medium">|</span>
+                <span className="text-[11px] text-slate-500 font-semibold">
+                  {historyRecords.length} Total Score Records
+                </span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center space-x-2.5">
+                <span>School Studies Examination & Scoring Hub</span>
+              </h2>
+              <p className="text-xs text-slate-500 max-w-2xl">
+                Manage ontime dynamic subject additions, Excel bulk score uploads, exam session management, and 130-scale converted scores.
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">

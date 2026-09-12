@@ -196,29 +196,37 @@ export default function LibraryPage() {
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-subtle">
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-900 border border-rose-200 flex items-center space-x-1">
-                <Flame className="w-3 h-3 text-rose-600" />
-                <span>Imthiyaaz Library • Leaderboard Sync</span>
-              </span>
+          <div className="flex items-start space-x-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-200/80 p-1 flex items-center justify-center shrink-0 shadow-xs">
+              <img
+                src="/library-logo.png"
+                alt="Library & Reading"
+                className="w-full h-full object-contain"
+              />
             </div>
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight mt-1 flex items-center space-x-2">
-              <Trophy className="w-5 h-5 text-amber-500" />
-              <span>Library Leaderboard & Top Readers</span>
-            </h2>
-            <p className="text-xs text-slate-500">
-              Synchronized exclusively with the MSOE Library Leaderboard portal (
-              <a
-                href="https://msoelibrary.vercel.app/leaderboard"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-madin-700 hover:underline font-semibold"
-              >
-                msoelibrary.vercel.app/leaderboard
-              </a>
-              ) for official reader rankings and point standings.
-            </p>
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-900 border border-rose-200 flex items-center space-x-1">
+                  <Flame className="w-3 h-3 text-rose-600" />
+                  <span>Imthiyaaz Library • Leaderboard Sync</span>
+                </span>
+              </div>
+              <h2 className="text-xl font-bold text-slate-900 tracking-tight mt-1 flex items-center space-x-2">
+                <span>Library Leaderboard & Top Readers</span>
+              </h2>
+              <p className="text-xs text-slate-500">
+                Synchronized exclusively with the MSOE Library Leaderboard portal (
+                <a
+                  href="https://msoelibrary.vercel.app/leaderboard"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-madin-700 hover:underline font-semibold"
+                >
+                  msoelibrary.vercel.app/leaderboard
+                </a>
+                ) for official reader rankings and point standings.
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center space-x-2">

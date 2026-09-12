@@ -497,19 +497,27 @@ export default function LiteraryProgramsPage() {
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-subtle">
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-900 border border-rose-300">
-                Literary Festivals & Arts Fest Module
-              </span>
+          <div className="flex items-start space-x-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200/80 p-1 flex items-center justify-center shrink-0 shadow-xs">
+              <img
+                src="/literary-logo.png"
+                alt="Literary Programmes"
+                className="w-full h-full object-contain"
+              />
             </div>
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight mt-1 flex items-center space-x-2">
-              <Feather className="w-5 h-5 text-rose-700" />
-              <span>Literary Festivals & Cultural Competitions</span>
-            </h2>
-            <p className="text-xs text-slate-500">
-              Record, edit, bulk upload multiple events on-the-fly, and evaluate student awards in Sahityotsav, Kalotsav, M-Lit, and Jamia Mahrajan.
-            </p>
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-900 border border-rose-300">
+                  Literary Festivals & Arts Fest Module
+                </span>
+              </div>
+              <h2 className="text-xl font-bold text-slate-900 tracking-tight mt-1 flex items-center space-x-2">
+                <span>Literary Programmes & Festivals</span>
+              </h2>
+              <p className="text-xs text-slate-500">
+                Record, edit, bulk upload multiple events on-the-fly, and evaluate student awards in Sahityotsav, Kalotsav, M-Lit, and Jamia Mahrajan.
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center space-x-2">

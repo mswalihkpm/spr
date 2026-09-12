@@ -328,12 +328,37 @@ export async function calculateStudentSPR(
     else if (cat.code === 'SCHOOL') {
       if (categoryRecords.length > 0) {
         hasData = true;
+
+        // Group records by exam session to compute % of total marks and convert to 130-mark scale
+        const examGroups = new Map<string, any[]>();
+        categoryRecords.forEach((r: any) => {
+          const key = r.examId || r.exam?.name || 'DEFAULT_EXAM';
+          if (!examGroups.has(key)) examGroups.set(key, []);
+          examGroups.get(key)!.push(r);
+        });
+
         let sumPoints = 0;
+        const examSummaries: string[] = [];
+
+        examGroups.forEach((recs) => {
+          const examName = recs[0]?.exam?.name || 'School Examination';
+          const totObt = recs.reduce((sum: number, r: any) => sum + (r.obtainedScore || 0), 0);
+          const totMax = recs.reduce((sum: number, r: any) => sum + (r.maxScore || 100), 0);
+          const pct = totMax > 0 ? (totObt / totMax) * 100 : 0;
+          // Convert % of total mark to 130 mark
+          const exam130Score = Number(((pct / 100) * 130).toFixed(2));
+          sumPoints += exam130Score;
+          examSummaries.push(
+            `${examName}: ${totObt}/${totMax} (${pct.toFixed(2)}%) → ${formatPoints(exam130Score)}/130 pts`
+          );
+        });
+
         itemizedRecords = categoryRecords.map((r: any) => {
           const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
           const baseScore = r.obtainedScore || 0;
-          const pts = Number((baseScore * mult).toFixed(2));
-          sumPoints += pts;
+          const max = r.maxScore || 100;
+          const recordPct = max > 0 ? (baseScore / max) * 100 : baseScore;
+          const scaled130 = Number(((recordPct / 100) * 130).toFixed(2));
 
           return {
             id: r.id,
@@ -347,8 +372,8 @@ export async function calculateStudentSPR(
             termName: r.exam?.term?.name,
             obtainedScore: r.obtainedScore,
             maxScore: r.maxScore,
-            percentage: r.percentage,
-            earnedPoints: pts,
+            percentage: r.percentage !== undefined && r.percentage !== null ? r.percentage : recordPct,
+            earnedPoints: scaled130,
             multiplier: mult,
             remarks: r.remarks,
             date: r.date ? r.date.toISOString() : null,
@@ -356,8 +381,8 @@ export async function calculateStudentSPR(
         });
 
         earnedPoints = Number(sumPoints.toFixed(2));
-        rawInput = `${formatPoints(earnedPoints)} pts`;
-        formula = `${categoryRecords.length} school subject mark(s) = +${formatPoints(earnedPoints)} SPR Points`;
+        rawInput = `${formatPoints(earnedPoints)} / 130 pts`;
+        formula = `${examSummaries.join('; ')} = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
         formula = `No School academic marks logged (+0 SPR Points)`;
       }
@@ -928,6 +953,24 @@ export async function calculateAllLeaderboards(filters?: {
           const baseScore = prizeBase > 0 ? prizeBase : (r.obtainedScore || 0);
           catEarned += (baseScore * mult);
         });
+      } else if (cat.code === 'SCHOOL') {
+        const records = student.performanceRecords.filter((r) => r.categoryId === cat.id);
+        if (records.length > 0) {
+          const examGroups = new Map<string, any[]>();
+          records.forEach((r: any) => {
+            const key = r.examId || (r.exam?.name) || 'DEFAULT_EXAM';
+            if (!examGroups.has(key)) examGroups.set(key, []);
+            examGroups.get(key)!.push(r);
+          });
+          let catSum = 0;
+          examGroups.forEach((recs) => {
+            const totObt = recs.reduce((sum: number, r: any) => sum + (r.obtainedScore || 0), 0);
+            const totMax = recs.reduce((sum: number, r: any) => sum + (r.maxScore || 100), 0);
+            const pct = totMax > 0 ? (totObt / totMax) * 100 : 0;
+            catSum += ((pct / 100) * 130);
+          });
+          catEarned = Number(catSum.toFixed(2));
+        }
       } else {
         const records = student.performanceRecords.filter((r) => r.categoryId === cat.id);
         records.forEach((r) => {

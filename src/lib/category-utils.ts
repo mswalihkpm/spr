@@ -56,12 +56,12 @@ export function getCategoryLogo(code?: string, logoUrl?: string | null): string 
   }
   const c = code?.toUpperCase() || '';
   if (c === 'ISLAMIC' || c.includes('ISLAM')) return '/jamiathul-hind.png';
-  if (c === 'SCHOOL' || c.includes('ACADEMIC') || c.includes('SCHO')) return '/madin-academy.png';
+  if (c === 'SCHOOL' || c.includes('ACADEMIC') || c.includes('SCHO')) return '/school-studies-logo.png';
   if (c === 'CREATIVE_HUB' || c.includes('CREATIVE') || c.includes('ART') || c.includes('CREA')) return '/creative-hub-logo.png';
-  if (c === 'LITERARY' || c.includes('LIT')) return '/sahityotsav.png';
-  if (c === 'PROGRAMS' || c.includes('COMPETITION') || c.includes('PROG')) return '/kalotsav.png';
-  if (c === 'LIBRARY' || c.includes('READ') || c.includes('LIBRA')) return '/jamiathul-hind.png';
-  if (c === 'QUALIFICATION' || c.includes('QUALIF')) return '/jamiathul-hind.png';
+  if (c === 'LITERARY' || c.includes('LIT')) return '/literary-logo.png';
+  if (c === 'PROGRAMS' || c.includes('COMPETITION') || c.includes('PROG')) return '/programs-logo.png';
+  if (c === 'LIBRARY' || c.includes('READ') || c.includes('LIBRA')) return '/library-logo.png';
+  if (c === 'QUALIFICATION' || c.includes('QUALIF')) return '/qualification-logo.png';
   return null;
 }
 
