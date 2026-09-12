@@ -148,7 +148,7 @@ function LeaderboardContent() {
     }
 
     try {
-      const res = await fetch(`/api/leaderboard?${params.toString()}`);
+      const res = await fetch(`/api/leaderboard?${params.toString()}`, { cache: 'no-store' });
       const data = await res.json();
       if (data.leaderboard) {
         clientLeaderboardMemory.set(cacheKey, data.leaderboard);
@@ -194,6 +194,7 @@ function LeaderboardContent() {
     categoryId?: string;
     subcategoryId?: string;
   }) => {
+    clientLeaderboardMemory.clear();
     let newCat = '';
     let newSub = '';
     let newStream = '';
@@ -412,9 +413,12 @@ function LeaderboardContent() {
   );
 
   const activeCategoryId = currentCategory?.id || (isQualActive && qualCat ? qualCat.id : selectedCategory);
-  const activeCategorySubcategories = subcategories.filter(
-    (s) => s.categoryId === activeCategoryId || (qualCat && isQualActive && s.categoryId === qualCat.id)
-  );
+  const activeCategorySubcategories =
+    currentCategory?.code === 'CREATIVE_HUB' || selectedCategory === 'CREATIVE_HUB'
+      ? []
+      : subcategories.filter(
+          (s) => s.categoryId === activeCategoryId || (qualCat && isQualActive && s.categoryId === qualCat.id)
+        );
 
   // Configuration for Themed Hero Header with Logo matching colors and tiny white glow
   let heroTheme = {
@@ -738,7 +742,7 @@ function LeaderboardContent() {
             <button
               onClick={() => {
                 const cat = categories.find((c) => c.code === 'SCHOOL');
-                if (cat) switchLeaderboard({ type: 'CATEGORY', categoryId: cat.id });
+                switchLeaderboard({ type: 'CATEGORY', categoryId: cat?.id || 'SCHOOL' });
               }}
               className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-150 shrink-0 flex items-center space-x-1.5 ${
                 isSchoolActive
@@ -754,7 +758,7 @@ function LeaderboardContent() {
             <button
               onClick={() => {
                 const cat = categories.find((c) => c.code === 'CREATIVE_HUB');
-                if (cat) switchLeaderboard({ type: 'CATEGORY', categoryId: cat.id });
+                switchLeaderboard({ type: 'CATEGORY', categoryId: cat?.id || 'CREATIVE_HUB' });
               }}
               className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-150 shrink-0 flex items-center space-x-1.5 ${
                 isCreativeActive
@@ -770,7 +774,7 @@ function LeaderboardContent() {
             <button
               onClick={() => {
                 const cat = categories.find((c) => c.code === 'PROGRAMS');
-                if (cat) switchLeaderboard({ type: 'CATEGORY', categoryId: cat.id });
+                switchLeaderboard({ type: 'CATEGORY', categoryId: cat?.id || 'PROGRAMS' });
               }}
               className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-150 shrink-0 flex items-center space-x-1.5 ${
                 isProgramsActive
@@ -786,7 +790,7 @@ function LeaderboardContent() {
             <button
               onClick={() => {
                 const cat = categories.find((c) => c.code === 'LIBRARY');
-                if (cat) switchLeaderboard({ type: 'CATEGORY', categoryId: cat.id });
+                switchLeaderboard({ type: 'CATEGORY', categoryId: cat?.id || 'LIBRARY' });
               }}
               className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-150 shrink-0 flex items-center space-x-1.5 ${
                 isLibraryActive

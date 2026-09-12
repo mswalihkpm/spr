@@ -52,31 +52,17 @@ export default function PublicCategorySubcategoriesPage() {
       }
       setCategory(resolvedCategory);
 
+      // If category is CREATIVE_HUB or direct wing with no subcategories, redirect directly to its leaderboard
+      if (resolvedCategory?.code === 'CREATIVE_HUB' || categoryId?.toUpperCase() === 'CREATIVE_HUB') {
+        router.replace(`/leaderboard?categoryId=${resolvedCategory?.id || categoryId}`);
+        return;
+      }
+
       let subsList: any[] = [];
       if (subData.subcategories && subData.subcategories.length > 0) {
         subsList = subData.subcategories;
       } else if (resolvedCategory?.subcategories && resolvedCategory.subcategories.length > 0) {
         subsList = resolvedCategory.subcategories;
-      }
-
-      // If CREATIVE_HUB has no direct subcategories, load creative wings/forms
-      if (subsList.length === 0 && (resolvedCategory?.code === 'CREATIVE_HUB' || categoryId.toUpperCase() === 'CREATIVE_HUB')) {
-        try {
-          const chRes = await fetch('/api/creative-hub');
-          const chData = await chRes.json();
-          if (chData.categories && chData.categories.length > 0) {
-            subsList = chData.categories.map((c: any) => ({
-              id: c.id,
-              name: c.name,
-              code: c.code || c.name.toUpperCase().replace(/[^A-Z0-9]/g, '_'),
-              description: c.description || `Creative wing with ${c.weight || 20} base points`,
-              maxScore: 100,
-              logoUrl: '/creative-hub-logo.png',
-            }));
-          }
-        } catch (e) {
-          console.error(e);
-        }
       }
 
       setSubcategories(subsList);

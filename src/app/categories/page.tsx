@@ -247,9 +247,14 @@ export default function CategoriesPage() {
     }
   };
 
-  // Direct click on category opens its Subcategories Page
+  // Direct click on category opens its Subcategories Page if it has subcategories, or directly opens its leaderboard
   const handleCategoryCardClick = (cat: any) => {
-    router.push(`/categories/${cat.id}`);
+    const subCount = cat.subcategories?.length || cat._count?.subcategories || 0;
+    if (subCount > 0 && cat.code !== 'CREATIVE_HUB') {
+      router.push(`/categories/${cat.id}`);
+    } else {
+      router.push(`/leaderboard?categoryId=${cat.id}`);
+    }
   };
 
   return (
@@ -507,8 +512,8 @@ export default function CategoriesPage() {
                       </p>
                     </div>
 
-                    {/* Subcategories Logos & Badges rendered right on the main category box */}
-                    {cat.subcategories && cat.subcategories.length > 0 && (
+                    {/* Subcategories Logos & Badges rendered right on the main category box (Except Creative Hub which is a direct wing) */}
+                    {cat.code !== 'CREATIVE_HUB' && cat.subcategories && cat.subcategories.length > 0 && (
                       <div className="pt-2.5 border-t border-slate-100 space-y-1.5" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-between text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">
                           <span>Subcategories</span>
@@ -553,7 +558,7 @@ export default function CategoriesPage() {
 
                   {/* Bottom Footer inside Box */}
                   <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                    {subCount > 0 ? (
+                    {cat.code !== 'CREATIVE_HUB' && subCount > 0 ? (
                       <Link
                         href={`/categories/${cat.id}`}
                         onClick={(e) => e.stopPropagation()}
@@ -563,7 +568,7 @@ export default function CategoriesPage() {
                       </Link>
                     ) : (
                       <span className="inline-flex items-center font-medium text-slate-500 bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-100">
-                        {cat.isSystem ? 'Direct Wing' : '0 Subcategories'}
+                        Direct Wing
                       </span>
                     )}
 

@@ -1064,6 +1064,14 @@ export async function calculateAllLeaderboards(filters?: {
           c.name?.toLowerCase() === filters.categoryId?.toLowerCase()
       );
       finalScore = matchedCategory ? (categoryPoints[matchedCategory.id] || 0) : (categoryPoints[filters.categoryId] || 0);
+      if (matchedCategory?.code === 'CREATIVE_HUB') {
+        totalRecords = student.creativeWorks?.length || 0;
+      } else if (matchedCategory?.code === 'LIBRARY') {
+        const libPerf = student.performanceRecords.filter((r) => r.categoryId === matchedCategory.id).length;
+        totalRecords = (student.libraryRecords?.length || 0) + libPerf;
+      } else if (matchedCategory) {
+        totalRecords = student.performanceRecords.filter((r) => r.categoryId === matchedCategory.id).length;
+      }
     } else {
       finalScore = Number(totalPoints.toFixed(2));
     }
