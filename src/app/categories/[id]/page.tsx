@@ -1,174 +1,85 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useParams } from 'next/navigation';
 import {
   Layers,
   ArrowLeft,
-  Plus,
-  Edit2,
-  Trash2,
-  CheckCircle2,
-  AlertCircle,
-  X,
-  Award,
-  BookOpen,
-  GraduationCap,
   Trophy,
-  Sparkles,
-  Feather,
-  Library,
-  Sliders,
-  Check,
   Search,
-  Zap,
-  Save,
-  Calendar,
-  Globe,
-  Star,
-  Users,
-  Lock,
+  Award,
+  ChevronRight,
+  ExternalLink,
+  Sparkles,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
-import SearchableStudentSelect from '@/components/ui/SearchableStudentSelect';
 import PublicFooter from '@/components/layout/PublicFooter';
-import { getCategoryIcon, getCategoryColor } from '@/lib/category-utils';
-import { invalidateClientAcademicCache } from '@/lib/academic-client';
+import { getCategoryIcon, getCategoryColor, getCategoryLogo, getCategoryDualLogos } from '@/lib/category-utils';
 
-const LEVEL_PRESETS = [
-  {
-    id: 'ALL',
-    label: 'All Standard Levels',
-    description: 'Includes all 11 competition levels (Campus up to International)',
-    levelCodes: ['CAMPUS', 'SCHOOL', 'KULLIYA', 'DAAERA', 'DIVISION', 'SUB_DISTRICT', 'DISTRICT', 'JAMIA', 'STATE', 'NATIONAL', 'INTERNATIONAL'],
-    badge: 'All 11 Levels',
-  },
-  {
-    id: 'MAHARJAN',
-    label: 'Maharjan Levels',
-    description: 'Kulliya (1x) → Daaera (1x) → Jamia (1.5x)',
-    levelCodes: ['KULLIYA', 'DAAERA', 'JAMIA'],
-    badge: 'Maharjan (3 Levels)',
-  },
-  {
-    id: 'SAHITYOTSAV',
-    label: 'Sahityotsav Levels',
-    description: 'Division (1x) → District (1.25x) → State (1.5x) → National (2x)',
-    levelCodes: ['DIVISION', 'DISTRICT', 'STATE', 'NATIONAL'],
-    badge: 'Sahityotsav (4 Levels)',
-  },
-  {
-    id: 'KALOTSAV',
-    label: 'Kalotsav Levels',
-    description: 'Sub-district (1x) → District (1.25x) → State (1.5x)',
-    levelCodes: ['SUB_DISTRICT', 'DISTRICT', 'STATE'],
-    badge: 'Kalotsav (3 Levels)',
-  },
-];
-
-const PRESET_LOGOS = [
-  { label: "Thahadi-Al-Qira'a", icon: '📖' },
-  { label: 'Hifz Al-Quran', icon: '🕌' },
-  { label: 'Sports & Athletics', icon: '⚽' },
-  { label: 'Creative Writing & Arts', icon: '🎨' },
-  { label: 'Science & Quiz', icon: '🔬' },
-  { label: 'Leadership & Moral', icon: '🌟' },
-  { label: 'Language Proficiency', icon: '🗣️' },
-  { label: 'Gold Trophy Award', icon: '🏆' },
-];
-
-export default function CategorySubcategoriesPage() {
+export default function PublicCategorySubcategoriesPage() {
   const router = useRouter();
   const params = useParams();
   const categoryId = params?.id as string;
 
   const [category, setCategory] = useState<any | null>(null);
   const [subcategories, setSubcategories] = useState<any[]>([]);
-  const [levels, setLevels] = useState<any[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [currentUser, setCurrentUser] = useState<any | null>(null);
 
-  // Score Recording Modal State
-  const [recordModalOpen, setRecordModalOpen] = useState(false);
-  const [selectedSubcategoryForScore, setSelectedSubcategoryForScore] = useState<any | null>(null);
-  const [recordForm, setRecordForm] = useState({
-    studentId: '',
-    levelId: '',
-    score: '100',
-    maxScore: '100',
-    position: '1st',
-    academicYear: '2025-2026',
-    remarks: '',
-  });
-  const [recordingScore, setRecordingScore] = useState(false);
-
-  // Subcategory Create/Edit Modal State
-  const [subModalOpen, setSubModalOpen] = useState(false);
-  const [editingSubcategory, setEditingSubcategory] = useState<any | null>(null);
-  const [subFormData, setSubFormData] = useState({
-    name: '',
-    code: '',
-    description: '',
-    maxScore: 100,
-    weight: 10,
-    presetId: 'ALL',
-    levelIds: [] as string[],
-    selectedLevels: {} as Record<string, { multiplier: number; rankPositions: string[] }>,
-  });
-  const [savingSub, setSavingSub] = useState(false);
-
-  // Auth check silently
-  useEffect(() => {
-    fetch('/api/auth/me')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.user) setCurrentUser(data.user);
-      })
-      .catch(() => {});
-  }, []);
-
-  const isAdmin = currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN';
-
-  // Load category details, subcategories, levels & students
+  // Load category details and subcategories
   const loadData = async () => {
+    if (!categoryId) return;
     try {
       setLoading(true);
 
-      const [catRes, subRes, levelsRes, studentsRes] = await Promise.all([
+      const [catRes, subRes] = await Promise.all([
         fetch(`/api/categories?id=${categoryId}`),
         fetch(`/api/subcategories?categoryId=${categoryId}`),
-        fetch('/api/levels'),
-        fetch('/api/students?all=true'),
       ]);
 
       const catData = await catRes.json();
       const subData = await subRes.json();
-      const levelsData = await levelsRes.json();
-      const studentsData = await studentsRes.json();
 
+      let resolvedCategory = null;
       if (catData.category) {
-        setCategory(catData.category);
+        resolvedCategory = catData.category;
       } else if (catData.categories && catData.categories.length > 0) {
-        const found = catData.categories.find((c: any) => c.id === categoryId);
-        if (found) setCategory(found);
+        resolvedCategory = catData.categories.find(
+          (c: any) => c.id === categoryId || c.code === categoryId.toUpperCase()
+        );
+      }
+      setCategory(resolvedCategory);
+
+      let subsList: any[] = [];
+      if (subData.subcategories && subData.subcategories.length > 0) {
+        subsList = subData.subcategories;
+      } else if (resolvedCategory?.subcategories && resolvedCategory.subcategories.length > 0) {
+        subsList = resolvedCategory.subcategories;
       }
 
-      if (subData.subcategories) {
-        setSubcategories(subData.subcategories);
+      // If CREATIVE_HUB has no direct subcategories, load creative wings/forms
+      if (subsList.length === 0 && (resolvedCategory?.code === 'CREATIVE_HUB' || categoryId.toUpperCase() === 'CREATIVE_HUB')) {
+        try {
+          const chRes = await fetch('/api/creative-hub');
+          const chData = await chRes.json();
+          if (chData.categories && chData.categories.length > 0) {
+            subsList = chData.categories.map((c: any) => ({
+              id: c.id,
+              name: c.name,
+              code: c.code || c.name.toUpperCase().replace(/[^A-Z0-9]/g, '_'),
+              description: c.description || `Creative wing with ${c.weight || 20} base points`,
+              maxScore: 100,
+              logoUrl: '/creative-hub-logo.png',
+            }));
+          }
+        } catch (e) {
+          console.error(e);
+        }
       }
 
-      if (levelsData.levels) {
-        setLevels(levelsData.levels);
-      }
-
-      if (studentsData.students) {
-        setStudents(studentsData.students);
-      }
+      setSubcategories(subsList);
     } catch (err) {
       console.error('Error loading category subcategories:', err);
     } finally {
@@ -177,9 +88,7 @@ export default function CategorySubcategoriesPage() {
   };
 
   useEffect(() => {
-    if (categoryId) {
-      loadData();
-    }
+    loadData();
   }, [categoryId]);
 
   const filteredSubcategories = useMemo(() => {
@@ -193,160 +102,13 @@ export default function CategorySubcategoriesPage() {
     );
   }, [subcategories, searchQuery]);
 
-  // Open Score Recording Modal
-  const handleOpenScoreModal = (sub: any, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setSelectedSubcategoryForScore(sub);
-    setRecordForm({
-      studentId: '',
-      levelId: levels.length > 0 ? levels[0].id : '',
-      score: String(sub.maxScore || 100),
-      maxScore: String(sub.maxScore || 100),
-      position: '1st',
-      academicYear: '2025-2026',
-      remarks: '',
-    });
-    setRecordModalOpen(true);
-  };
-
-  const handleSaveScore = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!recordForm.studentId || !selectedSubcategoryForScore) {
-      alert('Please select a student.');
-      return;
-    }
-
-    setRecordingScore(true);
-    setStatusMsg(null);
-
-    try {
-      const res = await fetch('/api/performance-records', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: recordForm.studentId,
-          categoryId: category?.id,
-          subcategoryId: selectedSubcategoryForScore.id,
-          levelId: recordForm.levelId || undefined,
-          score: parseFloat(recordForm.score) || 0,
-          maxScore: parseFloat(recordForm.maxScore) || 100,
-          position: recordForm.position,
-          academicYear: recordForm.academicYear,
-          remarks: recordForm.remarks,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to record performance score.');
-
-      invalidateClientAcademicCache();
-      setStatusMsg({
-        type: 'success',
-        text: `Score recorded successfully for student in ${selectedSubcategoryForScore.name}!`,
-      });
-      setRecordModalOpen(false);
-      loadData();
-    } catch (err: any) {
-      setStatusMsg({ type: 'error', text: err.message });
-    } finally {
-      setRecordingScore(false);
-    }
-  };
-
-  // Open Subcategory Create/Edit Modal
-  const handleOpenCreateSub = () => {
-    setEditingSubcategory(null);
-    setSubFormData({
-      name: '',
-      code: '',
-      description: '',
-      maxScore: 100,
-      weight: 10,
-      presetId: 'ALL',
-      levelIds: levels.map((l) => l.id),
-      selectedLevels: {},
-    });
-    setSubModalOpen(true);
-  };
-
-  const handleOpenEditSub = (sub: any, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditingSubcategory(sub);
-    setSubFormData({
-      name: sub.name,
-      code: sub.code || '',
-      description: sub.description || '',
-      maxScore: sub.maxScore || 100,
-      weight: sub.weight || 10,
-      presetId: 'ALL',
-      levelIds: sub.levels ? sub.levels.map((l: any) => l.id || l.levelId) : [],
-      selectedLevels: {},
-    });
-    setSubModalOpen(true);
-  };
-
-  const handleSaveSubcategory = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavingSub(true);
-    setStatusMsg(null);
-
-    try {
-      const method = editingSubcategory ? 'PUT' : 'POST';
-      const payload = {
-        ...(editingSubcategory ? { id: editingSubcategory.id } : {}),
-        categoryId: category?.id,
-        name: subFormData.name,
-        code: subFormData.code || subFormData.name.toUpperCase().replace(/[^A-Z0-9]/g, '_'),
-        description: subFormData.description,
-        maxScore: subFormData.maxScore,
-        weight: subFormData.weight,
-        levelIds: subFormData.levelIds,
-      };
-
-      const res = await fetch('/api/subcategories', {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save subcategory.');
-
-      setStatusMsg({
-        type: 'success',
-        text: `Subcategory "${subFormData.name}" ${editingSubcategory ? 'updated' : 'created'} successfully!`,
-      });
-      setSubModalOpen(false);
-      loadData();
-    } catch (err: any) {
-      setStatusMsg({ type: 'error', text: err.message });
-    } finally {
-      setSavingSub(false);
-    }
-  };
-
-  const handleDeleteSubcategory = async (sub: any, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm(`Are you sure you want to delete subcategory "${sub.name}" and all linked scores?`)) return;
-
-    try {
-      const res = await fetch(`/api/subcategories?id=${sub.id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to delete subcategory.');
-
-      setStatusMsg({ type: 'success', text: `Subcategory "${sub.name}" deleted.` });
-      loadData();
-    } catch (err: any) {
-      setStatusMsg({ type: 'error', text: err.message });
-    }
-  };
-
   const IconComponent = category ? getCategoryIcon(category.code, category.icon) : Layers;
   const theme = category ? getCategoryColor(category.code) : { bg: 'bg-madin-900', light: 'bg-slate-100', text: 'text-slate-800', border: 'border-slate-200' };
+  const dualLogos = category ? getCategoryDualLogos(category.code) : null;
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans selection:bg-blue-600 selection:text-white antialiased">
-      {/* Universal Top Header */}
+      {/* Universal Public Top Header */}
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-xs print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-3.5 flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -367,7 +129,7 @@ export default function CategorySubcategoriesPage() {
                   {category?.name || 'Category Subcategories'}
                 </h1>
                 <div className="text-[10px] font-bold text-blue-600 tracking-wider uppercase mt-0.5">
-                  Subcategory Standings & Scoring
+                  Subcategory Standings & Leaderboards
                 </div>
               </div>
             </div>
@@ -376,21 +138,11 @@ export default function CategorySubcategoriesPage() {
           <div className="flex items-center space-x-2">
             <Link
               href={`/leaderboard?cat=${category?.id || categoryId}`}
-              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center space-x-1.5"
+              className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-xs"
             >
-              <Trophy className="w-3.5 h-3.5 text-amber-500" />
-              <span className="hidden sm:inline">Wing Leaderboard</span>
+              <Trophy className="w-3.5 h-3.5 text-amber-300" />
+              <span>Wing Leaderboard</span>
             </Link>
-
-            {isAdmin && (
-              <button
-                onClick={handleOpenCreateSub}
-                className="px-3.5 py-1.5 rounded-xl bg-madin-900 hover:bg-madin-950 text-white text-xs font-bold flex items-center space-x-1.5 shadow-sm transition active:scale-95"
-              >
-                <Plus className="w-3.5 h-3.5 text-gold-400" />
-                <span>+ Add Subcategory</span>
-              </button>
-            )}
           </div>
         </div>
       </header>
@@ -417,50 +169,36 @@ export default function CategorySubcategoriesPage() {
                   {category.name}
                 </h2>
                 <p className="text-xs sm:text-sm text-blue-100/90 leading-relaxed">
-                  {category.description || 'Specialized subcategories, evaluation levels, and student scoring criteria.'}
+                  {category.description || 'Specialized subcategories, assessment criteria, and dedicated student leaderboards.'}
                 </p>
               </div>
 
-              <div className="flex items-center space-x-2">
-                <Link
-                  href="/categories"
-                  className="px-4 py-2 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition flex items-center space-x-1.5 border border-white/10"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Back to Categories</span>
-                </Link>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Status Message */}
-        {statusMsg && (
-          <div
-            className={`p-4 rounded-2xl border text-xs flex items-center justify-between shadow-xs animate-fade-in ${
-              statusMsg.type === 'success'
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                : 'bg-rose-50 border-rose-200 text-rose-900'
-            }`}
-          >
-            <div className="flex items-center space-x-2.5">
-              {statusMsg.type === 'success' ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              {/* Dual Logo or Single Logo Header Preview */}
+              {dualLogos && dualLogos.length >= 2 ? (
+                <div className="flex items-center space-x-2 bg-white/10 p-2 rounded-2xl border border-white/10 shrink-0 self-start md:self-center">
+                  <div className="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center overflow-hidden shadow-xs">
+                    <img src={dualLogos[0]} alt="Logo 1" className="w-full h-full object-contain" />
+                  </div>
+                  <div className="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center overflow-hidden shadow-xs">
+                    <img src={dualLogos[1]} alt="Logo 2" className="w-full h-full object-contain" />
+                  </div>
+                </div>
               ) : (
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <div className="flex items-center space-x-2">
+                  <Link
+                    href="/categories"
+                    className="px-4 py-2 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition flex items-center space-x-1.5 border border-white/10"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Back to Categories</span>
+                  </Link>
+                </div>
               )}
-              <span className="font-semibold">{statusMsg.text}</span>
             </div>
-            <button
-              onClick={() => setStatusMsg(null)}
-              className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
           </div>
         )}
 
-        {/* Search & Action Bar */}
+        {/* Search & Counter Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
           <div className="relative flex-1 max-w-md">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -468,46 +206,42 @@ export default function CategorySubcategoriesPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search subcategory disciplines..."
+              placeholder="Search subcategories..."
               className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-600 transition"
             />
           </div>
 
           <div className="flex items-center space-x-2">
-            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl">
+            <span className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-xl">
               {filteredSubcategories.length} Subcategories
             </span>
           </div>
         </div>
 
-        {/* SUBCATEGORIES GRID: 2 IN ONE ROW ON MOBILE */}
+        {/* SUBCATEGORIES GRID (RESPONSIVE BOXES) */}
         {loading ? (
           <div className="py-16 text-center">
             <VideoLoader size="md" text="Loading Subcategories..." subtext="Accessing Assessment Wings" />
           </div>
         ) : filteredSubcategories.length === 0 ? (
           <div className="bg-white rounded-3xl border border-dashed border-slate-200 p-12 text-center text-slate-500 space-y-3">
-            <Layers className="w-8 h-8 text-slate-400 mx-auto" />
+            <Layers className="w-10 h-10 text-slate-300 mx-auto" />
             <div className="text-sm font-bold text-slate-700">No subcategories found</div>
-            <p className="text-xs text-slate-400">
-              {isAdmin
-                ? 'Create a subcategory to organize marks, competition levels, and student scoring.'
-                : 'No subcategories are currently registered under this category.'}
+            <p className="text-xs text-slate-400 max-w-md mx-auto">
+              No specialized subcategories are registered under this category yet. You can still view overall wing standings.
             </p>
-            {isAdmin && (
-              <button
-                onClick={handleOpenCreateSub}
-                className="mt-2 px-4 py-2 rounded-2xl bg-madin-900 hover:bg-madin-950 text-white text-xs font-bold inline-flex items-center space-x-1.5 shadow-sm transition"
-              >
-                <Plus className="w-3.5 h-3.5 text-gold-400" />
-                <span>Create First Subcategory</span>
-              </button>
-            )}
+            <Link
+              href={`/leaderboard?cat=${category?.id || categoryId}`}
+              className="mt-3 inline-flex items-center space-x-1.5 px-4 py-2 rounded-2xl bg-blue-600 text-white text-xs font-bold shadow hover:bg-blue-700 transition"
+            >
+              <Trophy className="w-4 h-4 text-amber-300" />
+              <span>View Category Leaderboard</span>
+            </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
             {filteredSubcategories.map((sub) => {
-              const recordCount = sub._count?.performanceRecords || 0;
+              const subLogo = getCategoryLogo(sub.code, sub.logoUrl);
 
               return (
                 <div
@@ -515,7 +249,7 @@ export default function CategorySubcategoriesPage() {
                   onClick={() => {
                     router.push(`/leaderboard?subcategoryId=${sub.id}&categoryId=${category?.id || categoryId}`);
                   }}
-                  className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-subtle hover:shadow-lg transition-all cursor-pointer group relative flex flex-col justify-between overflow-hidden active:scale-98 hover:border-blue-500"
+                  className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-xs hover:shadow-lg hover:border-blue-500 transition-all cursor-pointer group relative flex flex-col justify-between overflow-hidden active:scale-98"
                 >
                   {/* Decorative Background Glow */}
                   <div
@@ -524,14 +258,12 @@ export default function CategorySubcategoriesPage() {
 
                   {/* Top Header inside Box */}
                   <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-1.5">
+                    <div className="flex items-start justify-between gap-2">
                       {/* Logo Avatar Badge */}
-                      <div
-                        className="w-12 h-12 rounded-2xl bg-white p-1 border border-slate-200 shadow-xs flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform overflow-hidden"
-                      >
-                        {sub.logoUrl ? (
+                      <div className="w-12 h-12 rounded-2xl bg-slate-50 p-1.5 border border-slate-200 shadow-xs flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform overflow-hidden">
+                        {subLogo ? (
                           <img
-                            src={sub.logoUrl}
+                            src={subLogo}
                             alt={sub.name}
                             className="w-full h-full object-contain"
                           />
@@ -542,9 +274,9 @@ export default function CategorySubcategoriesPage() {
                         )}
                       </div>
 
-                      {/* Weight Badge */}
-                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200/80">
-                        Max {sub.maxScore || 100}
+                      {/* Standings Pill */}
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 text-blue-800 border border-blue-200/80">
+                        Leaderboard
                       </span>
                     </div>
 
@@ -554,61 +286,28 @@ export default function CategorySubcategoriesPage() {
                         {sub.name}
                       </h3>
                       <p className="text-[11px] sm:text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
-                        {sub.description || 'Specialized assessment criteria'}
+                        {sub.description || 'Specialized assessment criteria and institutional standings.'}
                       </p>
                     </div>
                   </div>
 
                   {/* Bottom Footer inside Box */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs gap-2 flex-wrap">
-                    <span className="inline-flex items-center font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-xl border border-blue-100 text-[11px]">
-                      {recordCount} Records
+                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs gap-2">
+                    <span className="text-[11px] font-bold text-slate-400">
+                      Standings Registry
                     </span>
 
-                    <div className="flex items-center space-x-1.5" onClick={(e) => e.stopPropagation()}>
-                      {isAdmin && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenScoreModal(sub);
-                            }}
-                            className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[10px] font-bold transition"
-                            title="Add Score"
-                          >
-                            + Score
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => handleOpenEditSub(sub, e)}
-                            className="p-1 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-slate-100 transition"
-                            title="Edit Subcategory"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => handleDeleteSubcategory(sub, e)}
-                            className="p-1 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
-                            title="Delete Subcategory"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </>
-                      )}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/leaderboard?subcategoryId=${sub.id}&categoryId=${category?.id || categoryId}`);
-                        }}
-                        className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[11px] font-bold shadow-xs transition flex items-center space-x-1 active:scale-95"
-                      >
-                        <Trophy className="w-3 h-3 text-gold-400" />
-                        <span>Open Leaderboard</span>
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/leaderboard?subcategoryId=${sub.id}&categoryId=${category?.id || categoryId}`);
+                      }}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center space-x-1 shadow-xs group-hover:translate-x-0.5"
+                    >
+                      <span>Open Leaderboard</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               );
@@ -617,229 +316,8 @@ export default function CategorySubcategoriesPage() {
         )}
       </main>
 
-      {/* Public Footer & Mobile Bottom Navigation */}
+      {/* Permanent Public Footer */}
       <PublicFooter />
-
-      {/* Admin Record Score Modal */}
-      {isAdmin && recordModalOpen && selectedSubcategoryForScore && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 animate-scale-up">
-            <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-xl bg-madin-900 p-1 flex items-center justify-center text-white">
-                  <Zap className="w-4 h-4 text-gold-400" />
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-black text-slate-900">Record Performance Score</h3>
-                  <p className="text-[10px] text-blue-600 font-bold">{selectedSubcategoryForScore.name}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setRecordModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveScore} className="space-y-3.5 pt-4 text-xs">
-              <div className="space-y-1">
-                <label className="font-bold text-slate-700">Select Student *</label>
-                <SearchableStudentSelect
-                  students={students}
-                  value={recordForm.studentId}
-                  onChange={(id) => setRecordForm({ ...recordForm, studentId: id })}
-                  placeholder="Search student by name or code..."
-                />
-              </div>
-
-              {levels.length > 0 && (
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700">Level</label>
-                  <select
-                    value={recordForm.levelId}
-                    onChange={(e) => setRecordForm({ ...recordForm, levelId: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:ring-2 focus:ring-madin-900"
-                  >
-                    {levels.map((lvl) => (
-                      <option key={lvl.id} value={lvl.id}>
-                        {lvl.name} ({lvl.code}) — {lvl.multiplier}x Multiplier
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700">Score Awarded *</label>
-                  <input
-                    type="number"
-                    step="any"
-                    required
-                    value={recordForm.score}
-                    onChange={(e) => setRecordForm({ ...recordForm, score: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:ring-2 focus:ring-madin-900 text-blue-600 text-sm"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700">Max Score</label>
-                  <input
-                    type="number"
-                    step="any"
-                    required
-                    value={recordForm.maxScore}
-                    onChange={(e) => setRecordForm({ ...recordForm, maxScore: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:ring-2 focus:ring-madin-900 text-slate-700"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700">Position / Award</label>
-                  <select
-                    value={recordForm.position}
-                    onChange={(e) => setRecordForm({ ...recordForm, position: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:ring-2 focus:ring-madin-900"
-                  >
-                    <option value="1st">1st Position / Gold (100%)</option>
-                    <option value="2nd">2nd Position / Silver (80%)</option>
-                    <option value="3rd">3rd Position / Bronze (60%)</option>
-                    <option value="Special">Special Recognition</option>
-                    <option value="Grade A">Grade A</option>
-                    <option value="Grade B">Grade B</option>
-                    <option value="Participated">Participation Only</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700">Academic Year</label>
-                  <input
-                    type="text"
-                    value={recordForm.academicYear}
-                    onChange={(e) => setRecordForm({ ...recordForm, academicYear: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:ring-2 focus:ring-madin-900"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setRecordModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={recordingScore}
-                  className="px-5 py-2 rounded-xl bg-madin-900 hover:bg-madin-950 text-white font-bold transition active:scale-95 disabled:opacity-50"
-                >
-                  {recordingScore ? 'Recording...' : 'Record Score'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Admin Add/Edit Subcategory Modal */}
-      {isAdmin && subModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 animate-scale-up">
-            <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-xl bg-madin-900 p-1 flex items-center justify-center text-white">
-                  <Award className="w-4 h-4 text-gold-400" />
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-black text-slate-900">
-                    {editingSubcategory ? 'Edit Subcategory' : 'Add New Subcategory'}
-                  </h3>
-                  <p className="text-[10px] text-blue-600 font-bold">Category: {category?.name}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setSubModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveSubcategory} className="space-y-3.5 pt-4 text-xs">
-              <div className="space-y-1">
-                <label className="font-bold text-slate-700">Subcategory Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={subFormData.name}
-                  onChange={(e) => setSubFormData({ ...subFormData, name: e.target.value })}
-                  placeholder="e.g., Thahadi-Al-Qira'a"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:ring-2 focus:ring-madin-900"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-bold text-slate-700">Description</label>
-                <textarea
-                  rows={2}
-                  value={subFormData.description}
-                  onChange={(e) => setSubFormData({ ...subFormData, description: e.target.value })}
-                  placeholder="Brief description of this assessment..."
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:ring-2 focus:ring-madin-900"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700">Max Score</label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={subFormData.maxScore}
-                    onChange={(e) => setSubFormData({ ...subFormData, maxScore: parseFloat(e.target.value) || 100 })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:ring-2 focus:ring-madin-900"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700">Weight (%)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={subFormData.weight}
-                    onChange={(e) => setSubFormData({ ...subFormData, weight: parseFloat(e.target.value) || 10 })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:ring-2 focus:ring-madin-900"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setSubModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingSub}
-                  className="px-5 py-2 rounded-xl bg-madin-900 hover:bg-madin-950 text-white font-bold transition active:scale-95 disabled:opacity-50"
-                >
-                  {savingSub ? 'Saving...' : editingSubcategory ? 'Update Subcategory' : 'Create Subcategory'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

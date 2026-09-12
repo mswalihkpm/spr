@@ -13,7 +13,13 @@ export async function GET(req: NextRequest) {
     const categoryId = searchParams.get('categoryId');
 
     const whereClause: any = {};
-    if (categoryId) whereClause.categoryId = categoryId;
+    if (categoryId) {
+      whereClause.OR = [
+        { categoryId: categoryId },
+        { category: { code: categoryId.toUpperCase() } },
+        { category: { id: categoryId } },
+      ];
+    }
 
     const subcategories = await prisma.subcategory.findMany({
       where: whereClause,

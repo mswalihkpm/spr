@@ -11,14 +11,22 @@ export async function GET(req: NextRequest) {
     const id = searchParams.get('id');
 
     if (id) {
-      const category = await prisma.category.findUnique({
-        where: { id },
+      const category = await prisma.category.findFirst({
+        where: {
+          OR: [
+            { id: id },
+            { code: id.toUpperCase() },
+          ],
+        },
         include: {
           subcategories: {
             include: {
               _count: { select: { performanceRecords: true } },
             },
-            orderBy: { createdAt: 'desc' },
+            orderBy: [
+              { displayOrder: 'asc' },
+              { createdAt: 'asc' },
+            ],
           },
           categoryWeights: true,
           _count: {

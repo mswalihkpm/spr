@@ -51,7 +51,9 @@ export default function PublicHomePage() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
 
   // Student Scorecard Modal
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -350,23 +352,26 @@ let homeAcademicMemory: any = null;
           <div className="flex items-center space-x-2">
             <Link
               href="/updates"
-              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/90 hover:bg-amber-50 text-slate-700 hover:text-amber-600 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs btn-interactive"
+              className="hidden sm:flex w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/90 hover:bg-amber-50 text-slate-700 hover:text-amber-600 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs btn-interactive"
               title="Official News & Announcements"
               aria-label="Updates"
             >
               <Megaphone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600" />
             </Link>
-            <a
-              href="#search-section"
+            <button
+              onClick={() => {
+                setMobileSearchOpen(true);
+                setTimeout(() => mobileSearchInputRef.current?.focus(), 100);
+              }}
               className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/90 hover:bg-blue-50 text-slate-700 hover:text-blue-600 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs btn-interactive"
               title="Search Students"
               aria-label="Search"
             >
               <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </a>
+            </button>
             <Link
               href="/leaderboard"
-              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/90 hover:bg-amber-50 text-slate-700 hover:text-amber-600 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs btn-interactive"
+              className="hidden sm:flex w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/90 hover:bg-amber-50 text-slate-700 hover:text-amber-600 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs btn-interactive"
               title="Open Full Standings"
               aria-label="Leaderboard"
             >
@@ -374,7 +379,7 @@ let homeAcademicMemory: any = null;
             </Link>
             <Link
               href="/categories"
-              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/90 hover:bg-indigo-50 text-slate-700 hover:text-indigo-600 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs btn-interactive"
+              className="hidden sm:flex w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/90 hover:bg-indigo-50 text-slate-700 hover:text-indigo-600 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs btn-interactive"
               title="Evaluation Categories & Wings"
               aria-label="Categories"
             >
@@ -383,6 +388,92 @@ let homeAcademicMemory: any = null;
           </div>
         </div>
       </header>
+
+      {/* Mobile Search Modal Overlay */}
+      {mobileSearchOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-start justify-center p-4 pt-16 sm:hidden animate-fade-in">
+          <div className="bg-white rounded-3xl w-full max-w-md p-4 shadow-2xl border border-slate-200 space-y-3 animate-scale-in">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center space-x-2 text-slate-800">
+                <Search className="w-4 h-4 text-blue-600" />
+                <span className="text-xs font-bold uppercase tracking-wider">Search SPR Students</span>
+              </div>
+              <button
+                onClick={() => {
+                  setMobileSearchOpen(false);
+                  setSearchQuery('');
+                }}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="relative bg-slate-50 rounded-2xl border border-slate-200 p-1 flex items-center focus-within:ring-2 focus-within:ring-blue-600">
+              <Search className="w-4 h-4 text-slate-400 ml-2.5 shrink-0" />
+              <input
+                ref={mobileSearchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Enter student name, ID (e.g. MSOE, SPR), or class..."
+                className="w-full px-2.5 py-2 text-xs text-slate-900 bg-transparent outline-none font-semibold"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSearchResults([]);
+                  }}
+                  className="p-1 text-slate-400 hover:text-slate-700 mr-1.5"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Results List */}
+            {searching ? (
+              <div className="py-6 flex items-center justify-center">
+                <VideoLoader size="sm" text="Searching registry..." />
+              </div>
+            ) : searchResults.length > 0 ? (
+              <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 rounded-2xl border border-slate-100 bg-white">
+                {searchResults.map((st) => (
+                  <button
+                    key={st.id}
+                    onClick={() => {
+                      setMobileSearchOpen(false);
+                      handleStudentClick(st.id);
+                    }}
+                    className="w-full p-2.5 text-left hover:bg-blue-50/80 flex items-center justify-between transition"
+                  >
+                    <div className="flex items-center space-x-2.5 min-w-0">
+                      <StudentAvatar photoUrl={st.photoUrl} name={st.fullName} size="sm" />
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-slate-900 truncate">{st.fullName}</div>
+                        <div className="text-[10px] text-slate-500 font-medium truncate flex items-center space-x-1 mt-0.5">
+                          <span className="font-mono font-bold text-blue-700 bg-blue-50 px-1 py-0.2 rounded border border-blue-200 text-[9px]">
+                            {st.sprStudentId || st.studentId}
+                          </span>
+                          <span>• Standard {formatClassNumber(st.className)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 ml-2">
+                      <Trophy className="w-3 h-3" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : searchQuery.trim() ? (
+              <div className="py-4 text-center text-xs text-slate-400">
+                No students found matching &quot;{searchQuery}&quot;
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
 
       {/* Top Hero Section with Rich Sunset Mosque Background (Clarity & Vivid Colors) */}
       <section className="relative overflow-hidden pt-8 pb-6 sm:pt-10 sm:pb-8 print:hidden">
@@ -411,8 +502,8 @@ let homeAcademicMemory: any = null;
               </p>
             </div>
 
-            {/* Quick Student Search Box (Highest Stacking Context z-30) */}
-            <div ref={searchContainerRef} className="pt-2 max-w-2xl mx-auto relative z-30 text-left animate-slide-up delay-150">
+            {/* Quick Student Search Box (Desktop Only; on mobile it is accessed via Header search icon) */}
+            <div ref={searchContainerRef} className="hidden sm:block pt-2 max-w-2xl mx-auto relative z-30 text-left animate-slide-up delay-150">
               <div className="relative bg-white rounded-2xl shadow-xl shadow-slate-300/40 border-2 border-slate-200/90 focus-within:border-blue-600 focus-within:ring-4 focus-within:ring-blue-600/15 transition-all p-1.5 sm:p-2 flex items-center">
                 <Search className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 ml-2.5 shrink-0" />
                 <input
@@ -1120,15 +1211,6 @@ let homeAcademicMemory: any = null;
                   {/* 1. OVERALL SPR POINTS BREAKDOWN */}
                   {modalCalcTab === 'OVERALL' && (
                     <div className="space-y-3 animate-fade-in">
-                      <div className="p-3 bg-blue-50/80 rounded-xl border border-blue-200/70 text-xs text-blue-900 space-y-1">
-                        <div className="font-bold flex items-center space-x-1.5">
-                          <span>📐 SPR Numerical Points Formula:</span>
-                        </div>
-                        <p className="text-[11px] text-blue-800 font-mono leading-relaxed">
-                          Overall SPR Points = SUM of all valid earned numerical points across 7 categories
-                        </p>
-                      </div>
-
                       <div className="space-y-2">
                         {(studentProfile.categoryBreakdown || studentProfile.categoryScores || []).map((cat: any) => {
                           const pts = cat.earnedPoints ?? 0;

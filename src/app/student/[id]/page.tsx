@@ -673,40 +673,19 @@ export default function PublicStudentScorecardPage() {
                               </td>
 
                               <td className="py-2.5 px-3 text-right">
-                                {r.obtainedScore !== undefined && r.maxScore !== undefined && (activeCategory?.categoryCode === 'SCHOOL' || activeCategory?.categoryCode === 'ISLAMIC') ? (
-                                  <div className="space-y-0.5">
-                                    <span
-                                      className={`px-2 py-0.5 rounded-md font-mono font-extrabold text-xs ${
-                                        recordPct >= 85
-                                          ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
-                                          : recordPct >= 70
-                                          ? 'bg-blue-100 text-blue-900 border border-blue-200'
-                                          : recordPct >= 50
-                                          ? 'bg-amber-100 text-amber-900 border border-amber-200'
-                                          : 'bg-slate-100 text-slate-700'
-                                      }`}
-                                    >
-                                      {recordPct.toFixed(1)}%
-                                    </span>
-                                    <div className="text-[10px] font-mono text-slate-500 font-medium">
-                                      {r.obtainedScore}/{r.maxScore} marks
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <span
-                                    className={`px-2 py-0.5 rounded-md font-mono font-extrabold text-xs ${
-                                      recordPct >= 85
-                                        ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
-                                        : recordPct >= 70
-                                        ? 'bg-blue-100 text-blue-900 border border-blue-200'
-                                        : recordPct >= 50
-                                        ? 'bg-amber-100 text-amber-900 border border-amber-200'
-                                        : 'bg-slate-100 text-slate-700'
-                                    }`}
-                                  >
-                                    {recordPct.toFixed(2)}%
-                                  </span>
-                                )}
+                                <span
+                                  className={`px-2.5 py-1 rounded-md font-mono font-extrabold text-xs inline-block ${
+                                    recordPct >= 85
+                                      ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                                      : recordPct >= 70
+                                      ? 'bg-blue-100 text-blue-900 border border-blue-200'
+                                      : recordPct >= 50
+                                      ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                                      : 'bg-slate-100 text-slate-700'
+                                  }`}
+                                >
+                                  {recordPct.toFixed(1)}%
+                                </span>
                               </td>
                             </tr>
                           );
