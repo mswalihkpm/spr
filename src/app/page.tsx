@@ -15,7 +15,6 @@ import {
   Library,
   Layers,
   CheckCircle2,
-  Printer,
   X,
   Flag,
   ArrowRight,
@@ -1345,18 +1344,10 @@ let homeAcademicMemory: any = null;
 
                   <div className="flex items-center space-x-2">
                     <Link
-                      href={`/student/${studentProfile.student?.id}?print=true`}
-                      className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition active:scale-95"
-                    >
-                      <Printer className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Print Official Scorecard</span>
-                    </Link>
-
-                    <Link
                       href={`/student/${studentProfile.student?.id}`}
                       className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center space-x-1"
                     >
-                      <span>Full Dossier</span>
+                      <span>View Official Dossier</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </Link>
                   </div>

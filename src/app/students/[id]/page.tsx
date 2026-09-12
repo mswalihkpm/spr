@@ -21,7 +21,6 @@ import {
   CheckCircle2,
   FileText,
   TrendingUp,
-  Printer,
   Camera,
   UploadCloud,
   Trash2,
@@ -213,13 +212,13 @@ export default function StudentProfilePage() {
           </div>
 
           <a
-            href={`/student/${student.id}?print=true`}
+            href={`/student/${student.id}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition"
           >
-            <Printer className="w-3.5 h-3.5 text-amber-300" />
-            <span>Print Official Scorecard</span>
+            <ExternalLink className="w-3.5 h-3.5 text-blue-200" />
+            <span>Open Official Dossier</span>
           </a>
         </div>
 

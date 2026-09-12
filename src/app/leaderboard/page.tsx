@@ -26,7 +26,6 @@ import {
   ExternalLink,
   ChevronRight,
   Percent,
-  Printer,
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import StudentReportModal from '@/components/modals/StudentReportModal';
@@ -1652,18 +1651,10 @@ function LeaderboardContent() {
 
                   <div className="flex items-center space-x-2">
                     <Link
-                      href={`/student/${selectedStudentId}?print=true`}
-                      className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold transition active:scale-95"
-                    >
-                      <Printer className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Print Scorecard</span>
-                    </Link>
-
-                    <Link
                       href={`/student/${selectedStudentId}`}
                       className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md transition"
                     >
-                      <span>View Full Profile</span>
+                      <span>View Official Dossier</span>
                       <ChevronRight className="w-3.5 h-3.5" />
                     </Link>
                   </div>

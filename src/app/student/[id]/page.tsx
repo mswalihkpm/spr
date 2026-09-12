@@ -27,6 +27,12 @@ import {
   Info,
   X,
   HelpCircle,
+  Check,
+  Sliders,
+  Eye,
+  ShieldCheck,
+  Download,
+  Settings2,
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import VideoLoader from '@/components/ui/VideoLoader';
@@ -48,8 +54,20 @@ export default function PublicStudentScorecardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [detailsModalCategory, setDetailsModalCategory] = useState<any | null>(null);
   const [collapsedAssessments, setCollapsedAssessments] = useState<Record<string, boolean>>({});
+
+  // Advanced A4 Print Studio Modal State
+  const [printModalOpen, setPrintModalOpen] = useState(false);
+  const [printPreset, setPrintPreset] = useState<'OFFICIAL' | 'COMPACT' | 'CUSTOM'>('OFFICIAL');
+  const [includeBanner, setIncludeBanner] = useState(true);
+  const [includeRanks, setIncludeRanks] = useState(true);
+  const [includeCategorySummary, setIncludeCategorySummary] = useState(true);
+  const [includeLibraryCard, setIncludeLibraryCard] = useState(true);
+  const [includeItemizedRecords, setIncludeItemizedRecords] = useState(true);
+  const [includePoints, setIncludePoints] = useState(true);
+  const [includeSignatures, setIncludeSignatures] = useState(true);
+  const [printPageMode, setPrintPageMode] = useState<'SINGLE' | 'MULTI'>('MULTI');
+  const [selectedPrintCategories, setSelectedPrintCategories] = useState<Record<string, boolean>>({});
 
   const toggleAssessment = (key: string) => {
     setCollapsedAssessments((prev) => ({
@@ -71,6 +89,14 @@ export default function PublicStudentScorecardPage() {
           setProfile(data.profile);
           setCreativeWorks(data.creativeWorks || []);
           setLibraryRecords(data.libraryRecords || []);
+
+          // Initialize print category checkboxes
+          const cats = data.profile?.categoryBreakdown || data.profile?.categoryScores || [];
+          const initialPrintCats: Record<string, boolean> = {};
+          cats.forEach((c: any) => {
+            initialPrintCats[c.categoryId || c.categoryCode] = true;
+          });
+          setSelectedPrintCategories(initialPrintCats);
         }
       })
       .catch((err) => {
@@ -80,7 +106,7 @@ export default function PublicStudentScorecardPage() {
       .finally(() => setLoading(false));
   }, [studentId]);
 
-  // Set default category on profile load
+  // Set default active category on profile load
   useEffect(() => {
     if (profile && !selectedCategoryId) {
       const cats = profile.categoryBreakdown || profile.categoryScores || [];
@@ -94,6 +120,52 @@ export default function PublicStudentScorecardPage() {
       }
     }
   }, [profile, selectedCategoryId]);
+
+  // Open print studio modal if URL contains ?print=true
+  useEffect(() => {
+    if (!loading && profile && typeof window !== 'undefined') {
+      const isAutoPrint = new URLSearchParams(window.location.search).get('print') === 'true';
+      if (isAutoPrint) {
+        setPrintModalOpen(true);
+      }
+    }
+  }, [loading, profile]);
+
+  const handlePresetChange = (preset: 'OFFICIAL' | 'COMPACT' | 'CUSTOM') => {
+    setPrintPreset(preset);
+    if (preset === 'OFFICIAL') {
+      setIncludeBanner(true);
+      setIncludeRanks(true);
+      setIncludeCategorySummary(true);
+      setIncludeLibraryCard(true);
+      setIncludeItemizedRecords(true);
+      setIncludePoints(true);
+      setIncludeSignatures(true);
+      setPrintPageMode('MULTI');
+      const cats = profile?.categoryBreakdown || profile?.categoryScores || [];
+      const allTrue: Record<string, boolean> = {};
+      cats.forEach((c: any) => {
+        allTrue[c.categoryId || c.categoryCode] = true;
+      });
+      setSelectedPrintCategories(allTrue);
+    } else if (preset === 'COMPACT') {
+      setIncludeBanner(true);
+      setIncludeRanks(true);
+      setIncludeCategorySummary(true);
+      setIncludeLibraryCard(true);
+      setIncludeItemizedRecords(false);
+      setIncludePoints(true);
+      setIncludeSignatures(true);
+      setPrintPageMode('SINGLE');
+    }
+  };
+
+  const handleTriggerPrint = () => {
+    setPrintModalOpen(false);
+    setTimeout(() => {
+      window.print();
+    }, 200);
+  };
 
   const getCategoryIcon = (code?: string) => {
     switch (code) {
@@ -144,9 +216,11 @@ export default function PublicStudentScorecardPage() {
         publicationStatus: w.publicationStatus,
         rating: w.rating,
         percentage: w.percentage,
-        obtainedScore: w.rating ?? w.percentage,
-        maxScore: 100,
-        remarks: w.description || w.feedback,
+        obtainedScore: w.score ?? w.rating ?? w.percentage ?? 20,
+        basePoints: w.score ?? 20,
+        multiplier: 1.0,
+        earnedPoints: w.score ?? 20,
+        remarks: w.description || w.remarks,
         date: w.date,
       }));
     }
@@ -161,8 +235,10 @@ export default function PublicStudentScorecardPage() {
         type: 'LIBRARY',
         percentage: lib.readingScore,
         readingScore: lib.readingScore,
-        obtainedScore: lib.booksRead,
-        maxScore: 500,
+        obtainedScore: lib.readingScore || ((lib.booksRead || 0) * 20),
+        basePoints: lib.readingScore || ((lib.booksRead || 0) * 20),
+        multiplier: 1.0,
+        earnedPoints: lib.readingScore || ((lib.booksRead || 0) * 20),
         remarks: lib.remarks,
         date: lib.createdAt,
       }));
@@ -170,19 +246,6 @@ export default function PublicStudentScorecardPage() {
 
     return [];
   };
-
-  // Auto-launch print dialog if opened with ?print=true
-  useEffect(() => {
-    if (!loading && profile && typeof window !== 'undefined') {
-      const isAutoPrint = new URLSearchParams(window.location.search).get('print') === 'true';
-      if (isAutoPrint) {
-        const timer = setTimeout(() => {
-          window.print();
-        }, 400);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [loading, profile]);
 
   const formatScore = (val: any) => {
     const num = typeof val === 'number' ? val : parseFloat(val);
@@ -234,18 +297,21 @@ export default function PublicStudentScorecardPage() {
   const ActiveIcon = getCategoryIcon(activeCategory?.categoryCode);
   const activeEarned = activeCategory?.earnedPoints ?? 0;
 
-  // Library category specific extraction for reading milestones table
+  // Dedicated Library calculations
   const libraryCategory = categoriesList.find((c: any) => c.categoryCode === 'LIBRARY');
   const libraryEarnedPoints = libraryCategory?.earnedPoints ?? (libraryRecords.reduce((acc, r) => acc + (r.readingScore || 0), 0));
+  const libraryItems = getCategoryRecords(libraryCategory);
+
+  const isExamCategory = (code?: string) => code === 'ISLAMIC' || code === 'SCHOOL';
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans py-6 px-4 sm:px-6 lg:px-8 print:p-0 print:bg-white">
-      {/* Global CSS for Strict 1-Page A4 Print */}
+      {/* Global CSS for Strict A4 Print Studio Styling */}
       <style jsx global>{`
         @media print {
           @page {
             size: A4 portrait;
-            margin: 5mm 6mm 5mm 6mm;
+            margin: ${printPageMode === 'SINGLE' ? '4mm 5mm 4mm 5mm' : '7mm 8mm 7mm 8mm'};
           }
           *, *::before, *::after {
             -webkit-print-color-adjust: exact !important;
@@ -278,6 +344,21 @@ export default function PublicStudentScorecardPage() {
             break-inside: avoid !important;
             page-break-inside: avoid !important;
           }
+
+          /* Dynamic Print Studio Classes */
+          ${!includeBanner ? '.print-banner-section { display: none !important; }' : ''}
+          ${!includeRanks ? '.print-ranks-section { display: none !important; }' : ''}
+          ${!includeCategorySummary ? '.print-category-summary-section { display: none !important; }' : ''}
+          ${!includeLibraryCard ? '.print-library-section { display: none !important; }' : ''}
+          ${!includeItemizedRecords ? '.print-itemized-section { display: none !important; }' : ''}
+          ${!includeSignatures ? '.print-signatures-section { display: none !important; }' : ''}
+          ${!includePoints ? '.print-hide-points { display: none !important; }' : ''}
+          ${printPageMode === 'SINGLE' ? `
+            .scorecard-container {
+              transform: scale(0.96);
+              transform-origin: top center;
+            }
+          ` : ''}
         }
       `}</style>
 
@@ -311,8 +392,9 @@ export default function PublicStudentScorecardPage() {
               <span>Share</span>
             </button>
 
+            {/* PRINT BUTTON - Opens Advanced A4 Print Studio Modal */}
             <button
-              onClick={() => window.print()}
+              onClick={() => setPrintModalOpen(true)}
               className="inline-flex items-center space-x-1.5 text-xs font-bold text-white bg-blue-600 px-4 py-2 rounded-xl shadow-md hover:bg-blue-700 transition hover:scale-105 active:scale-95 btn-interactive cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5 text-amber-300" />
@@ -324,7 +406,7 @@ export default function PublicStudentScorecardPage() {
         {/* Official Scorecard Paper Container */}
         <div className="scorecard-container bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xl overflow-hidden p-3 sm:p-8 space-y-2.5 sm:space-y-4 print:p-0 print:border-none print:shadow-none print:space-y-1.5 animate-zoom-up">
           {/* Top Header Banner Card */}
-          <div className="relative rounded-xl sm:rounded-2xl bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-900 text-white overflow-hidden p-2.5 sm:p-5 flex items-center justify-between shadow-md print:p-2.5 print:rounded-xl page-break-avoid">
+          <div className="print-banner-section relative rounded-xl sm:rounded-2xl bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-900 text-white overflow-hidden p-2.5 sm:p-5 flex items-center justify-between shadow-md print:p-2.5 print:rounded-xl page-break-avoid">
             <div className="relative z-10 flex items-center space-x-2 sm:space-x-3 print:space-x-2.5">
               <div className="w-7 h-7 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-white p-1 flex items-center justify-center shrink-0 shadow print:w-8 print:h-8 print:rounded-lg">
                 <Image
@@ -340,32 +422,32 @@ export default function PublicStudentScorecardPage() {
                   Madin School of Excellence
                 </div>
                 <h1 className="text-[11px] sm:text-lg font-black text-white tracking-tight leading-tight print:text-xs">
-                  STUDENTS PERFORMANCE RATE (SPR)
+                  Student Performance Rate (SPR) Scorecard
                 </h1>
                 <div className="text-[8px] sm:text-xs text-blue-100/90 font-medium print:text-[8.5px]">
-                  Official Institutional Performance Dossier & Scorecard
+                  Academic &amp; Co-Curricular Comprehensive Evaluation Dossier
                 </div>
               </div>
             </div>
 
-            <div className="relative z-10 text-right shrink-0">
+            <div className="relative z-10 text-right">
               <div className="inline-flex items-center space-x-1 px-1.5 py-0.5 sm:px-2.5 sm:py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/40 text-[8px] sm:text-xs font-bold print:text-[8px] print:px-1.5 print:py-0">
                 <CheckCircle2 className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 text-emerald-400 print:w-2.5 print:h-2.5" />
-                <span>Verified</span>
+                <span>Certified Official Record</span>
               </div>
               <div className="text-[8px] sm:text-[10px] text-blue-200 mt-0.5 font-medium print:text-[8px]">
-                Year {student?.academicYear?.name || '2025–2026'}
+                Academic Year: {student?.academicYear?.name || '2025-2026'}
               </div>
             </div>
 
-            {/* Subtle Watermark in Header Banner */}
+            {/* Subtle Watermark Decoration */}
             <div className="absolute -right-4 -bottom-4 w-20 h-20 sm:w-28 sm:h-28 opacity-10 pointer-events-none print:w-16 print:h-16">
-              <Image src="/footer-logo.png" alt="Watermark" width={112} height={112} className="w-full h-full object-contain" />
+              <Award className="w-full h-full text-white" />
             </div>
           </div>
 
           {/* Student Profile Overview Card */}
-          <div className="bg-slate-50 rounded-xl sm:rounded-2xl p-2.5 sm:p-5 border border-slate-200 flex flex-col sm:flex-row items-center sm:items-start space-y-2 sm:space-y-0 sm:space-x-4 print:p-2.5 print:rounded-xl print:space-x-3 page-break-avoid">
+          <div className="print-banner-section bg-slate-50 rounded-xl sm:rounded-2xl p-2.5 sm:p-5 border border-slate-200 flex flex-col sm:flex-row items-center sm:items-start space-y-2 sm:space-y-0 sm:space-x-4 print:p-2.5 print:rounded-xl print:space-x-3 page-break-avoid">
             <StudentAvatar
               photoUrl={student?.photoUrl}
               name={student?.fullName || 'Student'}
@@ -373,40 +455,41 @@ export default function PublicStudentScorecardPage() {
               className="w-12 h-12 sm:w-20 sm:h-20 print:w-12 print:h-12 shrink-0"
             />
 
-            <div className="flex-1 text-center sm:text-left space-y-0.5 min-w-0">
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1 pb-0.5">
+            <div className="flex-1 text-center sm:text-left space-y-0.5 sm:space-y-1">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1 sm:gap-1.5">
                 <span className="px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-950 border border-blue-300 text-[8.5px] sm:text-[10px] font-mono font-bold print:text-[8px] print:py-0 shadow-2xs">
-                  SPR ID: {student?.sprStudentId || student?.studentId}
+                  {student?.sprStudentId ? `${student.sprStudentId}` : 'SPR ID'}
                 </span>
-                {student?.division && (
+                {student?.studentId && (
                   <span className="px-1.5 py-0.5 rounded-md bg-slate-200/70 text-slate-800 text-[8.5px] sm:text-[10px] font-semibold print:text-[8px] print:py-0">
-                    Div {student?.division}
+                    ADM: {student.studentId}
                   </span>
                 )}
               </div>
+
               <h2 className="text-sm sm:text-2xl font-black text-slate-900 print:text-sm leading-tight truncate">{student?.fullName}</h2>
               <div className="text-[10px] sm:text-xs text-slate-600 font-medium print:text-[9.5px]">
-                Standard: <span className="font-bold text-slate-900">{formatClassNumber(student?.class?.name)}</span> {student?.division ? `(Div ${student?.division})` : ''}
+                Class: <span className="font-bold text-slate-800">{formatClassNumber(student?.class?.name) || 'N/A'}{student?.division ? ` - ${student.division}` : ''}</span> • Roll No: <span className="font-bold text-slate-800">{student?.rollNo || 'N/A'}</span>
               </div>
               <div className="text-[10px] sm:text-xs text-slate-600 print:text-[9.5px]">
-                School: <span className="font-semibold text-slate-800">{student?.school?.name}</span>
+                School: <span className="font-bold text-slate-800">{student?.school?.name || 'Main Campus'}</span>
               </div>
             </div>
 
-            {/* Overall SPR Score Points Badge */}
+            {/* Total Score Badge */}
             <div className="w-full sm:w-auto text-center bg-blue-600 text-white px-3 py-1.5 sm:px-5 sm:py-3 rounded-lg sm:rounded-2xl shadow-md min-w-[100px] sm:min-w-[120px] print:py-1.5 print:px-3 print:rounded-xl print:min-w-[100px]">
               <div className="text-[7.5px] sm:text-[9px] uppercase font-bold text-blue-100 tracking-wider print:text-[7.5px]">TOTAL SPR POINTS</div>
               <div className="text-lg sm:text-3xl font-black text-white mt-0.5 print:text-base font-mono leading-tight">
                 {formatPoints(profile.overallScore ?? profile.overallSPR)}
               </div>
               <div className="text-[7.5px] sm:text-[9.5px] text-blue-200 font-medium print:text-[8px]">
-                Cumulative Points
+                {numericScore >= 400 ? 'Exceptional Performance' : numericScore >= 250 ? 'Outstanding Record' : 'Standard Evaluation'}
               </div>
             </div>
           </div>
 
-          {/* Ranking Statistics */}
-          <div className="grid grid-cols-3 gap-1.5 sm:gap-3 text-center print:gap-1.5 page-break-avoid">
+          {/* Ranks & Position Metrics */}
+          <div className="print-ranks-section grid grid-cols-3 gap-1.5 sm:gap-3 text-center print:gap-1.5 page-break-avoid">
             <div className="p-1.5 sm:p-3 rounded-lg sm:rounded-xl bg-slate-50 border border-slate-200 print:p-1.5 print:rounded-lg">
               <div className="text-[9px] sm:text-[11px] text-slate-500 font-medium print:text-[9px]">Class Rank</div>
               <div className="text-xs sm:text-xl font-black text-slate-900 mt-0.5 print:text-xs">
@@ -422,28 +505,22 @@ export default function PublicStudentScorecardPage() {
               </div>
             </div>
             <div className="p-1.5 sm:p-3 rounded-lg sm:rounded-xl bg-slate-50 border border-slate-200 print:p-1.5 print:rounded-lg">
-              <div className="text-[9px] sm:text-[11px] text-slate-500 font-medium print:text-[9px]">Overall Rank</div>
+              <div className="text-[9px] sm:text-[11px] text-slate-500 font-medium print:text-[9px]">Overall Standing</div>
               <div className="text-xs sm:text-xl font-black text-blue-600 mt-0.5 print:text-xs">
-                #{profile.rank || 1}{' '}
-                <span className="text-[8.5px] sm:text-xs text-slate-400 font-normal print:text-[8.5px]">/ {profile.totalStudentsOverall || 1}</span>
+                #{profile.overallRank || 1}
               </div>
             </div>
           </div>
 
-          {/* SECTION 19 & 20: COMPLETE SPR POINTS BREAKDOWN TABLE */}
-          <div className="space-y-2.5 print:space-y-1 page-break-avoid">
+          {/* SECTION: CATEGORY SPR SUMMARY TABLE */}
+          <div className="print-category-summary-section space-y-2 sm:space-y-3 print:space-y-1.5 page-break-avoid">
             <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 print:text-[9.5px] flex items-center space-x-1.5">
-                  <Calculator className="w-4 h-4 text-blue-700 print:w-3 print:h-3" />
-                  <span>SPR Point Breakdown Matrix</span>
-                </h3>
-                <p className="text-[10px] text-slate-500 print:hidden font-medium">
-                  Authoritative points breakdown across all 7 evaluation domains:
-                </p>
-              </div>
-              <span className="hidden sm:inline-flex items-center space-x-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 print:hidden">
-                <span>Pure Unlimited Points</span>
+              <h3 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wider flex items-center space-x-1.5 print:text-[10px]">
+                <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" />
+                <span>Cumulative Category Performance Summary</span>
+              </h3>
+              <span className="text-[10px] text-slate-500 hidden sm:inline print:hidden font-medium">
+                Click any category row to view itemized records below
               </span>
             </div>
 
@@ -512,17 +589,17 @@ export default function PublicStudentScorecardPage() {
             </div>
           </div>
 
-          {/* SECTION 9: DEDICATED LIBRARY POINTS TABLE */}
-          <div className="rounded-2xl border border-teal-200 bg-teal-50/40 p-4 space-y-2 print:p-2 print:rounded-lg page-break-avoid">
+          {/* SECTION: DEDICATED LIBRARY & KUTHBKHANA POINTS TABLE */}
+          <div className="print-library-section rounded-2xl border border-teal-200 bg-teal-50/40 p-4 space-y-2 print:p-2 print:rounded-lg page-break-avoid">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Library className="w-4 h-4 text-teal-700" />
                 <h4 className="text-xs font-black uppercase tracking-wider text-teal-950 print:text-[9px]">
-                  Library &amp; Reading Milestones (Pure Points)
+                  Library &amp; Kuthbkhana Milestones (Exact Points &amp; Admin Weightage)
                 </h4>
               </div>
               <span className="text-[10.5px] font-bold text-teal-800 bg-teal-100 px-2 py-0.5 rounded-md font-mono print:text-[8px]">
-                No Caps • Unlimited Points
+                Direct Evaluated Points
               </span>
             </div>
 
@@ -530,25 +607,52 @@ export default function PublicStudentScorecardPage() {
               <table className="w-full text-left text-xs print:text-[9px]">
                 <thead className="bg-teal-50/80 border-b border-teal-200 text-teal-900 font-semibold">
                   <tr>
-                    <th className="py-2 px-3">Reading Milestone Metric</th>
-                    <th className="py-2 px-3 text-right">Value</th>
+                    <th className="py-2 px-3">Reading Milestone / Text</th>
+                    <th className="py-2 px-3 text-center">Score / Metric</th>
+                    <th className="py-2 px-3 text-center">Admin Weightage</th>
+                    <th className="py-2 px-3 text-right">Earned Points</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-teal-100">
-                  <tr>
-                    <td className="py-2 px-3 text-slate-700 font-medium">Logged Reading Records</td>
-                    <td className="py-2 px-3 text-right font-bold text-slate-900 font-mono">{libraryRecords.length} milestones</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 text-slate-700 font-medium">Books Read Total</td>
-                    <td className="py-2 px-3 text-right font-bold text-slate-900 font-mono">
-                      {libraryRecords.reduce((acc, r) => acc + (r.booksRead || 0), 0)} Books
+                  {libraryItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-3 px-3 text-center text-slate-500 font-medium">
+                        No library or Kuthbkhana reading records logged yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    libraryItems.map((item: any, idx: number) => {
+                      const baseScore = typeof item.basePoints === 'number' ? item.basePoints : (item.obtainedScore || 0);
+                      const mult = typeof item.multiplier === 'number' && item.multiplier > 0 ? item.multiplier : 1.0;
+                      const earned = typeof item.earnedPoints === 'number' ? item.earnedPoints : (baseScore * mult);
+                      const title = item.name || item.title || item.readingPeriod || 'Reading Milestone';
+                      const subLabel = item.subCategoryName || (item.booksRead ? `${item.booksRead} Books Read` : item.type);
+
+                      return (
+                        <tr key={item.id || idx} className="hover:bg-teal-50/30 transition">
+                          <td className="py-2 px-3">
+                            <div className="font-bold text-slate-900">{title}</div>
+                            {subLabel && <div className="text-[10px] text-slate-500">{subLabel}</div>}
+                          </td>
+                          <td className="py-2 px-3 text-center font-mono font-medium text-slate-700">
+                            {item.booksRead !== undefined ? `${item.booksRead} Books (${baseScore} pts)` : `${baseScore} pts`}
+                          </td>
+                          <td className="py-2 px-3 text-center font-mono font-bold text-teal-800">
+                            {mult.toFixed(1)}x
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono font-black text-teal-900">
+                            +{formatPoints(earned)} pts
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                  <tr className="bg-teal-50/80 font-bold border-t-2 border-teal-300">
+                    <td colSpan={3} className="py-2 px-3 font-black text-teal-950 uppercase text-[10px]">
+                      Accumulated Library SPR Points Total
                     </td>
-                  </tr>
-                  <tr className="bg-teal-50/40">
-                    <td className="py-2 px-3 font-bold text-teal-950">Accumulated Library SPR Points</td>
-                    <td className="py-2 px-3 text-right font-black text-teal-900 font-mono">
-                      +{formatPoints(libraryCategory?.earnedPoints ?? libraryRecords.reduce((acc, r) => acc + (r.readingScore || 0), 0))} PTS
+                    <td className="py-2 px-3 text-right font-black text-teal-900 font-mono text-xs">
+                      +{formatPoints(libraryEarnedPoints)} PTS
                     </td>
                   </tr>
                 </tbody>
@@ -556,9 +660,9 @@ export default function PublicStudentScorecardPage() {
             </div>
           </div>
 
-          {/* SECTION 22: SELECTED CATEGORY ITEMIZATION & VIEW DETAILS */}
+          {/* SECTION: SELECTED CATEGORY ITEMIZED RECORDS */}
           {activeCategory && (
-            <div className="rounded-2xl border-2 border-blue-200/80 bg-gradient-to-b from-blue-50/40 via-white to-white p-4 sm:p-5 space-y-4 shadow-sm animate-fade-in page-break-avoid">
+            <div className="print-itemized-section rounded-2xl border-2 border-blue-200/80 bg-gradient-to-b from-blue-50/40 via-white to-white p-4 sm:p-5 space-y-4 shadow-sm animate-fade-in page-break-avoid">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-blue-100">
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md shrink-0">
@@ -570,11 +674,13 @@ export default function PublicStudentScorecardPage() {
                         {activeCategory.categoryName} Assessment Records
                       </h4>
                       <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-100 text-blue-900 border border-blue-200 font-mono">
-                        Points Scoring
+                        {isExamCategory(activeCategory.categoryCode) ? 'Exam Percentage Conversion' : 'Points & Weightage Scoring'}
                       </span>
                     </div>
                     <div className="text-[11px] text-slate-600 font-medium mt-0.5">
-                      Itemized records evaluated under this category
+                      {isExamCategory(activeCategory.categoryCode)
+                        ? 'Evaluated exams converted to Actual Maximum Mark'
+                        : 'Evaluated items showing exact score and admin-defined weightage multipliers'}
                     </div>
                   </div>
                 </div>
@@ -615,7 +721,17 @@ export default function PublicStudentScorecardPage() {
                   </div>
                 ) : (
                   (() => {
-                    const groups: { key: string; title: string; records: any[]; assessmentPct: number; totObt: number; totMax: number }[] = [];
+                    const isExam = isExamCategory(activeCategory.categoryCode);
+                    const groups: {
+                      key: string;
+                      title: string;
+                      records: any[];
+                      assessmentPct: number;
+                      totObt: number;
+                      totMax: number;
+                      groupEarnedPoints: number;
+                      actualMax: number;
+                    }[] = [];
                     const map = new Map<string, { title: string; recs: any[] }>();
 
                     activeRecords.forEach((r: any) => {
@@ -637,7 +753,21 @@ export default function PublicStudentScorecardPage() {
                       const totObt = recs.reduce((acc, curr) => acc + (Number(curr.obtainedScore) || 0), 0);
                       const totMax = recs.reduce((acc, curr) => acc + (Number(curr.maxScore) || 100), 0);
                       const assessmentPct = totMax > 0 ? (totObt / totMax) * 100 : 0;
-                      groups.push({ key: normKey, title, records: recs, assessmentPct, totObt, totMax });
+                      const actualMax = recs[0]?.exam?.maxScore || (activeCategory.categoryCode === 'SCHOOL' ? 130 : 100);
+                      const groupEarnedPoints = isExam
+                        ? Number(((assessmentPct / 100) * actualMax).toFixed(2))
+                        : recs.reduce((acc, curr) => acc + (Number(curr.earnedPoints) || (Number(curr.obtainedScore) || 0) * (Number(curr.multiplier) || 1)), 0);
+
+                      groups.push({
+                        key: normKey,
+                        title,
+                        records: recs,
+                        assessmentPct,
+                        totObt,
+                        totMax,
+                        groupEarnedPoints,
+                        actualMax,
+                      });
                     });
 
                     return groups.map((group) => {
@@ -662,23 +792,31 @@ export default function PublicStudentScorecardPage() {
                                   {group.title}
                                 </div>
                                 <div className="text-[10px] text-slate-500 font-medium">
-                                  {group.records.length} {group.records.length === 1 ? 'Subject / Entry' : 'Subjects / Entries'}
+                                  {group.records.length} {group.records.length === 1 ? 'Entry' : 'Entries'}
                                 </div>
                               </div>
                             </div>
 
                             <div className="flex items-center space-x-2.5">
-                              <span
-                                className={`px-2 py-0.5 rounded-md font-mono font-bold text-[11px] ${
-                                  group.assessmentPct >= 85
-                                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                    : group.assessmentPct >= 70
-                                    ? 'bg-blue-50 text-blue-800 border border-blue-200'
-                                    : 'bg-slate-100 text-slate-700'
-                                }`}
-                              >
-                                {group.assessmentPct.toFixed(1)}%
-                              </span>
+                              {isExam ? (
+                                <div className="text-right">
+                                  <span
+                                    className={`px-2 py-0.5 rounded-md font-mono font-bold text-[11px] ${
+                                      group.assessmentPct >= 85
+                                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                        : group.assessmentPct >= 70
+                                        ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                                        : 'bg-slate-100 text-slate-700'
+                                    }`}
+                                  >
+                                    {group.assessmentPct.toFixed(1)}% → {group.groupEarnedPoints} / {group.actualMax} pts
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-md font-mono font-bold text-[11px] bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                  +{formatPoints(group.groupEarnedPoints)} pts
+                                </span>
+                              )}
                               <ChevronRight
                                 className={`w-4 h-4 text-slate-400 transition-transform duration-200 print:hidden ${
                                   !isCollapsed ? 'rotate-90 text-blue-600' : ''
@@ -687,14 +825,24 @@ export default function PublicStudentScorecardPage() {
                             </div>
                           </button>
 
-                          {/* Collapsible Subjects Table (Always expanded in print) */}
+                          {/* Collapsible Table */}
                           <div className={`${isCollapsed ? 'hidden print:block' : 'block'} animate-fade-in`}>
                             <table className="w-full text-left text-xs">
                               <thead className="bg-slate-50/60 border-b border-slate-100 text-slate-400 uppercase tracking-wider font-semibold text-[10px]">
-                                <tr>
-                                  <th className="py-2 px-4">Subject / Record</th>
-                                  <th className="py-2 px-4 text-right">Subject Percentage</th>
-                                </tr>
+                                {isExam ? (
+                                  <tr>
+                                    <th className="py-2 px-4">Subject / Exam Detail</th>
+                                    <th className="py-2 px-4 text-center">Marks (Obt / Max)</th>
+                                    <th className="py-2 px-4 text-right">Percentage</th>
+                                  </tr>
+                                ) : (
+                                  <tr>
+                                    <th className="py-2 px-4">Item / Activity</th>
+                                    <th className="py-2 px-4 text-center">Base / Exact Score</th>
+                                    <th className="py-2 px-4 text-center">Admin Weightage</th>
+                                    <th className="py-2 px-4 text-right">Earned SPR Points</th>
+                                  </tr>
+                                )}
                               </thead>
                               <tbody className="divide-y divide-slate-100 bg-white">
                                 {group.records.map((r: any, rIdx: number) => {
@@ -706,13 +854,19 @@ export default function PublicStudentScorecardPage() {
                                     r.title ||
                                     r.readingPeriod ||
                                     r.name ||
-                                    'Academic Subject';
+                                    'Assessment Record';
 
                                   const extraDetail =
                                     r.institutionName ||
+                                    r.boardName ||
                                     (r.levelName ? `Level: ${r.levelName}` : null) ||
+                                    (r.position ? `Position: ${r.position}` : null) ||
                                     (r.booksRead !== undefined ? `${r.booksRead} Books Read` : null) ||
                                     (r.publicationStatus ? `Status: ${r.publicationStatus}` : null);
+
+                                  const baseScore = typeof r.basePoints === 'number' ? r.basePoints : (r.obtainedScore || 0);
+                                  const mult = typeof r.multiplier === 'number' && r.multiplier > 0 ? r.multiplier : 1.0;
+                                  const earnedPts = typeof r.earnedPoints === 'number' ? r.earnedPoints : (baseScore * mult);
 
                                   return (
                                     <tr key={r.id || rIdx} className="hover:bg-blue-50/30 transition">
@@ -729,21 +883,40 @@ export default function PublicStudentScorecardPage() {
                                         </div>
                                       </td>
 
-                                      <td className="py-2.5 px-4 text-right">
-                                        <span
-                                          className={`px-2.5 py-1 rounded-md font-mono font-extrabold text-xs inline-block ${
-                                            recordPct >= 85
-                                              ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
-                                              : recordPct >= 70
-                                              ? 'bg-blue-100 text-blue-900 border border-blue-200'
-                                              : recordPct >= 50
-                                              ? 'bg-amber-100 text-amber-900 border border-amber-200'
-                                              : 'bg-slate-100 text-slate-700'
-                                          }`}
-                                        >
-                                          {recordPct.toFixed(1)}%
-                                        </span>
-                                      </td>
+                                      {isExam ? (
+                                        <>
+                                          <td className="py-2.5 px-4 text-center font-mono font-medium text-slate-700">
+                                            {r.obtainedScore || 0} / {r.maxScore || 100}
+                                          </td>
+                                          <td className="py-2.5 px-4 text-right">
+                                            <span
+                                              className={`px-2.5 py-1 rounded-md font-mono font-extrabold text-xs inline-block ${
+                                                recordPct >= 85
+                                                  ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                                                  : recordPct >= 70
+                                                  ? 'bg-blue-100 text-blue-900 border border-blue-200'
+                                                  : recordPct >= 50
+                                                  ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                                                  : 'bg-slate-100 text-slate-700'
+                                              }`}
+                                            >
+                                              {recordPct.toFixed(1)}%
+                                            </span>
+                                          </td>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <td className="py-2.5 px-4 text-center font-mono font-medium text-slate-700">
+                                            {baseScore} pts
+                                          </td>
+                                          <td className="py-2.5 px-4 text-center font-mono font-bold text-blue-700">
+                                            {mult.toFixed(1)}x
+                                          </td>
+                                          <td className="py-2.5 px-4 text-right font-mono font-black text-emerald-700">
+                                            +{formatPoints(earnedPts)} pts
+                                          </td>
+                                        </>
+                                      )}
                                     </tr>
                                   );
                                 })}
@@ -760,7 +933,7 @@ export default function PublicStudentScorecardPage() {
           )}
 
           {/* Official Verification Signatures & Stamp Block */}
-          <div className="pt-4 border-t border-slate-200 space-y-3 print:pt-2 print:space-y-1.5 page-break-avoid">
+          <div className="print-signatures-section pt-4 border-t border-slate-200 space-y-3 print:pt-2 print:space-y-1.5 page-break-avoid">
             <div className="hidden print:grid grid-cols-3 gap-4 pt-4 pb-1 text-center">
               <div className="space-y-6">
                 <div className="h-6"></div>
@@ -777,7 +950,7 @@ export default function PublicStudentScorecardPage() {
               <div className="space-y-6">
                 <div className="h-6"></div>
                 <div className="border-t border-slate-400 pt-1 text-[8.5px] font-bold text-slate-800 uppercase tracking-wider">
-                  Principal & Seal
+                  Principal &amp; Seal
                 </div>
               </div>
             </div>
@@ -789,7 +962,7 @@ export default function PublicStudentScorecardPage() {
               </div>
 
               <div className="text-center sm:text-right text-[10px] text-slate-400 print:text-[8px]">
-                <div>Official Certified Academic & Co-Curricular Dossier</div>
+                <div>Official Certified Academic &amp; Co-Curricular Dossier</div>
                 <div>Printed Date: {new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
               </div>
             </div>
@@ -797,7 +970,304 @@ export default function PublicStudentScorecardPage() {
         </div>
       </div>
 
+      {/* ========================================================================= */}
+      {/* ADVANCED A4 PRINT STUDIO & SCORECARD CUSTOMIZER MODAL */}
+      {/* ========================================================================= */}
+      {printModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-md animate-fade-in">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[92vh] animate-zoom-up">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-900 text-white flex items-center justify-between shadow-md">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center border border-white/20">
+                  <Printer className="w-5 h-5 text-amber-300" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white tracking-tight">
+                    Official A4 Scorecard Print Studio
+                  </h3>
+                  <p className="text-xs text-blue-100">
+                    Customize sections, categories, and detail level before generating A4 printout
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setPrintModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
+            {/* Modal Scrollable Body */}
+            <div className="p-6 overflow-y-auto space-y-6 divide-y divide-slate-100">
+              {/* Preset Selection Buttons */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                  1. Choose Print Preset
+                </label>
+                <div className="grid grid-cols-3 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => handlePresetChange('OFFICIAL')}
+                    className={`p-3 rounded-2xl border text-left transition cursor-pointer ${
+                      printPreset === 'OFFICIAL'
+                        ? 'border-blue-600 bg-blue-50/70 ring-2 ring-blue-500/20'
+                        : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
+                    }`}
+                  >
+                    <div className="font-black text-xs text-slate-900">Official Full Dossier</div>
+                    <div className="text-[10.5px] text-slate-500 mt-0.5">All categories, items &amp; signatures</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handlePresetChange('COMPACT')}
+                    className={`p-3 rounded-2xl border text-left transition cursor-pointer ${
+                      printPreset === 'COMPACT'
+                        ? 'border-blue-600 bg-blue-50/70 ring-2 ring-blue-500/20'
+                        : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
+                    }`}
+                  >
+                    <div className="font-black text-xs text-slate-900">1-Page Summary</div>
+                    <div className="text-[10.5px] text-slate-500 mt-0.5">Compact overview fit on 1 sheet</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPrintPreset('CUSTOM')}
+                    className={`p-3 rounded-2xl border text-left transition cursor-pointer ${
+                      printPreset === 'CUSTOM'
+                        ? 'border-blue-600 bg-blue-50/70 ring-2 ring-blue-500/20'
+                        : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
+                    }`}
+                  >
+                    <div className="font-black text-xs text-slate-900">Custom Selection</div>
+                    <div className="text-[10.5px] text-slate-500 mt-0.5">Pick specific sections below</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Section Customization Toggles */}
+              <div className="pt-4 space-y-3">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                  2. Document Sections
+                </label>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 hover:bg-slate-50 transition cursor-pointer">
+                    <div>
+                      <div className="text-xs font-bold text-slate-900">Student Profile &amp; Banner</div>
+                      <div className="text-[10.5px] text-slate-500">Name, SPR ID, Class, Photo</div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={includeBanner}
+                      onChange={(e) => {
+                        setIncludeBanner(e.target.checked);
+                        setPrintPreset('CUSTOM');
+                      }}
+                      className="w-4 h-4 text-blue-600 rounded"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 hover:bg-slate-50 transition cursor-pointer">
+                    <div>
+                      <div className="text-xs font-bold text-slate-900">Ranks &amp; Standings</div>
+                      <div className="text-[10.5px] text-slate-500">Class, School, Overall Ranks</div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={includeRanks}
+                      onChange={(e) => {
+                        setIncludeRanks(e.target.checked);
+                        setPrintPreset('CUSTOM');
+                      }}
+                      className="w-4 h-4 text-blue-600 rounded"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 hover:bg-slate-50 transition cursor-pointer">
+                    <div>
+                      <div className="text-xs font-bold text-slate-900">Category Breakdown Table</div>
+                      <div className="text-[10.5px] text-slate-500">Summary table of all categories</div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={includeCategorySummary}
+                      onChange={(e) => {
+                        setIncludeCategorySummary(e.target.checked);
+                        setPrintPreset('CUSTOM');
+                      }}
+                      className="w-4 h-4 text-blue-600 rounded"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 hover:bg-slate-50 transition cursor-pointer">
+                    <div>
+                      <div className="text-xs font-bold text-slate-900">Library &amp; Kuthbkhana Section</div>
+                      <div className="text-[10.5px] text-slate-500">Reading milestones &amp; exact points</div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={includeLibraryCard}
+                      onChange={(e) => {
+                        setIncludeLibraryCard(e.target.checked);
+                        setPrintPreset('CUSTOM');
+                      }}
+                      className="w-4 h-4 text-blue-600 rounded"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 hover:bg-slate-50 transition cursor-pointer">
+                    <div>
+                      <div className="text-xs font-bold text-slate-900">Itemized Subject &amp; Record Lists</div>
+                      <div className="text-[10.5px] text-slate-500">Individual exam &amp; activity tables</div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={includeItemizedRecords}
+                      onChange={(e) => {
+                        setIncludeItemizedRecords(e.target.checked);
+                        setPrintPreset('CUSTOM');
+                      }}
+                      className="w-4 h-4 text-blue-600 rounded"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 hover:bg-slate-50 transition cursor-pointer">
+                    <div>
+                      <div className="text-xs font-bold text-slate-900">Official Signatures &amp; Seal</div>
+                      <div className="text-[10.5px] text-slate-500">Teacher, Controller &amp; Principal</div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={includeSignatures}
+                      onChange={(e) => {
+                        setIncludeSignatures(e.target.checked);
+                        setPrintPreset('CUSTOM');
+                      }}
+                      className="w-4 h-4 text-blue-600 rounded"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Category Filter Selection */}
+              {includeItemizedRecords && (
+                <div className="pt-4 space-y-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                    3. Categories to Include in Printout
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {categoriesList.map((cat: any) => {
+                      const id = cat.categoryId || cat.categoryCode;
+                      const isChecked = selectedPrintCategories[id] !== false;
+
+                      return (
+                        <label
+                          key={id}
+                          className="flex items-center space-x-2 p-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              setSelectedPrintCategories((prev) => ({
+                                ...prev,
+                                [id]: e.target.checked,
+                              }));
+                              setPrintPreset('CUSTOM');
+                            }}
+                            className="w-3.5 h-3.5 text-blue-600 rounded"
+                          />
+                          <span className="text-xs font-medium text-slate-800 truncate">{cat.categoryName}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Detail & Layout Mode */}
+              <div className="pt-4 space-y-3">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                  4. Detail &amp; Layout Options
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <div className="text-xs font-semibold text-slate-700">Scoring Format</div>
+                    <div className="flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => setIncludePoints(true)}
+                        className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+                          includePoints ? 'bg-white text-blue-800 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        Detailed (With Points)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIncludePoints(false)}
+                        className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+                          !includePoints ? 'bg-white text-blue-800 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        Clean (Certificate)
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="text-xs font-semibold text-slate-700">Page Layout Fitting</div>
+                    <div className="flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => setPrintPageMode('SINGLE')}
+                        className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+                          printPageMode === 'SINGLE' ? 'bg-white text-blue-800 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        Strict 1-Page A4
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPrintPageMode('MULTI')}
+                        className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+                          printPageMode === 'MULTI' ? 'bg-white text-blue-800 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        Continuous Multi-Page
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setPrintModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-100 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleTriggerPrint}
+                className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md transition hover:scale-105 active:scale-95 flex items-center space-x-2 cursor-pointer"
+              >
+                <Printer className="w-4 h-4 text-amber-300" />
+                <span>Print Official A4 Scorecard</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Permanent Public Footer */}
       <PublicFooter />
