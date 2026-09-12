@@ -1,36 +1,23 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-async function inspect() {
-  const studentsCount = await prisma.student.count();
-  console.log('Total students:', studentsCount);
-
-  const sampleStudents = await prisma.student.findMany({
-    take: 5,
-    include: { class: true, school: true }
+async function main() {
+  const cats = await prisma.category.findMany({
+    include: { subcategories: true }
   });
-  console.log('Sample students:', sampleStudents.map(s => ({
-    id: s.id,
-    studentId: s.studentId,
-    fullName: s.fullName,
-    className: s.class?.name,
-    schoolName: s.school?.name,
-    status: s.status
-  })));
+  console.log('=== CATEGORIES & SUBCATEGORIES ===');
+  for (const c of cats) {
+    console.log(`[${c.id}] ${c.code}: ${c.name} (defaultWeight: ${c.defaultWeight}%)`);
+    for (const s of c.subcategories) {
+      console.log(`   └─ [${s.id}] ${s.code}: ${s.name} (maxScore: ${s.maxScore}, weight: ${s.weight}, logoUrl: ${s.logoUrl})`);
+    }
+  }
 
-  const statuses = await prisma.student.groupBy({
-    by: ['status'],
-    _count: true
+  const users = await prisma.user.findMany({
+    select: { id: true, email: true, name: true, role: true }
   });
-  console.log('Statuses:', statuses);
-
-  const classes = await prisma.academicClass.findMany();
-  console.log('Classes:', classes.map(c => c.name));
-
-  const schools = await prisma.school.findMany();
-  console.log('Schools:', schools.map(s => s.name));
+  console.log('\n=== USERS ===');
+  console.log(users);
 }
 
-inspect()
-  .catch(console.error)
-  .finally(() => prisma.$disconnect());
+main().catch(console.error).finally(() => prisma.$disconnect());

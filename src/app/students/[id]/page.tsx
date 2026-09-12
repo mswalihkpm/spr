@@ -718,7 +718,7 @@ export default function StudentProfilePage() {
                   </div>
                   <div>
                     <h3 className="text-sm font-black text-slate-900">
-                      Calculation Breakdown: {selectedCatDetails.categoryName}
+                      Points Breakdown: {selectedCatDetails.categoryName}
                     </h3>
                     <p className="text-[11px] text-slate-500">Numerical Points Scoring & Itemized Audit</p>
                   </div>
@@ -736,19 +736,7 @@ export default function StudentProfilePage() {
               <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
                 <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-1">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    1. Mathematical Scoring Formula
-                  </span>
-                  <div className="font-mono font-bold text-xs text-indigo-900 bg-indigo-50/50 p-2 rounded-lg border border-indigo-100">
-                    Earned Points = Base Points × Applicable Multiplier(s)
-                  </div>
-                  <p className="text-[11px] text-slate-500">
-                    Formula detail: {selectedCatDetails.formula || 'Base Points × Multiplier = Earned Points'}
-                  </p>
-                </div>
-
-                <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-1">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    2. Category Point Total
+                    Category Point Total
                   </span>
                   <div className="font-mono font-black text-base text-slate-900">
                     +{Number(selectedCatDetails.earnedPoints ?? 0).toLocaleString('en-US')} SPR Points

@@ -43,7 +43,7 @@ export function getCategoryColor(code: string) {
   return { bg: 'bg-madin-900', light: 'bg-slate-100 text-slate-900 border-slate-200', text: 'text-slate-800', border: 'hover:border-madin-800' };
 }
 
-// Helper logo resolver for categories
+// Helper logo resolver for categories & subcategories
 export function getCategoryLogo(code?: string, logoUrl?: string | null): string | null {
   if (
     logoUrl &&
@@ -55,13 +55,28 @@ export function getCategoryLogo(code?: string, logoUrl?: string | null): string 
     return logoUrl;
   }
   const c = code?.toUpperCase() || '';
-  if (c === 'ISLAMIC' || c.includes('ISLAM')) return '/jamiathul-hind.png';
+  if (c === 'KUTHBKHANA' || c.includes('KUTHB') || c.includes('KITHAB')) return '/kuthbkhana-logo.png';
+  if (c === 'LIBRARY_IMTHIYAAZ' || c === 'IMTHIYAAZ_LIBRARY' || c === 'LIBRARY' || c.includes('READ') || c.includes('LIBRA')) return '/library-logo.png';
+  if (c === 'MADIN_ACADEMY' || c.includes('MADIN')) return '/madin-academy-dark.png';
+  if (c === 'JAMIATHUL_HIND' || c.includes('JAMIATHUL')) return '/jamiathul-hind-calligraphy.png';
+  if (c === 'ISLAMIC' || c.includes('ISLAM')) return '/jamiathul-hind-calligraphy.png';
   if (c === 'SCHOOL' || c.includes('ACADEMIC') || c.includes('SCHO')) return '/school-studies-logo.png';
   if (c === 'CREATIVE_HUB' || c.includes('CREATIVE') || c.includes('ART') || c.includes('CREA')) return '/creative-hub-logo.png';
   if (c === 'LITERARY' || c.includes('LIT')) return '/literary-logo.png';
   if (c === 'PROGRAMS' || c.includes('COMPETITION') || c.includes('PROG')) return '/programs-logo.png';
-  if (c === 'LIBRARY' || c.includes('READ') || c.includes('LIBRA')) return '/library-logo.png';
   if (c === 'QUALIFICATION' || c.includes('QUALIF')) return '/qualification-logo.png';
+  return null;
+}
+
+// Return dual logos for categories with multiple emblems (e.g. Islamic & Library)
+export function getCategoryDualLogos(code?: string): string[] | null {
+  const c = code?.toUpperCase() || '';
+  if (c === 'ISLAMIC' || c.includes('ISLAM')) {
+    return ['/madin-academy-dark.png', '/jamiathul-hind-calligraphy.png'];
+  }
+  if (c === 'LIBRARY' || c.includes('READ') || c.includes('LIBRA')) {
+    return ['/library-logo.png', '/kuthbkhana-logo.png'];
+  }
   return null;
 }
 
@@ -74,5 +89,7 @@ export function getCategoryModulePath(code: string) {
   if (c === 'CREATIVE_HUB') return '/creative-hub';
   if (c === 'LITERARY') return '/literary';
   if (c === 'LIBRARY') return '/library';
+  if (c === 'KUTHBKHANA') return '/kuthbkhana';
   return null;
 }
+

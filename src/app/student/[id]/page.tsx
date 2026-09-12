@@ -314,11 +314,11 @@ export default function PublicStudentScorecardPage() {
         </div>
 
         {/* Official Scorecard Paper Container */}
-        <div className="scorecard-container bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden p-6 sm:p-8 space-y-4 print:p-0 print:border-none print:shadow-none print:space-y-1.5 animate-zoom-up">
+        <div className="scorecard-container bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xl overflow-hidden p-3 sm:p-8 space-y-2.5 sm:space-y-4 print:p-0 print:border-none print:shadow-none print:space-y-1.5 animate-zoom-up">
           {/* Top Header Banner Card */}
-          <div className="relative rounded-2xl bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-900 text-white overflow-hidden p-4 sm:p-5 flex items-center justify-between shadow-md print:p-2.5 print:rounded-xl page-break-avoid">
-            <div className="relative z-10 flex items-center space-x-3 print:space-x-2.5">
-              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white p-1 flex items-center justify-center shrink-0 shadow print:w-8 print:h-8 print:rounded-lg">
+          <div className="relative rounded-xl sm:rounded-2xl bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-900 text-white overflow-hidden p-2.5 sm:p-5 flex items-center justify-between shadow-md print:p-2.5 print:rounded-xl page-break-avoid">
+            <div className="relative z-10 flex items-center space-x-2 sm:space-x-3 print:space-x-2.5">
+              <div className="w-7 h-7 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-white p-1 flex items-center justify-center shrink-0 shadow print:w-8 print:h-8 print:rounded-lg">
                 <Image
                   src="/logo.png"
                   alt="Madin School of Excellence"
@@ -328,96 +328,96 @@ export default function PublicStudentScorecardPage() {
                 />
               </div>
               <div>
-                <div className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-amber-300 print:text-[8px]">
+                <div className="text-[7.5px] sm:text-[10px] font-black uppercase tracking-widest text-amber-300 print:text-[8px]">
                   Madin School of Excellence
                 </div>
-                <h1 className="text-sm sm:text-lg font-black text-white tracking-tight leading-tight print:text-xs">
+                <h1 className="text-[11px] sm:text-lg font-black text-white tracking-tight leading-tight print:text-xs">
                   STUDENTS PERFORMANCE RATE (SPR)
                 </h1>
-                <div className="text-[10px] sm:text-xs text-blue-100/90 font-medium print:text-[8.5px]">
+                <div className="text-[8px] sm:text-xs text-blue-100/90 font-medium print:text-[8.5px]">
                   Official Institutional Performance Dossier & Scorecard
                 </div>
               </div>
             </div>
 
             <div className="relative z-10 text-right shrink-0">
-              <div className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/40 text-[10px] sm:text-xs font-bold print:text-[8px] print:px-1.5 print:py-0">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 print:w-2.5 print:h-2.5" />
-                <span>Verified Record</span>
+              <div className="inline-flex items-center space-x-1 px-1.5 py-0.5 sm:px-2.5 sm:py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/40 text-[8px] sm:text-xs font-bold print:text-[8px] print:px-1.5 print:py-0">
+                <CheckCircle2 className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 text-emerald-400 print:w-2.5 print:h-2.5" />
+                <span>Verified</span>
               </div>
-              <div className="text-[10px] text-blue-200 mt-0.5 font-medium print:text-[8px]">
-                Academic Year {student?.academicYear?.name || '2025–2026'}
+              <div className="text-[8px] sm:text-[10px] text-blue-200 mt-0.5 font-medium print:text-[8px]">
+                Year {student?.academicYear?.name || '2025–2026'}
               </div>
             </div>
 
             {/* Subtle Watermark in Header Banner */}
-            <div className="absolute -right-4 -bottom-4 w-28 h-28 opacity-10 pointer-events-none print:w-16 print:h-16">
+            <div className="absolute -right-4 -bottom-4 w-20 h-20 sm:w-28 sm:h-28 opacity-10 pointer-events-none print:w-16 print:h-16">
               <Image src="/footer-logo.png" alt="Watermark" width={112} height={112} className="w-full h-full object-contain" />
             </div>
           </div>
 
           {/* Student Profile Overview Card */}
-          <div className="bg-slate-50 rounded-2xl p-4 sm:p-5 border border-slate-200 flex flex-col sm:flex-row items-center sm:items-start space-y-3 sm:space-y-0 sm:space-x-5 print:p-2.5 print:rounded-xl print:space-x-3 page-break-avoid">
+          <div className="bg-slate-50 rounded-xl sm:rounded-2xl p-2.5 sm:p-5 border border-slate-200 flex flex-col sm:flex-row items-center sm:items-start space-y-2 sm:space-y-0 sm:space-x-4 print:p-2.5 print:rounded-xl print:space-x-3 page-break-avoid">
             <StudentAvatar
               photoUrl={student?.photoUrl}
               name={student?.fullName || 'Student'}
-              size="xl"
-              className="w-16 h-16 sm:w-20 sm:h-20 print:w-12 print:h-12"
+              size="lg"
+              className="w-12 h-12 sm:w-20 sm:h-20 print:w-12 print:h-12 shrink-0"
             />
 
-            <div className="flex-1 text-center sm:text-left space-y-0.5">
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 pb-0.5">
-                <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-950 border border-blue-300 text-[10px] font-mono font-bold print:text-[8px] print:py-0 shadow-2xs">
+            <div className="flex-1 text-center sm:text-left space-y-0.5 min-w-0">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1 pb-0.5">
+                <span className="px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-950 border border-blue-300 text-[8.5px] sm:text-[10px] font-mono font-bold print:text-[8px] print:py-0 shadow-2xs">
                   SPR ID: {student?.sprStudentId || student?.studentId}
                 </span>
                 {student?.division && (
-                  <span className="px-2 py-0.5 rounded-md bg-slate-200/70 text-slate-800 text-[10px] font-semibold print:text-[8px] print:py-0">
-                    Division {student?.division}
+                  <span className="px-1.5 py-0.5 rounded-md bg-slate-200/70 text-slate-800 text-[8.5px] sm:text-[10px] font-semibold print:text-[8px] print:py-0">
+                    Div {student?.division}
                   </span>
                 )}
               </div>
-              <h2 className="text-xl sm:text-2xl font-black text-slate-900 print:text-sm leading-tight">{student?.fullName}</h2>
-              <div className="text-xs text-slate-600 font-medium print:text-[9.5px]">
-                Standard: <span className="font-bold text-slate-900">{formatClassNumber(student?.class?.name)}</span> {student?.division ? `(Division ${student?.division})` : ''}
+              <h2 className="text-sm sm:text-2xl font-black text-slate-900 print:text-sm leading-tight truncate">{student?.fullName}</h2>
+              <div className="text-[10px] sm:text-xs text-slate-600 font-medium print:text-[9.5px]">
+                Standard: <span className="font-bold text-slate-900">{formatClassNumber(student?.class?.name)}</span> {student?.division ? `(Div ${student?.division})` : ''}
               </div>
-              <div className="text-xs text-slate-600 print:text-[9.5px]">
+              <div className="text-[10px] sm:text-xs text-slate-600 print:text-[9.5px]">
                 School: <span className="font-semibold text-slate-800">{student?.school?.name}</span>
               </div>
             </div>
 
-            {/* Section 21: Overall Rating Badge */}
-            <div className="text-center bg-blue-600 text-white px-5 py-3 rounded-2xl shadow-md min-w-[140px] print:py-1.5 print:px-3 print:rounded-xl print:min-w-[100px]">
-              <div className="text-[9px] uppercase font-bold text-blue-100 tracking-wider print:text-[7.5px]">TOTAL SPR POINTS</div>
-              <div className="text-2xl sm:text-3xl font-black text-white mt-0.5 print:text-base font-mono">
+            {/* Overall SPR Score Points Badge */}
+            <div className="w-full sm:w-auto text-center bg-blue-600 text-white px-3 py-1.5 sm:px-5 sm:py-3 rounded-lg sm:rounded-2xl shadow-md min-w-[100px] sm:min-w-[120px] print:py-1.5 print:px-3 print:rounded-xl print:min-w-[100px]">
+              <div className="text-[7.5px] sm:text-[9px] uppercase font-bold text-blue-100 tracking-wider print:text-[7.5px]">TOTAL SPR POINTS</div>
+              <div className="text-lg sm:text-3xl font-black text-white mt-0.5 print:text-base font-mono leading-tight">
                 {formatPoints(profile.overallScore ?? profile.overallSPR)}
               </div>
-              <div className="text-[9.5px] text-blue-200 font-medium print:text-[8px]">
+              <div className="text-[7.5px] sm:text-[9.5px] text-blue-200 font-medium print:text-[8px]">
                 Cumulative Points
               </div>
             </div>
           </div>
 
           {/* Ranking Statistics */}
-          <div className="grid grid-cols-3 gap-3 text-center print:gap-1.5 page-break-avoid">
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 print:p-1.5 print:rounded-lg">
-              <div className="text-[11px] text-slate-500 font-medium print:text-[9px]">Class Standing</div>
-              <div className="text-lg sm:text-xl font-black text-slate-900 mt-0.5 print:text-xs">
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-3 text-center print:gap-1.5 page-break-avoid">
+            <div className="p-1.5 sm:p-3 rounded-lg sm:rounded-xl bg-slate-50 border border-slate-200 print:p-1.5 print:rounded-lg">
+              <div className="text-[9px] sm:text-[11px] text-slate-500 font-medium print:text-[9px]">Class Rank</div>
+              <div className="text-xs sm:text-xl font-black text-slate-900 mt-0.5 print:text-xs">
                 #{profile.classRank || 1}{' '}
-                <span className="text-xs text-slate-400 font-normal print:text-[8.5px]">/ {profile.totalStudentsInClass || 1}</span>
+                <span className="text-[8.5px] sm:text-xs text-slate-400 font-normal print:text-[8.5px]">/ {profile.totalStudentsInClass || 1}</span>
               </div>
             </div>
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 print:p-1.5 print:rounded-lg">
-              <div className="text-[11px] text-slate-500 font-medium print:text-[9px]">Institutional School Rank</div>
-              <div className="text-lg sm:text-xl font-black text-slate-900 mt-0.5 print:text-xs">
+            <div className="p-1.5 sm:p-3 rounded-lg sm:rounded-xl bg-slate-50 border border-slate-200 print:p-1.5 print:rounded-lg">
+              <div className="text-[9px] sm:text-[11px] text-slate-500 font-medium print:text-[9px]">School Rank</div>
+              <div className="text-xs sm:text-xl font-black text-slate-900 mt-0.5 print:text-xs">
                 #{profile.schoolRank || 1}{' '}
-                <span className="text-xs text-slate-400 font-normal print:text-[8.5px]">/ {profile.totalStudentsInSchool || 1}</span>
+                <span className="text-[8.5px] sm:text-xs text-slate-400 font-normal print:text-[8.5px]">/ {profile.totalStudentsInSchool || 1}</span>
               </div>
             </div>
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 print:p-1.5 print:rounded-lg">
-              <div className="text-[11px] text-slate-500 font-medium print:text-[9px]">Overall Ranking</div>
-              <div className="text-lg sm:text-xl font-black text-blue-600 mt-0.5 print:text-xs">
+            <div className="p-1.5 sm:p-3 rounded-lg sm:rounded-xl bg-slate-50 border border-slate-200 print:p-1.5 print:rounded-lg">
+              <div className="text-[9px] sm:text-[11px] text-slate-500 font-medium print:text-[9px]">Overall Rank</div>
+              <div className="text-xs sm:text-xl font-black text-blue-600 mt-0.5 print:text-xs">
                 #{profile.rank || 1}{' '}
-                <span className="text-xs text-slate-400 font-normal print:text-[8.5px]">/ {profile.totalStudentsOverall || 1}</span>
+                <span className="text-[8.5px] sm:text-xs text-slate-400 font-normal print:text-[8.5px]">/ {profile.totalStudentsOverall || 1}</span>
               </div>
             </div>
           </div>
@@ -444,10 +444,8 @@ export default function PublicStudentScorecardPage() {
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider font-semibold">
                   <tr>
                     <th className="py-2.5 px-3 print:py-1 print:px-2">Category</th>
-                    <th className="py-2.5 px-3 print:py-1 print:px-2">Assessment / Activity</th>
-                    <th className="py-2.5 px-3 print:py-1 print:px-2">Formula &amp; Calculation</th>
+                    <th className="py-2.5 px-3 print:py-1 print:px-2">Assessment Records</th>
                     <th className="py-2.5 px-3 text-right print:py-1 print:px-2">Earned SPR Points</th>
-                    <th className="py-2.5 px-2 text-center w-12 print:hidden">Details</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -485,24 +483,8 @@ export default function PublicStudentScorecardPage() {
                         <td className="py-2.5 px-3 print:py-0.5 print:px-2 font-medium text-slate-700 font-mono">
                           {cat.rawInput || `${cat.recordsCount || 0} record(s)`}
                         </td>
-                        <td className="py-2.5 px-3 print:py-0.5 print:px-2 text-slate-600 text-[11px] font-mono">
-                          {cat.formula || `Direct Point Sum`}
-                        </td>
                         <td className="py-2.5 px-3 print:py-0.5 print:px-2 text-right font-black text-blue-800 font-mono text-xs">
                           +{formatPoints(earned)} pts
-                        </td>
-                        <td className="py-2.5 px-2 text-center print:hidden">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDetailsModalCategory(cat);
-                            }}
-                            className="p-1 hover:bg-blue-200/60 rounded-md text-blue-700 transition cursor-pointer"
-                            title="View Calculation Formula & Details"
-                          >
-                            <HelpCircle className="w-3.5 h-3.5" />
-                          </button>
                         </td>
                       </tr>
                     );
@@ -511,15 +493,11 @@ export default function PublicStudentScorecardPage() {
                 <tfoot className="bg-slate-50 font-bold border-t-2 border-slate-300">
                   <tr>
                     <td colSpan={2} className="py-2.5 px-3 text-slate-900 font-black uppercase text-xs print:text-[9.5px]">
-                      TOTAL SPR POINTS
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-500 font-medium text-[11px] print:text-[8px]">
-                      Direct Sum of All Categories
+                      TOTAL CUMULATIVE SPR POINTS
                     </td>
                     <td className="py-2.5 px-3 text-right font-black text-sm text-blue-900 font-mono print:text-xs">
                       {formatPoints(profile.overallScore ?? profile.overallSPR)} PTS
                     </td>
-                    <td className="print:hidden"></td>
                   </tr>
                 </tfoot>
               </table>
@@ -603,19 +581,14 @@ export default function PublicStudentScorecardPage() {
                 </div>
               </div>
 
-              {/* Step-by-Step Formula Banner */}
-              <div className="p-3 bg-blue-50/80 rounded-xl border border-blue-200/90 text-xs text-blue-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                <div className="flex items-start sm:items-center space-x-2">
-                  <div className="font-bold flex items-center space-x-1 shrink-0">
-                    <span>📐 Calculation Formula:</span>
-                  </div>
-                  <span className="font-mono text-[11px] text-blue-900">
-                    {activeCategory.formula || `Base Points × Multiplier = Earned Points`}
-                  </span>
-                </div>
-                <div className="text-[10px] font-semibold text-blue-800 shrink-0">
-                  {activeRecords.length} Record{activeRecords.length === 1 ? '' : 's'} Evaluated
-                </div>
+              {/* Category Records Summary Banner */}
+              <div className="p-3 bg-blue-50/80 rounded-xl border border-blue-200/90 text-xs text-blue-950 flex items-center justify-between">
+                <span className="font-bold text-blue-950">
+                  {activeCategory.categoryName} Evaluated Records
+                </span>
+                <span className="text-[11px] font-bold text-blue-800 bg-blue-100/80 px-2.5 py-0.5 rounded-lg border border-blue-200">
+                  {activeRecords.length} Record{activeRecords.length === 1 ? '' : 's'} Logged
+                </span>
               </div>
 
               {/* Itemized Records Table */}
@@ -784,62 +757,7 @@ export default function PublicStudentScorecardPage() {
         </div>
       </div>
 
-      {/* SECTION 22: CALCULATION DETAILS MODAL */}
-      {detailsModalCategory && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-lg w-full space-y-4 border border-slate-200 shadow-2xl animate-zoom-up">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center space-x-2">
-                <Calculator className="w-5 h-5 text-blue-700" />
-                <h3 className="text-sm font-black text-slate-900">
-                  {detailsModalCategory.categoryName} — Scoring Details
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setDetailsModalCategory(null)}
-                className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
-                <span className="font-bold text-slate-600">Total Valid Records:</span>
-                <span className="font-black text-slate-900 font-mono text-sm">{detailsModalCategory.recordsCount || detailsModalCategory.rawInput || '0'}</span>
-              </div>
-
-              <div className="p-3 bg-blue-50/60 rounded-2xl border border-blue-200 space-y-1">
-                <div className="font-bold text-blue-950">Points Calculation Rule:</div>
-                <div className="font-mono text-blue-900 text-[11px] bg-white p-2 rounded-xl border border-blue-200">
-                  {detailsModalCategory.formula || 'Base Points × Multiplier = Earned Points'}
-                </div>
-              </div>
-
-              <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center justify-between">
-                <div>
-                  <div className="text-[10px] uppercase font-bold text-emerald-800">Earned Points</div>
-                  <div className="text-[10.5px] text-emerald-700">Added directly to Cumulative SPR</div>
-                </div>
-                <span className="text-base font-black text-emerald-900 font-mono">
-                  +{formatPoints(detailsModalCategory.earnedPoints ?? 0)} PTS
-                </span>
-              </div>
-            </div>
-
-            <div className="pt-2 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setDetailsModalCategory(null)}
-                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-black transition cursor-pointer"
-              >
-                Close Breakdown
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Permanent Public Footer */}
       <PublicFooter />

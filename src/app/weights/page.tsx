@@ -1064,7 +1064,7 @@ export default function WeightsPage() {
                         +{formatPoints(cs.earnedPoints || 0)} pts
                       </span>
                     </div>
-                    <div className="text-[10.5px] text-slate-500 font-mono">{cs.formula || `${cs.recordsCount} record(s)`}</div>
+                    <div className="text-[10.5px] text-slate-500 font-mono">{cs.rawInput || `${cs.recordsCount || 0} record(s)`}</div>
                   </div>
                 ))}
               </div>

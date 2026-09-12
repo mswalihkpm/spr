@@ -87,6 +87,7 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
   const isCreativeHubAdmin = user?.role === 'CREATIVE_HUB_ADMIN';
+  const isKuthbkhanaAdmin = user?.role === 'KUTHBKHANA_ADMIN';
 
   useEffect(() => {
     if (user) {
@@ -94,13 +95,17 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
         if (pathname !== '/creative-hub' && pathname !== '/auth/change-password' && !pathname.startsWith('/leaderboard')) {
           router.push('/creative-hub');
         }
+      } else if (isKuthbkhanaAdmin) {
+        if (pathname !== '/kuthbkhana' && pathname !== '/auth/change-password' && !pathname.startsWith('/leaderboard')) {
+          router.push('/kuthbkhana');
+        }
       } else if (!isAdmin) {
         if (pathname.startsWith('/settings') || pathname.startsWith('/weights') || pathname.startsWith('/categories') || pathname.startsWith('/updates/manage')) {
           router.push('/dashboard');
         }
       }
     }
-  }, [user, isAdmin, isCreativeHubAdmin, pathname, router]);
+  }, [user, isAdmin, isCreativeHubAdmin, isKuthbkhanaAdmin, pathname, router]);
 
   const allNavItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -118,6 +123,7 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
     { name: 'Creative Hub', href: '/creative-hub', icon: Sparkles },
     { name: 'Literary Programs', href: '/literary', icon: Feather },
     { name: 'Library / Reading', href: '/library', icon: Library },
+    { name: 'Kuthbkhana', href: '/kuthbkhana', icon: BookOpen },
     { name: 'Other Subcategories', href: '/subcategories', icon: Layers },
     { name: 'News & Updates', href: '/updates/manage', icon: Megaphone, adminOnly: true },
     { name: 'Custom Categories', href: '/categories', icon: Sliders, adminOnly: true },

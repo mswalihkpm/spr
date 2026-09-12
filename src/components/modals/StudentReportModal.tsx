@@ -84,17 +84,17 @@ export default function StudentReportModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 relative animate-scale-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
+      <div className="bg-white rounded-2xl sm:rounded-3xl max-w-sm sm:max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-200 relative animate-scale-in max-h-[90vh] overflow-y-auto">
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 p-1.5 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-full transition"
+          className="absolute top-4 right-4 sm:top-5 sm:right-5 p-1.5 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-full transition"
         >
           <X className="w-4 h-4" />
         </button>
 
-        <div className="flex items-center space-x-2.5 text-rose-600 mb-3">
-          <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+        <div className="flex items-center space-x-2.5 text-rose-600 mb-3 pr-8">
+          <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
             <Flag className="w-4 h-4" />
           </div>
           <div>
@@ -104,9 +104,9 @@ export default function StudentReportModal({
         </div>
 
         {/* Student Context Card */}
-        <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80 mb-4 space-y-1">
-          <div className="text-xs font-black text-slate-900">{resolvedName}</div>
-          <div className="text-[11px] text-slate-500 flex items-center justify-between">
+        <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80 mb-3 space-y-1">
+          <div className="text-xs font-black text-slate-900 truncate">{resolvedName}</div>
+          <div className="text-[11px] text-slate-500 flex items-center justify-between flex-wrap gap-1">
             <span>{resolvedClass ? `Standard ${resolvedClass}` : (student.id || student.studentId ? `ID: ${student.studentId || student.id}` : 'Student Record')}</span>
             {resolvedRank && <span>Rank #{resolvedRank}</span>}
             {resolvedSpr !== null && resolvedSpr !== undefined && (
@@ -122,7 +122,7 @@ export default function StudentReportModal({
             <p className="text-xs text-slate-500">The administration dashboard has received your report.</p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-3.5">
+          <form onSubmit={handleSubmit} className="space-y-3">
             {error && (
               <div className="p-2.5 rounded-xl bg-rose-50 text-rose-700 text-xs flex items-center space-x-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
@@ -154,18 +154,18 @@ export default function StudentReportModal({
               />
             </div>
 
-            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-100">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3.5 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                className="px-3.5 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition text-center"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center space-x-1.5 disabled:opacity-50"
+                className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center justify-center space-x-1.5 disabled:opacity-50"
               >
                 {submitting ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

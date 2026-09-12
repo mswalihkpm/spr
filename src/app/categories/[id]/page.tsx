@@ -560,12 +560,12 @@ export default function CategorySubcategoriesPage() {
                   </div>
 
                   {/* Bottom Footer inside Box */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                    <span className="inline-flex items-center font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-xl border border-blue-100">
+                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs gap-2 flex-wrap">
+                    <span className="inline-flex items-center font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-xl border border-blue-100 text-[11px]">
                       {recordCount} Records
                     </span>
 
-                    <div className="flex items-center space-x-2 text-slate-400 group-hover:text-blue-600 transition-colors" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center space-x-1.5" onClick={(e) => e.stopPropagation()}>
                       {isAdmin && (
                         <>
                           <button
@@ -597,7 +597,17 @@ export default function CategorySubcategoriesPage() {
                           </button>
                         </>
                       )}
-                      <span className="text-[11px] font-bold text-blue-600 hidden sm:inline">Leaderboard →</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/leaderboard?subcategoryId=${sub.id}&categoryId=${category?.id || categoryId}`);
+                        }}
+                        className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[11px] font-bold shadow-xs transition flex items-center space-x-1 active:scale-95"
+                      >
+                        <Trophy className="w-3 h-3 text-gold-400" />
+                        <span>Open Leaderboard</span>
+                      </button>
                     </div>
                   </div>
                 </div>

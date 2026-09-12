@@ -1335,6 +1335,7 @@ export default function SettingsPage() {
                             <option value="SUPER_ADMIN">SUPER ADMIN</option>
                             <option value="ADMIN">ADMIN</option>
                             <option value="CREATIVE_HUB_ADMIN">CREATIVE HUB ADMIN</option>
+                            <option value="KUTHBKHANA_ADMIN">KUTHBKHANA ADMIN</option>
                             <option value="TEACHER">STAFF / TEACHER</option>
                             <option value="VIEWER">VIEWER</option>
                           </select>
@@ -1550,6 +1551,8 @@ export default function SettingsPage() {
                 >
                   <option value="SUPER_ADMIN">Super Admin (Full System)</option>
                   <option value="ADMIN">Admin (Students & Scoring)</option>
+                  <option value="CREATIVE_HUB_ADMIN">Creative Hub Admin</option>
+                  <option value="KUTHBKHANA_ADMIN">Kuthbkhana Admin</option>
                   <option value="TEACHER">Teacher / Usthad</option>
                   <option value="VIEWER">Viewer (Read-Only)</option>
                 </select>

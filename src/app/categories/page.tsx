@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
-import { getCategoryIcon, getCategoryColor, getCategoryLogo, getCategoryModulePath } from '@/lib/category-utils';
+import { getCategoryIcon, getCategoryColor, getCategoryLogo, getCategoryDualLogos, getCategoryModulePath } from '@/lib/category-utils';
 
 export default function CategoriesPage() {
   const router = useRouter();
@@ -247,9 +247,9 @@ export default function CategoriesPage() {
     }
   };
 
-  // Direct click on category opens its Leaderboard
+  // Direct click on category opens its Subcategories Page
   const handleCategoryCardClick = (cat: any) => {
-    router.push(`/leaderboard?categoryId=${cat.id}`);
+    router.push(`/categories/${cat.id}`);
   };
 
   return (
@@ -442,29 +442,42 @@ export default function CategoriesPage() {
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-2">
                       {/* Authentic Category Logo Avatar or Icon */}
-                      <div
-                        className="w-12 h-12 rounded-2xl bg-white p-1 border border-slate-200 shadow-xs flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform overflow-hidden"
-                      >
-                        {catLogo ? (
-                          <img
-                            src={catLogo}
-                            alt={cat.name}
-                            className="w-full h-full object-contain p-0.5"
-                            onError={(e) => {
-                              // If image fails, replace with icon fallback
-                              e.currentTarget.style.display = 'none';
-                              const parent = e.currentTarget.parentElement;
-                              if (parent) {
-                                parent.innerHTML = `<div class="w-full h-full rounded-xl flex items-center justify-center text-white ${theme.bg}"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg></div>`;
-                              }
-                            }}
-                          />
-                        ) : (
-                          <div className={`w-full h-full rounded-xl flex items-center justify-center text-white ${theme.bg}`}>
-                            <IconComponent className="w-6 h-6" />
-                          </div>
-                        )}
-                      </div>
+                      {getCategoryDualLogos(cat.code) ? (
+                        <div className="flex items-center space-x-1 p-1 bg-white rounded-2xl border border-slate-200 shadow-xs shrink-0 group-hover:scale-105 transition-transform">
+                          {getCategoryDualLogos(cat.code)!.map((logo, idx) => (
+                            <div key={idx} className="w-9 h-9 rounded-xl overflow-hidden p-0.5 flex items-center justify-center bg-slate-50 border border-slate-100">
+                              <img
+                                src={logo}
+                                alt={`${cat.name} emblem ${idx + 1}`}
+                                className="w-full h-full object-contain"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div
+                          className="w-12 h-12 rounded-2xl bg-white p-1 border border-slate-200 shadow-xs flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform overflow-hidden"
+                        >
+                          {catLogo ? (
+                            <img
+                              src={catLogo}
+                              alt={cat.name}
+                              className="w-full h-full object-contain p-0.5"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                const parent = e.currentTarget.parentElement;
+                                if (parent) {
+                                  parent.innerHTML = `<div class="w-full h-full rounded-xl flex items-center justify-center text-white ${theme.bg}"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg></div>`;
+                                }
+                              }}
+                            />
+                          ) : (
+                            <div className={`w-full h-full rounded-xl flex items-center justify-center text-white ${theme.bg}`}>
+                              <IconComponent className="w-6 h-6" />
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Top Badges / Selection */}
                       <div className="flex items-center space-x-1.5">

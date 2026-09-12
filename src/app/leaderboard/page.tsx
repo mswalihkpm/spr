@@ -18,6 +18,7 @@ import {
   ArrowRight,
   Flag,
   RotateCcw,
+  RefreshCw,
   CheckCircle2,
   Lock,
   Layers,
@@ -158,6 +159,27 @@ function LeaderboardContent() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const [syncingLibrary, setSyncingLibrary] = useState(false);
+
+  const handleSyncLibrary = async () => {
+    setSyncingLibrary(true);
+    try {
+      const res = await fetch('/api/library/sync', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || 'Successfully synchronized points from Imthiyaaz Library!');
+        clientLeaderboardMemory.clear();
+        fetchLeaderboard();
+      } else {
+        alert(data.error || 'Failed to sync Imthiyaaz Library points.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error syncing Imthiyaaz Library.');
+    } finally {
+      setSyncingLibrary(false);
     }
   };
 
@@ -946,8 +968,20 @@ function LeaderboardContent() {
               </div>
             </div>
 
-            {/* Quick Switcher Dropdown (Seamless in-tab navigation across all streams, fests & wings) */}
-            <div className="flex items-center space-x-2.5 shrink-0">
+            {/* Quick Switcher Dropdown & Live Library Sync Button */}
+            <div className="flex items-center space-x-2.5 shrink-0 flex-wrap gap-y-2">
+              {isLibraryActive && (
+                <button
+                  type="button"
+                  onClick={handleSyncLibrary}
+                  disabled={syncingLibrary}
+                  className="px-3.5 py-2.5 rounded-2xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition flex items-center space-x-2 border border-white/30 shadow-md active:scale-95 disabled:opacity-50"
+                  title="Sync points directly from Imthiyaaz Library Leaderboard"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${syncingLibrary ? 'animate-spin' : ''}`} />
+                  <span>{syncingLibrary ? 'Syncing...' : 'Sync Library Points'}</span>
+                </button>
+              )}
               <select
                 value={
                   selectedSubcategory
@@ -1498,17 +1532,9 @@ function LeaderboardContent() {
                     </div>
                   </div>
 
-                  {/* 1. OVERALL SPR CALCULATION FORMULA (POINTS) */}
+                  {/* 1. OVERALL SPR CATEGORY BREAKDOWN (POINTS) */}
                   {modalCalcTab === 'OVERALL' && (
                     <div className="space-y-3 animate-fade-in">
-                      <div className="p-3 bg-blue-50/90 rounded-2xl border border-blue-200 text-xs text-blue-950 space-y-1">
-                        <div className="font-bold flex items-center space-x-1.5">
-                          <span>📐 SPR Mathematical Scoring Principle:</span>
-                        </div>
-                        <p className="text-[11px] text-blue-900 font-mono leading-relaxed">
-                          Overall SPR Points = SUM of all valid earned numerical points across 7 categories
-                        </p>
-                      </div>
 
                       <div className="space-y-2">
                         {(studentProfile.categoryBreakdown || studentProfile.categoryScores || []).map((cat: any) => {

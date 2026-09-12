@@ -42,6 +42,8 @@ export default function LoginPage() {
         router.push('/auth/change-password');
       } else if (data.user?.role === 'CREATIVE_HUB_ADMIN') {
         router.push('/creative-hub');
+      } else if (data.user?.role === 'KUTHBKHANA_ADMIN') {
+        router.push('/kuthbkhana');
       } else {
         router.push('/dashboard');
       }

@@ -89,6 +89,9 @@ export function hasPermission(userRole: UserRole, requiredRole: UserRole): boole
   if (userRole === 'CREATIVE_HUB_ADMIN') {
     return requiredRole === 'CREATIVE_HUB_ADMIN' || requiredRole === 'VIEWER';
   }
+  if (userRole === 'KUTHBKHANA_ADMIN') {
+    return requiredRole === 'KUTHBKHANA_ADMIN' || requiredRole === 'VIEWER';
+  }
   if (userRole === 'TEACHER') {
     return requiredRole === 'TEACHER' || requiredRole === 'VIEWER';
   }

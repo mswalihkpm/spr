@@ -35,7 +35,7 @@ export default function CreativeHubPage() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedMedia, setSelectedMedia] = useState('');
 
-  // Submit modal (simplified: Student, Creative Wing / Form, Published Media, Date, Link)
+  // Submit modal (simplified: Student, Creative Wing / Form, Published Media, Month, Link)
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSubmission, setEditingSubmission] = useState<any | null>(null);
   const [formData, setFormData] = useState({
@@ -43,7 +43,7 @@ export default function CreativeHubPage() {
     categoryId: '',
     publishedMediaId: '',
     publicationLink: '',
-    date: new Date().toISOString().slice(0, 10),
+    month: new Date().toISOString().slice(0, 7),
   });
   const [saving, setSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -152,7 +152,7 @@ export default function CreativeHubPage() {
       categoryId: categories[0]?.id || '',
       publishedMediaId: publishedMediaList[0]?.id || '',
       publicationLink: '',
-      date: new Date().toISOString().slice(0, 10),
+      month: new Date().toISOString().slice(0, 7),
     });
     setModalOpen(true);
   };
@@ -164,7 +164,7 @@ export default function CreativeHubPage() {
       categoryId: sub.categoryId || '',
       publishedMediaId: sub.publishedMediaId || '',
       publicationLink: sub.publicationLink || '',
-      date: sub.date ? new Date(sub.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+      month: sub.date ? new Date(sub.date).toISOString().slice(0, 7) : new Date().toISOString().slice(0, 7),
     });
     setModalOpen(true);
   };
@@ -182,7 +182,11 @@ export default function CreativeHubPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...(isEdit ? { id: editingSubmission.id } : {}),
-          ...formData,
+          studentId: formData.studentId,
+          categoryId: formData.categoryId,
+          publishedMediaId: formData.publishedMediaId,
+          publicationLink: formData.publicationLink,
+          date: formData.month ? `${formData.month}-01` : new Date().toISOString(),
         }),
       });
 
@@ -498,7 +502,7 @@ export default function CreativeHubPage() {
 
                       <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                         <span className="text-[10px] font-medium text-slate-400">
-                          {new Date(sub.date).toLocaleDateString()}
+                          {new Date(sub.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
                         </span>
                         <div className="flex items-center space-x-1.5">
                           <span className="text-xs font-black text-purple-900 bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-200">
@@ -718,12 +722,12 @@ export default function CreativeHubPage() {
                   </div>
                 </div>
 
-                {/* Calculated Points Summary Box */}
+                {/* Accredited Score Points Box */}
                 <div className="p-3 bg-purple-50/80 border border-purple-200/80 rounded-2xl flex items-center justify-between">
                   <div>
-                    <span className="text-[11px] font-bold text-purple-950 block">Accredited Score Formula</span>
+                    <span className="text-[11px] font-bold text-purple-950 block">Accredited Score</span>
                     <span className="text-[10px] text-purple-700 font-medium">
-                      {wingPts} pts (Wing) × {mediaMult}x (Media Weight)
+                      Points allocated for this publication
                     </span>
                   </div>
                   <div className="px-3 py-1 bg-purple-600 text-white rounded-xl text-xs font-black shadow-xs">
@@ -733,12 +737,13 @@ export default function CreativeHubPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Publication Date</label>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Publication Month *</label>
                     <input
-                      type="date"
-                      value={formData.date}
-                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-purple-600"
+                      type="month"
+                      required
+                      value={formData.month}
+                      onChange={(e) => setFormData({ ...formData, month: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium outline-none focus:ring-2 focus:ring-purple-600"
                     />
                   </div>
 

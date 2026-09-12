@@ -470,27 +470,32 @@ export async function calculateStudentSPR(
         formula = `No Creative Hub submissions logged (+0 SPR Points)`;
       }
     }
-
-    // 5. LIBRARY & READING
+    // 5. LIBRARY & READING (Imthiyaaz Library + Kuthbkhana)
     else if (cat.code === 'LIBRARY') {
       const libRecords = student.libraryRecords || [];
-      if (libRecords.length > 0) {
-        hasData = true;
-        recordsCount = libRecords.length;
-        let sumPoints = 0;
+      const kuthbkhanaRecords = categoryRecords || [];
+      const totalLibCount = libRecords.length + kuthbkhanaRecords.length;
 
-        itemizedRecords = libRecords.map((lib: any) => {
+      if (totalLibCount > 0) {
+        hasData = true;
+        recordsCount = totalLibCount;
+        let sumPoints = 0;
+        itemizedRecords = [];
+
+        // Add Imthiyaaz Library Records
+        libRecords.forEach((lib: any) => {
           const pts = typeof lib.readingScore === 'number' && lib.readingScore > 0
             ? lib.readingScore
             : ((lib.booksRead || 0) * 20);
           sumPoints += pts;
 
-          return {
+          itemizedRecords.push({
             id: lib.id,
-            name: lib.readingPeriod || 'Reading Milestone',
-            title: lib.readingPeriod || 'Reading Milestone',
+            name: lib.readingPeriod || 'Imthiyaaz Library Reading',
+            title: lib.readingPeriod || 'Imthiyaaz Library Reading',
             categoryName: cat.name,
             categoryCode: 'LIBRARY',
+            subCategoryName: 'Imthiyaaz Library',
             readingPeriod: lib.readingPeriod,
             booksRead: lib.booksRead,
             pagesRead: lib.pagesRead,
@@ -500,12 +505,35 @@ export async function calculateStudentSPR(
             readingScore: lib.readingScore,
             remarks: lib.remarks,
             date: lib.createdAt ? lib.createdAt.toISOString() : null,
-          };
+          });
+        });
+
+        // Add Kuthbkhana Classical Reading Records
+        kuthbkhanaRecords.forEach((r: any) => {
+          const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
+          const base = r.obtainedScore || 0;
+          const pts = Number((base * mult).toFixed(2));
+          sumPoints += pts;
+
+          itemizedRecords.push({
+            id: r.id,
+            name: r.remarks || r.subcategory?.name || 'Kuthbkhana Classical Text',
+            title: r.remarks || r.subcategory?.name || 'Kuthbkhana Classical Text',
+            categoryName: cat.name,
+            categoryCode: 'LIBRARY',
+            subCategoryName: r.subcategory?.name || 'Kuthbkhana',
+            type: 'KUTHBKHANA',
+            earnedPoints: pts,
+            obtainedScore: base,
+            multiplier: mult,
+            remarks: r.remarks,
+            date: r.date ? r.date.toISOString() : null,
+          });
         });
 
         earnedPoints = Number(sumPoints.toFixed(2));
         rawInput = `${formatPoints(earnedPoints)} pts`;
-        formula = `Pure Reading Points (No Cap) = +${formatPoints(earnedPoints)} SPR Points`;
+        formula = `Reading Milestones = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
         formula = `No Reading records logged (+0 SPR Points)`;
       }
@@ -829,18 +857,42 @@ export async function calculateAllLeaderboards(filters?: {
     let subcategoryScore = 0;
     let subcategoryRecordsCount = 0;
     if (filters?.subcategoryId) {
-      const subRecords = (student.performanceRecords as any[]).filter(
-        (r) => r.subcategoryId === filters.subcategoryId
-      );
-      if (subRecords.length > 0) {
-        let subSum = 0;
-        subRecords.forEach((r) => {
-          const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
-          const base = r.obtainedScore || 0;
-          subSum += (base * mult);
-        });
-        subcategoryScore = Number(subSum.toFixed(2));
-        subcategoryRecordsCount = subRecords.length;
+      // Check if subcategory is Imthiyaaz Library
+      const isImthiyaazLib =
+        filters.subcategoryId === 'cmtx_sub_lib_imthiyaaz' ||
+        filters.subcategoryId.toUpperCase() === 'LIBRARY_IMTHIYAAZ' ||
+        filters.subcategoryId.toUpperCase() === 'IMTHIYAAZ_LIBRARY';
+
+      if (isImthiyaazLib) {
+        const libRecords = student.libraryRecords || [];
+        if (libRecords.length > 0) {
+          let libSum = 0;
+          libRecords.forEach((lib: any) => {
+            const pts = typeof lib.readingScore === 'number' && lib.readingScore > 0
+              ? lib.readingScore
+              : ((lib.booksRead || 0) * 20);
+            libSum += pts;
+          });
+          subcategoryScore = Number(libSum.toFixed(2));
+          subcategoryRecordsCount = libRecords.length;
+        }
+      } else {
+        const subRecords = (student.performanceRecords as any[]).filter(
+          (r) =>
+            r.subcategoryId === filters.subcategoryId ||
+            r.subcategory?.code === filters.subcategoryId ||
+            (filters.subcategoryId === 'cmtx_sub_kuthbkhana' && (r.subcategoryId === 'cmtx_sub_kuthbkhana' || r.subcategory?.code === 'KUTHBKHANA'))
+        );
+        if (subRecords.length > 0) {
+          let subSum = 0;
+          subRecords.forEach((r) => {
+            const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
+            const base = r.obtainedScore || 0;
+            subSum += (base * mult);
+          });
+          subcategoryScore = Number(subSum.toFixed(2));
+          subcategoryRecordsCount = subRecords.length;
+        }
       }
     }
 
@@ -944,6 +996,12 @@ export async function calculateAllLeaderboards(filters?: {
             ? lib.readingScore
             : ((lib.booksRead || 0) * 20);
           catEarned += pts;
+        });
+        const libPerfRecords = student.performanceRecords.filter((r) => r.categoryId === cat.id);
+        libPerfRecords.forEach((r) => {
+          const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
+          const base = r.obtainedScore || 0;
+          catEarned += (base * mult);
         });
       } else if (cat.code === 'LITERARY' || cat.code === 'PROGRAMS') {
         const records = student.performanceRecords.filter((r) => r.categoryId === cat.id);
