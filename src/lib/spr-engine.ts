@@ -356,8 +356,7 @@ export async function calculateStudentSPR(
           };
         });
 
-        const catWeight = resolveCategoryWeight(cat);
-        earnedPoints = Number((sumPoints * catWeight).toFixed(2));
+        earnedPoints = Number(sumPoints.toFixed(2));
         rawInput = `${formatPoints(earnedPoints)} pts`;
         formula = `${examSummaries.join('; ')} = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
@@ -419,8 +418,7 @@ export async function calculateStudentSPR(
           };
         });
 
-        const catWeight = resolveCategoryWeight(cat);
-        earnedPoints = Number((sumPoints * catWeight).toFixed(2));
+        earnedPoints = Number(sumPoints.toFixed(2));
         rawInput = `${formatPoints(earnedPoints)} pts`;
         formula = `${examSummaries.join('; ')} = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
@@ -1092,7 +1090,7 @@ export async function calculateAllLeaderboards(filters?: {
         });
       }
 
-      const catWeight = resolveCategoryWeight(cat);
+      const catWeight = (cat.code === 'SCHOOL' || cat.code === 'ISLAMIC') ? 1.0 : resolveCategoryWeight(cat);
       catEarned = Number((catEarned * catWeight).toFixed(2));
       categoryPoints[cat.id] = catEarned;
 
