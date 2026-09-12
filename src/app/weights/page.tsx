@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import { formatPoints } from '@/lib/spr-engine';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 export default function WeightsPage() {
   const [weights, setWeights] = useState<any[]>([]);
@@ -509,30 +510,28 @@ export default function WeightsPage() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-600 block mb-1">Prize Base</label>
-                  <select
+                  <label className="text-[10px] font-bold text-slate-600 block mb-1">Prize Multiplier</label>
+                  <CustomSelect
                     value={calcSelectedPrize}
-                    onChange={(e) => setCalcSelectedPrize(parseFloat(e.target.value))}
-                    className="w-full px-2 py-1.5 font-mono text-xs bg-white border border-amber-300 rounded-xl font-bold"
-                  >
-                    <option value={prizeScore1st}>🥇 1st Prize ({prizeScore1st} pts)</option>
-                    <option value={prizeScore2nd}>🥈 2nd Prize ({prizeScore2nd} pts)</option>
-                    <option value={prizeScore3rd}>🥉 3rd Prize ({prizeScore3rd} pts)</option>
-                  </select>
+                    onChange={(val) => setCalcSelectedPrize(parseFloat(val))}
+                    options={[
+                      { value: prizeScore1st, label: `🥇 1st Prize (2x / ${prizeScore1st} pts)`, badge: '2x' },
+                      { value: prizeScore2nd, label: `🥈 2nd Prize (1.5x / ${prizeScore2nd} pts)`, badge: '1.5x' },
+                      { value: prizeScore3rd, label: `🥉 3rd Prize (1x / ${prizeScore3rd} pts)`, badge: '1x' },
+                    ]}
+                  />
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-600 block mb-1">Level Multiplier</label>
-                  <select
+                  <CustomSelect
                     value={calcSelectedLevelMult}
-                    onChange={(e) => setCalcSelectedLevelMult(parseFloat(e.target.value))}
-                    className="w-full px-2 py-1.5 font-mono text-xs bg-white border border-amber-300 rounded-xl font-bold"
-                  >
-                    {levels.map((l) => (
-                      <option key={l.id || l.code} value={l.weightMultiplier}>
-                        {l.name} ({l.weightMultiplier}×)
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setCalcSelectedLevelMult(parseFloat(val))}
+                    options={levels.map((l) => ({
+                      value: l.weightMultiplier,
+                      label: `${l.name} (${l.weightMultiplier}×)`,
+                      badge: `${l.weightMultiplier}x`,
+                    }))}
+                  />
                 </div>
               </div>
 
@@ -1018,17 +1017,17 @@ export default function WeightsPage() {
                 />
               </div>
 
-              <select
-                value={selectedStudentId}
-                onChange={(e) => setSelectedStudentId(e.target.value)}
-                className="px-3 py-1 text-xs font-bold bg-white border border-slate-300 rounded-xl max-w-xs"
-              >
-                {filteredStudents.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.sprStudentId || s.studentId} — {s.fullName} ({s.class?.name})
-                  </option>
-                ))}
-              </select>
+              <div className="w-64">
+                <CustomSelect
+                  value={selectedStudentId}
+                  onChange={(val) => setSelectedStudentId(val)}
+                  placeholder="Select student..."
+                  options={filteredStudents.map((s) => ({
+                    value: s.id,
+                    label: `${s.sprStudentId || s.studentId} — ${s.fullName} (${s.class?.name || 'Class'})`,
+                  }))}
+                />
+              </div>
             </div>
           </div>
 

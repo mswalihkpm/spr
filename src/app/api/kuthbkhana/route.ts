@@ -89,14 +89,14 @@ export async function POST(req: NextRequest) {
     if (errorResponse || !user) return errorResponse || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
-    const { studentId, kithabName, points, date, notes } = body;
+    const { studentId, type = 'Muthala', kithabName, points, date, notes } = body;
 
     if (!studentId) {
       return NextResponse.json({ error: 'Please select a student.' }, { status: 400 });
     }
 
     if (!kithabName || !kithabName.trim()) {
-      return NextResponse.json({ error: 'Please enter the Kithab name.' }, { status: 400 });
+      return NextResponse.json({ error: 'Please enter the Kithab name / record details.' }, { status: 400 });
     }
 
     const numericPoints = parseFloat(points);
@@ -151,7 +151,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const recordDate = date ? new Date(date) : new Date();
+    // Optional date: if not provided or empty, default to current date
+    const recordDate = date && String(date).trim() !== '' ? new Date(date) : new Date();
+    const selectedType = type === 'Point picking' ? 'Point picking' : 'Muthala';
+    const formattedRemarks = `[${selectedType}] ${kithabName.trim()}${notes ? ' - ' + notes.trim() : ''}`;
 
     const record = await prisma.performanceRecord.create({
       data: {
@@ -162,7 +165,7 @@ export async function POST(req: NextRequest) {
         obtainedScore: numericPoints,
         maxScore: 100,
         percentage: numericPoints,
-        remarks: kithabName.trim() + (notes ? ` - ${notes.trim()}` : ''),
+        remarks: formattedRemarks,
         date: recordDate,
         createdById: user.id,
       },
@@ -184,14 +187,16 @@ export async function POST(req: NextRequest) {
       entityId: record.id,
       newValue: {
         studentName: student.fullName,
+        type: selectedType,
         kithabName,
         points: numericPoints,
+        date: recordDate,
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: `Successfully logged "${kithabName}" (+${numericPoints} pts) for ${student.fullName}!`,
+      message: `Successfully logged ${selectedType} "${kithabName}" (+${numericPoints} pts) for ${student.fullName}!`,
       record,
     });
   } catch (error: any) {
@@ -206,7 +211,7 @@ export async function PUT(req: NextRequest) {
     if (errorResponse || !user) return errorResponse || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
-    const { id, studentId, kithabName, points, date, notes } = body;
+    const { id, studentId, type = 'Muthala', kithabName, points, date, notes } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Record ID is required.' }, { status: 400 });
@@ -219,13 +224,15 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Record not found.' }, { status: 404 });
     }
 
-    // Role check: Only ADMIN, SUPER_ADMIN or creator can edit
-    const isMainAdmin = user.role === 'SUPER_ADMIN' || user.role === 'ADMIN';
-    if (!isMainAdmin && existing.createdById !== user.id) {
-      return NextResponse.json({ error: 'You only have permission to edit records you created.' }, { status: 403 });
+    const numericPoints = points !== undefined ? parseFloat(points) : existing.obtainedScore;
+    const selectedType = type === 'Point picking' ? 'Point picking' : 'Muthala';
+
+    let updatedRemarks = existing.remarks;
+    if (kithabName) {
+      updatedRemarks = `[${selectedType}] ${kithabName.trim()}${notes ? ' - ' + notes.trim() : ''}`;
     }
 
-    const numericPoints = points !== undefined ? parseFloat(points) : existing.obtainedScore;
+    const updatedDate = date && String(date).trim() !== '' ? new Date(date) : existing.date;
 
     const updated = await prisma.performanceRecord.update({
       where: { id },
@@ -233,8 +240,8 @@ export async function PUT(req: NextRequest) {
         ...(studentId ? { studentId } : {}),
         obtainedScore: numericPoints,
         percentage: numericPoints,
-        ...(kithabName ? { remarks: kithabName.trim() + (notes ? ` - ${notes.trim()}` : '') } : {}),
-        ...(date ? { date: new Date(date) } : {}),
+        remarks: updatedRemarks,
+        date: updatedDate,
         updatedById: user.id,
       },
       include: {
@@ -268,25 +275,36 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const { user, errorResponse } = await authenticateApiRequest(req, 'ADMIN');
-    if (errorResponse || !user) return errorResponse || NextResponse.json({ error: 'Unauthorized: Only main administrators can delete records.' }, { status: 403 });
+    const { user, errorResponse } = await authenticateApiRequest(req, 'KUTHBKHANA_ADMIN');
+    if (errorResponse || !user) return errorResponse || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+    const body = await req.json().catch(() => ({}));
     const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
+    const queryId = searchParams.get('id');
 
-    if (!id) {
-      return NextResponse.json({ error: 'Record ID is required.' }, { status: 400 });
+    const ids: string[] = body.ids && Array.isArray(body.ids)
+      ? body.ids
+      : body.id
+        ? [body.id]
+        : queryId
+          ? [queryId]
+          : [];
+
+    if (ids.length === 0) {
+      return NextResponse.json({ error: 'Record ID(s) are required for deletion.' }, { status: 400 });
     }
 
-    const existing = await prisma.performanceRecord.findUnique({
-      where: { id },
+    const existingRecords = await prisma.performanceRecord.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, remarks: true, studentId: true },
     });
-    if (!existing) {
-      return NextResponse.json({ error: 'Record not found.' }, { status: 404 });
+
+    if (existingRecords.length === 0) {
+      return NextResponse.json({ error: 'No matching records found.' }, { status: 404 });
     }
 
-    await prisma.performanceRecord.delete({
-      where: { id },
+    const deleteResult = await prisma.performanceRecord.deleteMany({
+      where: { id: { in: ids } },
     });
 
     invalidateEngineCache();
@@ -296,13 +314,14 @@ export async function DELETE(req: NextRequest) {
       userName: user.name,
       action: 'DELETE',
       entity: 'KuthbkhanaRecord',
-      entityId: id,
-      previousValue: existing,
+      entityId: ids.join(','),
+      previousValue: { count: deleteResult.count, deletedIds: ids },
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Kuthbkhana record deleted.',
+      message: deleteResult.count === 1 ? 'Kuthbkhana record deleted successfully.' : `Successfully deleted ${deleteResult.count} records.`,
+      deletedCount: deleteResult.count,
     });
   } catch (error: any) {
     console.error('Kuthbkhana DELETE error:', error);

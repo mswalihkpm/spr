@@ -49,6 +49,14 @@ export default function PublicStudentScorecardPage() {
   const [error, setError] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [detailsModalCategory, setDetailsModalCategory] = useState<any | null>(null);
+  const [collapsedAssessments, setCollapsedAssessments] = useState<Record<string, boolean>>({});
+
+  const toggleAssessment = (key: string) => {
+    setCollapsedAssessments((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
 
   useEffect(() => {
     if (!studentId) return;
@@ -591,8 +599,8 @@ export default function PublicStudentScorecardPage() {
                 </span>
               </div>
 
-              {/* Itemized Records Table */}
-              <div className="space-y-2">
+              {/* Assessment / Context Grouped Box Accordions */}
+              <div className="space-y-3">
                 {activeRecords.length === 0 ? (
                   <div className="p-6 text-center rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
                     <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center mx-auto text-sm font-bold">
@@ -602,97 +610,151 @@ export default function PublicStudentScorecardPage() {
                       No assessment records logged yet for {activeCategory.categoryName}.
                     </div>
                     <p className="text-[11px] text-slate-500 max-w-md mx-auto">
-                      The benchmark score for this evaluation wing is currently 0.00%, contributing +0.00% towards the student&apos;s overall SPR.
+                      Evaluated records for this category will appear here once published.
                     </p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto rounded-xl border border-slate-200">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
-                        <tr>
-                          <th className="py-2.5 px-3">Subject / Event Record</th>
-                          <th className="py-2.5 px-3">Assessment / Context</th>
-                          <th className="py-2.5 px-3 text-right">Percentage / Score</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 bg-white">
-                        {activeRecords.map((r: any, idx: number) => {
-                          const recordPct = typeof r.percentage === 'number' ? r.percentage : parseFloat(r.percentage || '0');
-                          const displayName =
-                            r.subjectName ||
-                            r.competitionName ||
-                            r.literaryCompetitionName ||
-                            r.title ||
-                            r.readingPeriod ||
-                            r.name ||
-                            'Assessment Item';
+                  (() => {
+                    const groups: { key: string; title: string; records: any[]; avgPct: number }[] = [];
+                    const map = new Map<string, any[]>();
 
-                          const displayContext =
-                            r.examName ||
-                            r.termName ||
-                            r.festName ||
-                            r.programName ||
-                            r.eventName ||
-                            r.subCategoryName ||
-                            r.categoryName ||
-                            'Standard Assessment';
+                    activeRecords.forEach((r: any) => {
+                      const contextKey =
+                        r.examName ||
+                        r.termName ||
+                        r.festName ||
+                        r.programName ||
+                        r.eventName ||
+                        r.subCategoryName ||
+                        r.categoryName ||
+                        'General Assessment';
+                      if (!map.has(contextKey)) map.set(contextKey, []);
+                      map.get(contextKey)!.push(r);
+                    });
 
-                          const extraDetail =
-                            r.institutionName ||
-                            (r.levelName ? `Level: ${r.levelName}` : null) ||
-                            (r.booksRead !== undefined ? `${r.booksRead} Books Read` : null) ||
-                            (r.achievementPoints ? `${r.achievementPoints} Achievement Pts` : null) ||
-                            (r.publicationStatus ? `Status: ${r.publicationStatus}` : null);
+                    map.forEach((recs, title) => {
+                      const sum = recs.reduce((acc, curr) => {
+                        const p = typeof curr.percentage === 'number' ? curr.percentage : parseFloat(curr.percentage || '0');
+                        return acc + (isNaN(p) ? 0 : p);
+                      }, 0);
+                      const avgPct = recs.length > 0 ? sum / recs.length : 0;
+                      groups.push({ key: title, title, records: recs, avgPct });
+                    });
 
-                          return (
-                            <tr key={r.id || idx} className="hover:bg-blue-50/40 transition">
-                              <td className="py-2.5 px-3">
-                                <div className="space-y-0.5">
-                                  <div className="font-bold text-slate-900 text-xs sm:text-sm">
-                                    {displayName}
-                                  </div>
-                                  {r.remarks && (
-                                    <div className="text-[10px] text-emerald-700 italic font-medium">
-                                      {r.remarks}
-                                    </div>
-                                  )}
+                    return groups.map((group) => {
+                      const isCollapsed = !!collapsedAssessments[group.key];
+                      return (
+                        <div
+                          key={group.key}
+                          className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs transition duration-200 hover:border-blue-300"
+                        >
+                          {/* Assessment Header Card (Click to expand/collapse) */}
+                          <button
+                            type="button"
+                            onClick={() => toggleAssessment(group.key)}
+                            className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-slate-50 via-blue-50/20 to-white hover:bg-blue-50/50 transition cursor-pointer text-left border-b border-slate-100"
+                          >
+                            <div className="flex items-center space-x-2.5">
+                              <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-800 flex items-center justify-center font-bold text-xs shrink-0">
+                                <Calendar className="w-3.5 h-3.5 text-blue-700" />
+                              </div>
+                              <div>
+                                <div className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight">
+                                  {group.title}
                                 </div>
-                              </td>
-
-                              <td className="py-2.5 px-3 text-slate-600">
-                                <div className="space-y-0.5">
-                                  <div className="font-semibold text-slate-800 text-xs">
-                                    {displayContext}
-                                  </div>
-                                  {extraDetail && (
-                                    <div className="text-[10px] text-blue-700 font-medium">
-                                      {extraDetail}
-                                    </div>
-                                  )}
+                                <div className="text-[10px] text-slate-500 font-medium">
+                                  {group.records.length} {group.records.length === 1 ? 'Subject / Entry' : 'Subjects / Entries'}
                                 </div>
-                              </td>
+                              </div>
+                            </div>
 
-                              <td className="py-2.5 px-3 text-right">
-                                <span
-                                  className={`px-2.5 py-1 rounded-md font-mono font-extrabold text-xs inline-block ${
-                                    recordPct >= 85
-                                      ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
-                                      : recordPct >= 70
-                                      ? 'bg-blue-100 text-blue-900 border border-blue-200'
-                                      : recordPct >= 50
-                                      ? 'bg-amber-100 text-amber-900 border border-amber-200'
-                                      : 'bg-slate-100 text-slate-700'
-                                  }`}
-                                >
-                                  {recordPct.toFixed(1)}%
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                            <div className="flex items-center space-x-2.5">
+                              <span
+                                className={`px-2 py-0.5 rounded-md font-mono font-bold text-[11px] ${
+                                  group.avgPct >= 85
+                                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                    : group.avgPct >= 70
+                                    ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                                    : 'bg-slate-100 text-slate-700'
+                                }`}
+                              >
+                                {group.avgPct.toFixed(1)}% Avg
+                              </span>
+                              <ChevronRight
+                                className={`w-4 h-4 text-slate-400 transition-transform duration-200 print:hidden ${
+                                  !isCollapsed ? 'rotate-90 text-blue-600' : ''
+                                }`}
+                              />
+                            </div>
+                          </button>
+
+                          {/* Collapsible Subjects Table (Always expanded in print) */}
+                          <div className={`${isCollapsed ? 'hidden print:block' : 'block'} animate-fade-in`}>
+                            <table className="w-full text-left text-xs">
+                              <thead className="bg-slate-50/60 border-b border-slate-100 text-slate-400 uppercase tracking-wider font-semibold text-[10px]">
+                                <tr>
+                                  <th className="py-2 px-4">Subject / Record</th>
+                                  <th className="py-2 px-4 text-right">Subject Percentage</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 bg-white">
+                                {group.records.map((r: any, rIdx: number) => {
+                                  const recordPct = typeof r.percentage === 'number' ? r.percentage : parseFloat(r.percentage || '0');
+                                  const displayName =
+                                    r.subjectName ||
+                                    r.competitionName ||
+                                    r.literaryCompetitionName ||
+                                    r.title ||
+                                    r.readingPeriod ||
+                                    r.name ||
+                                    'Academic Subject';
+
+                                  const extraDetail =
+                                    r.institutionName ||
+                                    (r.levelName ? `Level: ${r.levelName}` : null) ||
+                                    (r.booksRead !== undefined ? `${r.booksRead} Books Read` : null) ||
+                                    (r.publicationStatus ? `Status: ${r.publicationStatus}` : null);
+
+                                  return (
+                                    <tr key={r.id || rIdx} className="hover:bg-blue-50/30 transition">
+                                      <td className="py-2.5 px-4">
+                                        <div className="space-y-0.5">
+                                          <div className="font-bold text-slate-900 text-xs sm:text-sm">
+                                            {displayName}
+                                          </div>
+                                          {(r.remarks || extraDetail) && (
+                                            <div className="text-[10px] text-slate-500 font-medium">
+                                              {r.remarks || extraDetail}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </td>
+
+                                      <td className="py-2.5 px-4 text-right">
+                                        <span
+                                          className={`px-2.5 py-1 rounded-md font-mono font-extrabold text-xs inline-block ${
+                                            recordPct >= 85
+                                              ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                                              : recordPct >= 70
+                                              ? 'bg-blue-100 text-blue-900 border border-blue-200'
+                                              : recordPct >= 50
+                                              ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                                              : 'bg-slate-100 text-slate-700'
+                                          }`}
+                                        >
+                                          {recordPct.toFixed(1)}%
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()
                 )}
               </div>
             </div>

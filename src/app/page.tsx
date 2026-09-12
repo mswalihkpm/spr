@@ -31,6 +31,7 @@ import PwaFooterInstall from '@/components/pwa/PwaFooterInstall';
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
 import { getAcademicMasterData } from '@/lib/academic-client';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 export default function PublicHomePage() {
   const router = useRouter();
@@ -878,18 +879,18 @@ let homeAcademicMemory: any = null;
           </div>
 
           <div>
-            <select
+            <CustomSelect
               value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-              className="w-full px-3 py-1.5 sm:py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium outline-none focus:ring-2 focus:ring-blue-600"
-            >
-              <option value="">Filter by Class (All)</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setSelectedClass(val)}
+              placeholder="Filter by Class (All)"
+              options={[
+                { value: '', label: 'Filter by Class (All)' },
+                ...classes.map((c) => ({
+                  value: c.id,
+                  label: c.name,
+                })),
+              ]}
+            />
           </div>
         </div>
 

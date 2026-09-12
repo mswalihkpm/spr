@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import { getAcademicMasterData, invalidateClientAcademicCache } from '@/lib/academic-client';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 
 interface DynamicSubject {
@@ -618,17 +619,15 @@ export default function IslamicStudiesPage() {
               {/* Class Selection */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Select Class / Standard</label>
-                <select
+                <CustomSelect
                   value={selectedClass}
-                  onChange={(e) => setSelectedClass(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-600"
-                >
-                  {classes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.school?.name || 'School'})
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setSelectedClass(val)}
+                  placeholder="Select Class / Standard..."
+                  options={classes.map((c) => ({
+                    value: c.id,
+                    label: `${c.name} (${c.school?.name || 'School'})`,
+                  }))}
+                />
               </div>
 
               {/* Ontime Subject Typing / Selection */}
@@ -643,25 +642,26 @@ export default function IslamicStudiesPage() {
                   placeholder="Type subject ontime (e.g. Quran)..."
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-600 mb-1"
                 />
-                <select
+                <CustomSelect
+                  size="sm"
                   value={selectedSubject}
-                  onChange={(e) => {
-                    setSelectedSubject(e.target.value);
-                    const sub = subjects.find((s) => s.id === e.target.value);
+                  onChange={(val) => {
+                    setSelectedSubject(val);
+                    const sub = subjects.find((s) => s.id === val);
                     if (sub) {
                       setCustomSubjectName(sub.name);
                       setMaxScore(sub.maxScore || 100);
                     }
                   }}
-                  className="w-full px-2 py-1 bg-slate-100 border border-slate-200 rounded-lg text-[11px] text-slate-600 outline-none"
-                >
-                  <option value="">Or pick existing subject...</option>
-                  {filteredSubjects.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} (Max: {s.maxScore})
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Or pick existing subject..."
+                  options={[
+                    { value: '', label: 'Or pick existing subject...' },
+                    ...filteredSubjects.map((s) => ({
+                      value: s.id,
+                      label: `${s.name} (Max: ${s.maxScore})`,
+                    })),
+                  ]}
+                />
               </div>
 
               {/* Ontime Exam Typing / Selection */}
@@ -676,22 +676,23 @@ export default function IslamicStudiesPage() {
                   placeholder="Type exam ontime (e.g. Term 1)..."
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-600 mb-1"
                 />
-                <select
+                <CustomSelect
+                  size="sm"
                   value={selectedExam}
-                  onChange={(e) => {
-                    setSelectedExam(e.target.value);
-                    const ex = exams.find((x) => x.id === e.target.value);
+                  onChange={(val) => {
+                    setSelectedExam(val);
+                    const ex = exams.find((x) => x.id === val);
                     if (ex) setCustomExamName(ex.name);
                   }}
-                  className="w-full px-2 py-1 bg-slate-100 border border-slate-200 rounded-lg text-[11px] text-slate-600 outline-none"
-                >
-                  <option value="">Or pick existing assessment...</option>
-                  {exams.map((e) => (
-                    <option key={e.id} value={e.id}>
-                      {e.name}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Or pick existing assessment..."
+                  options={[
+                    { value: '', label: 'Or pick existing assessment...' },
+                    ...exams.map((e) => ({
+                      value: e.id,
+                      label: e.name,
+                    })),
+                  ]}
+                />
               </div>
 
               {/* Max Score Benchmark */}
@@ -850,32 +851,36 @@ export default function IslamicStudiesPage() {
             </div>
 
             {/* Filter controls */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <select
-                value={historyClassFilter}
-                onChange={(e) => setHistoryClassFilter(e.target.value)}
-                className="px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none"
-              >
-                <option value="ALL">All Classes</option>
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+            <div className="flex items-center gap-2 flex-wrap min-w-[320px]">
+              <div className="w-36">
+                <CustomSelect
+                  value={historyClassFilter}
+                  onChange={(val) => setHistoryClassFilter(val)}
+                  placeholder="All Classes"
+                  options={[
+                    { value: 'ALL', label: 'All Classes' },
+                    ...classes.map((c) => ({
+                      value: c.id,
+                      label: c.name,
+                    })),
+                  ]}
+                />
+              </div>
 
-              <select
-                value={historyExamFilter}
-                onChange={(e) => setHistoryExamFilter(e.target.value)}
-                className="px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none max-w-[180px] truncate"
-              >
-                <option value="ALL">All Exams</option>
-                {exams.map((ex) => (
-                  <option key={ex.id} value={ex.id}>
-                    {ex.name}
-                  </option>
-                ))}
-              </select>
+              <div className="w-48">
+                <CustomSelect
+                  value={historyExamFilter}
+                  onChange={(val) => setHistoryExamFilter(val)}
+                  placeholder="All Exams"
+                  options={[
+                    { value: 'ALL', label: 'All Exams' },
+                    ...exams.map((ex) => ({
+                      value: ex.id,
+                      label: ex.name,
+                    })),
+                  ]}
+                />
+              </div>
             </div>
           </div>
 
@@ -1009,17 +1014,14 @@ export default function IslamicStudiesPage() {
 
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Target Class / Batch</label>
-                  <select
+                  <CustomSelect
                     value={bulkClassId}
-                    onChange={(e) => setBulkClassId(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-600"
-                  >
-                    {classes.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setBulkClassId(val)}
+                    options={classes.map((c) => ({
+                      value: c.id,
+                      label: c.name,
+                    }))}
+                  />
                 </div>
               </div>
 

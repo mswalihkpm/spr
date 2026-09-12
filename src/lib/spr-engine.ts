@@ -155,6 +155,23 @@ export const DEFAULT_CATEGORY_WEIGHTS: Record<string, number> = {
 };
 
 export function resolveCategoryWeight(cat: any): number {
+  if (!cat) return 1.0;
+  const activeWeightRecord = cat.categoryWeights?.find((w: any) => w.isActive !== false) || cat.categoryWeights?.[0];
+  if (typeof activeWeightRecord?.weight === 'number' && activeWeightRecord.weight > 0) {
+    return activeWeightRecord.weight;
+  }
+  if (typeof cat.defaultWeight === 'number' && cat.defaultWeight > 0) {
+    return cat.defaultWeight;
+  }
+  return 1.0;
+}
+
+// Helper to resolve prize multiplier: 1st (2x), 2nd (1.5x), 3rd (1x)
+export function resolvePrizeMultiplier(position: string | null | undefined): number {
+  const pos = (position || '').trim().toLowerCase();
+  if (pos.startsWith('1') || pos.includes('first')) return 2.0;
+  if (pos.startsWith('2') || pos.includes('second')) return 1.5;
+  if (pos.startsWith('3') || pos.includes('third')) return 1.0;
   return 1.0;
 }
 
@@ -292,6 +309,9 @@ export async function calculateStudentSPR(
         let sumPoints = 0;
         itemizedRecords = categoryRecords.map((r: any) => {
           const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
+          const actualMax = r.exam?.maxScore || r.maxScore || 100;
+          const targetScore = r.exam?.targetScore || 100;
+          const recordPct = actualMax > 0 ? Number(((r.obtainedScore / actualMax) * targetScore).toFixed(2)) : (r.percentage || 0);
           const baseScore = r.obtainedScore || 0;
           const pts = Number((baseScore * mult).toFixed(2));
           sumPoints += pts;
@@ -308,7 +328,7 @@ export async function calculateStudentSPR(
             termName: r.exam?.term?.name,
             obtainedScore: r.obtainedScore,
             maxScore: r.maxScore,
-            percentage: r.percentage,
+            percentage: recordPct,
             earnedPoints: pts,
             multiplier: mult,
             remarks: r.remarks,
@@ -316,7 +336,8 @@ export async function calculateStudentSPR(
           };
         });
 
-        earnedPoints = Number(sumPoints.toFixed(2));
+        const catWeight = resolveCategoryWeight(cat);
+        earnedPoints = Number((sumPoints * catWeight).toFixed(2));
         rawInput = `${formatPoints(earnedPoints)} pts`;
         formula = `${categoryRecords.length} assessment(s) = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
@@ -329,7 +350,7 @@ export async function calculateStudentSPR(
       if (categoryRecords.length > 0) {
         hasData = true;
 
-        // Group records by exam session to compute % of total marks and convert to 130-mark scale
+        // Group records by exam session to compute % of total marks and convert to standardized scale
         const examGroups = new Map<string, any[]>();
         categoryRecords.forEach((r: any) => {
           const key = r.examId || r.exam?.name || 'DEFAULT_EXAM';
@@ -342,23 +363,23 @@ export async function calculateStudentSPR(
 
         examGroups.forEach((recs) => {
           const examName = recs[0]?.exam?.name || 'School Examination';
+          const examMaxScale = recs[0]?.exam?.maxScore || 130;
           const totObt = recs.reduce((sum: number, r: any) => sum + (r.obtainedScore || 0), 0);
-          const totMax = recs.reduce((sum: number, r: any) => sum + (r.maxScore || 100), 0);
+          const totMax = recs.reduce((sum: number, r: any) => sum + (r.exam?.maxScore || r.maxScore || 100), 0);
           const pct = totMax > 0 ? (totObt / totMax) * 100 : 0;
-          // Convert % of total mark to 130 mark
-          const exam130Score = Number(((pct / 100) * 130).toFixed(2));
-          sumPoints += exam130Score;
+          const examScaledScore = Number(((pct / 100) * examMaxScale).toFixed(2));
+          sumPoints += examScaledScore;
           examSummaries.push(
-            `${examName}: ${totObt}/${totMax} (${pct.toFixed(2)}%) → ${formatPoints(exam130Score)}/130 pts`
+            `${examName}: ${pct.toFixed(1)}%`
           );
         });
 
         itemizedRecords = categoryRecords.map((r: any) => {
           const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
-          const baseScore = r.obtainedScore || 0;
-          const max = r.maxScore || 100;
-          const recordPct = max > 0 ? (baseScore / max) * 100 : baseScore;
-          const scaled130 = Number(((recordPct / 100) * 130).toFixed(2));
+          const actualMax = r.exam?.maxScore || r.maxScore || 100;
+          const targetScore = r.exam?.targetScore || 100;
+          const recordPct = actualMax > 0 ? Number(((r.obtainedScore / actualMax) * targetScore).toFixed(2)) : (r.percentage || 0);
+          const scaledPts = Number(((recordPct / 100) * (r.exam?.maxScore || 130)).toFixed(2));
 
           return {
             id: r.id,
@@ -372,16 +393,17 @@ export async function calculateStudentSPR(
             termName: r.exam?.term?.name,
             obtainedScore: r.obtainedScore,
             maxScore: r.maxScore,
-            percentage: r.percentage !== undefined && r.percentage !== null ? r.percentage : recordPct,
-            earnedPoints: scaled130,
+            percentage: recordPct,
+            earnedPoints: scaledPts,
             multiplier: mult,
             remarks: r.remarks,
             date: r.date ? r.date.toISOString() : null,
           };
         });
 
-        earnedPoints = Number(sumPoints.toFixed(2));
-        rawInput = `${formatPoints(earnedPoints)} / 130 pts`;
+        const catWeight = resolveCategoryWeight(cat);
+        earnedPoints = Number((sumPoints * catWeight).toFixed(2));
+        rawInput = `${formatPoints(earnedPoints)} pts`;
         formula = `${examSummaries.join('; ')} = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
         formula = `No School academic marks logged (+0 SPR Points)`;
@@ -419,7 +441,8 @@ export async function calculateStudentSPR(
           };
         });
 
-        earnedPoints = Number(sumPoints.toFixed(2));
+        const catWeight = resolveCategoryWeight(cat);
+        earnedPoints = Number((sumPoints * catWeight).toFixed(2));
         rawInput = `${formatPoints(earnedPoints)} pts`;
         formula = `${categoryRecords.length} qualification(s) = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
@@ -463,7 +486,8 @@ export async function calculateStudentSPR(
           };
         });
 
-        earnedPoints = Number(sumPoints.toFixed(2));
+        const catWeight = resolveCategoryWeight(cat);
+        earnedPoints = Number((sumPoints * catWeight).toFixed(2));
         rawInput = `${formatPoints(earnedPoints)} pts`;
         formula = `${works.length} creative work(s) = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
@@ -531,7 +555,8 @@ export async function calculateStudentSPR(
           });
         });
 
-        earnedPoints = Number(sumPoints.toFixed(2));
+        const catWeight = resolveCategoryWeight(cat);
+        earnedPoints = Number((sumPoints * catWeight).toFixed(2));
         rawInput = `${formatPoints(earnedPoints)} pts`;
         formula = `Reading Milestones = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
@@ -546,9 +571,10 @@ export async function calculateStudentSPR(
         let sumPoints = 0;
         itemizedRecords = categoryRecords.map((r: any) => {
           const mult = resolveLevelMultiplier(r.level, levelsList);
+          const prizeMult = resolvePrizeMultiplier(r.position);
           const prizeBase = resolvePrizeBaseScore(r.position, settings);
           const baseScore = prizeBase > 0 ? prizeBase : (r.obtainedScore || 0);
-          const pts = Number((baseScore * mult).toFixed(2));
+          const pts = Number((baseScore * prizeMult * mult).toFixed(2));
           sumPoints += pts;
 
           return {
@@ -560,6 +586,7 @@ export async function calculateStudentSPR(
             eventName: r.literaryCompetition?.event?.name || 'Literary Festival',
             levelName: r.level?.name || 'Campus',
             levelMultiplier: mult,
+            prizeMultiplier: prizeMult,
             position: r.position,
             prizeBaseScore: baseScore,
             basePoints: baseScore,
@@ -570,7 +597,8 @@ export async function calculateStudentSPR(
           };
         });
 
-        earnedPoints = Number(sumPoints.toFixed(2));
+        const catWeight = resolveCategoryWeight(cat);
+        earnedPoints = Number((sumPoints * catWeight).toFixed(2));
         rawInput = `${formatPoints(earnedPoints)} pts`;
         formula = `${categoryRecords.length} literary achievement(s) = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
@@ -585,9 +613,10 @@ export async function calculateStudentSPR(
         let sumPoints = 0;
         itemizedRecords = categoryRecords.map((r: any) => {
           const mult = resolveLevelMultiplier(r.level, levelsList);
+          const prizeMult = resolvePrizeMultiplier(r.position);
           const prizeBase = resolvePrizeBaseScore(r.position, settings);
           const baseScore = prizeBase > 0 ? prizeBase : (r.obtainedScore || 0);
-          const pts = Number((baseScore * mult).toFixed(2));
+          const pts = Number((baseScore * prizeMult * mult).toFixed(2));
           sumPoints += pts;
 
           return {
@@ -599,6 +628,7 @@ export async function calculateStudentSPR(
             eventName: r.competition?.program?.name || 'Program',
             levelName: r.level?.name || 'Campus',
             levelMultiplier: mult,
+            prizeMultiplier: prizeMult,
             position: r.position,
             prizeBaseScore: baseScore,
             basePoints: baseScore,
@@ -609,7 +639,8 @@ export async function calculateStudentSPR(
           };
         });
 
-        earnedPoints = Number(sumPoints.toFixed(2));
+        const catWeight = resolveCategoryWeight(cat);
+        earnedPoints = Number((sumPoints * catWeight).toFixed(2));
         rawInput = `${formatPoints(earnedPoints)} pts`;
         formula = `${categoryRecords.length} competition achievement(s) = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
@@ -638,7 +669,8 @@ export async function calculateStudentSPR(
             date: r.date ? r.date.toISOString() : null,
           };
         });
-        earnedPoints = Number(sumPoints.toFixed(2));
+        const catWeight = resolveCategoryWeight(cat);
+        earnedPoints = Number((sumPoints * catWeight).toFixed(2));
         rawInput = `${formatPoints(earnedPoints)} pts`;
         formula = `+${formatPoints(earnedPoints)} SPR Points`;
       } else {
@@ -956,9 +988,10 @@ export async function calculateAllLeaderboards(filters?: {
         let fSum = 0;
         festRecords.forEach((r) => {
           const mult = resolveLevelMultiplier(r.level, levelsList);
+          const prizeMult = resolvePrizeMultiplier(r.position);
           const prizeBase = resolvePrizeBaseScore(r.position, settings);
           const base = prizeBase > 0 ? prizeBase : (r.obtainedScore || 0);
-          fSum += (base * mult);
+          fSum += (base * prizeMult * mult);
         });
         festScore = Number(fSum.toFixed(2));
         festRecordsCount = festRecords.length;
@@ -968,9 +1001,10 @@ export async function calculateAllLeaderboards(filters?: {
           let fSum = 0;
           litRecords.forEach((r) => {
             const mult = resolveLevelMultiplier(r.level, levelsList);
+            const prizeMult = resolvePrizeMultiplier(r.position);
             const prizeBase = resolvePrizeBaseScore(r.position, settings);
             const base = prizeBase > 0 ? prizeBase : (r.obtainedScore || 0);
-            fSum += (base * mult);
+            fSum += (base * prizeMult * mult);
           });
           festScore = Number(fSum.toFixed(2));
           festRecordsCount = litRecords.length;
@@ -1007,9 +1041,10 @@ export async function calculateAllLeaderboards(filters?: {
         const records = student.performanceRecords.filter((r) => r.categoryId === cat.id);
         records.forEach((r) => {
           const mult = resolveLevelMultiplier(r.level, levelsList);
+          const prizeMult = resolvePrizeMultiplier(r.position);
           const prizeBase = resolvePrizeBaseScore(r.position, settings);
           const baseScore = prizeBase > 0 ? prizeBase : (r.obtainedScore || 0);
-          catEarned += (baseScore * mult);
+          catEarned += (baseScore * prizeMult * mult);
         });
       } else if (cat.code === 'SCHOOL') {
         const records = student.performanceRecords.filter((r) => r.categoryId === cat.id);
@@ -1022,10 +1057,11 @@ export async function calculateAllLeaderboards(filters?: {
           });
           let catSum = 0;
           examGroups.forEach((recs) => {
+            const examMaxScale = recs[0]?.exam?.maxScore || 130;
             const totObt = recs.reduce((sum: number, r: any) => sum + (r.obtainedScore || 0), 0);
-            const totMax = recs.reduce((sum: number, r: any) => sum + (r.maxScore || 100), 0);
+            const totMax = recs.reduce((sum: number, r: any) => sum + (r.exam?.maxScore || r.maxScore || 100), 0);
             const pct = totMax > 0 ? (totObt / totMax) * 100 : 0;
-            catSum += ((pct / 100) * 130);
+            catSum += ((pct / 100) * examMaxScale);
           });
           catEarned = Number(catSum.toFixed(2));
         }
@@ -1038,7 +1074,8 @@ export async function calculateAllLeaderboards(filters?: {
         });
       }
 
-      catEarned = Number(catEarned.toFixed(2));
+      const catWeight = resolveCategoryWeight(cat);
+      catEarned = Number((catEarned * catWeight).toFixed(2));
       categoryPoints[cat.id] = catEarned;
 
       if (isIncluded) {

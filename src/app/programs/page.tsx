@@ -26,6 +26,7 @@ import {
 import VideoLoader from '@/components/ui/VideoLoader';
 import { getAcademicMasterData } from '@/lib/academic-client';
 import SearchableStudentSelect from '@/components/ui/SearchableStudentSelect';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 interface DynamicActivity {
   id: string;
@@ -733,35 +734,36 @@ export default function ProgramsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Position / Placement</label>
-                  <select
+                  <CustomSelect
                     value={formData.position}
-                    onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
-                  >
-                    <option value="1st">1st Position (Winner)</option>
-                    <option value="2nd">2nd Position (Runner Up)</option>
-                    <option value="3rd">3rd Position (Third)</option>
-                    <option value="Participated">Participated / Qualified</option>
-                    <option value="None">None</option>
-                  </select>
+                    onChange={(val) => setFormData({ ...formData, position: val })}
+                    options={[
+                      { value: '1st', label: '1st Position / Prize (2x)', badge: '2x' },
+                      { value: '2nd', label: '2nd Position / Prize (1.5x)', badge: '1.5x' },
+                      { value: '3rd', label: '3rd Position / Prize (1x)', badge: '1x' },
+                      { value: 'Participated', label: 'Participated / Qualified' },
+                      { value: 'None', label: 'None' },
+                    ]}
+                  />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Grade <span className="text-slate-400 font-normal">(Optional)</span>
                   </label>
-                  <select
+                  <CustomSelect
                     value={formData.grade}
-                    onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
-                  >
-                    <option value="">None / Optional</option>
-                    <option value="A+">A+ Grade</option>
-                    <option value="A">A Grade</option>
-                    <option value="B+">B+ Grade</option>
-                    <option value="B">B Grade</option>
-                    <option value="C">C Grade</option>
-                  </select>
+                    onChange={(val) => setFormData({ ...formData, grade: val })}
+                    placeholder="None / Optional"
+                    options={[
+                      { value: '', label: 'None / Optional' },
+                      { value: 'A+', label: 'A+ Grade' },
+                      { value: 'A', label: 'A Grade' },
+                      { value: 'B+', label: 'B+ Grade' },
+                      { value: 'B', label: 'B Grade' },
+                      { value: 'C', label: 'C Grade' },
+                    ]}
+                  />
                 </div>
               </div>
 
@@ -853,17 +855,15 @@ export default function ProgramsPage() {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Level Multiplier</label>
-                <select
+                <CustomSelect
                   value={editFormData.levelId}
-                  onChange={(e) => setEditFormData({ ...editFormData, levelId: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
-                >
-                  {levels.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name} ({l.weightMultiplier}x)
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setEditFormData({ ...editFormData, levelId: val })}
+                  options={levels.map((l) => ({
+                    value: l.id,
+                    label: `${l.name} (${l.weightMultiplier}x)`,
+                    badge: `${l.weightMultiplier}x`,
+                  }))}
+                />
               </div>
 
               <div>
@@ -953,32 +953,27 @@ export default function ProgramsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Target Class / Batch *</label>
-                <select
+                <CustomSelect
                   value={bulkClassId}
-                  onChange={(e) => setBulkClassId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
-                >
-                  {classes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c._count?.students || 'Class'} Students)
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setBulkClassId(val)}
+                  options={classes.map((c) => ({
+                    value: c.id,
+                    label: `${c.name} (${c._count?.students || 'Class'} Students)`,
+                  }))}
+                />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Event Level Multiplier *</label>
-                <select
+                <CustomSelect
                   value={bulkLevelId}
-                  onChange={(e) => setBulkLevelId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
-                >
-                  {levels.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name} (Multiplier: {l.weightMultiplier}x)
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setBulkLevelId(val)}
+                  options={levels.map((l) => ({
+                    value: l.id,
+                    label: `${l.name} (Multiplier: ${l.weightMultiplier}x)`,
+                    badge: `${l.weightMultiplier}x`,
+                  }))}
+                />
               </div>
             </div>
 

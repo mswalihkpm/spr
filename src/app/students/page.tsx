@@ -26,9 +26,8 @@ import {
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import VideoLoader from '@/components/ui/VideoLoader';
 import { compressImageClientSide } from '@/lib/image-utils';
-
-
 import { getAcademicMasterData } from '@/lib/academic-client';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 export default function StudentsPage() {
   const router = useRouter();
@@ -391,48 +390,49 @@ export default function StudentsPage() {
 
           {/* Class Filter */}
           <div>
-            <select
+            <CustomSelect
               value={classFilter}
-              onChange={(e) => setClassFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white font-medium"
-            >
-              <option value="">All Classes (8, 9, 10, +1, +2)</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setClassFilter(val)}
+              placeholder="All Classes (8, 9, 10, +1, +2)"
+              options={[
+                { value: '', label: 'All Classes (8, 9, 10, +1, +2)' },
+                ...classes.map((c) => ({
+                  value: c.id,
+                  label: c.name,
+                })),
+              ]}
+            />
           </div>
 
           {/* School Filter */}
           <div>
-            <select
+            <CustomSelect
               value={schoolFilter}
-              onChange={(e) => setSchoolFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white font-medium"
-            >
-              <option value="">All Institutional Schools</option>
-              {schools.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setSchoolFilter(val)}
+              placeholder="All Institutional Schools"
+              options={[
+                { value: '', label: 'All Institutional Schools' },
+                ...schools.map((s) => ({
+                  value: s.id,
+                  label: s.name,
+                })),
+              ]}
+            />
           </div>
 
           {/* Status Filter */}
           <div>
-            <select
+            <CustomSelect
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white font-medium"
-            >
-              <option value="">All Statuses</option>
-              <option value="ACTIVE">Active Students</option>
-              <option value="INACTIVE">Inactive Students</option>
-              <option value="ALUMNI">Alumni</option>
-            </select>
+              onChange={(val) => setStatusFilter(val)}
+              placeholder="All Statuses"
+              options={[
+                { value: '', label: 'All Statuses' },
+                { value: 'ACTIVE', label: 'Active Students' },
+                { value: 'INACTIVE', label: 'Inactive Students' },
+                { value: 'ALUMNI', label: 'Alumni' },
+              ]}
+            />
           </div>
         </div>
 
@@ -758,18 +758,15 @@ export default function StudentsPage() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Class *
                   </label>
-                  <select
-                    required
+                  <CustomSelect
                     value={formData.classId}
-                    onChange={(e) => setFormData({ ...formData, classId: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-blue-600"
-                  >
-                    {classes.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setFormData({ ...formData, classId: val })}
+                    placeholder="Select class..."
+                    options={classes.map((c) => ({
+                      value: c.id,
+                      label: c.name,
+                    }))}
+                  />
                 </div>
 
                 <div>
@@ -791,31 +788,28 @@ export default function StudentsPage() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     School *
                   </label>
-                  <select
-                    required
+                  <CustomSelect
                     value={formData.schoolId}
-                    onChange={(e) => setFormData({ ...formData, schoolId: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-blue-600"
-                  >
-                    {schools.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setFormData({ ...formData, schoolId: val })}
+                    placeholder="Select school..."
+                    options={schools.map((s) => ({
+                      value: s.id,
+                      label: s.name,
+                    }))}
+                  />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Status</label>
-                  <select
+                  <CustomSelect
                     value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-blue-600"
-                  >
-                    <option value="ACTIVE">Active</option>
-                    <option value="INACTIVE">Inactive</option>
-                    <option value="ALUMNI">Alumni</option>
-                  </select>
+                    onChange={(val) => setFormData({ ...formData, status: val })}
+                    options={[
+                      { value: 'ACTIVE', label: 'Active' },
+                      { value: 'INACTIVE', label: 'Inactive' },
+                      { value: 'ALUMNI', label: 'Alumni' },
+                    ]}
+                  />
                 </div>
               </div>
 

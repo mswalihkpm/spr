@@ -36,6 +36,7 @@ import {
 import VideoLoader from '@/components/ui/VideoLoader';
 import SearchableStudentSelect from '@/components/ui/SearchableStudentSelect';
 import { getAcademicMasterData } from '@/lib/academic-client';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 const LEVEL_PRESETS = [
   {
@@ -790,17 +791,15 @@ export default function OtherSubcategoriesPage() {
                         {getLevelPresetName(activeSubcategory)}
                       </span>
                     </div>
-                    <select
+                    <CustomSelect
                       value={recordForm.levelId}
-                      onChange={(e) => setRecordForm({ ...recordForm, levelId: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-600"
-                    >
-                      {currentAllowedLevels.map((lvl) => (
-                        <option key={lvl.id} value={lvl.id}>
-                          {lvl.name} (Multiplier: {lvl.weightMultiplier}x)
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => setRecordForm({ ...recordForm, levelId: val })}
+                      options={currentAllowedLevels.map((lvl) => ({
+                        value: lvl.id,
+                        label: `${lvl.name} (Multiplier: ${lvl.weightMultiplier}x)`,
+                        badge: `${lvl.weightMultiplier}x`,
+                      }))}
+                    />
                   </div>
                 )}
 
@@ -810,35 +809,36 @@ export default function OtherSubcategoriesPage() {
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
                       Position Awarded
                     </label>
-                    <select
+                    <CustomSelect
                       value={recordForm.position}
-                      onChange={(e) => setRecordForm({ ...recordForm, position: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-600"
-                    >
-                      <option value="1st">1st Position (Winner)</option>
-                      <option value="2nd">2nd Position (Runner Up)</option>
-                      <option value="3rd">3rd Position (Third)</option>
-                      <option value="Participated">Participated / Qualified</option>
-                      <option value="None">None</option>
-                    </select>
+                      onChange={(val) => setRecordForm({ ...recordForm, position: val })}
+                      options={[
+                        { value: '1st', label: '1st Position / Prize (2x)', badge: '2x' },
+                        { value: '2nd', label: '2nd Position / Prize (1.5x)', badge: '1.5x' },
+                        { value: '3rd', label: '3rd Position / Prize (1x)', badge: '1x' },
+                        { value: 'Participated', label: 'Participated / Qualified' },
+                        { value: 'None', label: 'None' },
+                      ]}
+                    />
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
                       Grade <span className="text-slate-400 font-normal">(Optional)</span>
                     </label>
-                    <select
+                    <CustomSelect
                       value={recordForm.grade}
-                      onChange={(e) => setRecordForm({ ...recordForm, grade: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-indigo-600"
-                    >
-                      <option value="">None (Optional)</option>
-                      <option value="A+">A+ Grade</option>
-                      <option value="A">A Grade</option>
-                      <option value="B+">B+ Grade</option>
-                      <option value="B">B Grade</option>
-                      <option value="C">C Grade</option>
-                    </select>
+                      onChange={(val) => setRecordForm({ ...recordForm, grade: val })}
+                      placeholder="None (Optional)"
+                      options={[
+                        { value: '', label: 'None (Optional)' },
+                        { value: 'A+', label: 'A+ Grade' },
+                        { value: 'A', label: 'A Grade' },
+                        { value: 'B+', label: 'B+ Grade' },
+                        { value: 'B', label: 'B Grade' },
+                        { value: 'C', label: 'C Grade' },
+                      ]}
+                    />
                   </div>
                 </div>
 
@@ -1259,17 +1259,14 @@ export default function OtherSubcategoriesPage() {
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
                       Parent Category <span className="text-rose-500">*</span>
                     </label>
-                    <select
+                    <CustomSelect
                       value={builderForm.categoryId}
-                      onChange={(e) => setBuilderForm({ ...builderForm, categoryId: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-600"
-                    >
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} ({c.code})
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => setBuilderForm({ ...builderForm, categoryId: val })}
+                      options={categories.map((c) => ({
+                        value: c.id,
+                        label: `${c.name} (${c.code})`,
+                      }))}
+                    />
                   </div>
                 </div>
 

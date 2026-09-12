@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     if (errorResponse) return errorResponse;
 
     const body = await req.json();
-    const { name, categoryId, termId, academicYearId } = body;
+    const { name, categoryId, termId, academicYearId, maxScore, targetScore } = body;
 
     if (!name || !categoryId) {
       return NextResponse.json({ error: 'Exam name and category are required.' }, { status: 400 });
@@ -71,6 +71,8 @@ export async function POST(req: NextRequest) {
         categoryId,
         termId: activeTermId,
         academicYearId: activeYearId,
+        maxScore: maxScore !== undefined && maxScore !== null ? Number(maxScore) : 100.0,
+        targetScore: targetScore !== undefined && targetScore !== null ? Number(targetScore) : 100.0,
       },
       include: {
         category: true,
@@ -101,7 +103,7 @@ export async function PUT(req: NextRequest) {
     if (errorResponse) return errorResponse;
 
     const body = await req.json();
-    const { id, name, categoryId, termId } = body;
+    const { id, name, categoryId, termId, maxScore, targetScore } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Exam ID is required.' }, { status: 400 });
@@ -118,6 +120,8 @@ export async function PUT(req: NextRequest) {
         name: name !== undefined ? name.trim() : undefined,
         categoryId: categoryId || undefined,
         termId: termId || undefined,
+        maxScore: maxScore !== undefined && maxScore !== null ? Number(maxScore) : undefined,
+        targetScore: targetScore !== undefined && targetScore !== null ? Number(targetScore) : undefined,
       },
       include: {
         category: true,

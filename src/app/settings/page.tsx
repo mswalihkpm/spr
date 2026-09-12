@@ -25,6 +25,7 @@ import {
   Calendar,
   Sliders,
 } from 'lucide-react';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<string>('INSTITUTION');
@@ -926,6 +927,8 @@ export default function SettingsPage() {
                       <th className="py-2.5 px-3">Exam Name</th>
                       <th className="py-2.5 px-3">Category Wing</th>
                       <th className="py-2.5 px-3">Term Period</th>
+                      <th className="py-2.5 px-3 text-center">Actual Max</th>
+                      <th className="py-2.5 px-3 text-center">Target Mark</th>
                       <th className="py-2.5 px-3 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -950,6 +953,16 @@ export default function SettingsPage() {
                           </td>
                           <td className="py-2.5 px-3 font-medium text-slate-600">
                             {ex.term?.name || 'Annual'}
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200 font-mono">
+                              {ex.maxScore || 100} Marks
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono">
+                              {ex.targetScore || 100}%
+                            </span>
                           </td>
                           <td className="py-2.5 px-3 text-right">
                             <div className="flex items-center justify-end space-x-1">
@@ -1544,18 +1557,18 @@ export default function SettingsPage() {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Assigned Role</label>
-                <select
+                <CustomSelect
                   value={newUser.role}
-                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
-                >
-                  <option value="SUPER_ADMIN">Super Admin (Full System)</option>
-                  <option value="ADMIN">Admin (Students & Scoring)</option>
-                  <option value="CREATIVE_HUB_ADMIN">Creative Hub Admin</option>
-                  <option value="KUTHBKHANA_ADMIN">Kuthbkhana Admin</option>
-                  <option value="TEACHER">Teacher / Usthad</option>
-                  <option value="VIEWER">Viewer (Read-Only)</option>
-                </select>
+                  onChange={(val) => setNewUser({ ...newUser, role: val })}
+                  options={[
+                    { value: 'SUPER_ADMIN', label: 'Super Admin (Full System)' },
+                    { value: 'ADMIN', label: 'Admin (Students & Scoring)' },
+                    { value: 'CREATIVE_HUB_ADMIN', label: 'Creative Hub Admin' },
+                    { value: 'KUTHBKHANA_ADMIN', label: 'Kuthbkhana Admin' },
+                    { value: 'TEACHER', label: 'Teacher / Usthad' },
+                    { value: 'VIEWER', label: 'Viewer (Read-Only)' },
+                  ]}
+                />
               </div>
 
               <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
@@ -1639,17 +1652,14 @@ export default function SettingsPage() {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Category Wing</label>
-                    <select
+                    <CustomSelect
                       value={entityData.categoryId || masterData.categories?.[0]?.id || ''}
-                      onChange={(e) => setEntityData({ ...entityData, categoryId: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
-                    >
-                      {masterData.categories?.map((c: any) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => setEntityData({ ...entityData, categoryId: val })}
+                      options={(masterData.categories || []).map((c: any) => ({
+                        value: c.id,
+                        label: c.name,
+                      }))}
+                    />
                   </div>
 
                   <div>
@@ -1679,17 +1689,15 @@ export default function SettingsPage() {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Level</label>
-                    <select
+                    <CustomSelect
                       value={entityData.levelId || masterData.levels?.[0]?.id || ''}
-                      onChange={(e) => setEntityData({ ...entityData, levelId: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
-                    >
-                      {masterData.levels?.map((lvl: any) => (
-                        <option key={lvl.id} value={lvl.id}>
-                          {lvl.name} ({lvl.weightMultiplier}x)
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => setEntityData({ ...entityData, levelId: val })}
+                      options={(masterData.levels || []).map((lvl: any) => ({
+                        value: lvl.id,
+                        label: `${lvl.name} (${lvl.weightMultiplier}x)`,
+                        badge: `${lvl.weightMultiplier}x`,
+                      }))}
+                    />
                   </div>
                 </>
               )}
@@ -1726,32 +1734,60 @@ export default function SettingsPage() {
                 <>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Category Wing *</label>
-                    <select
+                    <CustomSelect
                       value={entityData.categoryId || masterData.categories?.[0]?.id || ''}
-                      onChange={(e) => setEntityData({ ...entityData, categoryId: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
-                    >
-                      {masterData.categories?.map((c: any) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => setEntityData({ ...entityData, categoryId: val })}
+                      options={(masterData.categories || []).map((c: any) => ({
+                        value: c.id,
+                        label: c.name,
+                      }))}
+                    />
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Associated Term Period *</label>
-                    <select
+                    <CustomSelect
                       value={entityData.termId || masterData.terms?.[0]?.id || ''}
-                      onChange={(e) => setEntityData({ ...entityData, termId: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
-                    >
-                      {masterData.terms?.map((t: any) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => setEntityData({ ...entityData, termId: val })}
+                      options={(masterData.terms || []).map((t: any) => ({
+                        value: t.id,
+                        label: t.name,
+                      }))}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Actual Max Mark *
+                      </label>
+                      <input
+                        type="number"
+                        step="1"
+                        min="1"
+                        value={entityData.maxScore !== undefined && entityData.maxScore !== null ? entityData.maxScore : 100}
+                        onChange={(e) => setEntityData({ ...entityData, maxScore: Number(e.target.value) || 100 })}
+                        placeholder="e.g. 130"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
+                      />
+                      <span className="text-[10px] text-slate-500">e.g. 130, 80, 50</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Target Mark (%) *
+                      </label>
+                      <input
+                        type="number"
+                        step="1"
+                        min="1"
+                        value={entityData.targetScore !== undefined && entityData.targetScore !== null ? entityData.targetScore : 100}
+                        onChange={(e) => setEntityData({ ...entityData, targetScore: Number(e.target.value) || 100 })}
+                        placeholder="e.g. 100"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
+                      />
+                      <span className="text-[10px] text-slate-500">Scale target (e.g. 100)</span>
+                    </div>
                   </div>
                 </>
               )}
@@ -1871,17 +1907,17 @@ export default function SettingsPage() {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">System Role *</label>
-                <select
+                <CustomSelect
                   value={newUser.role}
-                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900 font-semibold"
-                >
-                  <option value="TEACHER">Staff / Teacher</option>
-                  <option value="ADMIN">Academic Admin</option>
-                  <option value="CREATIVE_HUB_ADMIN">Creative Hub Admin</option>
-                  <option value="SUPER_ADMIN">Super Admin</option>
-                  <option value="VIEWER">Read-Only Viewer</option>
-                </select>
+                  onChange={(val) => setNewUser({ ...newUser, role: val })}
+                  options={[
+                    { value: 'TEACHER', label: 'Staff / Teacher' },
+                    { value: 'ADMIN', label: 'Academic Admin' },
+                    { value: 'CREATIVE_HUB_ADMIN', label: 'Creative Hub Admin' },
+                    { value: 'SUPER_ADMIN', label: 'Super Admin' },
+                    { value: 'VIEWER', label: 'Read-Only Viewer' },
+                  ]}
+                />
               </div>
 
               <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-100 text-[11px] text-blue-900 flex items-start space-x-2">

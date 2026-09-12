@@ -18,6 +18,7 @@ import {
   Clock,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 export default function DisplayModePage() {
   const [data, setData] = useState<any>(null);
@@ -183,19 +184,19 @@ export default function DisplayModePage() {
           ))}
         </div>
 
-        <div className="flex items-center space-x-2 shrink-0">
-          <select
+        <div className="flex items-center space-x-2 shrink-0 w-48">
+          <CustomSelect
             value={selectedClass}
-            onChange={(e) => setSelectedClass(e.target.value)}
-            className="px-3 py-1.5 bg-madin-950 border border-madin-800 rounded-xl text-xs font-semibold text-gold-400 outline-none"
-          >
-            <option value="">All Classes (8, 9, 10, +1, +2)</option>
-            {data?.classes?.map((cls: any) => (
-              <option key={cls.id} value={cls.id}>
-                {cls.name}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => setSelectedClass(val)}
+            placeholder="All Classes"
+            options={[
+              { value: '', label: 'All Classes' },
+              ...(data?.classes || []).map((cls: any) => ({
+                value: cls.id,
+                label: cls.name,
+              })),
+            ]}
+          />
         </div>
       </div>
 

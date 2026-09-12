@@ -22,6 +22,7 @@ import {
   Save,
 } from 'lucide-react';
 import SearchableStudentSelect from '@/components/ui/SearchableStudentSelect';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 export default function CreativeHubPage() {
   const [activeTab, setActiveTab] = useState<'submissions' | 'masterSettings'>('submissions');
@@ -369,33 +370,33 @@ export default function CreativeHubPage() {
             {/* Filters bar */}
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <select
+                <CustomSelect
                   value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-madin-900"
-                >
-                  <option value="">All Creative Wings / Forms</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.weight} pts)
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setSelectedCategory(val)}
+                  placeholder="All Creative Wings / Forms"
+                  options={[
+                    { value: '', label: 'All Creative Wings / Forms' },
+                    ...categories.map((c) => ({
+                      value: c.id,
+                      label: `${c.name} (${c.weight} pts)`,
+                    })),
+                  ]}
+                />
               </div>
 
               <div>
-                <select
+                <CustomSelect
                   value={selectedMedia}
-                  onChange={(e) => setSelectedMedia(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-madin-900"
-                >
-                  <option value="">All Published Media</option>
-                  {publishedMediaList.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} ({m.weight}x Weight)
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setSelectedMedia(val)}
+                  placeholder="All Published Media"
+                  options={[
+                    { value: '', label: 'All Published Media' },
+                    ...publishedMediaList.map((m) => ({
+                      value: m.id,
+                      label: `${m.name} (${m.weight}x Weight)`,
+                    })),
+                  ]}
+                />
               </div>
 
               <div className="flex items-center space-x-2">
@@ -691,34 +692,28 @@ export default function CreativeHubPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Creative Wing / Form *</label>
-                    <select
-                      required
+                    <CustomSelect
                       value={formData.categoryId}
-                      onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-purple-600"
-                    >
-                      {categories.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.name} ({cat.weight} pts)
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => setFormData({ ...formData, categoryId: val })}
+                      placeholder="Select Form..."
+                      options={categories.map((cat) => ({
+                        value: cat.id,
+                        label: `${cat.name} (${cat.weight} pts)`,
+                      }))}
+                    />
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Published Media *</label>
-                    <select
-                      required
+                    <CustomSelect
                       value={formData.publishedMediaId}
-                      onChange={(e) => setFormData({ ...formData, publishedMediaId: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-purple-600"
-                    >
-                      {publishedMediaList.map((media) => (
-                        <option key={media.id} value={media.id}>
-                          {media.name} ({media.weight}x)
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => setFormData({ ...formData, publishedMediaId: val })}
+                      placeholder="Select Media..."
+                      options={publishedMediaList.map((media) => ({
+                        value: media.id,
+                        label: `${media.name} (${media.weight}x)`,
+                      }))}
+                    />
                   </div>
                 </div>
 

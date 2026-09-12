@@ -210,6 +210,8 @@ model Exam {
   term               Term                @relation(fields: [termId], references: [id])
   academicYearId     String
   academicYear       AcademicYear        @relation(fields: [academicYearId], references: [id])
+  maxScore           Float               @default(100.0) // Actual Maximum Mark (e.g. 130)
+  targetScore        Float               @default(100.0) // Target/Standardized Mark (e.g. 100)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   performanceRecords PerformanceRecord[]

@@ -128,6 +128,8 @@ export async function POST(req: NextRequest) {
           categoryId: data.categoryId,
           termId: data.termId || currentTerm?.id || '',
           academicYearId: data.academicYearId || currentYear?.id || '',
+          maxScore: data.maxScore !== undefined && data.maxScore !== null ? Number(data.maxScore) : 100.0,
+          targetScore: data.targetScore !== undefined && data.targetScore !== null ? Number(data.targetScore) : 100.0,
         },
       });
     } else if (type === 'TERM') {
@@ -260,6 +262,7 @@ export async function PUT(req: NextRequest) {
           ...(data.academicYearId ? { academicYearId: data.academicYearId } : {}),
           ...(data.termId ? { termId: data.termId } : {}),
           ...(data.maxScore !== undefined ? { maxScore: Number(data.maxScore) } : {}),
+          ...(data.targetScore !== undefined ? { targetScore: Number(data.targetScore) } : {}),
           ...(data.weight !== undefined ? { weight: Number(data.weight) } : {}),
         },
       });

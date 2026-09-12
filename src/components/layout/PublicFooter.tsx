@@ -41,16 +41,7 @@ export default function PublicFooter() {
           </div>
         </div>
 
-        {/* Center: Navigation Links */}
-        <div className="flex items-center space-x-4 text-xs font-semibold text-slate-400">
-          <Link href="/" className="hover:text-white transition">Home</Link>
-          <span>•</span>
-          <Link href="/leaderboard" className="hover:text-white transition">Leaderboard</Link>
-          <span>•</span>
-          <Link href="/categories" className="hover:text-white transition">Categories</Link>
-          <span>•</span>
-          <Link href="/updates" className="hover:text-white transition">Updates</Link>
-        </div>
+
 
         {/* Right: PWA Install & Staff Login Icon */}
         <div className="flex items-center space-x-3">

@@ -656,54 +656,84 @@ export default function StudentProfilePage() {
             <h3 className="text-sm font-bold text-slate-900">
               {tabs.find((t) => t.id === activeTab)?.name} Subject & Assessment Breakdown
             </h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200">
-                  <tr>
-                    <th className="py-2.5 px-3">Assessment / Subject</th>
-                    <th className="py-2.5 px-3">Date</th>
-                    <th className="py-2.5 px-3 text-right">Percentage (100%)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {recentRecords.filter((r: any) =>
-                    activeTab === 'ISLAMIC'
-                      ? r.categoryName.includes('Islamic')
-                      : activeTab === 'SCHOOL'
-                      ? r.categoryName.includes('School')
-                      : activeTab === 'PROGRAMS'
-                      ? r.categoryName.includes('Program')
-                      : r.categoryName.includes('Literary')
-                  ).length === 0 ? (
-                    <tr>
-                      <td colSpan={3} className="py-6 text-center text-slate-400">
-                        No specific assessments found in this category.
-                      </td>
-                    </tr>
-                  ) : (
-                    recentRecords
-                      .filter((r: any) =>
-                        activeTab === 'ISLAMIC'
-                          ? r.categoryName.includes('Islamic')
-                          : activeTab === 'SCHOOL'
-                          ? r.categoryName.includes('School')
-                          : activeTab === 'PROGRAMS'
-                          ? r.categoryName.includes('Program')
-                          : r.categoryName.includes('Literary')
-                      )
-                      .map((r: any) => (
-                        <tr key={r.id} className="hover:bg-slate-50">
-                          <td className="py-2.5 px-3 font-semibold text-slate-800">{r.eventName}</td>
-                          <td className="py-2.5 px-3 text-slate-500">
-                            {new Date(r.date).toLocaleDateString()}
-                          </td>
-                          <td className="py-2.5 px-3 text-right font-bold text-madin-900">{r.percentage}%</td>
-                        </tr>
-                      ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+            
+            {(() => {
+              const tabRecords = recentRecords.filter((r: any) =>
+                activeTab === 'ISLAMIC'
+                  ? r.categoryName?.toLowerCase().includes('islamic') || r.categoryCode === 'ISLAMIC'
+                  : activeTab === 'SCHOOL'
+                  ? r.categoryName?.toLowerCase().includes('school') || r.categoryCode === 'SCHOOL'
+                  : activeTab === 'PROGRAMS'
+                  ? r.categoryName?.toLowerCase().includes('program') || r.categoryCode === 'PROGRAMS'
+                  : r.categoryName?.toLowerCase().includes('literary') || r.categoryCode === 'LITERARY'
+              );
+
+              if (tabRecords.length === 0) {
+                return (
+                  <div className="p-8 text-center rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-400">
+                    No specific assessments found in this category.
+                  </div>
+                );
+              }
+
+              const groupsMap = new Map<string, any[]>();
+              tabRecords.forEach((r: any) => {
+                const groupName = r.examName || r.festName || r.competitionName || r.categoryName || 'General Assessment';
+                if (!groupsMap.has(groupName)) groupsMap.set(groupName, []);
+                groupsMap.get(groupName)!.push(r);
+              });
+
+              return (
+                <div className="space-y-3">
+                  {Array.from(groupsMap.entries()).map(([examTitle, recs]) => {
+                    const totalPcts = recs.reduce((acc, curr) => acc + (Number(curr.percentage) || 0), 0);
+                    const avgPct = recs.length > 0 ? totalPcts / recs.length : 0;
+
+                    return (
+                      <div key={examTitle} className="rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
+                        <div className="px-4 py-3 bg-gradient-to-r from-slate-50 to-white flex items-center justify-between border-b border-slate-100">
+                          <div className="flex items-center space-x-2">
+                            <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                            <span className="text-xs font-bold text-slate-900">{examTitle}</span>
+                            <span className="text-[10px] text-slate-500 font-medium">({recs.length} subjects)</span>
+                          </div>
+                          <span className="px-2 py-0.5 rounded text-[11px] font-bold font-mono bg-blue-50 text-blue-800 border border-blue-200">
+                            {avgPct.toFixed(1)}% Avg
+                          </span>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-slate-50/50 text-slate-400 uppercase tracking-wider font-semibold text-[10px] border-b border-slate-100">
+                              <tr>
+                                <th className="py-2 px-4">Subject / Item</th>
+                                <th className="py-2 px-4">Date</th>
+                                <th className="py-2 px-4 text-right">Final Percentage</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {recs.map((r: any) => (
+                                <tr key={r.id} className="hover:bg-blue-50/20">
+                                  <td className="py-2.5 px-4 font-bold text-slate-900">{r.eventName}</td>
+                                  <td className="py-2.5 px-4 text-slate-500">
+                                    {new Date(r.date).toLocaleDateString()}
+                                  </td>
+                                  <td className="py-2.5 px-4 text-right">
+                                    <span className="px-2 py-0.5 rounded font-mono font-black text-xs bg-emerald-50 text-emerald-900 border border-emerald-200">
+                                      {typeof r.percentage === 'number' ? r.percentage.toFixed(1) : r.percentage}%
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
 

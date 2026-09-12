@@ -33,6 +33,8 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import { getAcademicMasterData } from '@/lib/academic-client';
+import CustomSelect from '@/components/ui/CustomSelect';
 import PublicFooter from '@/components/layout/PublicFooter';
 import { getCategoryIcon, getCategoryColor, getCategoryLogo, getCategoryDualLogos, getCategoryModulePath } from '@/lib/category-utils';
 
@@ -651,19 +653,19 @@ export default function CategoriesPage() {
 
                 <div className="space-y-1">
                   <label className="font-bold text-slate-700">Icon</label>
-                  <select
+                  <CustomSelect
                     value={formData.icon}
-                    onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:ring-2 focus:ring-madin-900"
-                  >
-                    <option value="Award">Award (Default)</option>
-                    <option value="Trophy">Trophy / Sports</option>
-                    <option value="Sparkles">Sparkles / Arts</option>
-                    <option value="BookOpen">Book / Academic</option>
-                    <option value="GraduationCap">Graduation Cap</option>
-                    <option value="Feather">Feather / Literary</option>
-                    <option value="Library">Library</option>
-                  </select>
+                    onChange={(val) => setFormData({ ...formData, icon: val })}
+                    options={[
+                      { value: 'Award', label: 'Award (Default)' },
+                      { value: 'Trophy', label: 'Trophy / Sports' },
+                      { value: 'Sparkles', label: 'Sparkles / Arts' },
+                      { value: 'BookOpen', label: 'Book / Academic' },
+                      { value: 'GraduationCap', label: 'Graduation Cap' },
+                      { value: 'Feather', label: 'Feather / Literary' },
+                      { value: 'Library', label: 'Library' },
+                    ]}
+                  />
                 </div>
               </div>
 

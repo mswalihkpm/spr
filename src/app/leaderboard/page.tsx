@@ -34,6 +34,7 @@ import PwaFooterInstall from '@/components/pwa/PwaFooterInstall';
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
 import { getAcademicMasterData } from '@/lib/academic-client';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 // Global client-side memory caches for 0ms instant loading
 const clientLeaderboardMemory = new Map<string, any[]>();
@@ -986,74 +987,71 @@ function LeaderboardContent() {
                   <span>{syncingLibrary ? 'Syncing...' : 'Sync Library Points'}</span>
                 </button>
               )}
-              <select
-                value={
-                  selectedSubcategory
-                    ? `sub:${selectedSubcategory}`
-                    : selectedFest
-                    ? `fest:${selectedFest}`
-                    : selectedStream
-                    ? `stream:${selectedStream}`
-                    : selectedCategory
-                    ? `cat:${selectedCategory}`
-                    : ''
-                }
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val.startsWith('sub:')) {
-                    const s = val.replace('sub:', '');
-                    const subObj = subcategories.find((x) => x.id === s);
-                    switchLeaderboard({ type: 'SUBCATEGORY', categoryId: subObj?.categoryId || selectedCategory, subcategoryId: s });
-                  } else if (val.startsWith('fest:')) {
-                    const f = val.replace('fest:', '');
-                    switchLeaderboard({ type: 'FEST', fest: f });
-                  } else if (val.startsWith('stream:')) {
-                    const s = val.replace('stream:', '');
-                    switchLeaderboard({ type: 'STREAM', stream: s });
-                  } else if (val.startsWith('cat:')) {
-                    const c = val.replace('cat:', '');
-                    switchLeaderboard({ type: 'CATEGORY', categoryId: c });
-                  } else {
-                    switchLeaderboard({ type: 'OVERALL' });
+              <div className="w-56 sm:w-64">
+                <CustomSelect
+                  value={
+                    selectedSubcategory
+                      ? `sub:${selectedSubcategory}`
+                      : selectedFest
+                      ? `fest:${selectedFest}`
+                      : selectedStream
+                      ? `stream:${selectedStream}`
+                      : selectedCategory
+                      ? `cat:${selectedCategory}`
+                      : ''
                   }
-                }}
-                className="px-3.5 py-2.5 bg-white/95 text-slate-900 font-bold rounded-2xl text-xs outline-none focus:ring-2 focus:ring-white shadow-md border border-white/40 cursor-pointer"
-              >
-                <option value="">⭐ Overall Institutional SPR</option>
-                {qualCat && (
-                  <optgroup label="Qualification & Subcategories">
-                    <option value={`cat:${qualCat.id}`}>📜 All Qualification</option>
-                    {subcategories.filter((s) => s.categoryId === qualCat.id).map((sub) => (
-                      <option key={sub.id} value={`sub:${sub.id}`}>
-                        🔹 {sub.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-                <optgroup label="Islamic Studies Subcategories">
-                  <option value="stream:JAMIATHUL_HIND">🕌 Jamiathul Hind Al-Islamiyya</option>
-                  <option value="stream:MADIN_ACADEMY">🏛️ Ma'din Academy Stream</option>
-                  {categories.find((c) => c.code === 'ISLAMIC') && (
-                    <option value={`cat:${categories.find((c) => c.code === 'ISLAMIC')?.id}`}>📋 All Islamic Studies</option>
-                  )}
-                </optgroup>
-                <optgroup label="Literary Festivals Subcategories">
-                  <option value="fest:SAHITYOTSAV">🎭 Sahityotsav</option>
-                  <option value="fest:KALOTSAV">🎨 Kerala School Kalotsavam</option>
-                  <option value="fest:M_LIT">📖 M-Lit Fest</option>
-                  <option value="fest:JAMIA_MAHRAJAN">🏆 Jamia Mahrajan</option>
-                  {categories.find((c) => c.code === 'LITERARY') && (
-                    <option value={`cat:${categories.find((c) => c.code === 'LITERARY')?.id}`}>📋 All Literary Festivals</option>
-                  )}
-                </optgroup>
-                <optgroup label="Assessment Wings">
-                  {categories.map((c) => (
-                    <option key={c.id} value={`cat:${c.id}`}>
-                      {c.name}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
+                  onChange={(val) => {
+                    if (val.startsWith('sub:')) {
+                      const s = val.replace('sub:', '');
+                      const subObj = subcategories.find((x) => x.id === s);
+                      switchLeaderboard({ type: 'SUBCATEGORY', categoryId: subObj?.categoryId || selectedCategory, subcategoryId: s });
+                    } else if (val.startsWith('fest:')) {
+                      const f = val.replace('fest:', '');
+                      switchLeaderboard({ type: 'FEST', fest: f });
+                    } else if (val.startsWith('stream:')) {
+                      const s = val.replace('stream:', '');
+                      switchLeaderboard({ type: 'STREAM', stream: s });
+                    } else if (val.startsWith('cat:')) {
+                      const c = val.replace('cat:', '');
+                      switchLeaderboard({ type: 'CATEGORY', categoryId: c });
+                    } else {
+                      switchLeaderboard({ type: 'OVERALL' });
+                    }
+                  }}
+                  options={[
+                    { value: '', label: '⭐ Overall Institutional SPR' },
+                    ...(qualCat ? [
+                      { value: `cat:${qualCat.id}`, label: '📜 All Qualification', group: 'Qualification & Subcategories' },
+                      ...subcategories.filter((s) => s.categoryId === qualCat.id).map((sub) => ({
+                        value: `sub:${sub.id}`,
+                        label: `🔹 ${sub.name}`,
+                        group: 'Qualification & Subcategories',
+                      })),
+                    ] : []),
+                    { value: 'stream:JAMIATHUL_HIND', label: '🕌 Jamiathul Hind Al-Islamiyya', group: 'Islamic Studies Subcategories' },
+                    { value: 'stream:MADIN_ACADEMY', label: "🏛️ Ma'din Academy Stream", group: 'Islamic Studies Subcategories' },
+                    ...(categories.find((c) => c.code === 'ISLAMIC') ? [{
+                      value: `cat:${categories.find((c) => c.code === 'ISLAMIC')?.id}`,
+                      label: '📋 All Islamic Studies',
+                      group: 'Islamic Studies Subcategories',
+                    }] : []),
+                    { value: 'fest:SAHITYOTSAV', label: '🎭 Sahityotsav', group: 'Literary Festivals Subcategories' },
+                    { value: 'fest:KALOTSAV', label: '🎨 Kerala School Kalotsavam', group: 'Literary Festivals Subcategories' },
+                    { value: 'fest:M_LIT', label: '📖 M-Lit Fest', group: 'Literary Festivals Subcategories' },
+                    { value: 'fest:JAMIA_MAHRAJAN', label: '🏆 Jamia Mahrajan', group: 'Literary Festivals Subcategories' },
+                    ...(categories.find((c) => c.code === 'LITERARY') ? [{
+                      value: `cat:${categories.find((c) => c.code === 'LITERARY')?.id}`,
+                      label: '📋 All Literary Festivals',
+                      group: 'Literary Festivals Subcategories',
+                    }] : []),
+                    ...categories.map((c) => ({
+                      value: `cat:${c.id}`,
+                      label: c.name,
+                      group: 'Assessment Wings',
+                    })),
+                  ]}
+                />
+              </div>
 
               <div className="px-3.5 py-2 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 text-center shrink-0 shadow-xs">
                 <div className="text-[9px] sm:text-[10px] text-white/80 font-bold uppercase">Ranked</div>
@@ -1281,18 +1279,18 @@ function LeaderboardContent() {
           </div>
 
           <div>
-            <select
+            <CustomSelect
               value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-              className="w-full px-3 py-1.5 sm:py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 outline-none focus:ring-2 focus:ring-blue-600 font-medium"
-            >
-              <option value="">Filter by Class (All)</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setSelectedClass(val)}
+              placeholder="Filter by Class (All)"
+              options={[
+                { value: '', label: 'Filter by Class (All)' },
+                ...classes.map((c) => ({
+                  value: c.id,
+                  label: c.name,
+                })),
+              ]}
+            />
           </div>
         </div>
 
