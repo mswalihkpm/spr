@@ -522,27 +522,30 @@ export default function CategoriesPage() {
                           </Link>
                         </div>
                         <div className="flex flex-wrap gap-1.5">
-                          {cat.subcategories.map((sub: any) => (
-                            <button
-                              key={sub.id}
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                router.push(`/leaderboard?subcategoryId=${sub.id}&categoryId=${cat.id}`);
-                              }}
-                              title={`View ${sub.name} Leaderboard`}
-                              className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-800 hover:text-blue-700 text-[11px] font-bold transition active:scale-95 shadow-2xs"
-                            >
-                              {sub.logoUrl ? (
-                                <div className="w-4 h-4 rounded-full overflow-hidden bg-white shrink-0 border border-slate-200/60 p-0.5">
-                                  <img src={sub.logoUrl} alt={sub.name} className="w-full h-full object-contain" />
-                                </div>
-                              ) : (
-                                <Award className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                              )}
-                              <span className="truncate max-w-[120px]">{sub.name}</span>
-                            </button>
-                          ))}
+                          {cat.subcategories.map((sub: any) => {
+                            const subEmblem = getCategoryLogo(sub.code, sub.logoUrl);
+                            return (
+                              <button
+                                key={sub.id}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push(`/leaderboard?subcategoryId=${sub.id}&categoryId=${cat.id}`);
+                                }}
+                                title={`View ${sub.name} Leaderboard`}
+                                className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-800 hover:text-blue-700 text-[11px] font-bold transition active:scale-95 shadow-2xs"
+                              >
+                                {subEmblem ? (
+                                  <div className="w-4 h-4 rounded-full overflow-hidden bg-white shrink-0 border border-slate-200/60 p-0.5 flex items-center justify-center">
+                                    <img src={subEmblem} alt={sub.name} className="w-full h-full object-contain" />
+                                  </div>
+                                ) : (
+                                  <Award className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                )}
+                                <span className="truncate max-w-[130px]">{sub.name}</span>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     )}

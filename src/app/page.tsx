@@ -902,7 +902,7 @@ let homeAcademicMemory: any = null;
                   <th className="py-2.5 sm:py-3.5 px-2 sm:px-4 w-9 sm:w-16 text-center">#</th>
                   <th className="py-2.5 sm:py-3.5 px-2 sm:px-4">Student</th>
                   <th className="py-2.5 sm:py-3.5 px-1 sm:px-4 w-10 sm:w-20 text-center">Class</th>
-                  <th className="py-2.5 sm:py-3.5 px-2 sm:px-4 w-16 sm:w-28 text-right">SPR</th>
+                  <th className="py-2.5 sm:py-3.5 px-2 sm:px-4 w-24 sm:w-32 text-right">SPR Points</th>
                   <th className="py-2.5 sm:py-3.5 px-1 sm:px-3 w-8 sm:w-12 text-center" title="Report issue"></th>
                 </tr>
               </thead>
@@ -973,12 +973,17 @@ let homeAcademicMemory: any = null;
                           </span>
                         </td>
 
-                        <td className="py-2 sm:py-3.5 px-2 sm:px-4 text-right">
-                          <span
-                            className="px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg text-[11px] sm:text-xs font-black bg-blue-50 text-blue-900 border border-blue-200"
-                          >
-                            {studentSprScore} pts
-                          </span>
+                        <td className="py-2 sm:py-3.5 px-2 sm:px-4 text-right whitespace-nowrap">
+                          <div className="inline-flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl font-mono text-xs font-black shadow-2xs border transition-all group-hover:scale-105 bg-white border-slate-200">
+                            <span className={isTop1 ? 'text-amber-800 font-black' : isTop2 ? 'text-slate-800 font-black' : isTop3 ? 'text-amber-900 font-black' : 'text-blue-900 font-extrabold'}>
+                              {studentSprScore}
+                            </span>
+                            <span className={`text-[8.5px] sm:text-[9.5px] font-black uppercase px-1 py-0.2 rounded ${
+                              isTop1 ? 'bg-amber-400 text-amber-950' : isTop2 ? 'bg-slate-300 text-slate-800' : isTop3 ? 'bg-amber-300 text-amber-950' : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              PTS
+                            </span>
+                          </div>
                         </td>
 
                         {/* Report Icon Button */}

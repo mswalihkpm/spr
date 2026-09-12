@@ -50,21 +50,19 @@ export default function PublicFooter() {
           <Link href="/categories" className="hover:text-white transition">Categories</Link>
           <span>•</span>
           <Link href="/updates" className="hover:text-white transition">Updates</Link>
-          <span>•</span>
-          <Link href="/login" className="hover:text-white transition">Admin Portal</Link>
         </div>
 
-        {/* Right: PWA Install & Staff Login */}
+        {/* Right: PWA Install & Staff Login Icon */}
         <div className="flex items-center space-x-3">
           <PwaFooterInstall />
 
           <Link
             href="/login"
-            className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white text-xs font-bold flex items-center space-x-1.5 transition-all duration-200 hover:scale-105 active:scale-95 shadow-xs border border-slate-700"
+            className="p-2.5 rounded-xl bg-slate-800/90 hover:bg-blue-600 text-slate-300 hover:text-white transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs border border-slate-700/80 flex items-center justify-center"
             title="Staff & Admin Portal Login"
+            aria-label="Staff Login"
           >
-            <Lock className="w-3.5 h-3.5" />
-            <span>Staff Login</span>
+            <Lock className="w-4 h-4" />
           </Link>
         </div>
       </div>
