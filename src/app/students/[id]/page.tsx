@@ -676,16 +676,17 @@ export default function StudentProfilePage() {
                 );
               }
 
-              const groupsMap = new Map<string, any[]>();
+              const groupsMap = new Map<string, { title: string; recs: any[] }>();
               tabRecords.forEach((r: any) => {
                 const groupName = r.examName || r.festName || r.competitionName || r.categoryName || 'General Assessment';
-                if (!groupsMap.has(groupName)) groupsMap.set(groupName, []);
-                groupsMap.get(groupName)!.push(r);
+                const normKey = groupName.trim().toLowerCase();
+                if (!groupsMap.has(normKey)) groupsMap.set(normKey, { title: groupName, recs: [] });
+                groupsMap.get(normKey)!.recs.push(r);
               });
 
               return (
                 <div className="space-y-3">
-                  {Array.from(groupsMap.entries()).map(([examTitle, recs]) => {
+                  {Array.from(groupsMap.values()).map(({ title: examTitle, recs }) => {
                     const totObt = recs.reduce((acc, curr) => acc + (Number(curr.obtainedScore) || 0), 0);
                     const totMax = recs.reduce((acc, curr) => acc + (Number(curr.maxScore) || 100), 0);
                     const assessmentPct = totMax > 0 ? (totObt / totMax) * 100 : 0;

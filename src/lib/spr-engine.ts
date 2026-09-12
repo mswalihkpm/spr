@@ -307,10 +307,10 @@ export async function calculateStudentSPR(
       if (categoryRecords.length > 0) {
         hasData = true;
 
-        // Group records by assessment/exam session
+        // Group records by unique Assessment Name
         const examGroups = new Map<string, any[]>();
         categoryRecords.forEach((r: any) => {
-          const key = r.examId || r.exam?.name || 'DEFAULT_EXAM';
+          const key = (r.exam?.name || r.examId || 'General Assessment').trim().toLowerCase();
           if (!examGroups.has(key)) examGroups.set(key, []);
           examGroups.get(key)!.push(r);
         });
@@ -370,10 +370,10 @@ export async function calculateStudentSPR(
       if (categoryRecords.length > 0) {
         hasData = true;
 
-        // Group records by assessment/exam session
+        // Group records by unique Assessment Name
         const examGroups = new Map<string, any[]>();
         categoryRecords.forEach((r: any) => {
-          const key = r.examId || r.exam?.name || 'DEFAULT_EXAM';
+          const key = (r.exam?.name || r.examId || 'General Assessment').trim().toLowerCase();
           if (!examGroups.has(key)) examGroups.set(key, []);
           examGroups.get(key)!.push(r);
         });
@@ -1069,7 +1069,7 @@ export async function calculateAllLeaderboards(filters?: {
         if (records.length > 0) {
           const examGroups = new Map<string, any[]>();
           records.forEach((r: any) => {
-            const key = r.examId || (r.exam?.name) || 'DEFAULT_EXAM';
+            const key = (r.exam?.name || r.examId || 'General Assessment').trim().toLowerCase();
             if (!examGroups.has(key)) examGroups.set(key, []);
             examGroups.get(key)!.push(r);
           });

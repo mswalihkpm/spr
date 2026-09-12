@@ -616,7 +616,7 @@ export default function PublicStudentScorecardPage() {
                 ) : (
                   (() => {
                     const groups: { key: string; title: string; records: any[]; assessmentPct: number; totObt: number; totMax: number }[] = [];
-                    const map = new Map<string, any[]>();
+                    const map = new Map<string, { title: string; recs: any[] }>();
 
                     activeRecords.forEach((r: any) => {
                       const contextKey =
@@ -628,15 +628,16 @@ export default function PublicStudentScorecardPage() {
                         r.subCategoryName ||
                         r.categoryName ||
                         'General Assessment';
-                      if (!map.has(contextKey)) map.set(contextKey, []);
-                      map.get(contextKey)!.push(r);
+                      const normKey = contextKey.trim().toLowerCase();
+                      if (!map.has(normKey)) map.set(normKey, { title: contextKey, recs: [] });
+                      map.get(normKey)!.recs.push(r);
                     });
 
-                    map.forEach((recs, title) => {
+                    map.forEach(({ title, recs }, normKey) => {
                       const totObt = recs.reduce((acc, curr) => acc + (Number(curr.obtainedScore) || 0), 0);
                       const totMax = recs.reduce((acc, curr) => acc + (Number(curr.maxScore) || 100), 0);
                       const assessmentPct = totMax > 0 ? (totObt / totMax) * 100 : 0;
-                      groups.push({ key: title, title, records: recs, assessmentPct, totObt, totMax });
+                      groups.push({ key: normKey, title, records: recs, assessmentPct, totObt, totMax });
                     });
 
                     return groups.map((group) => {
