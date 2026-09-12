@@ -179,8 +179,7 @@ export default function IslamicStudiesPage() {
   const fetchScoreHistory = async () => {
     try {
       setLoadingHistory(true);
-      const resMaster = await fetch('/api/academic');
-      const dataMaster = await resMaster.json();
+      const dataMaster = await getAcademicMasterData();
       const islamicCat = dataMaster.categories?.find((c: any) => c.code === 'ISLAMIC');
 
       if (islamicCat) {

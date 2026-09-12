@@ -22,6 +22,10 @@ import {
   Loader2,
   Camera,
   UploadCloud,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import VideoLoader from '@/components/ui/VideoLoader';
@@ -37,6 +41,12 @@ export default function StudentsPage() {
   const [classFilter, setClassFilter] = useState('');
   const [schoolFilter, setSchoolFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+
+  // Server-side pagination state
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(25);
+  const [totalStudents, setTotalStudents] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Master options
   const [classes, setClasses] = useState<any[]>([]);
@@ -80,12 +90,14 @@ export default function StudentsPage() {
       .catch((err) => console.error('Error fetching academic masters:', err));
   }, []);
 
-  const fetchStudents = async (signal?: AbortSignal, reqId?: number) => {
+  const fetchStudents = async (targetPage = page, targetLimit = limit, signal?: AbortSignal, reqId?: number) => {
     try {
       if (!signal) setLoading(true);
       else setIsSearching(true);
 
       const params = new URLSearchParams();
+      params.append('page', String(targetPage));
+      params.append('limit', String(targetLimit));
       if (search.trim()) params.append('search', search.trim());
       if (classFilter) params.append('classId', classFilter);
       if (schoolFilter) params.append('schoolId', schoolFilter);
@@ -98,6 +110,10 @@ export default function StudentsPage() {
       if (reqId === undefined || reqId === activeReqRef.current) {
         if (data.students) {
           setStudents(data.students);
+        }
+        if (data.pagination) {
+          setTotalStudents(data.pagination.total || 0);
+          setTotalPages(data.pagination.totalPages || 1);
         }
       }
     } catch (err: any) {
@@ -112,6 +128,11 @@ export default function StudentsPage() {
     }
   };
 
+  // Reset to page 1 whenever filters or search query changes
+  useEffect(() => {
+    setPage(1);
+  }, [search, classFilter, schoolFilter, statusFilter, limit]);
+
   useEffect(() => {
     const controller = new AbortController();
     const reqId = ++activeReqRef.current;
@@ -121,14 +142,14 @@ export default function StudentsPage() {
     if (search) setIsSearching(true);
 
     const timer = setTimeout(() => {
-      fetchStudents(controller.signal, reqId);
+      fetchStudents(page, limit, controller.signal, reqId);
     }, delay);
 
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [search, classFilter, schoolFilter, statusFilter]);
+  }, [search, classFilter, schoolFilter, statusFilter, page, limit]);
 
   const handleOpenAdd = () => {
     setEditingStudent(null);
@@ -585,9 +606,104 @@ export default function StudentsPage() {
             </table>
           </div>
 
-          <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
-            <span>Total Students: {students.length}</span>
-            <span>Madin School of Excellence • Student Database</span>
+          {/* Pagination Toolbar */}
+          <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+            <div className="flex items-center space-x-2">
+              <span>
+                Showing{' '}
+                <strong className="text-slate-900 font-bold">
+                  {totalStudents === 0 ? 0 : (page - 1) * limit + 1}
+                </strong>{' '}
+                to{' '}
+                <strong className="text-slate-900 font-bold">
+                  {Math.min(page * limit, totalStudents)}
+                </strong>{' '}
+                of <strong className="text-slate-900 font-bold">{totalStudents}</strong> student(s)
+              </span>
+              <span className="text-slate-300">|</span>
+              <div className="flex items-center space-x-1.5">
+                <span className="text-slate-500">Per page:</span>
+                <select
+                  value={limit}
+                  onChange={(e) => setLimit(Number(e.target.value))}
+                  className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 outline-none focus:ring-1 focus:ring-blue-600"
+                >
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center space-x-1.5">
+                <button
+                  type="button"
+                  disabled={page <= 1 || loading}
+                  onClick={() => setPage(1)}
+                  className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  title="First Page"
+                >
+                  <ChevronsLeft className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  disabled={page <= 1 || loading}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center space-x-1"
+                  title="Previous Page"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Prev</span>
+                </button>
+
+                <div className="flex items-center space-x-1 px-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum = page;
+                    if (totalPages <= 5) pageNum = i + 1;
+                    else if (page <= 3) pageNum = i + 1;
+                    else if (page >= totalPages - 2) pageNum = totalPages - 4 + i;
+                    else pageNum = page - 2 + i;
+
+                    return (
+                      <button
+                        key={pageNum}
+                        type="button"
+                        onClick={() => setPage(pageNum)}
+                        disabled={loading}
+                        className={`w-7 h-7 rounded-lg text-xs font-bold transition ${
+                          page === pageNum
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={page >= totalPages || loading}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center space-x-1"
+                  title="Next Page"
+                >
+                  <span className="hidden sm:inline">Next</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  disabled={page >= totalPages || loading}
+                  onClick={() => setPage(totalPages)}
+                  className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  title="Last Page"
+                >
+                  <ChevronsRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

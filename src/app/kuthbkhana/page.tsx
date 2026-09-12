@@ -126,7 +126,7 @@ export default function KuthbkhanaPage() {
       setLoading(true);
       const [recRes, studRes] = await Promise.all([
         fetch('/api/kuthbkhana'),
-        fetch('/api/students?all=true'),
+        fetch('/api/students?all=true&minimal=true'),
       ]);
 
       const recData = await recRes.json();

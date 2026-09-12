@@ -144,10 +144,13 @@ export default function LiteraryProgramsPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [dataMaster, resStudents, resScores] = await Promise.all([
-        getAcademicMasterData(),
-        fetch('/api/students?all=true'),
-        fetch('/api/scores?limit=1000'),
+      const dataMaster = await getAcademicMasterData();
+      const litCat = dataMaster.categories?.find((c: any) => c.code === 'LITERARY');
+      const scoreQuery = litCat ? `/api/scores?categoryId=${litCat.id}&limit=500` : '/api/scores?limit=500';
+
+      const [resStudents, resScores] = await Promise.all([
+        fetch('/api/students?all=true&minimal=true'),
+        fetch(scoreQuery),
       ]);
 
       const dataStudents = await resStudents.json();
@@ -173,8 +176,7 @@ export default function LiteraryProgramsPage() {
         }
       }
       if (dataScores.records) {
-        const litRecords = dataScores.records.filter((r: any) => r.category?.code === 'LITERARY');
-        setRecentRecords(litRecords);
+        setRecentRecords(dataScores.records);
       }
     } catch (err) {
       console.error(err);

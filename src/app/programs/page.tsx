@@ -143,10 +143,13 @@ export default function ProgramsPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [dataMaster, resScores, resStudents] = await Promise.all([
-        getAcademicMasterData(),
-        fetch('/api/scores?limit=1000'),
-        fetch('/api/students?all=true'),
+      const dataMaster = await getAcademicMasterData();
+      const progCat = dataMaster.categories?.find((c: any) => c.code === 'PROGRAMS');
+      const scoreQuery = progCat ? `/api/scores?categoryId=${progCat.id}&limit=500` : '/api/scores?limit=500';
+
+      const [resScores, resStudents] = await Promise.all([
+        fetch(scoreQuery),
+        fetch('/api/students?all=true&minimal=true'),
       ]);
 
       const dataScores = await resScores.json();
@@ -173,8 +176,7 @@ export default function ProgramsPage() {
         }
       }
       if (dataScores.records) {
-        const progRecords = dataScores.records.filter((r: any) => r.category?.code === 'PROGRAMS');
-        setRecentRecords(progRecords);
+        setRecentRecords(dataScores.records);
       }
     } catch (err) {
       console.error(err);

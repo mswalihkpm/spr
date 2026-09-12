@@ -53,15 +53,46 @@ export async function GET(req: NextRequest) {
     if (academicYearId) where.academicYearId = academicYearId;
     if (status) where.status = status;
 
+    const isMinimal = searchParams.get('minimal') === 'true';
+
     const [total, students] = await Promise.all([
       prisma.student.count({ where }),
       prisma.student.findMany({
         where,
-        include: {
-          class: true,
-          school: true,
-          academicYear: true,
-        },
+        select: isMinimal
+          ? {
+              id: true,
+              studentId: true,
+              sprStudentId: true,
+              fullName: true,
+              division: true,
+              photoUrl: true,
+              status: true,
+              class: {
+                select: { id: true, name: true },
+              },
+            }
+          : {
+              id: true,
+              studentId: true,
+              sprStudentId: true,
+              fullName: true,
+              division: true,
+              status: true,
+              notes: true,
+              photoUrl: true,
+              createdAt: true,
+              updatedAt: true,
+              class: {
+                select: { id: true, name: true, numericGrade: true },
+              },
+              school: {
+                select: { id: true, name: true, code: true },
+              },
+              academicYear: {
+                select: { id: true, name: true, isCurrent: true },
+              },
+            },
         orderBy: [{ class: { numericGrade: 'asc' } }, { fullName: 'asc' }],
         skip,
         take: isAll ? undefined : limit,
@@ -74,7 +105,7 @@ export async function GET(req: NextRequest) {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / limit) || 1,
       },
     });
   } catch (error: any) {

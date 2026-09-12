@@ -102,7 +102,7 @@ export default function LibraryPage() {
       setLoading(true);
       const [resLib, resStudents] = await Promise.all([
         fetch('/api/library'),
-        fetch('/api/students?all=true'),
+        fetch('/api/students?all=true&minimal=true'),
       ]);
 
       const dataLib = await resLib.json();
