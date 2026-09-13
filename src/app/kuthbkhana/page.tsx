@@ -25,8 +25,10 @@ import {
   Square,
   Layers,
   Filter,
+  Loader2,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
 import SearchableStudentSelect from '@/components/ui/SearchableStudentSelect';
 import PublicFooter from '@/components/layout/PublicFooter';
 
@@ -96,6 +98,7 @@ export default function KuthbkhanaPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Form State
   const [modalOpen, setModalOpen] = useState(false);
@@ -131,9 +134,9 @@ export default function KuthbkhanaPage() {
   const isKuthbkhanaAdmin = currentUser?.role === 'KUTHBKHANA_ADMIN';
   const canDelete = isAdmin || isKuthbkhanaAdmin;
 
-  const fetchData = async () => {
+  const fetchData = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const [recRes, studRes] = await Promise.all([
         fetch('/api/kuthbkhana'),
         fetch('/api/students?all=true&minimal=true'),
@@ -153,7 +156,7 @@ export default function KuthbkhanaPage() {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -168,7 +171,7 @@ export default function KuthbkhanaPage() {
       type: 'Muthala',
       kithabName: '',
       points: '10',
-      date: '', // optional: left empty so user can leave as current or pick
+      date: '',
       notes: '',
     });
     setModalOpen(true);
@@ -180,23 +183,41 @@ export default function KuthbkhanaPage() {
     setFormData({
       studentId: rec.studentId || rec.student?.id || '',
       type: parsed.type,
-      kithabName: parsed.title || '',
-      points: String(rec.obtainedScore || 10),
-      date: rec.date ? new Date(rec.date).toISOString().slice(0, 10) : '',
+      kithabName: parsed.title,
+      points: String(rec.scoreAwarded || rec.obtainedScore || '10'),
+      date: rec.createdAt || rec.date ? new Date(rec.createdAt || rec.date).toISOString().slice(0, 10) : '',
       notes: parsed.notes || '',
     });
     setModalOpen(true);
   };
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSaveRecord = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.studentId) {
+      setStatusMsg({ type: 'error', text: 'Please select a student.' });
+      return;
+    }
+    if (!formData.kithabName.trim()) {
+      setStatusMsg({ type: 'error', text: 'Please provide a book name or reading topic.' });
+      return;
+    }
+
     setStatusMsg(null);
     setSaving(true);
 
     try {
       const isEdit = !!editingRecord;
       const method = isEdit ? 'PUT' : 'POST';
-      const payload = isEdit ? { id: editingRecord.id, ...formData } : formData;
+
+      const payload = {
+        ...(isEdit ? { id: editingRecord.id } : {}),
+        studentId: formData.studentId,
+        type: formData.type,
+        kithabName: formData.kithabName.trim(),
+        points: Number(formData.points) || 10,
+        date: formData.date ? new Date(formData.date).toISOString() : undefined,
+        notes: formData.notes.trim(),
+      };
 
       const res = await fetch('/api/kuthbkhana', {
         method,
@@ -215,7 +236,7 @@ export default function KuthbkhanaPage() {
       });
       setModalOpen(false);
       setEditingRecord(null);
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
     } finally {
@@ -231,6 +252,7 @@ export default function KuthbkhanaPage() {
 
     const parsed = parseRemarks(rec.remarks);
     if (!confirm(`Are you sure you want to delete the ${parsed.type} record "${parsed.title}" for ${rec.student?.fullName}?`)) return;
+    setDeletingId(rec.id);
 
     try {
       const res = await fetch(`/api/kuthbkhana?id=${rec.id}`, { method: 'DELETE' });
@@ -239,9 +261,11 @@ export default function KuthbkhanaPage() {
 
       setStatusMsg({ type: 'success', text: 'Record deleted successfully.' });
       setSelectedIds((prev) => prev.filter((id) => id !== rec.id));
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -260,7 +284,7 @@ export default function KuthbkhanaPage() {
       setStatusMsg({ type: 'success', text: `Successfully deleted ${selectedIds.length} records.` });
       setSelectedIds([]);
       setConfirmBulkDeleteOpen(false);
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
     } finally {
@@ -552,7 +576,7 @@ export default function KuthbkhanaPage() {
         <div className="bg-white rounded-3xl border border-slate-200/90 shadow-subtle overflow-hidden">
           {loading ? (
             <div className="py-16 text-center">
-              <VideoLoader size="md" text="Loading Kuthbkhana Records..." subtext="Accessing reading session data" />
+              <VideoLoader size="md" text="Loading Kuthbkhana Records..." subtext="Accessing reading session data" showProgress={true} />
             </div>
           ) : filteredRecords.length === 0 ? (
             <div className="py-16 text-center space-y-3">
@@ -661,10 +685,15 @@ export default function KuthbkhanaPage() {
                               <button
                                 type="button"
                                 onClick={() => handleDelete(r)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                                disabled={deletingId === r.id}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg disabled:opacity-50 transition"
                                 title="Delete Record"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                {deletingId === r.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-600" />
+                                ) : (
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                )}
                               </button>
                             )}
                           </div>
@@ -706,7 +735,9 @@ export default function KuthbkhanaPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="mt-4 space-y-3.5">
+            <ModalLoadingBar loading={saving} text="Recording Kuthbkhana score..." color="blue" />
+
+            <form onSubmit={handleSaveRecord} className="mt-4 space-y-3.5">
               {/* Type Selection: Muthala vs Point picking */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
@@ -863,10 +894,19 @@ export default function KuthbkhanaPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer"
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center space-x-1.5 disabled:opacity-50 transition active:scale-95 cursor-pointer"
                 >
-                  <Save className="w-4 h-4 text-blue-200" />
-                  <span>{saving ? 'Saving...' : editingRecord ? 'Update Record' : 'Save Record'}</span>
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                      <span>Saving Record...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 text-blue-200" />
+                      <span>{editingRecord ? 'Update Record' : 'Save Record'}</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -902,8 +942,17 @@ export default function KuthbkhanaPage() {
                 disabled={bulkDeleting}
                 className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer"
               >
-                <Trash2 className="w-4 h-4 text-rose-200" />
-                <span>{bulkDeleting ? 'Deleting...' : `Confirm Delete (${selectedIds.length})`}</span>
+                {bulkDeleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <span>Deleting {selectedIds.length} Record(s)...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4 text-rose-200" />
+                    <span>Confirm Delete ({selectedIds.length})</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

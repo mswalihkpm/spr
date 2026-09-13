@@ -30,8 +30,10 @@ import {
   Info,
   X,
   Zap,
+  Loader2,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
 import { formatPoints } from '@/lib/spr-engine';
 import CustomSelect from '@/components/ui/CustomSelect';
 
@@ -386,7 +388,7 @@ export default function WeightsPage() {
     return (
       <AdminLayout>
         <div className="py-24 flex items-center justify-center">
-          <VideoLoader size="xl" text="Loading scoring configuration..." subtext="Accessing SPR numerical scoring engine" />
+          <VideoLoader size="xl" text="Loading scoring configuration..." subtext="Accessing SPR numerical scoring engine" showProgress={true} />
         </div>
       </AdminLayout>
     );
@@ -420,10 +422,21 @@ export default function WeightsPage() {
             disabled={saving}
             className="px-6 py-2.5 bg-madin-900 hover:bg-madin-950 text-white rounded-2xl text-xs font-bold shadow-md flex items-center space-x-1.5 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer"
           >
-            <Save className="w-4 h-4 text-gold-400" />
-            <span>{saving ? 'Saving...' : 'Save Configuration'}</span>
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                <span>Saving Configuration...</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 text-amber-300" />
+                <span>Save Configuration</span>
+              </>
+            )}
           </button>
         </div>
+
+        <ModalLoadingBar loading={saving} text="Saving SPR numerical rules & points matrix to database..." color="slate" />
 
         {/* Status Message */}
         {statusMsg && (

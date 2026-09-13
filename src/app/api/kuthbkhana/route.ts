@@ -179,7 +179,7 @@ export async function POST(req: NextRequest) {
 
     invalidateEngineCache();
 
-    await logAuditAction({
+    logAuditAction({
       userId: user.id,
       userName: user.name,
       action: 'CREATE',
@@ -252,7 +252,7 @@ export async function PUT(req: NextRequest) {
 
     invalidateEngineCache();
 
-    await logAuditAction({
+    logAuditAction({
       userId: user.id,
       userName: user.name,
       action: 'UPDATE',
@@ -294,22 +294,13 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Record ID(s) are required for deletion.' }, { status: 400 });
     }
 
-    const existingRecords = await prisma.performanceRecord.findMany({
-      where: { id: { in: ids } },
-      select: { id: true, remarks: true, studentId: true },
-    });
-
-    if (existingRecords.length === 0) {
-      return NextResponse.json({ error: 'No matching records found.' }, { status: 404 });
-    }
-
     const deleteResult = await prisma.performanceRecord.deleteMany({
       where: { id: { in: ids } },
     });
 
     invalidateEngineCache();
 
-    await logAuditAction({
+    logAuditAction({
       userId: user.id,
       userName: user.name,
       action: 'DELETE',

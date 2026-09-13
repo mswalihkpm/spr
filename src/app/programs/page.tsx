@@ -20,10 +20,12 @@ import {
   FileSpreadsheet,
   Download,
   Upload,
-  Sparkles,
   Award,
+  Loader2,
+  Sparkles,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
 import { getAcademicMasterData } from '@/lib/academic-client';
 import SearchableStudentSelect from '@/components/ui/SearchableStudentSelect';
 import CustomSelect from '@/components/ui/CustomSelect';
@@ -83,6 +85,8 @@ export default function ProgramsPage() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<any | null>(null);
   const [editFormData, setEditFormData] = useState({ obtainedScore: 0, maxScore: 50, remarks: '', levelId: '', position: '', grade: '' });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // --- MULTI-ACTIVITY DYNAMIC BULK TEMPLATE & UPLOAD STATES ---
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
@@ -163,9 +167,9 @@ export default function ProgramsPage() {
     'National Social Impact Challenge',
   ];
 
-  const fetchData = async () => {
+  const fetchData = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const dataMaster = await getAcademicMasterData();
       const progCat = dataMaster.categories?.find((c: any) => c.code === 'PROGRAMS');
       const scoreQuery = progCat ? `/api/scores?categoryId=${progCat.id}&limit=500` : '/api/scores?limit=500';
@@ -205,7 +209,7 @@ export default function ProgramsPage() {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -344,9 +348,8 @@ export default function ProgramsPage() {
         throw new Error('The uploaded Excel file contains no data rows.');
       }
 
-      const resMaster = await fetch('/api/academic');
-      const dataMaster = await resMaster.json();
-      const progCat = dataMaster.categories.find((c: any) => c.code === 'PROGRAMS');
+      const dataMaster = await getAcademicMasterData();
+      const progCat = dataMaster.categories?.find((c: any) => c.code === 'PROGRAMS');
       if (!progCat) throw new Error('Programs category missing in system.');
 
       const firstRow = parsedJson[0];
@@ -480,7 +483,7 @@ export default function ProgramsPage() {
       });
       setBulkModalOpen(false);
       setBulkFile(null);
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       alert(err.message || 'Failed to process bulk upload file.');
     } finally {
@@ -494,9 +497,8 @@ export default function ProgramsPage() {
     setSaving(true);
 
     try {
-      const resMaster = await fetch('/api/academic');
-      const dataMaster = await resMaster.json();
-      const progCat = dataMaster.categories.find((c: any) => c.code === 'PROGRAMS');
+      const dataMaster = await getAcademicMasterData();
+      const progCat = dataMaster.categories?.find((c: any) => c.code === 'PROGRAMS');
 
       const scoreVal = Number(formData.score) || 0;
       const remarksText = `${formData.programName} - ${formData.competitionName}. ${
@@ -530,7 +532,7 @@ export default function ProgramsPage() {
 
       setStatusMsg({ type: 'success', text: 'Program competition score saved successfully!' });
       setModalOpen(false);
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
     } finally {
@@ -553,6 +555,7 @@ export default function ProgramsPage() {
 
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSavingEdit(true);
     try {
       const res = await fetch('/api/scores', {
         method: 'PUT',
@@ -567,14 +570,17 @@ export default function ProgramsPage() {
 
       setStatusMsg({ type: 'success', text: 'Score record updated successfully.' });
       setEditModalOpen(false);
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       alert(err.message || 'Error updating score');
+    } finally {
+      setSavingEdit(false);
     }
   };
 
   const handleDeleteRecord = async (rec: any) => {
     if (!confirm(`Delete score record for ${rec.student?.fullName}?`)) return;
+    setDeletingId(rec.id);
 
     try {
       const res = await fetch(`/api/scores?id=${rec.id}`, { method: 'DELETE' });
@@ -582,9 +588,11 @@ export default function ProgramsPage() {
       if (!res.ok) throw new Error(data.error);
 
       setStatusMsg({ type: 'success', text: 'Score record deleted.' });
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       alert(err.message || 'Error deleting score');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -812,10 +820,15 @@ export default function ProgramsPage() {
                             </button>
                             <button
                               onClick={() => handleDeleteRecord(r)}
-                              className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                              disabled={deletingId === r.id}
+                              className="p-1 text-slate-400 hover:text-rose-600 rounded disabled:opacity-50 transition"
                               title="Delete Score"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              {deletingId === r.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-600" />
+                              ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                              )}
                             </button>
                           </div>
                         </td>
@@ -842,6 +855,8 @@ export default function ProgramsPage() {
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            <ModalLoadingBar loading={saving} text="Recording competition score..." color="amber" />
 
             <form onSubmit={handleSaveSingleScore} className="mt-4 space-y-3.5">
               {/* Searchable Student Select */}
@@ -974,9 +989,19 @@ export default function ProgramsPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-4 py-2 bg-madin-900 text-white rounded-xl text-xs font-semibold hover:bg-madin-950 disabled:opacity-50 shadow"
+                  className="px-5 py-2.5 bg-madin-900 text-white rounded-xl text-xs font-bold hover:bg-madin-950 disabled:opacity-50 shadow flex items-center space-x-1.5 transition active:scale-95"
                 >
-                  {saving ? 'Saving...' : 'Save Result'}
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                      <span>Saving Result...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-3.5 h-3.5 text-amber-300" />
+                      <span>Save Result</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -997,6 +1022,8 @@ export default function ProgramsPage() {
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            <ModalLoadingBar loading={savingEdit} text="Updating score in database..." color="amber" />
 
             <form onSubmit={handleSaveEdit} className="mt-4 space-y-3.5">
               <div className="grid grid-cols-2 gap-3">
@@ -1110,9 +1137,20 @@ export default function ProgramsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-madin-900 text-white rounded-xl text-xs font-semibold hover:bg-madin-950 shadow"
+                  disabled={savingEdit}
+                  className="px-5 py-2.5 bg-madin-900 text-white rounded-xl text-xs font-bold hover:bg-madin-950 disabled:opacity-50 shadow flex items-center space-x-1.5 transition active:scale-95"
                 >
-                  Update Score
+                  {savingEdit ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                      <span>Updating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-3.5 h-3.5 text-amber-300" />
+                      <span>Update Score</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -1323,8 +1361,17 @@ export default function ProgramsPage() {
                   disabled={bulkUploading || !bulkFile}
                   className="px-5 py-2.5 bg-emerald-700 text-white rounded-xl text-xs font-bold hover:bg-emerald-800 disabled:opacity-50 shadow flex items-center space-x-1.5"
                 >
-                  <Upload className="w-4 h-4" />
-                  <span>{bulkUploading ? 'Processing & Saving Scores...' : 'Upload & Record Multi-Activity Scores'}</span>
+                  {bulkUploading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-white" />
+                      <span>Processing & Saving Scores...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4" />
+                      <span>Upload & Record Multi-Activity Scores</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -1375,7 +1422,10 @@ export default function ProgramsPage() {
                 className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md transition hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center space-x-1.5"
               >
                 {bulkDeleting ? (
-                  <span>Deleting...</span>
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <span>Deleting {selectedRecordIds.length} Score(s)...</span>
+                  </>
                 ) : (
                   <>
                     <Trash2 className="w-4 h-4" />

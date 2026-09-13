@@ -410,13 +410,14 @@ export default function PublicStudentScorecardPage() {
               <span>Share</span>
             </button>
 
-            {/* PRINT BUTTON - Opens Advanced A4 Print Studio Modal */}
+            {/* PRINT ICON ONLY BUTTON - Opens Advanced A4 Print Studio Modal */}
             <button
               onClick={() => setPrintModalOpen(true)}
-              className="inline-flex items-center space-x-1.5 text-xs font-bold text-white bg-blue-600 px-4 py-2 rounded-xl shadow-md hover:bg-blue-700 transition hover:scale-105 active:scale-95 btn-interactive cursor-pointer"
+              title="Print Official Scorecard"
+              aria-label="Print Official Scorecard"
+              className="inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 text-white bg-blue-600 rounded-xl shadow-md hover:bg-blue-700 transition hover:scale-105 active:scale-95 btn-interactive cursor-pointer"
             >
-              <Printer className="w-3.5 h-3.5 text-amber-300" />
-              <span>Print Official Scorecard</span>
+              <Printer className="w-4 h-4 text-amber-300" />
             </button>
           </div>
         </div>

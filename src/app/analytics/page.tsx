@@ -48,6 +48,21 @@ export default function AnalyticsPage() {
 
   const COLORS = ['#0A2540', '#D4AF37', '#2563EB', '#7C3AED', '#059669', '#EA580C'];
 
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="py-24 flex items-center justify-center">
+          <VideoLoader
+            size="xl"
+            text="Loading Analytics & Performance Metrics..."
+            subtext="Aggregating multi-dimensional student performance analytics and cohort trends"
+            showProgress={true}
+          />
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       <div className="max-w-6xl mx-auto space-y-6">

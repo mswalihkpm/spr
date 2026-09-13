@@ -115,7 +115,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       },
     });
 
-    await logAuditAction({
+    logAuditAction({
       userId: user?.id,
       userName: user?.name,
       action: 'UPDATE',
@@ -160,7 +160,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       prisma.student.delete({ where: { id: studentId } }),
     ]);
 
-    await logAuditAction({
+    logAuditAction({
       userId: user?.id,
       userName: user?.name,
       action: 'DELETE',

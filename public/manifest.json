@@ -1,13 +1,23 @@
 {
+  "id": "/",
   "name": "SPR — Students Performance Rate",
   "short_name": "SPR Madin",
   "description": "Student Performance Rate Platform for Madin School of Excellence",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "fullscreen", "window-controls-overlay"],
   "orientation": "any",
   "background_color": "#0A2540",
   "theme_color": "#0A2540",
+  "prefer_related_applications": false,
   "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/icon-72.png",
       "sizes": "72x72",
@@ -35,6 +45,12 @@
     {
       "src": "/icon-152.png",
       "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-180.png",
+      "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
     },

@@ -12,13 +12,14 @@ import {
   Image as ImageIcon,
   Save,
   CheckCircle2,
-  AlertCircle,
-  X,
-  Upload,
   Eye,
   ExternalLink,
+  Loader2,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
 
 export default function AdminNewsManagementPage() {
   const [newsList, setNewsList] = useState<any[]>([]);
@@ -44,6 +45,7 @@ export default function AdminNewsManagementPage() {
   });
   const [uploadingImage, setUploadingImage] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchNews = async () => {
     try {
@@ -207,6 +209,7 @@ export default function AdminNewsManagementPage() {
 
   const handleDelete = async (item: any) => {
     if (!confirm(`Are you sure you want to delete news announcement "${item.title}"?`)) return;
+    setDeletingId(item.id);
 
     try {
       const res = await fetch(`/api/news?id=${item.id}`, { method: 'DELETE' });
@@ -218,6 +221,8 @@ export default function AdminNewsManagementPage() {
       fetchNews();
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Error deleting announcement.' });
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -398,10 +403,15 @@ export default function AdminNewsManagementPage() {
                       </button>
                       <button
                         onClick={() => handleDelete(item)}
-                        className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100"
+                        disabled={deletingId === item.id}
+                        className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 disabled:opacity-50 transition"
                         title="Delete Announcement"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        {deletingId === item.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-rose-600" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -425,6 +435,8 @@ export default function AdminNewsManagementPage() {
                   <X className="w-4 h-4" />
                 </button>
               </div>
+
+              <ModalLoadingBar loading={saving} text="Saving announcement..." color="amber" />
 
               <form onSubmit={handleSave} className="mt-4 space-y-4">
                 <div>
@@ -537,10 +549,19 @@ export default function AdminNewsManagementPage() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="px-5 py-2.5 bg-madin-900 hover:bg-madin-950 text-white rounded-xl text-xs font-bold shadow flex items-center space-x-1.5 disabled:opacity-50"
+                    className="px-5 py-2.5 bg-madin-900 hover:bg-madin-950 text-white rounded-xl text-xs font-bold shadow flex items-center space-x-1.5 disabled:opacity-50 transition active:scale-95"
                   >
-                    <Save className="w-4 h-4 text-gold-400" />
-                    <span>{saving ? 'Saving...' : editingId ? 'Update News' : 'Publish Announcement'}</span>
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 text-amber-300" />
+                        <span>{editingId ? 'Update News' : 'Publish Announcement'}</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </form>
@@ -583,20 +604,23 @@ export default function AdminNewsManagementPage() {
                   Cancel
                 </button>
                 <button
-                  type="button"
-                  disabled={bulkDeleting}
-                  onClick={handleBulkDelete}
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md transition hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center space-x-1.5"
-                >
-                  {bulkDeleting ? (
-                    <span>Deleting...</span>
-                  ) : (
-                    <>
-                      <Trash2 className="w-4 h-4" />
-                      <span>Delete {selectedNewsIds.length} Announcement(s)</span>
-                    </>
-                  )}
-                </button>
+                type="button"
+                disabled={bulkDeleting}
+                onClick={handleBulkDelete}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md transition hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center space-x-1.5"
+              >
+                {bulkDeleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <span>Deleting {selectedNewsIds.length} Announcement(s)...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete {selectedNewsIds.length} Announcement(s)</span>
+                  </>
+                )}
+              </button>
               </div>
             </div>
           </div>

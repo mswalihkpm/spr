@@ -3,7 +3,7 @@
 import React, { Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Home, Trophy, Layers, Megaphone } from 'lucide-react';
+import { Home, Trophy, Layers, Megaphone, Award } from 'lucide-react';
 
 function PublicMobileNavContent() {
   const pathname = usePathname();
@@ -39,7 +39,8 @@ function PublicMobileNavContent() {
 
   const isHome = pathname === '/';
   const isLeaderboard = pathname === '/leaderboard' && !hasCategoryParam;
-  const isCategories =
+  const isPrograms =
+    pathname.startsWith('/programs') ||
     pathname.startsWith('/categories') ||
     pathname.startsWith('/subcategories') ||
     (pathname.startsWith('/leaderboard') && hasCategoryParam);
@@ -74,16 +75,16 @@ function PublicMobileNavContent() {
         <span className="text-[10px]">Leaderboard</span>
       </Link>
 
-      {/* 3. Categories & Wings */}
+      {/* 3. Programs & Competitions */}
       <Link
-        href="/categories"
+        href="/programs"
         className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors relative ${
-          isCategories ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-900'
+          isPrograms ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-900'
         }`}
       >
-        {isCategories && <span className="absolute -top-1.5 w-6 h-0.5 bg-blue-600 rounded-full" />}
-        <Layers className={`w-5 h-5 mb-0.5 ${isCategories ? 'text-blue-600' : 'text-slate-500'}`} />
-        <span className="text-[10px]">Categories</span>
+        {isPrograms && <span className="absolute -top-1.5 w-6 h-0.5 bg-blue-600 rounded-full" />}
+        <Award className={`w-5 h-5 mb-0.5 ${isPrograms ? 'text-blue-600' : 'text-slate-500'}`} />
+        <span className="text-[10px]">Programs</span>
       </Link>
 
       {/* 4. Updates */}

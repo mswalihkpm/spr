@@ -191,7 +191,7 @@ export async function DELETE(req: NextRequest) {
       },
     });
 
-    await logAuditAction({
+    logAuditAction({
       userId: user?.id,
       userName: user?.name,
       action: 'DELETE',

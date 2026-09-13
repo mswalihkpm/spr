@@ -573,33 +573,45 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Execute writes in parallel batches for high throughput and PgBouncer safety
-    const BATCH_SIZE = 25;
-    for (let i = 0; i < writeActions.length; i += BATCH_SIZE) {
-      const batch = writeActions.slice(i, i + BATCH_SIZE);
-      await Promise.all(
-        batch.map(async (action) => {
-          try {
-            if (action.type === 'UPDATE') {
-              await prisma.performanceRecord.update({
-                where: { id: action.id },
-                data: action.data,
-              });
-            } else {
-              await prisma.performanceRecord.create({
-                data: action.data,
-              });
-            }
-            successCount++;
-          } catch (err: any) {
-            errorCount++;
-            errorDetails.push(`Error writing score record: ${err.message}`);
-          }
-        })
-      );
+    const updates = writeActions.filter((a): a is { type: 'UPDATE'; id: string; data: any } => a.type === 'UPDATE');
+    const creates = writeActions.filter((a): a is { type: 'CREATE'; data: any } => a.type === 'CREATE');
+
+    // High speed createMany in bulk
+    if (creates.length > 0) {
+      try {
+        const createRes = await prisma.performanceRecord.createMany({
+          data: creates.map((c) => c.data),
+          skipDuplicates: true,
+        });
+        successCount += createRes.count;
+      } catch (err: any) {
+        errorCount += creates.length;
+        errorDetails.push(`Bulk insert error: ${err.message}`);
+      }
     }
 
-    await logAuditAction({
+    // High throughput parallel updates
+    if (updates.length > 0) {
+      const updateResults = await Promise.allSettled(
+        updates.map((u) =>
+          prisma.performanceRecord.update({
+            where: { id: u.id },
+            data: u.data,
+          })
+        )
+      );
+
+      updateResults.forEach((res) => {
+        if (res.status === 'fulfilled') {
+          successCount++;
+        } else {
+          errorCount++;
+          errorDetails.push(`Update record error: ${res.reason?.message || 'Failed'}`);
+        }
+      });
+    }
+
+    logAuditAction({
       userId: user?.id,
       userName: user?.name,
       action: 'BULK_UPLOAD_SCORES',

@@ -17,13 +17,15 @@ import {
   FileSpreadsheet,
   Download,
   Edit2,
+  ArrowRight,
+  Upload,
+  Loader2,
   Trash2,
   X,
   Plus,
-  ArrowRight,
-  Upload,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
 import { getAcademicMasterData, invalidateClientAcademicCache } from '@/lib/academic-client';
 import CustomSelect from '@/components/ui/CustomSelect';
 
@@ -55,6 +57,8 @@ export default function IslamicStudiesPage() {
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [saving, setSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [deletingScoreId, setDeletingScoreId] = useState<string | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   // Score History & CRUD
   const [historyRecords, setHistoryRecords] = useState<any[]>([]);
@@ -147,6 +151,8 @@ export default function IslamicStudiesPage() {
   const [bulkUploading, setBulkUploading] = useState(false);
   const [bulkPreviewRows, setBulkPreviewRows] = useState<any[]>([]);
 
+  const [loadingPage, setLoadingPage] = useState(true);
+
   // Load master data & recorded scores history with instant client cache
   const loadMasterData = async () => {
     try {
@@ -195,8 +201,9 @@ export default function IslamicStudiesPage() {
   };
 
   useEffect(() => {
-    loadMasterData();
-    fetchScoreHistory();
+    Promise.all([loadMasterData(), fetchScoreHistory()]).finally(() => {
+      setLoadingPage(false);
+    });
   }, []);
 
   // Filter subjects based on selected Islamic stream
@@ -484,6 +491,7 @@ export default function IslamicStudiesPage() {
 
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSavingEdit(true);
     try {
       const res = await fetch('/api/scores', {
         method: 'PUT',
@@ -501,11 +509,14 @@ export default function IslamicStudiesPage() {
       fetchScoreHistory();
     } catch (err: any) {
       alert(err.message || 'Error updating score');
+    } finally {
+      setSavingEdit(false);
     }
   };
 
   const handleDeleteRecord = async (rec: any) => {
     if (!confirm(`Delete score record for ${rec.student?.fullName}?`)) return;
+    setDeletingScoreId(rec.id);
     try {
       const res = await fetch(`/api/scores?id=${rec.id}`, { method: 'DELETE' });
       const data = await res.json();
@@ -515,8 +526,25 @@ export default function IslamicStudiesPage() {
       fetchScoreHistory();
     } catch (err: any) {
       alert(err.message || 'Error deleting score');
+    } finally {
+      setDeletingScoreId(null);
     }
   };
+
+  if (loadingPage) {
+    return (
+      <AdminLayout>
+        <div className="py-24 flex items-center justify-center">
+          <VideoLoader
+            size="xl"
+            text="Loading Islamic Studies Assessment Hub..."
+            subtext="Accessing dynamic curriculum subjects, student cohorts, and exam logs"
+            showProgress={true}
+          />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -796,14 +824,25 @@ export default function IslamicStudiesPage() {
                 </table>
               </div>
 
+              <ModalLoadingBar loading={saving} text="Saving Islamic studies scores..." color="blue" />
+
               <div className="pt-4 flex items-center justify-end">
                 <button
                   type="submit"
                   disabled={saving || students.length === 0}
-                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow transition disabled:opacity-50"
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow transition disabled:opacity-50 active:scale-95"
                 >
-                  <Save className="w-4 h-4" />
-                  <span>{saving ? 'Saving Scores...' : 'Save Assessment Scores'}</span>
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-white" />
+                      <span>Saving Scores...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span>Save Assessment Scores</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -951,10 +990,15 @@ export default function IslamicStudiesPage() {
                             </button>
                             <button
                               onClick={() => handleDeleteRecord(r)}
-                              className="p-1 text-slate-400 hover:text-rose-600"
+                              disabled={deletingScoreId === r.id}
+                              className="p-1 text-slate-400 hover:text-rose-600 disabled:opacity-50 transition"
                               title="Delete Score"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              {deletingScoreId === r.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-600" />
+                              ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                              )}
                             </button>
                           </div>
                         </td>
@@ -1184,10 +1228,19 @@ export default function IslamicStudiesPage() {
                 <button
                   type="submit"
                   disabled={!bulkFile || bulkUploading}
-                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow transition disabled:opacity-50"
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow transition disabled:opacity-50 active:scale-95"
                 >
-                  <Upload className="w-4 h-4" />
-                  <span>{bulkUploading ? 'Uploading & Processing...' : 'Upload & Record All Scores'}</span>
+                  {bulkUploading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-white" />
+                      <span>Uploading & Recording Scores...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4" />
+                      <span>Upload & Record All Scores</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -1213,6 +1266,7 @@ export default function IslamicStudiesPage() {
             </div>
 
             <form onSubmit={handleSaveEdit} className="space-y-3">
+              <ModalLoadingBar loading={savingEdit} text="Updating score in database..." color="blue" />
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Obtained Score</label>
                 <input
@@ -1256,9 +1310,17 @@ export default function IslamicStudiesPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold"
+                  disabled={savingEdit}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow transition flex items-center space-x-1.5 disabled:opacity-50 active:scale-95"
                 >
-                  Update Score
+                  {savingEdit ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                      <span>Updating...</span>
+                    </>
+                  ) : (
+                    <span>Update Score</span>
+                  )}
                 </button>
               </div>
             </form>
@@ -1306,10 +1368,13 @@ export default function IslamicStudiesPage() {
                 type="button"
                 disabled={bulkDeleting}
                 onClick={handleBulkDelete}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md transition hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center space-x-1.5"
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md transition hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center space-x-2"
               >
                 {bulkDeleting ? (
-                  <span>Deleting...</span>
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <span>Deleting {selectedRecordIds.length} Score(s)...</span>
+                  </>
                 ) : (
                   <>
                     <Trash2 className="w-4 h-4" />

@@ -14,10 +14,12 @@ import {
   Trash2,
   Trophy,
   Medal,
-  Flame,
   Sparkles,
+  Loader2,
+  Flame,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
 import SearchableStudentSelect from '@/components/ui/SearchableStudentSelect';
 
 export default function LibraryPage() {
@@ -29,6 +31,7 @@ export default function LibraryPage() {
 
   // Manual Reading Entry Modal
   const [modalOpen, setModalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [students, setStudents] = useState<any[]>([]);
   const [manualData, setManualData] = useState({
     studentId: '',
@@ -75,7 +78,7 @@ export default function LibraryPage() {
       setSelectedRecordIds([]);
       setConfirmBulkDeleteOpen(false);
       setStatusMsg({ type: 'success', text: `Successfully deleted ${count} library record(s).` });
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting records.' });
     } finally {
@@ -91,15 +94,15 @@ export default function LibraryPage() {
       if (!res.ok) throw new Error(data.error || 'Failed to delete record.');
 
       setStatusMsg({ type: 'success', text: 'Library record deleted.' });
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       alert(err.message || 'Error deleting library record');
     }
   };
 
-  const fetchData = async () => {
+  const fetchData = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const [resLib, resStudents] = await Promise.all([
         fetch('/api/library'),
         fetch('/api/students?all=true&minimal=true'),
@@ -119,7 +122,7 @@ export default function LibraryPage() {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -145,7 +148,7 @@ export default function LibraryPage() {
         type: 'success',
         text: json.message || 'Successfully synchronized Top Readers Leaderboard from MSOE Library.',
       });
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Failed to sync library leaderboard.' });
     } finally {
@@ -156,6 +159,7 @@ export default function LibraryPage() {
   const handleManualImport = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatusMsg(null);
+    setSaving(true);
 
     try {
       const res = await fetch('/api/library', {
@@ -180,9 +184,11 @@ export default function LibraryPage() {
 
       setStatusMsg({ type: 'success', text: 'Reading record saved.' });
       setModalOpen(false);
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -190,6 +196,21 @@ export default function LibraryPage() {
   const top1 = records.length > 0 ? records[0] : null;
   const top2 = records.length > 1 ? records[1] : null;
   const top3 = records.length > 2 ? records[2] : null;
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="py-24 flex items-center justify-center">
+          <VideoLoader
+            size="xl"
+            text="Loading Library & Reading Registry..."
+            subtext="Accessing reading records, synchronized top readers, and student rankings"
+            showProgress={true}
+          />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -516,6 +537,8 @@ export default function LibraryPage() {
               Add Student Reading Log
             </h3>
 
+            <ModalLoadingBar loading={saving} text="Saving library reading record..." color="emerald" />
+
             <form onSubmit={handleManualImport} className="mt-4 space-y-3.5">
               <div>
                 <SearchableStudentSelect
@@ -585,9 +608,17 @@ export default function LibraryPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-madin-900 text-white rounded-xl text-xs font-semibold hover:bg-madin-950 shadow"
+                  disabled={saving}
+                  className="px-5 py-2.5 bg-madin-900 text-white rounded-xl text-xs font-bold hover:bg-madin-950 disabled:opacity-50 shadow flex items-center space-x-1.5 transition active:scale-95"
                 >
-                  Save Reading Record
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <span>Save Reading Record</span>
+                  )}
                 </button>
               </div>
             </form>
@@ -629,7 +660,10 @@ export default function LibraryPage() {
                 className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md transition hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center space-x-1.5"
               >
                 {bulkDeleting ? (
-                  <span>Deleting...</span>
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <span>Deleting {selectedRecordIds.length} Record(s)...</span>
+                  </>
                 ) : (
                   <>
                     <Trash2 className="w-3.5 h-3.5" />

@@ -300,3 +300,26 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* Linear Indeterminate Progress Animation */
+@keyframes progressIndeterminate {
+  0% {
+    left: -40%;
+    width: 40%;
+  }
+  50% {
+    left: 20%;
+    width: 60%;
+  }
+  100% {
+    left: 100%;
+    width: 40%;
+  }
+}
+
+.animate-progress-indeterminate {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 9999px;
+  animation: progressIndeterminate 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}

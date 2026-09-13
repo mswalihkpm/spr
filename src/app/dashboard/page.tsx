@@ -203,6 +203,21 @@ export default function DashboardPage() {
     return true;
   });
 
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="py-24 flex items-center justify-center">
+          <VideoLoader
+            size="xl"
+            text="Loading Institutional Dashboard..."
+            subtext="Aggregating performance metrics, pending inquiries, and class rankings"
+            showProgress={true}
+          />
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">

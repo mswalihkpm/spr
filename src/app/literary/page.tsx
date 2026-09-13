@@ -22,11 +22,13 @@ import {
   FileSpreadsheet,
   Download,
   ArrowRight,
-  Trophy,
   Sparkles,
   Upload,
+  Loader2,
+  Trophy,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
 import SearchableStudentSelect from '@/components/ui/SearchableStudentSelect';
 import { getAcademicMasterData } from '@/lib/academic-client';
 import CustomSelect from '@/components/ui/CustomSelect';
@@ -183,6 +185,8 @@ export default function LiteraryProgramsPage() {
     levelId: '',
     subcategoryId: '',
   });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // --- MULTI-EVENT BULK UPLOAD MODAL STATES ---
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
@@ -202,9 +206,9 @@ export default function LiteraryProgramsPage() {
   const [bulkFile, setBulkFile] = useState<File | null>(null);
   const [bulkUploading, setBulkUploading] = useState(false);
 
-  const fetchData = async () => {
+  const fetchData = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const dataMaster = await getAcademicMasterData();
       const litCat = dataMaster.categories?.find((c: any) => c.code === 'LITERARY');
       if (litCat) setLitCategoryId(litCat.id);
@@ -259,7 +263,7 @@ export default function LiteraryProgramsPage() {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -387,9 +391,8 @@ export default function LiteraryProgramsPage() {
         throw new Error('The uploaded Excel file contains no data rows.');
       }
 
-      const resMaster = await fetch('/api/academic');
-      const dataMaster = await resMaster.json();
-      const litCat = dataMaster.categories.find((c: any) => c.code === 'LITERARY');
+      const dataMaster = await getAcademicMasterData();
+      const litCat = dataMaster.categories?.find((c: any) => c.code === 'LITERARY');
       if (!litCat) throw new Error('Literary category missing in system.');
 
       const firstRow = parsedJson[0];
@@ -526,7 +529,7 @@ export default function LiteraryProgramsPage() {
       });
       setBulkModalOpen(false);
       setBulkFile(null);
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       alert(err.message || 'Error processing bulk upload file.');
     } finally {
@@ -568,9 +571,8 @@ export default function LiteraryProgramsPage() {
     setSaving(true);
 
     try {
-      const resMaster = await fetch('/api/academic');
-      const dataMaster = await resMaster.json();
-      const litCat = dataMaster.categories.find((c: any) => c.code === 'LITERARY');
+      const dataMaster = await getAcademicMasterData();
+      const litCat = dataMaster.categories?.find((c: any) => c.code === 'LITERARY');
 
       const selectedSub = subcategories.find((s) => s.id === formData.subcategoryId);
       const subName = selectedSub?.name || formData.festivalName || 'Sahityotsav';
@@ -609,7 +611,7 @@ export default function LiteraryProgramsPage() {
 
       setStatusMsg({ type: 'success', text: 'Literary competition result saved successfully!' });
       setModalOpen(false);
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
     } finally {
@@ -633,6 +635,7 @@ export default function LiteraryProgramsPage() {
 
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSavingEdit(true);
     try {
       const res = await fetch('/api/scores', {
         method: 'PUT',
@@ -647,14 +650,17 @@ export default function LiteraryProgramsPage() {
 
       setStatusMsg({ type: 'success', text: 'Literary score updated successfully.' });
       setEditModalOpen(false);
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       alert(err.message || 'Error updating score');
+    } finally {
+      setSavingEdit(false);
     }
   };
 
   const handleDeleteRecord = async (rec: any) => {
     if (!confirm(`Delete literary score for ${rec.student?.fullName}?`)) return;
+    setDeletingId(rec.id);
 
     try {
       const res = await fetch(`/api/scores?id=${rec.id}`, { method: 'DELETE' });
@@ -662,9 +668,11 @@ export default function LiteraryProgramsPage() {
       if (!res.ok) throw new Error(data.error);
 
       setStatusMsg({ type: 'success', text: 'Literary score deleted.' });
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       alert(err.message || 'Error deleting score');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -1044,10 +1052,15 @@ export default function LiteraryProgramsPage() {
                             </button>
                             <button
                               onClick={() => handleDeleteRecord(r)}
-                              className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                              disabled={deletingId === r.id}
+                              className="p-1 text-slate-400 hover:text-rose-600 rounded disabled:opacity-50 transition"
                               title="Delete Score"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              {deletingId === r.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-600" />
+                              ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                              )}
                             </button>
                           </div>
                         </td>
@@ -1328,6 +1341,8 @@ export default function LiteraryProgramsPage() {
                 <X className="w-4 h-4" />
               </button>
             </div>
+            <ModalLoadingBar loading={saving} text="Recording literary score..." color="rose" />
+
             <form onSubmit={handleSaveScore} className="mt-4 space-y-3.5">
               {/* Searchable Student Selector */}
               <SearchableStudentSelect
@@ -1524,10 +1539,19 @@ export default function LiteraryProgramsPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow flex items-center space-x-1.5 disabled:opacity-50"
+                  className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow flex items-center space-x-1.5 disabled:opacity-50 transition active:scale-95"
                 >
-                  <Save className="w-4 h-4 text-gold-400" />
-                  <span>{saving ? 'Recording...' : 'Record Festival Award'}</span>
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-white" />
+                      <span>Recording Award...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 text-amber-300" />
+                      <span>Record Festival Award</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -1719,7 +1743,10 @@ export default function LiteraryProgramsPage() {
                 className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md transition hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center space-x-1.5"
               >
                 {bulkDeleting ? (
-                  <span>Deleting...</span>
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <span>Deleting {selectedRecordIds.length} Score(s)...</span>
+                  </>
                 ) : (
                   <>
                     <Trash2 className="w-4 h-4" />

@@ -32,8 +32,10 @@ import {
   ArrowDown,
   Eye,
   EyeOff,
+  Loader2,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
 import SearchableStudentSelect from '@/components/ui/SearchableStudentSelect';
 import { getAcademicMasterData } from '@/lib/academic-client';
 import CustomSelect from '@/components/ui/CustomSelect';
@@ -104,6 +106,7 @@ export default function OtherSubcategoriesPage() {
 
   // Selected subcategory for recording
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string>('');
+  const [sessionLoading, setSessionLoading] = useState(false);
 
   // Bulk record deletion state
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
@@ -127,6 +130,8 @@ export default function OtherSubcategoriesPage() {
     remarks: '',
   });
   const [savingScore, setSavingScore] = useState(false);
+  const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null);
+  const [deletingSubId, setDeletingSubId] = useState<string | null>(null);
 
   // Builder Modal State
   const [builderModalOpen, setBuilderModalOpen] = useState(false);
@@ -146,15 +151,34 @@ export default function OtherSubcategoriesPage() {
   const [savingBuilder, setSavingBuilder] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-
-  const fetchData = async () => {
+  const fetchData = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
+
+      if (silent) {
+        // Fast lightweight refresh
+        const [resSubs, resScores] = await Promise.all([
+          fetch('/api/subcategories'),
+          fetch('/api/scores?limit=500'),
+        ]);
+        const dataSubs = await resSubs.json();
+        const dataScores = await resScores.json();
+        if (dataSubs.subcategories) {
+          setSubcategories(dataSubs.subcategories);
+        }
+        if (dataScores.records) {
+          const subRecords = dataScores.records.filter((r: any) => r.subcategoryId);
+          setRecentRecords(subRecords);
+        }
+        return;
+      }
+
+      // Initial full data load
       const [dataMaster, resSubs, resStudents, resScores] = await Promise.all([
-        getAcademicMasterData(),
+        getAcademicMasterData(true),
         fetch('/api/subcategories'),
-        fetch('/api/students?all=true'),
-        fetch('/api/scores?limit=1000'),
+        fetch('/api/students?all=true&minimal=true'),
+        fetch('/api/scores?limit=500'),
       ]);
 
       const dataSubs = await resSubs.json();
@@ -186,12 +210,12 @@ export default function OtherSubcategoriesPage() {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(false);
   }, []);
 
   const activeSubcategory = subcategories.find((s) => s.id === selectedSubcategoryId) || subcategories[0];
@@ -286,7 +310,7 @@ export default function OtherSubcategoriesPage() {
       if (!res.ok) throw new Error(data.error || 'Failed to save score.');
 
       setStatusMsg({ type: 'success', text: `Score recorded for ${activeSubcategory.name} successfully!` });
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
     } finally {
@@ -406,7 +430,7 @@ export default function OtherSubcategoriesPage() {
         text: `Subcategory "${builderForm.name}" ${editingSubId ? 'updated' : 'created'} with customized features!`,
       });
       setBuilderModalOpen(false);
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
     } finally {
@@ -432,27 +456,32 @@ export default function OtherSubcategoriesPage() {
 
   const handleBulkDeleteRecords = async () => {
     if (selectedRecordIds.length === 0) return;
+    const idsToDelete = [...selectedRecordIds];
     setBulkDeletingRecords(true);
     setModalDeleteError(null);
+
+    // Optimistic local state update for instant UI feedback
+    setRecentRecords((prev) => prev.filter((r) => !idsToDelete.includes(r.id)));
+    setSelectedRecordIds([]);
+    setConfirmBulkDeleteRecordsOpen(false);
+
     try {
       const res = await fetch('/api/scores', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: selectedRecordIds }),
+        body: JSON.stringify({ ids: idsToDelete }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to bulk delete scores.');
 
-      const count = selectedRecordIds.length;
-      setSelectedRecordIds([]);
-      setConfirmBulkDeleteRecordsOpen(false);
       setModalDeleteError(null);
-      setStatusMsg({ type: 'success', text: `Successfully deleted ${count} subcategory score record(s).` });
-      fetchData();
+      setStatusMsg({ type: 'success', text: `Successfully deleted ${idsToDelete.length} subcategory score record(s).` });
+      fetchData(true);
     } catch (err: any) {
       const errMsg = err.message || 'Error bulk deleting records.';
       setModalDeleteError(errMsg);
       setStatusMsg({ type: 'error', text: errMsg });
+      fetchData(true); // Re-sync on failure
     } finally {
       setBulkDeletingRecords(false);
     }
@@ -476,27 +505,32 @@ export default function OtherSubcategoriesPage() {
 
   const handleBulkDeleteSubcategories = async () => {
     if (selectedSubcategoryIds.length === 0) return;
+    const idsToDelete = [...selectedSubcategoryIds];
     setBulkDeletingSubs(true);
     setModalDeleteError(null);
+
+    // Optimistic local state update
+    setSubcategories((prev) => prev.filter((s) => !idsToDelete.includes(s.id)));
+    setSelectedSubcategoryIds([]);
+    setConfirmBulkDeleteSubsOpen(false);
+
     try {
       const res = await fetch('/api/subcategories', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: selectedSubcategoryIds }),
+        body: JSON.stringify({ ids: idsToDelete }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to bulk delete subcategories.');
 
-      const count = selectedSubcategoryIds.length;
-      setSelectedSubcategoryIds([]);
-      setConfirmBulkDeleteSubsOpen(false);
       setModalDeleteError(null);
-      setStatusMsg({ type: 'success', text: `Successfully deleted ${count} subcategory(ies) and all associated scores.` });
-      fetchData();
+      setStatusMsg({ type: 'success', text: `Successfully deleted ${idsToDelete.length} subcategory(ies) and all associated scores.` });
+      fetchData(true);
     } catch (err: any) {
       const errMsg = err.message || 'Error bulk deleting subcategories.';
       setModalDeleteError(errMsg);
       setStatusMsg({ type: 'error', text: errMsg });
+      fetchData(true); // Re-sync on failure
     } finally {
       setBulkDeletingSubs(false);
     }
@@ -508,30 +542,41 @@ export default function OtherSubcategoriesPage() {
       return;
     }
 
+    const subId = sub.id;
+    setDeletingSubId(subId);
+    // Optimistic removal
+    setSubcategories((prev) => prev.filter((s) => s.id !== subId));
+    setSelectedSubcategoryIds((prev) => prev.filter((id) => id !== subId));
+
     try {
-      const res = await fetch(`/api/subcategories?id=${sub.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/subcategories?id=${subId}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to delete subcategory.');
 
-      setSelectedSubcategoryIds((prev) => prev.filter((id) => id !== sub.id));
       setStatusMsg({ type: 'success', text: `Subcategory "${sub.name}" deleted.` });
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Error deleting subcategory.' });
+      fetchData(true);
+    } finally {
+      setDeletingSubId(null);
     }
   };
 
   const handleDeleteRecord = async (rec: any) => {
     if (!confirm(`Delete score record for ${rec.student?.fullName}?`)) return;
+    setDeletingRecordId(rec.id);
     try {
       const res = await fetch(`/api/scores?id=${rec.id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setSelectedRecordIds((prev) => prev.filter((id) => id !== rec.id));
       setStatusMsg({ type: 'success', text: 'Score record deleted.' });
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Error deleting score.' });
+    } finally {
+      setDeletingRecordId(null);
     }
   };
 
@@ -557,7 +602,7 @@ export default function OtherSubcategoriesPage() {
       setStatusMsg({ type: 'success', text: 'Subcategory priority updated.' });
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
-      fetchData();
+      fetchData(true);
     }
   };
 
@@ -573,7 +618,7 @@ export default function OtherSubcategoriesPage() {
         type: 'success',
         text: `Subcategory "${sub.name}" ${!sub.active ? 'enabled' : 'disabled (historical records preserved)'}.`,
       });
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
     }
@@ -585,6 +630,28 @@ export default function OtherSubcategoriesPage() {
     return preset ? preset.badge : 'Multi-Level';
   };
 
+
+  const handleSelectSubcategory = (id: string) => {
+    if (id === selectedSubcategoryId) return;
+    setSessionLoading(true);
+    setSelectedSubcategoryId(id);
+    setTimeout(() => setSessionLoading(false), 200);
+  };
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="py-24 flex items-center justify-center">
+          <VideoLoader
+            size="xl"
+            text="Loading Subcategories & Qualification Builder..."
+            subtext="Accessing custom features, competition levels, and student records"
+            showProgress={true}
+          />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -681,7 +748,7 @@ export default function OtherSubcategoriesPage() {
                 return (
                   <div
                     key={sub.id}
-                    onClick={() => setSelectedSubcategoryId(sub.id)}
+                    onClick={() => handleSelectSubcategory(sub.id)}
                     className={`group p-4 bg-white rounded-2xl border-2 transition-all duration-300 flex flex-col justify-between space-y-3 relative overflow-hidden cursor-pointer ${
                       isSelected
                         ? 'border-indigo-600 shadow-md ring-2 ring-indigo-600/20'
@@ -752,8 +819,18 @@ export default function OtherSubcategoriesPage() {
         </div>
 
         {/* TAB 1: RECORD SCORES */}
-        {activeTab === 'RECORD' && activeSubcategory && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {activeTab === 'RECORD' && (
+          sessionLoading ? (
+            <div className="p-16 bg-white rounded-2xl border border-slate-200 shadow-subtle flex items-center justify-center">
+              <VideoLoader
+                size="md"
+                text={`Loading ${activeSubcategory?.name || 'Subcategory'} Session...`}
+                subtext="Accessing session score records and criteria"
+                showProgress={true}
+              />
+            </div>
+          ) : activeSubcategory ? (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Score Recording Box */}
             <div className="lg:col-span-1 bg-white p-6 rounded-2xl border border-slate-200 shadow-subtle space-y-4">
               <div className="pb-3 border-b border-slate-100">
@@ -898,13 +975,24 @@ export default function OtherSubcategoriesPage() {
                   />
                 </div>
 
+                <ModalLoadingBar loading={savingScore} text="Recording score to database..." color="indigo" />
+
                 <button
                   type="submit"
                   disabled={savingScore}
-                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow flex items-center justify-center space-x-1.5 transition disabled:opacity-50"
+                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow flex items-center justify-center space-x-1.5 transition disabled:opacity-50 active:scale-95"
                 >
-                  <Save className="w-4 h-4 text-gold-400" />
-                  <span>{savingScore ? 'Recording...' : 'Record Subcategory Score'}</span>
+                  {savingScore ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                      <span>Recording Score...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 text-amber-300" />
+                      <span>Record Subcategory Score</span>
+                    </>
+                  )}
                 </button>
               </form>
             </div>
@@ -1028,10 +1116,15 @@ export default function OtherSubcategoriesPage() {
 
                               <button
                                 onClick={() => handleDeleteRecord(rec)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 rounded"
+                                disabled={deletingRecordId === rec.id}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 rounded disabled:opacity-50 transition"
                                 title="Delete score"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                {deletingRecordId === rec.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-600" />
+                                ) : (
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                )}
                               </button>
                             </div>
                           </div>
@@ -1046,7 +1139,8 @@ export default function OtherSubcategoriesPage() {
                 </div>
               </div>
             </div>
-          </div>
+            </div>
+          ) : null
         )}
 
         {/* TAB 2: BUILDER TAB */}
@@ -1209,10 +1303,15 @@ export default function OtherSubcategoriesPage() {
                         </button>
                         <button
                           onClick={() => handleDeleteSubcategory(sub)}
-                          className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100"
+                          disabled={deletingSubId === sub.id}
+                          className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 disabled:opacity-50 transition"
                           title="Delete Subcategory"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          {deletingSubId === sub.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-rose-600" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
                         </button>
                       </div>
                     </div>
@@ -1534,6 +1633,8 @@ export default function OtherSubcategoriesPage() {
                   </div>
                 </div>
 
+                <ModalLoadingBar loading={savingBuilder} text="Saving subcategory features..." color="indigo" />
+
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
                   <button
                     type="button"
@@ -1545,10 +1646,19 @@ export default function OtherSubcategoriesPage() {
                   <button
                     type="submit"
                     disabled={savingBuilder}
-                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow flex items-center space-x-1.5 disabled:opacity-50"
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow flex items-center space-x-1.5 disabled:opacity-50 transition active:scale-95"
                   >
-                    <Save className="w-4 h-4 text-gold-400" />
-                    <span>{savingBuilder ? 'Saving...' : editingSubId ? 'Update Subcategory Features' : 'Save Subcategory'}</span>
+                    {savingBuilder ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-white" />
+                        <span>Saving Subcategory...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 text-amber-300" />
+                        <span>{editingSubId ? 'Update Subcategory Features' : 'Save Subcategory'}</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </form>

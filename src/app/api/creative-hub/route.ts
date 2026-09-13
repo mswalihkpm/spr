@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    await logAuditAction({
+    logAuditAction({
       userId: user?.id,
       userName: user?.name,
       action: 'CREATE',
@@ -231,7 +231,7 @@ export async function PUT(req: NextRequest) {
       },
     });
 
-    await logAuditAction({
+    logAuditAction({
       userId: user?.id,
       userName: user?.name,
       action: 'UPDATE',
@@ -294,7 +294,7 @@ export async function DELETE(req: NextRequest) {
       where: { id: { in: idsToDelete } },
     });
 
-    await logAuditAction({
+    logAuditAction({
       userId: user?.id,
       userName: user?.name,
       action: 'DELETE',

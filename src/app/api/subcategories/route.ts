@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
       include: { category: true },
     });
 
-    await logAuditAction({
+    logAuditAction({
       userId: user?.id,
       userName: user?.name,
       action: 'CREATE',
@@ -127,14 +127,16 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
 
     if (body.reorder && Array.isArray(body.reorder)) {
-      for (const item of body.reorder) {
-        if (item.id) {
-          await prisma.subcategory.update({
-            where: { id: item.id },
-            data: { displayOrder: Number(item.displayOrder) || 0 },
-          });
-        }
-      }
+      await Promise.all(
+        body.reorder.map((item: any) =>
+          item.id
+            ? prisma.subcategory.update({
+                where: { id: item.id },
+                data: { displayOrder: Number(item.displayOrder) || 0 },
+              })
+            : Promise.resolve()
+        )
+      );
       invalidateEngineCache();
       return NextResponse.json({ success: true, message: 'Subcategory priorities updated successfully.' });
     }
@@ -189,7 +191,7 @@ export async function PUT(req: NextRequest) {
       include: { category: true },
     });
 
-    await logAuditAction({
+    logAuditAction({
       userId: user?.id,
       userName: user?.name,
       action: 'UPDATE',
@@ -245,27 +247,17 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Subcategory ID(s) are required for deletion.' }, { status: 400 });
     }
 
-    const existingSubcategories = await prisma.subcategory.findMany({
-      where: { id: { in: idsToDelete } },
-    });
-
-    if (existingSubcategories.length === 0) {
-      return NextResponse.json({ success: true, message: 'Subcategories already removed.' });
-    }
-
-    const validIds = existingSubcategories.map((s) => s.id);
-
     const [deleteRecordsResult, deleteSubcategoriesResult] = await prisma.$transaction([
-      prisma.performanceRecord.deleteMany({ where: { subcategoryId: { in: validIds } } }),
-      prisma.subcategory.deleteMany({ where: { id: { in: validIds } } }),
+      prisma.performanceRecord.deleteMany({ where: { subcategoryId: { in: idsToDelete } } }),
+      prisma.subcategory.deleteMany({ where: { id: { in: idsToDelete } } }),
     ]);
 
-    await logAuditAction({
+    logAuditAction({
       userId: user?.id,
       userName: user?.name,
       action: 'BULK_DELETE',
       entity: 'Subcategory',
-      newValue: { count: deleteSubcategoriesResult.count, ids: validIds, deletedRecords: deleteRecordsResult.count },
+      newValue: { count: deleteSubcategoriesResult.count, ids: idsToDelete, deletedRecords: deleteRecordsResult.count },
     });
 
     invalidateEngineCache();

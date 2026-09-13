@@ -26,6 +26,7 @@ import {
   Sliders,
 } from 'lucide-react';
 import CustomSelect from '@/components/ui/CustomSelect';
+import VideoLoader from '@/components/ui/VideoLoader';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<string>('INSTITUTION');
@@ -125,7 +126,7 @@ export default function SettingsPage() {
       setSelectedUserIds([]);
       setConfirmBulkDeleteUsersOpen(false);
       setStatusMsg({ type: 'success', text: `Successfully deleted ${count} user account(s).` });
-      fetchSettings();
+      fetchSettings(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting users.' });
     } finally {
@@ -165,7 +166,7 @@ export default function SettingsPage() {
       setSelectedAuditLogIds([]);
       setConfirmBulkDeleteAuditLogsOpen(false);
       setStatusMsg({ type: 'success', text: `Successfully deleted ${count} audit log entry(ies).` });
-      fetchSettings();
+      fetchSettings(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting audit logs.' });
     } finally {
@@ -187,7 +188,7 @@ export default function SettingsPage() {
 
       setSelectedAuditLogIds([]);
       setStatusMsg({ type: 'success', text: data.message || 'Audit logs cleared successfully.' });
-      fetchSettings();
+      fetchSettings(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Error clearing audit logs.' });
     } finally {
@@ -228,7 +229,7 @@ export default function SettingsPage() {
       setSelectedExamIds([]);
       setConfirmBulkDeleteExamsOpen(false);
       setStatusMsg({ type: 'success', text: `Successfully deleted ${count} exam(s).` });
-      fetchSettings();
+      fetchSettings(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting exams.' });
     } finally {
@@ -269,7 +270,7 @@ export default function SettingsPage() {
       setSelectedTermIds([]);
       setConfirmBulkDeleteTermsOpen(false);
       setStatusMsg({ type: 'success', text: `Successfully deleted ${count} assessment term(s).` });
-      fetchSettings();
+      fetchSettings(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting terms.' });
     } finally {
@@ -310,7 +311,7 @@ export default function SettingsPage() {
       setSelectedSchoolIds([]);
       setConfirmBulkDeleteSchoolsOpen(false);
       setStatusMsg({ type: 'success', text: `Successfully deleted ${count} school(s).` });
-      fetchSettings();
+      fetchSettings(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting schools.' });
     } finally {
@@ -351,7 +352,7 @@ export default function SettingsPage() {
       setSelectedClassIds([]);
       setConfirmBulkDeleteClassesOpen(false);
       setStatusMsg({ type: 'success', text: `Successfully deleted ${count} class(es).` });
-      fetchSettings();
+      fetchSettings(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting classes.' });
     } finally {
@@ -392,7 +393,7 @@ export default function SettingsPage() {
       setSelectedSubjectIds([]);
       setConfirmBulkDeleteSubjectsOpen(false);
       setStatusMsg({ type: 'success', text: `Successfully deleted ${count} subject(s).` });
-      fetchSettings();
+      fetchSettings(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting subjects.' });
     } finally {
@@ -401,9 +402,9 @@ export default function SettingsPage() {
   };
 
 
-  const fetchSettings = async () => {
+  const fetchSettings = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const [resMaster, resSettings, resLogs] = await Promise.all([
         fetch('/api/academic'),
         fetch('/api/settings'),
@@ -425,7 +426,7 @@ export default function SettingsPage() {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -482,7 +483,7 @@ export default function SettingsPage() {
       setStatusMsg({ type: 'success', text: `User ${newUser.name} created successfully.` });
       setUserModalOpen(false);
       setNewUser({ name: '', email: '', password: '', role: 'TEACHER' });
-      fetchSettings();
+      fetchSettings(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
     }
@@ -502,7 +503,7 @@ export default function SettingsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setStatusMsg({ type: 'success', text: `User "${userName}" deleted successfully.` });
-      fetchSettings();
+      fetchSettings(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
     }
@@ -519,7 +520,7 @@ export default function SettingsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setStatusMsg({ type: 'success', text: 'User role updated.' });
-      fetchSettings();
+      fetchSettings(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
     }
@@ -536,7 +537,7 @@ export default function SettingsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setStatusMsg({ type: 'success', text: `User status changed to ${newStatus}.` });
-      fetchSettings();
+      fetchSettings(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
     }
@@ -563,7 +564,7 @@ export default function SettingsPage() {
       setAdminResetModalOpen(false);
       setAdminResetUser(null);
       setAdminResetPassword('');
-      fetchSettings();
+      fetchSettings(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
     }
@@ -610,7 +611,7 @@ export default function SettingsPage() {
         text: `${entityType} ${editingEntityId ? 'updated' : 'created'} successfully.`,
       });
       setEntityModalOpen(false);
-      fetchSettings();
+      fetchSettings(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
     }
@@ -630,7 +631,7 @@ export default function SettingsPage() {
       if (!res.ok) throw new Error(data.error);
 
       setStatusMsg({ type: 'success', text: `${type} "${name}" deleted.` });
-      fetchSettings();
+      fetchSettings(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
     }
@@ -644,6 +645,21 @@ export default function SettingsPage() {
     { id: 'USERS', name: 'User Management', icon: Users },
     { id: 'AUDIT', name: 'Audit Trail', icon: History },
   ];
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="py-24 flex items-center justify-center">
+          <VideoLoader
+            size="xl"
+            text="Loading Institutional Settings & Master Data..."
+            subtext="Accessing academic wings, classes, user permissions, and audit logs"
+            showProgress={true}
+          />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>

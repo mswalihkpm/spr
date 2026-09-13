@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import VideoLoader from '@/components/ui/VideoLoader';
+import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
 import { compressImageClientSide } from '@/lib/image-utils';
 import { getAcademicMasterData } from '@/lib/academic-client';
 import CustomSelect from '@/components/ui/CustomSelect';
@@ -52,11 +53,14 @@ export default function StudentsPage() {
   const [classes, setClasses] = useState<any[]>([]);
   const [schools, setSchools] = useState<any[]>([]);
 
-  // Add/Edit modal state
+  // Student form modal state
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingStudent, setEditingStudent] = useState<any>(null);
+  const [editingStudent, setEditingStudent] = useState<any | null>(null);
+  const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [isDraggingPhoto, setIsDraggingPhoto] = useState(false);
+  const [deletingStudentId, setDeletingStudentId] = useState<string | null>(null);
 
   // Bulk selection & deletion state
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
@@ -74,8 +78,6 @@ export default function StudentsPage() {
     notes: '',
     photoUrl: '',
   });
-  const [formError, setFormError] = useState('');
-  const [formLoading, setFormLoading] = useState(false);
 
   const [isSearching, setIsSearching] = useState(false);
   const activeReqRef = React.useRef(0);
@@ -333,6 +335,7 @@ export default function StudentsPage() {
 
   const handleDelete = async (st: any) => {
     if (!confirm(`Are you sure you want to delete student "${st.fullName}"?`)) return;
+    setDeletingStudentId(st.id);
 
     try {
       const res = await fetch(`/api/students/${st.id}`, { method: 'DELETE' });
@@ -345,6 +348,8 @@ export default function StudentsPage() {
       }
     } catch (err) {
       alert('Error deleting student.');
+    } finally {
+      setDeletingStudentId(null);
     }
   };
 
@@ -513,7 +518,7 @@ export default function StudentsPage() {
                 {loading ? (
                   <tr>
                     <td colSpan={7} className="py-10 text-center">
-                      <VideoLoader size="md" text="Loading student directory..." subtext="Accessing SPR Institutional Registry" />
+                      <VideoLoader size="md" text="Loading student directory..." subtext="Accessing SPR Institutional Registry" showProgress={true} />
                     </td>
                   </tr>
                 ) : students.length === 0 ? (
@@ -591,10 +596,15 @@ export default function StudentsPage() {
                             </button>
                             <button
                               onClick={() => handleDelete(st)}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                              disabled={deletingStudentId === st.id}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-50 transition"
                               title="Delete Student"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              {deletingStudentId === st.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin text-rose-600" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
                             </button>
                           </div>
                         </td>
@@ -730,6 +740,8 @@ export default function StudentsPage() {
                 <span>{formError}</span>
               </div>
             )}
+
+            <ModalLoadingBar loading={formLoading} text="Saving student profile to database..." color="blue" />
 
             <form onSubmit={handleFormSubmit} className="mt-4 space-y-3.5">
               {/* Profile Photo Drag & Drop Upload Section */}
@@ -940,9 +952,16 @@ export default function StudentsPage() {
                 <button
                   type="submit"
                   disabled={formLoading || uploadingPhoto}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 shadow transition"
+                  className="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 disabled:opacity-50 shadow transition flex items-center space-x-1.5 active:scale-95"
                 >
-                  {formLoading ? 'Saving...' : editingStudent ? 'Update Profile' : 'Save Student'}
+                  {formLoading ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                      <span>Saving Profile...</span>
+                    </>
+                  ) : (
+                    <span>{editingStudent ? 'Update Profile' : 'Save Student'}</span>
+                  )}
                 </button>
               </div>
             </form>
@@ -990,7 +1009,10 @@ export default function StudentsPage() {
                 className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md transition hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center space-x-1.5"
               >
                 {bulkDeleting ? (
-                  <span>Deleting...</span>
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <span>Deleting {selectedStudentIds.length} Student(s)...</span>
+                  </>
                 ) : (
                   <>
                     <Trash2 className="w-4 h-4" />

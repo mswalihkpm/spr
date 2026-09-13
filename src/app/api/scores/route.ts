@@ -278,41 +278,47 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const savedRecords: any[] = [];
-    const BATCH_SIZE = 25;
-    for (let i = 0; i < writeActions.length; i += BATCH_SIZE) {
-      const batch = writeActions.slice(i, i + BATCH_SIZE);
-      const batchResults = await Promise.all(
-        batch.map(async (action) => {
-          if (action.type === 'UPDATE') {
-            return await prisma.performanceRecord.update({
-              where: { id: action.id },
-              data: action.data,
-            });
-          } else {
-            return await prisma.performanceRecord.create({
-              data: action.data,
-            });
-          }
-        })
-      );
-      savedRecords.push(...batchResults);
+    const updates = writeActions.filter((a): a is { type: 'UPDATE'; id: string; data: any } => a.type === 'UPDATE');
+    const creates = writeActions.filter((a): a is { type: 'CREATE'; data: any } => a.type === 'CREATE');
+
+    let savedCount = 0;
+
+    // Fast bulk create in single SQL statement
+    if (creates.length > 0) {
+      const createRes = await prisma.performanceRecord.createMany({
+        data: creates.map((c) => c.data),
+        skipDuplicates: true,
+      });
+      savedCount += createRes.count;
     }
 
-    await logAuditAction({
+    // Concurrent parallel updates
+    if (updates.length > 0) {
+      const updateResults = await Promise.all(
+        updates.map((u) =>
+          prisma.performanceRecord.update({
+            where: { id: u.id },
+            data: u.data,
+          })
+        )
+      );
+      savedCount += updateResults.length;
+    }
+
+    logAuditAction({
       userId: user?.id,
       userName: user?.name,
       action: 'SAVE_SCORES',
       entity: 'PerformanceRecord',
-      newValue: { count: savedRecords.length, categoryId: targetCategoryId, examId: resolvedExamId, subjectId: resolvedSubjectId },
+      newValue: { count: savedCount, categoryId: targetCategoryId, examId: resolvedExamId, subjectId: resolvedSubjectId },
     });
 
     invalidateEngineCache();
 
     return NextResponse.json({
       success: true,
-      message: `Successfully saved ${savedRecords.length} score records.`,
-      recordsCount: savedRecords.length,
+      message: `Successfully saved ${savedCount} score records.`,
+      recordsCount: savedCount,
     });
   } catch (error: any) {
     console.error('Save scores error:', error);
@@ -367,7 +373,7 @@ export async function PUT(req: NextRequest) {
       },
     });
 
-    await logAuditAction({
+    logAuditAction({
       userId: user?.id,
       userName: user?.name,
       action: 'UPDATE_SCORE',
@@ -467,7 +473,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Score record ID(s) or filter parameters are required for deletion.' }, { status: 400 });
     }
 
-    await logAuditAction({
+    logAuditAction({
       userId: user?.id,
       userName: user?.name,
       action: 'DELETE_SCORE',

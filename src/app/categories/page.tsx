@@ -76,16 +76,16 @@ export default function CategoriesPage() {
 
   const isAdmin = currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN';
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const res = await fetch('/api/categories');
       const data = await res.json();
       if (data.categories) setCategories(data.categories);
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -143,7 +143,7 @@ export default function CategoriesPage() {
       setSelectedCategoryIds([]);
       setConfirmBulkDeleteOpen(false);
       setStatusMsg({ type: 'success', text: `Successfully deleted ${count} custom category(s).` });
-      fetchCategories();
+      fetchCategories(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting categories.' });
     } finally {
@@ -220,7 +220,7 @@ export default function CategoriesPage() {
         text: `Category "${formData.name}" ${editingCategory ? 'updated' : 'created'} successfully!`,
       });
       setModalOpen(false);
-      fetchCategories();
+      fetchCategories(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
     } finally {
@@ -243,7 +243,7 @@ export default function CategoriesPage() {
       if (!res.ok) throw new Error(json.error || 'Failed to delete category');
 
       setStatusMsg({ type: 'success', text: `Category "${cat.name}" deleted.` });
-      fetchCategories();
+      fetchCategories(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
     }
@@ -413,7 +413,7 @@ export default function CategoriesPage() {
         {/* CATEGORIES GRID: 2 IN ONE ROW ON MOBILE */}
         {loading ? (
           <div className="py-16 text-center">
-            <VideoLoader size="md" text="Loading Categories..." subtext="Accessing SPR Assessment Wings" />
+            <VideoLoader size="lg" text="Loading Categories & Wings..." subtext="Accessing SPR Assessment Wings and Scoring Weightages" showProgress={true} />
           </div>
         ) : filteredCategories.length === 0 ? (
           <div className="bg-white rounded-3xl border border-dashed border-slate-200 p-12 text-center text-slate-500 space-y-2">

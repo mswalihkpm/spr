@@ -20,9 +20,12 @@ import {
   Newspaper,
   Layers,
   Save,
+  Loader2,
 } from 'lucide-react';
 import SearchableStudentSelect from '@/components/ui/SearchableStudentSelect';
 import CustomSelect from '@/components/ui/CustomSelect';
+import VideoLoader from '@/components/ui/VideoLoader';
+import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
 
 export default function CreativeHubPage() {
   const [activeTab, setActiveTab] = useState<'submissions' | 'masterSettings'>('submissions');
@@ -52,14 +55,17 @@ export default function CreativeHubPage() {
   // Master Settings Modal / Form States
   const [newMediaModalOpen, setNewMediaModalOpen] = useState(false);
   const [mediaFormData, setMediaFormData] = useState({ id: '', name: '', weight: 1.0 });
+  const [savingMedia, setSavingMedia] = useState(false);
 
   const [newFormModalOpen, setNewFormModalOpen] = useState(false);
   const [formCategoryData, setFormCategoryData] = useState({ id: '', name: '', weight: 1.0, description: '' });
+  const [savingFormCategory, setSavingFormCategory] = useState(false);
 
   // Bulk selection & deletion state
   const [selectedSubmissionIds, setSelectedSubmissionIds] = useState<string[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleToggleSelectAll = () => {
     const allSelected = submissions.length > 0 && submissions.every((s) => selectedSubmissionIds.includes(s.id));
@@ -93,7 +99,7 @@ export default function CreativeHubPage() {
       setSelectedSubmissionIds([]);
       setConfirmBulkDeleteOpen(false);
       setStatusMsg({ type: 'success', text: `Successfully deleted ${count} creative work record(s).` });
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting records.' });
     } finally {
@@ -101,9 +107,9 @@ export default function CreativeHubPage() {
     }
   };
 
-  const fetchData = async () => {
+  const fetchData = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const params = new URLSearchParams();
       if (selectedCategory) params.append('categoryId', selectedCategory);
       if (selectedMedia) params.append('mediaId', selectedMedia);
@@ -138,7 +144,7 @@ export default function CreativeHubPage() {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -200,7 +206,7 @@ export default function CreativeHubPage() {
       });
       setModalOpen(false);
       setEditingSubmission(null);
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
     } finally {
@@ -210,6 +216,7 @@ export default function CreativeHubPage() {
 
   const handleDeleteWork = async (work: any) => {
     if (!confirm(`Delete publication record for ${work.student?.fullName}?`)) return;
+    setDeletingId(work.id);
 
     try {
       const res = await fetch(`/api/creative-hub?id=${work.id}`, { method: 'DELETE' });
@@ -217,9 +224,11 @@ export default function CreativeHubPage() {
       if (!res.ok) throw new Error(json.error || 'Failed to delete record');
 
       setStatusMsg({ type: 'success', text: 'Creative publication record deleted.' });
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       alert(err.message || 'Error deleting record');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -244,7 +253,7 @@ export default function CreativeHubPage() {
       setStatusMsg({ type: 'success', text: `Published media ${isEdit ? 'updated' : 'added'} successfully!` });
       setNewMediaModalOpen(false);
       setMediaFormData({ id: '', name: '', weight: 1.0 });
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       alert(err.message);
     }
@@ -257,7 +266,7 @@ export default function CreativeHubPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to delete');
       setStatusMsg({ type: 'success', text: `Removed "${name}" from published media.` });
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       alert(err.message);
     }
@@ -285,7 +294,7 @@ export default function CreativeHubPage() {
       setStatusMsg({ type: 'success', text: `Creative Wing / Form ${isEdit ? 'updated' : 'added'} successfully!` });
       setNewFormModalOpen(false);
       setFormCategoryData({ id: '', name: '', weight: 1.0, description: '' });
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       alert(err.message);
     }
@@ -298,11 +307,26 @@ export default function CreativeHubPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to delete');
       setStatusMsg({ type: 'success', text: `Removed "${name}" from creative wings.` });
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       alert(err.message);
     }
   };
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="py-24 flex items-center justify-center">
+          <VideoLoader
+            size="xl"
+            text="Loading Creative Hub & Media Registry..."
+            subtext="Accessing published works, magazines, portals, and student submissions"
+            showProgress={true}
+          />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -518,10 +542,15 @@ export default function CreativeHubPage() {
                           </button>
                           <button
                             onClick={() => handleDeleteWork(sub)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                            disabled={deletingId === sub.id}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg disabled:opacity-50 transition"
                             title="Delete Publication Record"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            {deletingId === sub.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-rose-600" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
                           </button>
                         </div>
                       </div>
@@ -756,6 +785,8 @@ export default function CreativeHubPage() {
                   </div>
                 </div>
 
+                <ModalLoadingBar loading={saving} text="Recording creative publication..." color="indigo" />
+
                 <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
                   <button
                     type="button"
@@ -770,10 +801,19 @@ export default function CreativeHubPage() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center space-x-1.5 disabled:opacity-50"
+                    className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center space-x-1.5 disabled:opacity-50 transition active:scale-95"
                   >
-                    <Save className="w-4 h-4 text-purple-200" />
-                    <span>{saving ? 'Saving...' : editingSubmission ? 'Update Publication' : 'Register Publication'}</span>
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-white" />
+                        <span>Saving Publication...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 text-purple-200" />
+                        <span>{editingSubmission ? 'Update Publication' : 'Register Publication'}</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </form>
@@ -939,10 +979,19 @@ export default function CreativeHubPage() {
                 type="button"
                 disabled={bulkDeleting}
                 onClick={handleBulkDelete}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center space-x-1.5"
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md transition hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center space-x-1.5"
               >
-                <Trash2 className="w-4 h-4" />
-                <span>Delete {selectedSubmissionIds.length} Record(s)</span>
+                {bulkDeleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <span>Deleting {selectedSubmissionIds.length} Record(s)...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete {selectedSubmissionIds.length} Work(s)</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

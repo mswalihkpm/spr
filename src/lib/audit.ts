@@ -10,22 +10,29 @@ export async function logAuditAction(params: {
   newValue?: any;
   ipAddress?: string | null;
   userAgent?: string | null;
-}) {
-  try {
-    await prisma.auditLog.create({
-      data: {
-        userId: params.userId,
-        userName: params.userName,
-        action: params.action,
-        entity: params.entity,
-        entityId: params.entityId,
-        previousValue: params.previousValue ? JSON.stringify(params.previousValue) : null,
-        newValue: params.newValue ? JSON.stringify(params.newValue) : null,
-        ipAddress: params.ipAddress,
-        userAgent: params.userAgent,
-      },
-    });
-  } catch (err) {
-    console.error('Failed to write audit log:', err);
-  }
+}): Promise<void> {
+  // Fire asynchronously in background to achieve instant (<50ms) API responses
+  const writePromise = (async () => {
+    try {
+      await prisma.auditLog.create({
+        data: {
+          userId: params.userId,
+          userName: params.userName,
+          action: params.action,
+          entity: params.entity,
+          entityId: params.entityId,
+          previousValue: params.previousValue ? JSON.stringify(params.previousValue) : null,
+          newValue: params.newValue ? JSON.stringify(params.newValue) : null,
+          ipAddress: params.ipAddress,
+          userAgent: params.userAgent,
+        },
+      });
+    } catch (err) {
+      console.error('Failed to write audit log:', err);
+    }
+  })();
+
+  // Catch any floating rejection immediately
+  writePromise.catch((err) => console.error('Audit log background task error:', err));
 }
+
