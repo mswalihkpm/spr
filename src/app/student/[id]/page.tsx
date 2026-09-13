@@ -674,12 +674,12 @@ export default function PublicStudentScorecardPage() {
                         {activeCategory.categoryName} Assessment Records
                       </h4>
                       <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-100 text-blue-900 border border-blue-200 font-mono">
-                        {isExamCategory(activeCategory.categoryCode) ? 'Exam Percentage Conversion' : 'Points & Weightage Scoring'}
+                        {isExamCategory(activeCategory.categoryCode) ? 'Academic Performance' : 'Points & Weightage Scoring'}
                       </span>
                     </div>
                     <div className="text-[11px] text-slate-600 font-medium mt-0.5">
                       {isExamCategory(activeCategory.categoryCode)
-                        ? 'Evaluated exams converted to Actual Maximum Mark'
+                        ? 'Evaluated examinations and subject percentages'
                         : 'Evaluated items showing exact score and admin-defined weightage multipliers'}
                     </div>
                   </div>
@@ -809,7 +809,7 @@ export default function PublicStudentScorecardPage() {
                                         : 'bg-slate-100 text-slate-700'
                                     }`}
                                   >
-                                    {group.assessmentPct.toFixed(1)}% → {group.groupEarnedPoints} / {group.actualMax} pts
+                                    {group.assessmentPct.toFixed(1)}%
                                   </span>
                                 </div>
                               ) : (
@@ -832,7 +832,6 @@ export default function PublicStudentScorecardPage() {
                                 {isExam ? (
                                   <tr>
                                     <th className="py-2 px-4">Subject / Exam Detail</th>
-                                    <th className="py-2 px-4 text-center">Marks (Obt / Max)</th>
                                     <th className="py-2 px-4 text-right">Percentage</th>
                                   </tr>
                                 ) : (
@@ -884,26 +883,21 @@ export default function PublicStudentScorecardPage() {
                                       </td>
 
                                       {isExam ? (
-                                        <>
-                                          <td className="py-2.5 px-4 text-center font-mono font-medium text-slate-700">
-                                            {r.obtainedScore || 0} / {r.maxScore || 100}
-                                          </td>
-                                          <td className="py-2.5 px-4 text-right">
-                                            <span
-                                              className={`px-2.5 py-1 rounded-md font-mono font-extrabold text-xs inline-block ${
-                                                recordPct >= 85
-                                                  ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
-                                                  : recordPct >= 70
-                                                  ? 'bg-blue-100 text-blue-900 border border-blue-200'
-                                                  : recordPct >= 50
-                                                  ? 'bg-amber-100 text-amber-900 border border-amber-200'
-                                                  : 'bg-slate-100 text-slate-700'
-                                              }`}
-                                            >
-                                              {recordPct.toFixed(1)}%
-                                            </span>
-                                          </td>
-                                        </>
+                                        <td className="py-2.5 px-4 text-right">
+                                          <span
+                                            className={`px-2.5 py-1 rounded-md font-mono font-extrabold text-xs inline-block ${
+                                              recordPct >= 85
+                                                ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                                                : recordPct >= 70
+                                                ? 'bg-blue-100 text-blue-900 border border-blue-200'
+                                                : recordPct >= 50
+                                                ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                                                : 'bg-slate-100 text-slate-700'
+                                            }`}
+                                          >
+                                            {recordPct.toFixed(1)}%
+                                          </span>
+                                        </td>
                                       ) : (
                                         <>
                                           <td className="py-2.5 px-4 text-center font-mono font-medium text-slate-700">
