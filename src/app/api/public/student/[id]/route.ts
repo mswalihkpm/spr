@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { calculateStudentSPR, calculateAllLeaderboards } from '@/lib/spr-engine';
+import { calculateStudentSPR, calculateFastStudentRanks } from '@/lib/spr-engine';
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -35,37 +35,25 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: 'Failed to compute student performance dossier.' }, { status: 500 });
     }
 
-    // Compute live rankings instantly from single cached leaderboard dataset
-    const allLeaderboard = await calculateAllLeaderboards({ academicYearId: profile.student.academicYear.id });
+    // Compute live rankings with lightweight rank calculation
+    const ranks = await calculateFastStudentRanks(
+      studentId,
+      profile.student.academicYear?.id,
+      profile.student.class?.id,
+      profile.student.school?.id
+    );
 
-    const classEntries = allLeaderboard.filter((e) => e.className === profile.student.class.name);
-    const schoolEntries = allLeaderboard.filter((e) => e.schoolName === profile.student.school.name);
-
-    const computeTiedRank = (list: any[], id: string) => {
-      const sorted = [...list].sort((a, b) => (b.spr || 0) - (a.spr || 0));
-      let currentRank = 1;
-      for (let i = 0; i < sorted.length; i++) {
-        if (i > 0 && (sorted[i].spr || 0) < (sorted[i - 1].spr || 0)) {
-          currentRank = i + 1;
-        }
-        if (sorted[i].studentId === id) {
-          return currentRank;
-        }
-      }
-      return 1;
-    };
-
-    const overallRank = computeTiedRank(allLeaderboard, studentId);
-    const classRank = computeTiedRank(classEntries, studentId);
-    const schoolRank = computeTiedRank(schoolEntries, studentId);
+    const overallRank = ranks.overallRank;
+    const classRank = ranks.classRank;
+    const schoolRank = ranks.schoolRank;
 
     profile.rank = overallRank;
     profile.overallRank = overallRank;
     profile.classRank = classRank;
     profile.schoolRank = schoolRank;
-    profile.totalStudentsOverall = allLeaderboard.length;
-    profile.totalStudentsInClass = classEntries.length;
-    profile.totalStudentsInSchool = schoolEntries.length;
+    profile.totalStudentsOverall = ranks.totalStudentsOverall;
+    profile.totalStudentsInClass = ranks.totalStudentsInClass;
+    profile.totalStudentsInSchool = ranks.totalStudentsInSchool;
 
     const enrichedProfile: any = {
       ...profile,
@@ -73,9 +61,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       overallRank: overallRank,
       classRank: classRank,
       schoolRank: schoolRank,
-      totalStudentsOverall: allLeaderboard.length,
-      totalStudentsInClass: classEntries.length,
-      totalStudentsInSchool: schoolEntries.length,
+      totalStudentsOverall: ranks.totalStudentsOverall,
+      totalStudentsInClass: ranks.totalStudentsInClass,
+      totalStudentsInSchool: ranks.totalStudentsInSchool,
       overallScore: profile.overallSPR,
       categoryBreakdown: (profile.categoryScores || []).map((c) => ({
         categoryId: c.categoryId,

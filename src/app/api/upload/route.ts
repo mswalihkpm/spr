@@ -2,6 +2,11 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/auth';
+import {
+  uploadStudentPhoto,
+  uploadBase64StudentPhoto,
+  optimizePhotoToWebP,
+} from '@/lib/supabase-storage';
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,8 +14,10 @@ export async function POST(req: NextRequest) {
     if (errorResponse) return errorResponse;
 
     const contentType = req.headers.get('content-type') || '';
-    let dataUrl = '';
+    let finalUrl = '';
+    let uploadedPath = '';
     let filename = `photo_${Date.now()}`;
+    let sizeBytes = 0;
 
     if (contentType.includes('application/json')) {
       const body = await req.json();
@@ -19,10 +26,34 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'No image data provided.' }, { status: 400 });
       }
 
-      if (image.startsWith('data:image/')) {
-        dataUrl = image;
+      // Check if Supabase credentials are configured
+      const hasSupabaseKey =
+        Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY) ||
+        Boolean(process.env.SUPABASE_ANON_KEY) ||
+        Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+
+      if (hasSupabaseKey) {
+        try {
+          const uploadRes = await uploadBase64StudentPhoto(image);
+          finalUrl = uploadRes.url;
+          uploadedPath = uploadRes.path;
+          sizeBytes = uploadRes.sizeBytes;
+        } catch (storageErr: any) {
+          console.error('[UploadAPI] Supabase Storage upload failed, falling back to WebP Base64:', storageErr.message);
+          // Fallback: Optimize image to WebP buffer and return base64
+          const cleanBase64 = image.includes(',') ? image.split(',')[1] : image;
+          const rawBuffer = Buffer.from(cleanBase64, 'base64');
+          const optimized = await optimizePhotoToWebP(rawBuffer, 360, 85);
+          finalUrl = `data:image/webp;base64,${optimized.buffer.toString('base64')}`;
+          sizeBytes = optimized.buffer.length;
+        }
       } else {
-        dataUrl = `data:image/jpeg;base64,${image}`;
+        // Fallback when Supabase key not yet supplied
+        const cleanBase64 = image.includes(',') ? image.split(',')[1] : image;
+        const rawBuffer = Buffer.from(cleanBase64, 'base64');
+        const optimized = await optimizePhotoToWebP(rawBuffer, 360, 85);
+        finalUrl = `data:image/webp;base64,${optimized.buffer.toString('base64')}`;
+        sizeBytes = optimized.buffer.length;
       }
     } else {
       const formData = await req.formData();
@@ -41,30 +72,38 @@ export async function POST(req: NextRequest) {
 
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
-      filename = file.name || `photo_${Date.now()}.jpg`;
+      filename = file.name || `photo_${Date.now()}.webp`;
 
-      // Try optimizing with sharp if available in runtime
-      try {
-        const sharpModule = await import('sharp');
-        const sharp = sharpModule.default || sharpModule;
-        const optimizedBuffer = await sharp(buffer)
-          .rotate() // auto-orient based on EXIF
-          .resize(360, 360, { fit: 'cover', position: 'center' })
-          .jpeg({ quality: 85, progressive: true })
-          .toBuffer();
+      const hasSupabaseKey =
+        Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY) ||
+        Boolean(process.env.SUPABASE_ANON_KEY) ||
+        Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
-        dataUrl = `data:image/jpeg;base64,${optimizedBuffer.toString('base64')}`;
-      } catch (sharpError) {
-        // Fallback: direct base64 data URI
-        const mimeType = file.type || 'image/jpeg';
-        dataUrl = `data:${mimeType};base64,${buffer.toString('base64')}`;
+      if (hasSupabaseKey) {
+        try {
+          const uploadRes = await uploadStudentPhoto(buffer);
+          finalUrl = uploadRes.url;
+          uploadedPath = uploadRes.path;
+          sizeBytes = uploadRes.sizeBytes;
+        } catch (storageErr: any) {
+          console.error('[UploadAPI] Supabase Storage upload failed, falling back to WebP Base64:', storageErr.message);
+          const optimized = await optimizePhotoToWebP(buffer, 360, 85);
+          finalUrl = `data:image/webp;base64,${optimized.buffer.toString('base64')}`;
+          sizeBytes = optimized.buffer.length;
+        }
+      } else {
+        const optimized = await optimizePhotoToWebP(buffer, 360, 85);
+        finalUrl = `data:image/webp;base64,${optimized.buffer.toString('base64')}`;
+        sizeBytes = optimized.buffer.length;
       }
     }
 
     return NextResponse.json({
       success: true,
-      url: dataUrl,
+      url: finalUrl,
+      path: uploadedPath,
       filename,
+      sizeBytes,
     });
   } catch (error: any) {
     console.error('File upload error:', error);

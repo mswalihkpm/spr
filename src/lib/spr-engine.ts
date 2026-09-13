@@ -113,6 +113,22 @@ export async function getCachedCategories() {
       categoryWeights: true,
       subcategories: {
         where: { active: true },
+        select: {
+          id: true,
+          categoryId: true,
+          name: true,
+          code: true,
+          hasLevels: true,
+          levelGroup: true,
+          allowedLevelIds: true,
+          hasMaxScore: true,
+          maxScore: true,
+          weight: true,
+          displayOrder: true,
+          active: true,
+          createdAt: true,
+          updatedAt: true,
+        },
         orderBy: { displayOrder: 'asc' },
       },
     },
@@ -1267,5 +1283,184 @@ export async function calculateAllLeaderboards(filters?: {
 
   leaderboardCache.set(cacheKey, { timestamp: now, data: rankedEntries });
   return rankedEntries;
+}
+
+// Lightweight fast rank calculation for single student profile
+export async function calculateFastStudentRanks(
+  studentId: string,
+  academicYearId?: string,
+  classId?: string,
+  schoolId?: string
+): Promise<{
+  overallRank: number;
+  classRank: number;
+  schoolRank: number;
+  totalStudentsOverall: number;
+  totalStudentsInClass: number;
+  totalStudentsInSchool: number;
+}> {
+  const [categories, settings, levelsList, students] = await Promise.all([
+    getCachedCategories(),
+    getCachedSettings(),
+    getCachedLevels(),
+    prisma.student.findMany({
+      where: {
+        status: 'ACTIVE',
+        ...(academicYearId ? { academicYearId } : {}),
+      },
+      select: {
+        id: true,
+        classId: true,
+        schoolId: true,
+        performanceRecords: {
+          select: {
+            categoryId: true,
+            obtainedScore: true,
+            maxScore: true,
+            position: true,
+            subcategory: { select: { weight: true, maxScore: true } },
+            level: true,
+            exam: { select: { name: true, maxScore: true } },
+            subject: { select: { maxScore: true } },
+          },
+        },
+        creativeWorks: {
+          select: {
+            score: true,
+            category: { select: { weight: true } },
+          },
+        },
+        libraryRecords: {
+          select: {
+            readingScore: true,
+            booksRead: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  const parsedCategories = categories.map((cat) => {
+    const activeWeightRecord = cat.categoryWeights?.find((w: any) => w.isActive !== false) || cat.categoryWeights?.[0];
+    const isCatActive = activeWeightRecord?.isActive ?? cat.active;
+    const isIncluded = activeWeightRecord?.isIncludedInSPR ?? cat.includeInSPR;
+    return { cat, isCatActive, isIncluded };
+  });
+
+  const studentScores: { id: string; spr: number; classId: string; schoolId: string }[] = [];
+
+  for (const st of students) {
+    let totalPoints = 0;
+    for (const { cat, isCatActive, isIncluded } of parsedCategories) {
+      if (!isCatActive || !isIncluded) continue;
+
+      let catEarned = 0;
+      if (cat.code === 'CREATIVE_HUB') {
+        st.creativeWorks.forEach((w: any) => {
+          const rawScore = typeof w.score === 'number' && !isNaN(w.score)
+            ? w.score
+            : (typeof w.category?.weight === 'number' && w.category.weight > 0 ? w.category.weight : 20);
+          catEarned += rawScore;
+        });
+      } else if (cat.code === 'LIBRARY') {
+        st.libraryRecords.forEach((lib: any) => {
+          const pts = typeof lib.readingScore === 'number' && !isNaN(lib.readingScore)
+            ? lib.readingScore
+            : ((lib.booksRead || 0) * 20);
+          catEarned += pts;
+        });
+        const libPerf = st.performanceRecords.filter((r: any) => r.categoryId === cat.id);
+        libPerf.forEach((r: any) => {
+          const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
+          const base = typeof r.obtainedScore === 'number' && !isNaN(r.obtainedScore) ? r.obtainedScore : 0;
+          catEarned += (base * mult);
+        });
+      } else if (cat.code === 'LITERARY' || cat.code === 'PROGRAMS') {
+        const records = st.performanceRecords.filter((r: any) => r.categoryId === cat.id);
+        records.forEach((r: any) => {
+          const lvlMult = resolveLevelMultiplier(r.level, levelsList);
+          const prizeMult = resolvePrizeMultiplier(r.position);
+          const prizeBase = resolvePrizeBaseScore(r.position, settings);
+          const baseScore = typeof r.obtainedScore === 'number' && !isNaN(r.obtainedScore)
+            ? r.obtainedScore
+            : (prizeBase > 0 ? prizeBase : 50);
+          catEarned += (baseScore * prizeMult * lvlMult);
+        });
+      } else if (cat.code === 'QUALIFICATION') {
+        const records = st.performanceRecords.filter((r: any) => r.categoryId === cat.id);
+        records.forEach((r: any) => {
+          const subMult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
+          const lvlMult = resolveLevelMultiplier(r.level, levelsList);
+          const prizeMult = resolvePrizeMultiplier(r.position);
+          const prizeBase = resolvePrizeBaseScore(r.position, settings);
+          const baseScore = typeof r.obtainedScore === 'number' && !isNaN(r.obtainedScore)
+            ? r.obtainedScore
+            : (prizeBase > 0 ? prizeBase : (r.subcategory?.maxScore || 50));
+          catEarned += (baseScore * subMult * lvlMult * prizeMult);
+        });
+      } else if (cat.code === 'SCHOOL' || cat.code === 'ISLAMIC') {
+        const records = st.performanceRecords.filter((r: any) => r.categoryId === cat.id);
+        if (records.length > 0) {
+          const examGroups = new Map<string, any[]>();
+          records.forEach((r: any) => {
+            const key = (r.exam?.name || (r as any).examId || 'General Assessment').trim().toLowerCase();
+            if (!examGroups.has(key)) examGroups.set(key, []);
+            examGroups.get(key)!.push(r);
+          });
+          let catSum = 0;
+          examGroups.forEach((recs) => {
+            const examActualMax = recs[0]?.exam?.maxScore || (cat.code === 'SCHOOL' ? 130 : 100);
+            const totObt = recs.reduce((sum: number, r: any) => sum + (r.obtainedScore || 0), 0);
+            const totMax = recs.reduce((sum: number, r: any) => sum + (r.maxScore || r.subject?.maxScore || 100), 0);
+            const pct = totMax > 0 ? (totObt / totMax) * 100 : 0;
+            catSum += ((pct / 100) * examActualMax);
+          });
+          catEarned = Number(catSum.toFixed(2));
+        }
+      } else {
+        const records = st.performanceRecords.filter((r: any) => r.categoryId === cat.id);
+        records.forEach((r: any) => {
+          const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
+          const lvlMult = resolveLevelMultiplier(r.level, levelsList);
+          const prizeMult = resolvePrizeMultiplier(r.position);
+          const base = r.obtainedScore || 0;
+          catEarned += (base * mult * lvlMult * prizeMult);
+        });
+      }
+      totalPoints += Number(catEarned.toFixed(2));
+    }
+    studentScores.push({
+      id: st.id,
+      spr: Number(totalPoints.toFixed(2)),
+      classId: st.classId,
+      schoolId: st.schoolId,
+    });
+  }
+
+  const computeTiedRank = (list: { id: string; spr: number }[], targetId: string) => {
+    const sorted = [...list].sort((a, b) => (b.spr || 0) - (a.spr || 0));
+    let currentRank = 1;
+    for (let i = 0; i < sorted.length; i++) {
+      if (i > 0 && (sorted[i].spr || 0) < (sorted[i - 1].spr || 0)) {
+        currentRank = i + 1;
+      }
+      if (sorted[i].id === targetId) {
+        return currentRank;
+      }
+    }
+    return 1;
+  };
+
+  const classList = classId ? studentScores.filter((s) => s.classId === classId) : studentScores;
+  const schoolList = schoolId ? studentScores.filter((s) => s.schoolId === schoolId) : studentScores;
+
+  return {
+    overallRank: computeTiedRank(studentScores, studentId),
+    classRank: computeTiedRank(classList, studentId),
+    schoolRank: computeTiedRank(schoolList, studentId),
+    totalStudentsOverall: studentScores.length,
+    totalStudentsInClass: classList.length,
+    totalStudentsInSchool: schoolList.length,
+  };
 }
 
