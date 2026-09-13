@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import AppIntro from '@/components/ui/AppIntro';
 import PWAInstallPrompt from '@/components/ui/PWAInstallPrompt';
+import AppUpdateNotification from '@/components/ui/AppUpdateNotification';
 
 export const metadata: Metadata = {
   title: 'SPR — Students Performance Rate | Madin School of Excellence',
@@ -83,6 +84,7 @@ export default function RootLayout({
         <AppIntro />
         {children}
         <PWAInstallPrompt />
+        <AppUpdateNotification />
         <script
           dangerouslySetInnerHTML={{
             __html: `

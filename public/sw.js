@@ -1,4 +1,4 @@
-const CACHE_NAME = 'spr-madin-v3';
+const CACHE_NAME = 'spr-madin-v4';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',
@@ -33,6 +33,13 @@ self.addEventListener('activate', (event) => {
     })
   );
   self.clients.claim();
+});
+
+// Support instant update triggers from the client app
+self.addEventListener('message', (event) => {
+  if (event.data && (event.data.type === 'SKIP_WAITING' || event.data === 'skipWaiting')) {
+    self.skipWaiting();
+  }
 });
 
 // Network-first strategy with cache fallback
