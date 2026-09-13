@@ -32,15 +32,16 @@ export function VideoLoaderComponent({
   // Compute pixel dimensions and bar width
   let pixelSize = 64;
   let barMaxWidth = 'max-w-[160px]';
-  let barHeight = 'h-1.5';
+  let barHeight = 'h-2';
 
   if (typeof size === 'number') {
     pixelSize = size;
     barMaxWidth = size < 50 ? 'max-w-[130px]' : size < 90 ? 'max-w-[180px]' : 'max-w-[220px]';
+    barHeight = size < 50 ? 'h-1.5' : size < 90 ? 'h-2' : 'h-2.5';
   } else if (size === 'xs') {
     pixelSize = 30;
     barMaxWidth = 'max-w-[120px]';
-    barHeight = 'h-1';
+    barHeight = 'h-1.5';
   } else if (size === 'sm') {
     pixelSize = 44;
     barMaxWidth = 'max-w-[140px]';
@@ -48,15 +49,15 @@ export function VideoLoaderComponent({
   } else if (size === 'md') {
     pixelSize = 64;
     barMaxWidth = 'max-w-[170px]';
-    barHeight = 'h-1.5';
+    barHeight = 'h-2';
   } else if (size === 'lg') {
     pixelSize = 90;
     barMaxWidth = 'max-w-[210px]';
-    barHeight = 'h-2';
+    barHeight = 'h-2.5';
   } else if (size === 'xl') {
     pixelSize = 120;
     barMaxWidth = 'max-w-[240px]';
-    barHeight = 'h-2';
+    barHeight = 'h-2.5';
   }
 
   // Smooth continuous progress tracking loop
@@ -138,10 +139,16 @@ export function VideoLoaderComponent({
 
   return (
     <div className={`flex flex-col items-center justify-center p-3 space-y-3 select-none ${className}`}>
-      {/* Seamless Video Container with Hardware Acceleration */}
+      {/* Seamless Video Container with Hardware Acceleration & Edge-Feather Masking */}
       <div
-        className="relative flex items-center justify-center shrink-0 overflow-hidden transform-gpu will-change-transform"
-        style={{ width: pixelSize, height: pixelSize }}
+        className="relative flex items-center justify-center shrink-0 overflow-hidden bg-transparent transform-gpu will-change-transform"
+        style={{
+          width: pixelSize,
+          height: pixelSize,
+          backgroundColor: 'transparent',
+          maskImage: 'radial-gradient(ellipse at center, black 65%, black 85%, transparent 100%)',
+          WebkitMaskImage: 'radial-gradient(ellipse at center, black 65%, black 85%, transparent 100%)',
+        }}
       >
         <video
           ref={videoRef}
@@ -151,9 +158,10 @@ export function VideoLoaderComponent({
           muted
           playsInline
           preload="metadata"
-          className="w-full h-full object-contain pointer-events-none mix-blend-multiply"
+          className="w-full h-full object-contain pointer-events-none mix-blend-multiply bg-transparent"
           style={{
-            filter: 'contrast(1.06) brightness(1.02)',
+            filter: 'contrast(1.22) brightness(1.06)',
+            backgroundColor: 'transparent',
           }}
         />
       </div>
@@ -170,10 +178,13 @@ export function VideoLoaderComponent({
       {showProgress && (
         <div className={`w-full ${barMaxWidth} flex flex-col items-center space-y-1.5 pt-0.5`}>
           {/* Progress Bar Track */}
-          <div className={`w-full bg-slate-100 ${barHeight} rounded-full overflow-hidden p-0.5 border border-slate-200/80 shadow-inner`}>
+          <div className={`w-full bg-slate-200/90 dark:bg-slate-700 ${barHeight} rounded-full overflow-hidden relative shadow-inner`}>
             <div
-              className="h-full bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-full transition-all duration-75 ease-out shadow-sm"
-              style={{ width: `${Math.min(Math.max(displayProgress, 0), 100)}%` }}
+              className="h-full bg-slate-950 dark:bg-white rounded-full transition-all duration-100 ease-out"
+              style={{
+                width: `${Math.min(Math.max(displayProgress, displayProgress > 0 ? 3 : 0), 100)}%`,
+                minWidth: displayProgress > 0 ? '4px' : '0px',
+              }}
             />
           </div>
 

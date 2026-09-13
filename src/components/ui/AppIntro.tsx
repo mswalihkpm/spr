@@ -188,9 +188,11 @@ export default function AppIntro({
       <div className="flex-1 flex flex-col items-center justify-center w-full px-4 space-y-4 sm:space-y-5">
         {/* Seamless Video Container */}
         <div
-          className="relative flex items-center justify-center shrink-0 overflow-hidden w-[85px] h-[85px] sm:w-[100px] sm:h-[100px] md:w-[115px] md:h-[115px] max-w-[50vw] max-h-[25vh]"
+          className="relative flex items-center justify-center shrink-0 overflow-hidden bg-transparent w-[85px] h-[85px] sm:w-[100px] sm:h-[100px] md:w-[115px] md:h-[115px] max-w-[50vw] max-h-[25vh]"
           style={{
-            backgroundColor: '#ffffff',
+            backgroundColor: 'transparent',
+            maskImage: 'radial-gradient(ellipse at center, black 65%, black 85%, transparent 100%)',
+            WebkitMaskImage: 'radial-gradient(ellipse at center, black 65%, black 85%, transparent 100%)',
           }}
         >
           <video
@@ -202,9 +204,10 @@ export default function AppIntro({
             preload="auto"
             disablePictureInPicture
             disableRemotePlayback
-            className="w-full h-full object-contain pointer-events-none mix-blend-multiply"
+            className="w-full h-full object-contain pointer-events-none mix-blend-multiply bg-transparent"
             style={{
-              filter: 'contrast(1.08) brightness(1.02)',
+              filter: 'contrast(1.22) brightness(1.06)',
+              backgroundColor: 'transparent',
             }}
           />
         </div>
@@ -212,10 +215,13 @@ export default function AppIntro({
         {/* Modern 0–100% Progress Bar Directly Underneath Video */}
         <div className="w-full max-w-[190px] sm:max-w-[220px] md:max-w-[240px] flex flex-col items-center space-y-2">
           {/* Progress Track */}
-          <div className="w-full bg-slate-100 h-1.5 sm:h-2 rounded-full overflow-hidden p-0.5 border border-slate-200/80 shadow-inner">
+          <div className="w-full bg-slate-200/90 h-2 sm:h-2.5 rounded-full overflow-hidden relative shadow-inner">
             <div
-              className="h-full bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-full transition-all duration-75 ease-out shadow-sm"
-              style={{ width: `${Math.min(Math.max(progress, 0), 100)}%` }}
+              className="h-full bg-slate-950 dark:bg-white rounded-full transition-all duration-100 ease-out"
+              style={{
+                width: `${Math.min(Math.max(progress, progress > 0 ? 3 : 0), 100)}%`,
+                minWidth: progress > 0 ? '4px' : '0px',
+              }}
             />
           </div>
 
