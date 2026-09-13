@@ -9,6 +9,7 @@ interface VideoLoaderProps {
   subtext?: string;
   className?: string;
   loop?: boolean;
+  progress?: number | null;
 }
 
 export function VideoLoaderComponent({
@@ -18,6 +19,7 @@ export function VideoLoaderComponent({
   subtext,
   className = '',
   loop = true,
+  progress,
 }: VideoLoaderProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -91,6 +93,21 @@ export function VideoLoaderComponent({
         <div className="text-center space-y-0.5 animate-pulse">
           <div className="text-xs sm:text-sm font-black text-slate-800 tracking-tight">{text}</div>
           {subtext && <div className="text-[10px] sm:text-xs text-slate-500 font-medium">{subtext}</div>}
+        </div>
+      )}
+
+      {/* Optional In-Component Progress Bar */}
+      {typeof progress === 'number' && (
+        <div className="w-full max-w-[160px] flex flex-col items-center space-y-1 pt-0.5">
+          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden p-0.5 border border-slate-200/80 shadow-inner">
+            <div
+              className="h-full bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-full transition-all duration-75 ease-out shadow-sm"
+              style={{ width: `${Math.min(Math.max(progress, 0), 100)}%` }}
+            />
+          </div>
+          <span className="text-[10px] font-bold text-slate-700 tabular-nums">
+            {Math.min(Math.max(Math.round(progress), 0), 100)}%
+          </span>
         </div>
       )}
     </div>
