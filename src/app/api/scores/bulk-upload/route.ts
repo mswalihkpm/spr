@@ -134,15 +134,64 @@ export async function POST(req: NextRequest) {
       if (s.fullName) studentMapByName.set(s.fullName.trim().toLowerCase(), s);
     });
 
+    // All subcategories for automatic matching
+    const allSubcategories = await prisma.subcategory.findMany({ include: { category: true } });
+
+    const resolveSubcategoryId = (festOrSubName?: string, explicitSubId?: string, catId?: string): string | null => {
+      if (explicitSubId) {
+        const matched = allSubcategories.find((s) => s.id === explicitSubId || s.code === explicitSubId);
+        if (matched) return matched.id;
+      }
+      if (!festOrSubName) return null;
+      const str = festOrSubName.trim().toLowerCase();
+
+      // Special match rules for festivals
+      if (str.includes('sahityotsav') || str.includes('sahithyotsav')) {
+        const sub = allSubcategories.find((s) => s.code === 'SAHITYOTSAV' || s.name.toLowerCase().includes('sahityotsav'));
+        if (sub) return sub.id;
+      }
+      if (str.includes('kalotsav') || str.includes('kalotsavam')) {
+        const sub = allSubcategories.find((s) => s.code === 'KALOTSAV' || s.name.toLowerCase().includes('kalotsav'));
+        if (sub) return sub.id;
+      }
+      if (str.includes('m-lit') || str.includes('mlit') || str.includes('m_lit')) {
+        const sub = allSubcategories.find((s) => s.code === 'M_LIT_FEST' || s.name.toLowerCase().includes('m-lit'));
+        if (sub) return sub.id;
+      }
+      if (str.includes('mahrajan') || str.includes('maharjan') || str.includes('jamia')) {
+        const sub = allSubcategories.find((s) => s.code === 'JAMIA_MAHARJAN' || s.name.toLowerCase().includes('mahr') || s.name.toLowerCase().includes('jamia'));
+        if (sub) return sub.id;
+      }
+      if (str.includes('shastramela')) {
+        const sub = allSubcategories.find((s) => s.code.startsWith('SHASTRAMELA') || s.name.toLowerCase().includes('shastramela'));
+        if (sub) return sub.id;
+      }
+
+      // Generic match by subcategory name/code
+      const generic = allSubcategories.find((s) => {
+        if (catId && s.categoryId !== catId) return false;
+        return s.name.toLowerCase() === str || s.code.toLowerCase() === str || str.includes(s.name.toLowerCase());
+      });
+      return generic?.id || null;
+    };
+
     // Subject cache to minimize database hits when auto-creating ontime subjects
     const subjectCache = new Map<string, string>();
     const existingSubjects = await prisma.subject.findMany({ where: { categoryId } });
     existingSubjects.forEach((s) => subjectCache.set(s.name.trim().toLowerCase(), s.id));
 
-    // Competition cache
+    // Event & Competition caches
+    const eventCache = new Map<string, string>();
+    const existingEvents = await prisma.literaryEvent.findMany();
+    existingEvents.forEach((e) => eventCache.set(e.name.trim().toLowerCase(), e.id));
+
     const competitionCache = new Map<string, string>();
-    const existingLitCompetitions = await prisma.literaryCompetition.findMany();
-    existingLitCompetitions.forEach((c) => competitionCache.set(c.name.trim().toLowerCase(), c.id));
+    const existingLitCompetitions = await prisma.literaryCompetition.findMany({ include: { event: true } });
+    existingLitCompetitions.forEach((c) => {
+      const eventName = (c.event?.name || 'Festival').trim().toLowerCase();
+      const compKey = `${eventName}:::${c.name.trim().toLowerCase()}:::${c.levelId || ''}`;
+      competitionCache.set(compKey, c.id);
+    });
 
     let successCount = 0;
     let errorCount = 0;
@@ -171,38 +220,64 @@ export async function POST(req: NextRequest) {
     };
 
     // Helper to resolve or create festival/programme competition on-the-fly
-    const getOrCreateCompetitionId = async (compName: string, festTitle: string = 'Festival', maxScoreVal: number = 100): Promise<{ isLit: boolean; id: string }> => {
+    const getOrCreateCompetitionId = async (
+      compName: string,
+      festTitle: string = 'Festival',
+      maxScoreVal: number = 100,
+      lvlId?: string | null
+    ): Promise<{ isLit: boolean; id: string; eventId: string; subcategoryId: string | null }> => {
       const cleanName = compName.trim();
-      const key = cleanName.toLowerCase();
-      if (competitionCache.has(key)) {
-        return { isLit: true, id: competitionCache.get(key)! };
+      const cleanFest = (festTitle || 'Festival').trim();
+      const targetLevelId = lvlId || resolvedLevelId || null;
+      const compKey = `${cleanFest.toLowerCase()}:::${cleanName.toLowerCase()}:::${targetLevelId || ''}`;
+
+      const resolvedSubId = resolveSubcategoryId(cleanFest, undefined, categoryId);
+
+      const festKey = cleanFest.toLowerCase();
+      let eventId = eventCache.get(festKey);
+      if (!eventId) {
+        let litEvent = await prisma.literaryEvent.findFirst({
+          where: { name: { equals: cleanFest, mode: 'insensitive' } },
+        });
+        if (!litEvent) {
+          const eventCode = `EVENT_${cleanFest.toUpperCase().replace(/[^A-Z0-9]/g, '_').slice(0, 15)}_${Date.now().toString(36).slice(-4).toUpperCase()}`;
+          litEvent = await prisma.literaryEvent.create({
+            data: {
+              name: cleanFest,
+              code: eventCode,
+              academicYearId: academicYearId || currentYear.id,
+            },
+          });
+        }
+        eventId = litEvent.id;
+        eventCache.set(festKey, eventId);
       }
 
-      // Check or create LiteraryEvent
-      let litEvent = await prisma.literaryEvent.findFirst({
-        where: { name: { contains: festTitle, mode: 'insensitive' } },
+      if (competitionCache.has(compKey)) {
+        return { isLit: true, id: competitionCache.get(compKey)!, eventId, subcategoryId: resolvedSubId };
+      }
+
+      let existingComp = await prisma.literaryCompetition.findFirst({
+        where: {
+          eventId,
+          name: { equals: cleanName, mode: 'insensitive' },
+          ...(targetLevelId ? { levelId: targetLevelId } : {}),
+        },
       });
-      if (!litEvent) {
-        const eventCode = `EVENT_${festTitle.toUpperCase().replace(/[^A-Z0-9]/g, '_').slice(0, 12)}_${Date.now().toString().slice(-3)}`;
-        litEvent = await prisma.literaryEvent.create({
+
+      if (!existingComp) {
+        existingComp = await prisma.literaryCompetition.create({
           data: {
-            name: festTitle,
-            code: eventCode,
-            academicYearId: academicYearId || currentYear.id,
+            name: cleanName,
+            eventId,
+            levelId: targetLevelId,
+            maxScore: maxScoreVal,
           },
         });
       }
 
-      const createdComp = await prisma.literaryCompetition.create({
-        data: {
-          name: cleanName,
-          eventId: litEvent.id,
-          levelId: resolvedLevelId,
-          maxScore: maxScoreVal,
-        },
-      });
-      competitionCache.set(key, createdComp.id);
-      return { isLit: true, id: createdComp.id };
+      competitionCache.set(compKey, existingComp.id);
+      return { isLit: true, id: existingComp.id, eventId, subcategoryId: resolvedSubId };
     };
 
     // --- PRE-RESOLVE / PRE-CREATE ON-THE-FLY SUBJECTS & COMPETITIONS BEFORE TRANSACTION ---
@@ -216,18 +291,18 @@ export async function POST(req: NextRequest) {
       if (row.programmeScores && Array.isArray(row.programmeScores)) {
         for (const prog of row.programmeScores) {
           const cName = prog.competitionName || prog.name;
-          if (cName) await getOrCreateCompetitionId(cName, prog.festivalName || prog.festName || 'Festival', Number(prog.maxScore) || 50);
+          if (cName) await getOrCreateCompetitionId(cName, prog.festivalName || prog.festName || festivalName || 'Festival', Number(prog.maxScore) || 50, prog.levelId || row.levelId || resolvedLevelId);
         }
       }
       if (row.subjectName) {
         await getOrCreateSubjectId(row.subjectName, Number(row.maxScore) || 100);
       }
       if (row.competitionName) {
-        await getOrCreateCompetitionId(row.competitionName, row.festivalName || festivalName || 'Festival', Number(row.maxScore) || 50);
+        await getOrCreateCompetitionId(row.competitionName, row.festivalName || festivalName || 'Festival', Number(row.maxScore) || 50, row.levelId || resolvedLevelId);
       }
     }
     if (subjectName) await getOrCreateSubjectId(subjectName, 100);
-    if (competitionName) await getOrCreateCompetitionId(competitionName, festivalName || 'Festival', 100);
+    if (competitionName) await getOrCreateCompetitionId(competitionName, festivalName || 'Festival', 100, resolvedLevelId);
 
     // Collect valid student records
     const studentRows: Array<{ student: (typeof allStudents)[0]; row: any; index: number }> = [];
@@ -253,7 +328,7 @@ export async function POST(req: NextRequest) {
       studentRows.push({ student, row, index: i });
     }
 
-    // Pre-fetch all existing performance records for these students in this category & term in ONE single query
+    // Pre-fetch all existing performance records for these students in this category & term
     const matchedStudentIds = Array.from(new Set(studentRows.map((s) => s.student.id)));
     const activeTermId = termId || currentTerm.id;
     const activeYearId = academicYearId || currentYear.id;
@@ -274,25 +349,23 @@ export async function POST(req: NextRequest) {
 
     const writeActions: WriteAction[] = [];
 
-    const findExisting = (
+    const findExistingSubjectRecord = (
       studentId: string,
-      subId?: string | null,
-      litCompId?: string | null,
+      subId: string,
       eId?: string | null
     ) => {
       return existingRecords.find((r) => {
         if (r.studentId !== studentId) return false;
         if (r.categoryId !== categoryId) return false;
         if (r.termId !== activeTermId) return false;
-        if (subId && r.subjectId !== subId) return false;
-        if (litCompId && r.literaryCompetitionId !== litCompId) return false;
+        if (r.subjectId !== subId) return false;
         if (eId && r.examId && r.examId !== eId) return false;
         return true;
       });
     };
 
     for (const { student, row, index } of studentRows) {
-      // Case A: Multi-Subject / Multi-Programme columns (e.g. subjectScores array or scores object)
+      // Case A: Multi-Subject columns (e.g. subjectScores array)
       if (row.subjectScores && Array.isArray(row.subjectScores) && row.subjectScores.length > 0) {
         for (const subEntry of row.subjectScores) {
           const rawScore = subEntry.score ?? subEntry.obtainedScore ?? subEntry.marks;
@@ -306,7 +379,7 @@ export async function POST(req: NextRequest) {
           const targetSubjectName = subEntry.subjectName || subEntry.name || 'Subject';
           const subId = await getOrCreateSubjectId(targetSubjectName, maxScore);
 
-          const existing = findExisting(student.id, subId, null, resolvedExamId);
+          const existing = findExistingSubjectRecord(student.id, subId, resolvedExamId);
 
           if (existing) {
             writeActions.push({
@@ -338,30 +411,6 @@ export async function POST(req: NextRequest) {
                 createdById: user?.id,
               },
             });
-            // Register stub in existingRecords to prevent duplicate creates if student+subject is repeated
-            existingRecords.push({
-              id: `temp_${Date.now()}_${Math.random()}`,
-              studentId: student.id,
-              categoryId,
-              subjectId: subId,
-              examId: resolvedExamId,
-              levelId: resolvedLevelId,
-              termId: activeTermId,
-              academicYearId: activeYearId,
-              obtainedScore,
-              maxScore,
-              percentage,
-              remarks: subEntry.remarks || row.remarks || null,
-              createdById: user?.id,
-              updatedById: null,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-              subcategoryId: null,
-              eventId: null,
-              competitionId: null,
-              literaryCompetitionId: null,
-              date: new Date(),
-            } as any);
           }
         }
         continue;
@@ -379,55 +428,21 @@ export async function POST(req: NextRequest) {
           const maxScore = Number(progEntry.maxScore) || 50;
           const percentage = normalizeScoreToPercentage(obtainedScore, maxScore);
           const eventName = progEntry.competitionName || progEntry.name || 'Event';
-          const festTitle = progEntry.festivalName || progEntry.festName || 'Festival';
+          const festTitle = progEntry.festivalName || progEntry.festName || festivalName || 'Festival';
+          const entryLevelId = progEntry.levelId || row.levelId || resolvedLevelId;
 
-          const compInfo = await getOrCreateCompetitionId(eventName, festTitle, maxScore);
+          const compInfo = await getOrCreateCompetitionId(eventName, festTitle, maxScore, entryLevelId);
+          const activeSubId = progEntry.subcategoryId || row.subcategoryId || compInfo.subcategoryId;
 
-          const existing = findExisting(student.id, null, compInfo.id, null);
-
-          if (existing) {
-            writeActions.push({
-              type: 'UPDATE',
-              id: existing.id,
-              data: {
-                obtainedScore,
-                maxScore,
-                percentage,
-                position: progEntry.position || row.position || existing.position,
-                grade: progEntry.grade || row.grade || existing.grade,
-                levelId: progEntry.levelId || row.levelId || resolvedLevelId || existing.levelId,
-                remarks: progEntry.remarks || row.remarks || existing.remarks,
-                updatedById: user?.id,
-              },
-            });
-          } else {
-            writeActions.push({
-              type: 'CREATE',
-              data: {
-                studentId: student.id,
-                categoryId,
-                literaryCompetitionId: compInfo.id,
-                levelId: progEntry.levelId || row.levelId || resolvedLevelId,
-                position: progEntry.position || row.position || null,
-                grade: progEntry.grade || row.grade || null,
-                termId: activeTermId,
-                academicYearId: activeYearId,
-                obtainedScore,
-                maxScore,
-                percentage,
-                remarks: progEntry.remarks || row.remarks || `${festTitle} - ${eventName}`,
-                createdById: user?.id,
-              },
-            });
-            existingRecords.push({
-              id: `temp_${Date.now()}_${Math.random()}`,
+          // Always create as separate distinct performance record for each competition award
+          writeActions.push({
+            type: 'CREATE',
+            data: {
               studentId: student.id,
               categoryId,
-              subjectId: null,
-              examId: null,
+              subcategoryId: activeSubId,
               literaryCompetitionId: compInfo.id,
-              competitionId: null,
-              levelId: progEntry.levelId || row.levelId || resolvedLevelId,
+              levelId: entryLevelId,
               position: progEntry.position || row.position || null,
               grade: progEntry.grade || row.grade || null,
               termId: activeTermId,
@@ -437,19 +452,13 @@ export async function POST(req: NextRequest) {
               percentage,
               remarks: progEntry.remarks || row.remarks || `${festTitle} - ${eventName}`,
               createdById: user?.id,
-              updatedById: null,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-              subcategoryId: null,
-              eventId: null,
-              date: new Date(),
-            } as any);
-          }
+            },
+          });
         }
         continue;
       }
 
-      // Case C: Single Score Row with dynamic on-the-fly subject/programme
+      // Case C: Single Score Row
       const rawScore = row.score !== undefined ? row.score : row.marks || row.obtainedScore;
       const obtainedScore = Number(rawScore);
 
@@ -468,30 +477,76 @@ export async function POST(req: NextRequest) {
       }
 
       let activeLitCompId = literaryCompetitionId || row.literaryCompetitionId || null;
-      if (!activeLitCompId && (row.competitionName || competitionName)) {
-        const compInfo = await getOrCreateCompetitionId(row.competitionName || competitionName, row.festivalName || festivalName || 'Festival', maxScore);
+      let resolvedSubId: string | null = row.subcategoryId || null;
+
+      const targetFestName = row.festivalName || festivalName || '';
+      const targetCompName = row.competitionName || competitionName || '';
+
+      if (!activeLitCompId && targetCompName) {
+        const compInfo = await getOrCreateCompetitionId(targetCompName, targetFestName || 'Festival', maxScore, row.levelId || resolvedLevelId);
         activeLitCompId = compInfo.id;
+        if (!resolvedSubId) resolvedSubId = compInfo.subcategoryId;
       }
 
-      const existing = findExisting(student.id, activeSubjectId, activeLitCompId, resolvedExamId);
+      if (!resolvedSubId && targetFestName) {
+        resolvedSubId = resolveSubcategoryId(targetFestName, undefined, categoryId);
+      }
 
-      if (existing) {
+      // If explicit record ID is provided (e.g. from an edit action), perform update
+      if (row.id && typeof row.id === 'string' && !row.id.startsWith('temp_')) {
         writeActions.push({
           type: 'UPDATE',
-          id: existing.id,
+          id: row.id,
           data: {
             obtainedScore,
             maxScore,
             percentage,
-            levelId: row.levelId || resolvedLevelId || existing.levelId,
-            subcategoryId: row.subcategoryId || existing.subcategoryId,
-            position: row.position !== undefined ? row.position : existing.position,
-            grade: row.grade !== undefined ? row.grade : existing.grade,
-            remarks: row.remarks || existing.remarks,
+            levelId: row.levelId || resolvedLevelId,
+            subcategoryId: resolvedSubId,
+            position: row.position !== undefined ? row.position : undefined,
+            grade: row.grade !== undefined ? row.grade : undefined,
+            remarks: row.remarks !== undefined ? row.remarks : undefined,
             updatedById: user?.id,
           },
         });
+      } else if (activeSubjectId && resolvedExamId) {
+        // Academic exam subject: update existing subject mark if present
+        const existing = findExistingSubjectRecord(student.id, activeSubjectId, resolvedExamId);
+        if (existing) {
+          writeActions.push({
+            type: 'UPDATE',
+            id: existing.id,
+            data: {
+              obtainedScore,
+              maxScore,
+              percentage,
+              remarks: row.remarks || existing.remarks,
+              updatedById: user?.id,
+            },
+          });
+        } else {
+          writeActions.push({
+            type: 'CREATE',
+            data: {
+              studentId: student.id,
+              categoryId,
+              examId: resolvedExamId,
+              subjectId: activeSubjectId,
+              subcategoryId: resolvedSubId,
+              levelId: row.levelId || resolvedLevelId,
+              termId: activeTermId,
+              academicYearId: activeYearId,
+              obtainedScore,
+              maxScore,
+              percentage,
+              date: row.date ? new Date(row.date) : new Date(),
+              remarks: row.remarks || null,
+              createdById: user?.id,
+            },
+          });
+        }
       } else {
+        // Competition / Festival Award / Milestone: Always create as separate distinct record!
         writeActions.push({
           type: 'CREATE',
           data: {
@@ -499,7 +554,7 @@ export async function POST(req: NextRequest) {
             categoryId,
             examId: resolvedExamId,
             subjectId: activeSubjectId,
-            subcategoryId: row.subcategoryId || null,
+            subcategoryId: resolvedSubId,
             literaryCompetitionId: activeLitCompId,
             levelId: row.levelId || resolvedLevelId,
             position: row.position || null,
@@ -510,33 +565,10 @@ export async function POST(req: NextRequest) {
             maxScore,
             percentage,
             date: row.date ? new Date(row.date) : new Date(),
-            remarks: row.remarks || null,
+            remarks: row.remarks || (targetFestName && targetCompName ? `${targetFestName} - ${targetCompName}` : null),
             createdById: user?.id,
           },
         });
-        existingRecords.push({
-          id: `temp_${Date.now()}_${Math.random()}`,
-          studentId: student.id,
-          categoryId,
-          examId: resolvedExamId,
-          subjectId: activeSubjectId,
-          literaryCompetitionId: activeLitCompId,
-          competitionId: null,
-          levelId: resolvedLevelId,
-          termId: activeTermId,
-          academicYearId: activeYearId,
-          obtainedScore,
-          maxScore,
-          percentage,
-          remarks: row.remarks || null,
-          createdById: user?.id,
-          updatedById: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          subcategoryId: null,
-          eventId: null,
-          date: new Date(),
-        } as any);
       }
     }
 

@@ -56,13 +56,14 @@ export async function GET(req: NextRequest) {
           },
         },
         category: true,
+        subcategory: true,
         subject: true,
         exam: true,
         competition: {
           include: { program: true },
         },
         literaryCompetition: {
-          include: { event: true },
+          include: { event: true, level: true },
         },
         level: true,
       },
@@ -323,7 +324,7 @@ export async function PUT(req: NextRequest) {
     if (errorResponse) return errorResponse;
 
     const body = await req.json();
-    const { id, obtainedScore, score, maxScore, remarks, levelId, position, grade, date, subjectId, examId } = body;
+    const { id, obtainedScore, score, maxScore, remarks, levelId, position, grade, date, subjectId, examId, subcategoryId } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Score record ID is required.' }, { status: 400 });
@@ -352,6 +353,7 @@ export async function PUT(req: NextRequest) {
         ...(position !== undefined ? { position } : {}),
         ...(grade !== undefined ? { grade } : {}),
         ...(levelId !== undefined ? { levelId } : {}),
+        ...(subcategoryId !== undefined ? { subcategoryId } : {}),
         ...(subjectId !== undefined ? { subjectId } : {}),
         ...(examId !== undefined ? { examId } : {}),
         ...(date ? { date: new Date(date) } : {}),

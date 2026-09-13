@@ -780,7 +780,9 @@ export async function calculateStudentSPR(
         id: r.id,
         categoryName: r.category.name,
         categoryCode: r.category.code,
-        festName: r.literaryCompetition?.event?.name || r.competition?.program?.name || 'Festival / Program',
+        subCategoryId: r.subcategoryId,
+        subCategoryName: r.subcategory?.name || r.literaryCompetition?.event?.name || 'Festival',
+        festName: r.literaryCompetition?.event?.name || r.competition?.program?.name || r.subcategory?.name || 'Festival / Program',
         competitionName: r.literaryCompetition?.name || r.competition?.name || 'Competition Event',
         levelName: r.level?.name || 'Campus',
         levelMultiplier: lvlMult,
@@ -794,6 +796,7 @@ export async function calculateStudentSPR(
         maxScore: r.maxScore,
         percentage: r.percentage,
         remarks: r.remarks,
+        date: r.date ? r.date.toISOString() : null,
       };
     });
 
@@ -1010,21 +1013,23 @@ export async function calculateAllLeaderboards(filters?: {
     if (filters?.fest) {
       const festTarget = filters.fest.toUpperCase();
       const festRecords = (student.performanceRecords as any[]).filter((r) => {
+        const subName = (r.subcategory?.name || '').toUpperCase();
+        const subCode = (r.subcategory?.code || '').toUpperCase();
         const eventName = (r.literaryCompetition?.event?.name || r.competition?.program?.name || '').toUpperCase();
         const compName = (r.literaryCompetition?.name || r.competition?.name || '').toUpperCase();
         const remarks = (r.remarks || '').toUpperCase();
 
         if (festTarget.includes('SAHITYOTSAV') || festTarget.includes('SAHITHYOTSAV')) {
-          return eventName.includes('SAHITYOTSAV') || compName.includes('SAHITYOTSAV') || remarks.includes('SAHITYOTSAV');
+          return subCode.includes('SAHITYOTSAV') || subName.includes('SAHITYOTSAV') || eventName.includes('SAHITYOTSAV') || compName.includes('SAHITYOTSAV') || remarks.includes('SAHITYOTSAV');
         }
         if (festTarget.includes('KALOTSAV')) {
-          return eventName.includes('KALOTSAV') || compName.includes('KALOTSAV') || remarks.includes('KALOTSAV') || compName.includes('KERALA SCHOOL');
+          return subCode.includes('KALOTSAV') || subName.includes('KALOTSAV') || eventName.includes('KALOTSAV') || compName.includes('KALOTSAV') || remarks.includes('KALOTSAV') || compName.includes('KERALA SCHOOL');
         }
         if (festTarget.includes('M_LIT') || festTarget.includes('M-LIT') || festTarget.includes('MLIT')) {
-          return eventName.includes('M-LIT') || compName.includes('M-LIT') || remarks.includes('M-LIT') || eventName.includes('MLIT');
+          return subCode.includes('M_LIT') || subName.includes('M-LIT') || eventName.includes('M-LIT') || compName.includes('M-LIT') || remarks.includes('M-LIT') || eventName.includes('MLIT');
         }
         if (festTarget.includes('MAHRAJAN') || festTarget.includes('JAMIA')) {
-          return eventName.includes('MAHRAJAN') || compName.includes('MAHRAJAN') || remarks.includes('MAHRAJAN') || eventName.includes('MAHARJAN');
+          return subCode.includes('JAMIA') || subCode.includes('MAHARJAN') || subName.includes('MAHRAJAN') || eventName.includes('MAHRAJAN') || compName.includes('MAHRAJAN') || remarks.includes('MAHRAJAN') || eventName.includes('MAHARJAN');
         }
         return false;
       });
@@ -1042,22 +1047,6 @@ export async function calculateAllLeaderboards(filters?: {
         });
         festScore = Number(fSum.toFixed(2));
         festRecordsCount = festRecords.length;
-      } else {
-        const litRecords = student.performanceRecords.filter((r) => r.category?.code === 'LITERARY');
-        if (litRecords.length > 0) {
-          let fSum = 0;
-          litRecords.forEach((r) => {
-            const mult = resolveLevelMultiplier(r.level, levelsList);
-            const prizeMult = resolvePrizeMultiplier(r.position);
-            const prizeBase = resolvePrizeBaseScore(r.position, settings);
-            const base = typeof r.obtainedScore === 'number' && !isNaN(r.obtainedScore)
-              ? r.obtainedScore
-              : (prizeBase > 0 ? prizeBase : 50);
-            fSum += (base * prizeMult * mult);
-          });
-          festScore = Number(fSum.toFixed(2));
-          festRecordsCount = litRecords.length;
-        }
       }
     }
 

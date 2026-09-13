@@ -28,6 +28,26 @@ import { getAcademicMasterData } from '@/lib/academic-client';
 import SearchableStudentSelect from '@/components/ui/SearchableStudentSelect';
 import CustomSelect from '@/components/ui/CustomSelect';
 
+const resolveLevelMultiplier = (lvl: any, levelsList: any[]): number => {
+  if (!lvl) return 1.0;
+  if (typeof lvl.weightMultiplier === 'number' && lvl.weightMultiplier > 0) {
+    return lvl.weightMultiplier;
+  }
+  const lvlCode = (lvl.code || lvl.name || '').toUpperCase();
+  const matched = levelsList.find(
+    (l) => l.code?.toUpperCase() === lvlCode || l.name?.toUpperCase() === lvlCode || l.id === lvl.id
+  );
+  return matched?.weightMultiplier || 1.0;
+};
+
+const resolvePrizeMultiplier = (position: string | null | undefined): number => {
+  const pos = (position || '').trim().toLowerCase();
+  if (pos.startsWith('1') || pos.includes('first')) return 2.0;
+  if (pos.startsWith('2') || pos.includes('second')) return 1.5;
+  if (pos.startsWith('3') || pos.includes('third')) return 1.0;
+  return 1.0;
+};
+
 const formatPoints = (val: number): string => (Number.isInteger(val) ? val.toString() : val.toFixed(2));
 
 interface DynamicActivity {
@@ -694,9 +714,9 @@ export default function ProgramsPage() {
                   </th>
                   <th className="py-2.5 px-4">Student</th>
                   <th className="py-2.5 px-4">Class & School</th>
-                  <th className="py-2.5 px-4">Event / Details</th>
+                  <th className="py-2.5 px-4">Program / Activity</th>
                   <th className="py-2.5 px-4">Level</th>
-                  <th className="py-2.5 px-4 text-right">Percentage</th>
+                  <th className="py-2.5 px-4 text-right">Score & SPR Points</th>
                   <th className="py-2.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -716,8 +736,15 @@ export default function ProgramsPage() {
                 ) : (
                   recentRecords.map((r: any) => {
                     const isSelected = selectedRecordIds.includes(r.id);
+                    const lvlMult = resolveLevelMultiplier(r.level, levels);
+                    const prizeMult = resolvePrizeMultiplier(r.position);
+                    const baseScore = typeof r.obtainedScore === 'number' ? r.obtainedScore : 0;
+                    const earnedPts = Number((baseScore * prizeMult * lvlMult).toFixed(2));
+                    const progName = r.competition?.program?.name || (r.remarks && r.remarks.includes('-') ? r.remarks.split('-')[0].trim() : 'Program / Event');
+                    const compName = r.competition?.name || (r.remarks && r.remarks.includes('-') ? r.remarks.split('-')[1]?.split('.')[0]?.trim() : r.remarks) || 'Activity';
+
                     return (
-                      <tr key={r.id} className={`hover:bg-slate-50 ${isSelected ? 'bg-rose-50/50' : ''}`}>
+                      <tr key={r.id} className={`hover:bg-slate-50 transition-colors ${isSelected ? 'bg-amber-50/50' : ''}`}>
                         <td className="py-2.5 px-4 text-center">
                           <input
                             type="checkbox"
@@ -726,20 +753,53 @@ export default function ProgramsPage() {
                             className="w-4 h-4 rounded text-blue-600 focus:ring-blue-600 cursor-pointer"
                           />
                         </td>
-                        <td className="py-2.5 px-4 font-bold text-slate-900">{r.student?.fullName}</td>
-                        <td className="py-2.5 px-4 text-slate-600">
-                          {r.student?.class?.name} • {r.student?.school?.name}
+                        <td className="py-2.5 px-4">
+                          <div className="font-bold text-slate-900">{r.student?.fullName}</div>
+                          {r.student?.sprStudentId && (
+                            <span className="text-[10px] font-mono text-slate-400">{r.student?.sprStudentId}</span>
+                          )}
                         </td>
-                        <td className="py-2.5 px-4 text-slate-700">
-                          {r.competition?.name || r.remarks || 'Talent Olympiad'}
+                        <td className="py-2.5 px-4 text-slate-600">
+                          <div>{r.student?.class?.name || 'Class'}</div>
+                          <div className="text-[10px] text-slate-400">{r.student?.school?.name || ''}</div>
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold border bg-amber-100 text-amber-900 border-amber-300 inline-flex items-center space-x-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                <span>{progName}</span>
+                              </span>
+                              {r.position && (
+                                <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                  {r.position} ({prizeMult}x)
+                                </span>
+                              )}
+                              {r.grade && (
+                                <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                                  Grade {r.grade}
+                                </span>
+                              )}
+                            </div>
+                            <div className="font-bold text-slate-900 text-xs tracking-tight uppercase">
+                              {compName}
+                            </div>
+                          </div>
                         </td>
                         <td className="py-2.5 px-4">
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                            {r.level?.name || 'Campus'}
+                            {r.level?.name || 'Campus'} ({lvlMult}x)
                           </span>
                         </td>
-                        <td className="py-2.5 px-4 text-right font-extrabold text-madin-900">
-                          {r.percentage}%
+                        <td className="py-2.5 px-4 text-right">
+                          <div className="space-y-0.5">
+                            <div className="font-mono font-black text-amber-900 text-xs sm:text-sm">
+                              +{formatPoints(earnedPts)} pts
+                            </div>
+                            <div className="text-[10px] text-slate-500 font-medium">
+                              Score: {r.obtainedScore || 0} ({r.percentage || 0}%)
+                            </div>
+                          </div>
                         </td>
                         <td className="py-2.5 px-4 text-right">
                           <div className="flex items-center justify-end space-x-1">

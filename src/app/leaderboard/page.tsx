@@ -309,6 +309,43 @@ function LeaderboardContent() {
     return fixed.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   };
 
+  const getFestivalBadgeStyle = (festName: string) => {
+    const lower = (festName || '').toLowerCase();
+    if (lower.includes('sahityotsav') || lower.includes('sahithyotsav')) {
+      return {
+        bg: 'bg-rose-100 text-rose-900 border-rose-300',
+        dot: 'bg-rose-500',
+        label: 'Sahityotsav',
+      };
+    }
+    if (lower.includes('kalotsav')) {
+      return {
+        bg: 'bg-blue-100 text-blue-900 border-blue-300',
+        dot: 'bg-blue-500',
+        label: 'Kalotsavam',
+      };
+    }
+    if (lower.includes('m-lit') || lower.includes('mlit')) {
+      return {
+        bg: 'bg-emerald-100 text-emerald-900 border-emerald-300',
+        dot: 'bg-emerald-500',
+        label: 'M-Lit Fest',
+      };
+    }
+    if (lower.includes('mahrajan') || lower.includes('jamia')) {
+      return {
+        bg: 'bg-amber-100 text-amber-900 border-amber-300',
+        dot: 'bg-amber-500',
+        label: 'Jamia Mahrajan',
+      };
+    }
+    return {
+      bg: 'bg-purple-100 text-purple-900 border-purple-300',
+      dot: 'bg-purple-500',
+      label: festName || 'Festival',
+    };
+  };
+
   // Format Class to show ONLY number (e.g., "Class 8" -> "8", "Class 10" -> "10")
   const formatClassNumber = (val?: string) => {
     if (!val) return '';
@@ -935,11 +972,13 @@ function LeaderboardContent() {
 
         {/* Dynamic Themed Subcategory Hero Banner (With Logo at Left Top, Name at Left Top, Tiny White Glow) */}
         <div
-          className={`relative overflow-hidden rounded-3xl p-5 sm:p-7 shadow-xl border ${heroTheme.borderColor} ${heroTheme.bgGradient} text-white animate-slide-up`}
+          className={`relative rounded-3xl p-5 sm:p-7 shadow-xl border ${heroTheme.borderColor} ${heroTheme.bgGradient} text-white animate-slide-up z-20`}
         >
           {/* Subtle Ambient Tiny White Glow Effect */}
-          <div className="absolute top-0 left-0 w-80 h-80 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.28),transparent_70%)] pointer-events-none" />
-          <div className="absolute bottom-0 right-0 w-64 h-64 bg-[radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.15),transparent_70%)] pointer-events-none" />
+          <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+            <div className="absolute top-0 left-0 w-80 h-80 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.28),transparent_70%)] pointer-events-none" />
+            <div className="absolute bottom-0 right-0 w-64 h-64 bg-[radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.15),transparent_70%)] pointer-events-none" />
+          </div>
 
           <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
             {/* Fixed Subcategory Logo at Left Top & Name at Left Top */}
@@ -1601,35 +1640,53 @@ function LeaderboardContent() {
                     </div>
                   )}
 
-                  {/* 3. PROGRAMMES & FESTS BREAKDOWN (%) */}
+                  {/* 3. PROGRAMMES & FESTS BREAKDOWN (POINTS & FORMULA) */}
                   {modalCalcTab === 'PROGRAMMES' && (
                     <div className="space-y-2.5 animate-fade-in max-h-64 overflow-y-auto pr-1">
-                      <div className="p-2.5 bg-purple-50 rounded-xl border border-purple-200 text-[11px] text-purple-900 font-medium">
-                        🎭 <strong>Fest & Event Evaluation:</strong> Standardized percentage score out of 100%.
+                      <div className="p-2.5 bg-rose-50 rounded-xl border border-rose-200 text-[11px] text-rose-900 font-medium">
+                        🎭 <strong>Competitions & Festival Results:</strong> Multiplied by position award (1st 2x, 2nd 1.5x, 3rd 1x) and competition level.
                       </div>
                       {studentProfile.programmeWiseRecords && studentProfile.programmeWiseRecords.length > 0 ? (
-                        studentProfile.programmeWiseRecords.map((r: any, idx: number) => (
-                          <div key={r.id || idx} className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs hover:bg-slate-100/70 transition">
-                            <div className="space-y-1 min-w-0">
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <span className="font-bold text-slate-900 text-xs sm:text-sm">{r.competitionName}</span>
-                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-100 text-purple-900 border border-purple-200">
-                                  Category: {r.categoryName}
-                                </span>
+                        studentProfile.programmeWiseRecords.map((r: any, idx: number) => {
+                          const festBadge = getFestivalBadgeStyle(r.subCategoryName || r.festName);
+                          const earned = typeof r.earnedPoints === 'number' ? r.earnedPoints : (r.obtainedScore || 0);
+                          return (
+                            <div key={r.id || idx} className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs hover:bg-slate-100/70 transition">
+                              <div className="space-y-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold border inline-flex items-center space-x-1 ${festBadge.bg}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${festBadge.dot}`}></span>
+                                    <span>{r.subCategoryName || r.festName || 'Festival'}</span>
+                                  </span>
+                                  <span className="font-bold text-slate-900 text-xs sm:text-sm">{r.competitionName}</span>
+                                  {r.position && (
+                                    <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                      {r.position} ({r.prizeMultiplier || (r.position.startsWith('1') ? 2 : r.position.startsWith('2') ? 1.5 : 1)}x)
+                                    </span>
+                                  )}
+                                  {r.grade && (
+                                    <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                                      Grade {r.grade}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] text-slate-500 font-medium">
+                                  <span>Level: <span className="font-semibold text-slate-700">{r.levelName || 'Campus'} ({r.levelMultiplier || 1}x)</span></span>
+                                  <span className="ml-2 text-slate-400">• Score Awarded: <span className="font-semibold text-slate-700">{r.obtainedScore || 0}</span></span>
+                                </div>
+                                {r.remarks && <div className="text-[10px] text-emerald-700 italic">{r.remarks}</div>}
                               </div>
-                              <div className="text-[11px] text-slate-500 font-medium">
-                                Fest / Program: <span className="font-semibold text-slate-700">{r.festName}</span>
-                                <span className="ml-1.5 text-slate-400">• Level: <span className="font-semibold text-slate-700">{r.levelName}</span></span>
+                              <div className="text-right shrink-0 ml-3">
+                                <div className="font-mono font-black text-rose-900 text-sm sm:text-base">
+                                  +{formatScore(earned)} pts
+                                </div>
+                                <div className="text-[9.5px] font-mono text-slate-400">
+                                  {r.obtainedScore || 0} × {r.prizeMultiplier || 1} × {r.levelMultiplier || 1}
+                                </div>
                               </div>
-                              {r.remarks && <div className="text-[10px] text-emerald-700 italic">{r.remarks}</div>}
                             </div>
-                            <div className="text-right shrink-0 ml-3">
-                              <div className="font-mono font-extrabold text-purple-700 text-sm sm:text-base">
-                                {r.percentage.toFixed(1)}%
-                              </div>
-                            </div>
-                          </div>
-                        ))
+                          );
+                        })
                       ) : (
                         <div className="py-6 text-center text-xs text-slate-500 bg-slate-50 rounded-xl border border-slate-200">
                           No direct festival records logged. Aggregated under the Literary / Programs SPR category score.
