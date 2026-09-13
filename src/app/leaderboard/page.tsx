@@ -75,7 +75,7 @@ function LeaderboardContent() {
   // Sync parameters from URL query changes
   useEffect(() => {
     let catParam = searchParams.get('categoryId') || searchParams.get('cat') || '';
-    const subParam = searchParams.get('subcategoryId') || searchParams.get('sub') || '';
+    let subParam = searchParams.get('subcategoryId') || searchParams.get('sub') || '';
     const streamParam = searchParams.get('stream') || '';
     const festParam = searchParams.get('fest') || '';
 
@@ -85,13 +85,27 @@ function LeaderboardContent() {
       if (matched) catParam = matched.id;
     }
 
+    // If festival alias is present in URL, map directly to corresponding subcategory
+    if (festParam && subcategories.length > 0 && !subParam) {
+      const matchedSub = subcategories.find((s) => {
+        const sName = s.name.toLowerCase();
+        const sCode = s.code.toLowerCase();
+        const f = festParam.toLowerCase();
+        return sCode === f || sName.includes(f) || f.includes(sName) || (f.includes('kalotsav') && sName.includes('kalotsav')) || (f.includes('mahr') && sName.includes('mahr'));
+      });
+      if (matchedSub) {
+        subParam = matchedSub.id;
+        if (!catParam && matchedSub.categoryId) catParam = matchedSub.categoryId;
+      }
+    }
+
     setSelectedCategory(catParam);
     setSelectedSubcategory(subParam);
     setSelectedStream(streamParam);
-    setSelectedFest(festParam);
+    setSelectedFest(festParam && !subParam ? festParam : '');
 
     // Set sensible default calculation tab based on active view
-    if (festParam) {
+    if (festParam || subParam) {
       setModalCalcTab('PROGRAMMES');
     } else if (streamParam || catParam) {
       const isExamCat = catParam && categories.find((c) => c.id === catParam)?.code === 'SCHOOL';
@@ -103,7 +117,7 @@ function LeaderboardContent() {
     } else {
       setModalCalcTab('OVERALL');
     }
-  }, [searchParams, categories]);
+  }, [searchParams, categories, subcategories]);
 
   // Fetch reference master data & subcategories with instant memory load
   useEffect(() => {
@@ -471,65 +485,118 @@ function LeaderboardContent() {
   };
 
   if (activeSubcategory) {
-    heroTheme = {
-      bgGradient: 'bg-gradient-to-r from-[#1e1b4b] via-[#312e81] to-[#4338ca]',
-      glowColor: 'from-white/30 via-indigo-300/15 to-transparent',
-      borderColor: 'border-indigo-400/40',
-      title: `${activeSubcategory.name} Leaderboard`,
-      subtitle: `Dedicated performance benchmarks and evaluation standings for ${activeSubcategory.name}.`,
-      badge: `${currentCategory?.name || 'Category'} Subcategory`,
-      badgeClass: 'bg-indigo-500/25 text-indigo-100 border-indigo-300/40',
-      logo: activeSubcategory.logoUrl || '/logo.png',
-      isFest: false,
-    };
-  } else if (selectedFest === 'SAHITYOTSAV') {
-    heroTheme = {
-      bgGradient: 'bg-gradient-to-r from-[#500724] via-[#881337] to-[#be123c]',
-      glowColor: 'from-white/30 via-rose-300/15 to-transparent',
-      borderColor: 'border-rose-400/40',
-      title: 'Sahityotsav Festival Leaderboard',
-      subtitle: 'Literary & Arts Competitions: Malayalam, English, Arabic, and Urdu cultural events.',
-      badge: 'Literary Festival Subcategory',
-      badgeClass: 'bg-rose-500/25 text-rose-100 border-rose-300/40',
-      logo: '/sahityotsav.png',
-      isFest: true,
-    };
-  } else if (selectedFest === 'KALOTSAV') {
-    heroTheme = {
-      bgGradient: 'bg-gradient-to-r from-[#172554] via-[#1d4ed8] to-[#b91c1c]',
-      glowColor: 'from-white/30 via-sky-300/15 to-transparent',
-      borderColor: 'border-blue-400/40',
-      title: 'Kerala School Kalotsavam Leaderboard',
-      subtitle: 'State & District School Youth Arts Festival performance benchmarks and stage honors.',
-      badge: 'Arts Kalotsavam Subcategory',
-      badgeClass: 'bg-blue-500/25 text-blue-100 border-blue-300/40',
-      logo: '/kalotsav.png',
-      isFest: true,
-    };
-  } else if (selectedFest === 'M_LIT' || selectedFest === 'M-LIT') {
-    heroTheme = {
-      bgGradient: 'bg-gradient-to-r from-[#07192f] via-[#0f2942] to-[#047857]',
-      glowColor: 'from-white/30 via-emerald-300/15 to-transparent',
-      borderColor: 'border-emerald-400/40',
-      title: 'M-Lit Fest Leaderboard',
-      subtitle: 'Ma\'din Campus Literature & Creative Arts Festival with multi-tier stage scoring.',
-      badge: 'M-Lit Fest Subcategory',
-      badgeClass: 'bg-emerald-500/25 text-emerald-100 border-emerald-300/40',
-      logo: '/m-lit.png',
-      isFest: true,
-    };
-  } else if (selectedFest === 'JAMIA_MAHRAJAN' || selectedFest === 'MAHRAJAN') {
-    heroTheme = {
-      bgGradient: 'bg-gradient-to-r from-[#451a03] via-[#78350f] to-[#d97706]',
-      glowColor: 'from-white/30 via-amber-300/15 to-transparent',
-      borderColor: 'border-amber-400/40',
-      title: 'Jamia Mahrajan National Fest Leaderboard',
-      subtitle: 'National cultural & academic festival evaluations, debate tournaments, and grand trophies.',
-      badge: 'Jamia Mahrajan Subcategory',
-      badgeClass: 'bg-amber-500/25 text-amber-100 border-amber-300/40',
-      logo: '/jamia-mahrajan.png',
-      isFest: true,
-    };
+    const sName = (activeSubcategory.name || '').toLowerCase();
+    const sCode = (activeSubcategory.code || '').toLowerCase();
+
+    if (sName.includes('sahityotsav') || sCode.includes('sahityotsav')) {
+      heroTheme = {
+        bgGradient: 'bg-gradient-to-r from-[#500724] via-[#881337] to-[#be123c]',
+        glowColor: 'from-white/30 via-rose-300/15 to-transparent',
+        borderColor: 'border-rose-400/40',
+        title: 'Sahityotsav Subcategory Leaderboard',
+        subtitle: 'Literary & Arts Competitions: Malayalam, English, Arabic, and Urdu cultural events.',
+        badge: 'Literary Festival Subcategory',
+        badgeClass: 'bg-rose-500/25 text-rose-100 border-rose-300/40',
+        logo: '/sahityotsav.png',
+        isFest: true,
+      };
+    } else if (sName.includes('kalotsav') || sCode.includes('kalotsav')) {
+      heroTheme = {
+        bgGradient: 'bg-gradient-to-r from-[#172554] via-[#1d4ed8] to-[#b91c1c]',
+        glowColor: 'from-white/30 via-sky-300/15 to-transparent',
+        borderColor: 'border-blue-400/40',
+        title: 'Kalotsav Subcategory Leaderboard',
+        subtitle: 'State & District School Youth Arts Festival performance benchmarks and stage honors.',
+        badge: 'Arts Kalotsavam Subcategory',
+        badgeClass: 'bg-blue-500/25 text-blue-100 border-blue-300/40',
+        logo: '/kalotsav.png',
+        isFest: true,
+      };
+    } else if (sName.includes('m-lit') || sName.includes('mlit') || sCode.includes('m_lit')) {
+      heroTheme = {
+        bgGradient: 'bg-gradient-to-r from-[#07192f] via-[#0f2942] to-[#047857]',
+        glowColor: 'from-white/30 via-emerald-300/15 to-transparent',
+        borderColor: 'border-emerald-400/40',
+        title: 'M-Lit Fest Subcategory Leaderboard',
+        subtitle: 'Ma\'din Campus Literature & Creative Arts Festival with multi-tier stage scoring.',
+        badge: 'M-Lit Fest Subcategory',
+        badgeClass: 'bg-emerald-500/25 text-emerald-100 border-emerald-300/40',
+        logo: '/m-lit.png',
+        isFest: true,
+      };
+    } else if (sName.includes('mahrajan') || sName.includes('maharjan') || sName.includes('jamia') || sCode.includes('maharjan') || sCode.includes('jamia')) {
+      heroTheme = {
+        bgGradient: 'bg-gradient-to-r from-[#451a03] via-[#78350f] to-[#d97706]',
+        glowColor: 'from-white/30 via-amber-300/15 to-transparent',
+        borderColor: 'border-amber-400/40',
+        title: 'Jamia Maharjan Subcategory Leaderboard',
+        subtitle: 'National cultural & academic festival evaluations, debate tournaments, and grand trophies.',
+        badge: 'Jamia Maharjan Subcategory',
+        badgeClass: 'bg-amber-500/25 text-amber-100 border-amber-300/40',
+        logo: '/jamia-mahrajan.png',
+        isFest: true,
+      };
+    } else if (sName.includes('kuthbkhana') || sCode.includes('kuthbkhana')) {
+      heroTheme = {
+        bgGradient: 'bg-gradient-to-r from-[#3b0764] via-[#581c87] to-[#7e22ce]',
+        glowColor: 'from-white/30 via-purple-300/15 to-transparent',
+        borderColor: 'border-purple-400/40',
+        title: 'Kuthbkhana Reading Leaderboard',
+        subtitle: 'Dedicated reading sessions, Islamic library texts & book reviews.',
+        badge: 'Library Subcategory',
+        badgeClass: 'bg-purple-500/25 text-purple-100 border-purple-300/40',
+        logo: '/kuthbkhana-logo.png',
+        isFest: false,
+      };
+    } else if (sName.includes('imthiyaaz') || sCode.includes('imthiyaaz')) {
+      heroTheme = {
+        bgGradient: 'bg-gradient-to-r from-[#451a03] via-[#713f12] to-[#a16207]',
+        glowColor: 'from-white/30 via-amber-300/15 to-transparent',
+        borderColor: 'border-amber-400/40',
+        title: 'Imthiyaaz Library Leaderboard',
+        subtitle: 'Comprehensive book readings, reviews & reading hours leaderboard.',
+        badge: 'Library Subcategory',
+        badgeClass: 'bg-amber-500/25 text-amber-100 border-amber-300/40',
+        logo: '/library-logo.png',
+        isFest: false,
+      };
+    } else if (sName.includes('jamiathul') || sCode.includes('jamiathul')) {
+      heroTheme = {
+        bgGradient: 'bg-gradient-to-r from-[#07192f] via-[#0A2540] to-[#1e40af]',
+        glowColor: 'from-white/30 via-blue-300/15 to-transparent',
+        borderColor: 'border-blue-400/40',
+        title: 'Jamiathul Hind Al-Islamiyya Leaderboard',
+        subtitle: 'Islamic Studies curriculum: Quran recitation, Hadith memorization & Fiqh evaluations.',
+        badge: 'Islamic Studies Subcategory',
+        badgeClass: 'bg-blue-500/25 text-blue-100 border-blue-300/40',
+        logo: '/jamiathul-hind.png',
+        isFest: false,
+      };
+    } else if (sName.includes('madin') || sCode.includes('madin')) {
+      heroTheme = {
+        bgGradient: 'bg-gradient-to-r from-[#032e25] via-[#064e3b] to-[#0e7490]',
+        glowColor: 'from-white/30 via-teal-300/15 to-transparent',
+        borderColor: 'border-teal-400/40',
+        title: 'Ma\'din Academy Islamic Stream Leaderboard',
+        subtitle: 'Islamic Studies curriculum: Nahw & Sarf Arabic grammar, Tareekh & moral education.',
+        badge: 'Islamic Studies Subcategory',
+        badgeClass: 'bg-teal-500/25 text-teal-100 border-teal-300/40',
+        logo: '/madin-academy.png',
+        isFest: false,
+      };
+    } else {
+      heroTheme = {
+        bgGradient: 'bg-gradient-to-r from-[#1e1b4b] via-[#312e81] to-[#4338ca]',
+        glowColor: 'from-white/30 via-indigo-300/15 to-transparent',
+        borderColor: 'border-indigo-400/40',
+        title: `${activeSubcategory.name} Leaderboard`,
+        subtitle: `Dedicated performance benchmarks and evaluation standings for ${activeSubcategory.name}.`,
+        badge: `${currentCategory?.name || 'Category'} Subcategory`,
+        badgeClass: 'bg-indigo-500/25 text-indigo-100 border-indigo-300/40',
+        logo: activeSubcategory.logoUrl || '/logo.png',
+        isFest: currentCategory?.code === 'LITERARY',
+      };
+    }
   } else if (selectedStream === 'JAMIATHUL_HIND') {
     heroTheme = {
       bgGradient: 'bg-gradient-to-r from-[#07192f] via-[#0A2540] to-[#1e40af]',
@@ -764,7 +831,10 @@ function LeaderboardContent() {
 
             {/* Literary Festivals */}
             <button
-              onClick={() => switchLeaderboard({ type: 'FEST', fest: 'SAHITYOTSAV' })}
+              onClick={() => {
+                const litCat = categories.find((c) => c.code === 'LITERARY');
+                switchLeaderboard({ type: 'CATEGORY', categoryId: litCat?.id || 'LITERARY' });
+              }}
               className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-150 shrink-0 flex items-center space-x-1.5 ${
                 isFestActive
                   ? 'bg-rose-700 text-white shadow-sm shadow-rose-700/20 ring-2 ring-rose-700/30'
@@ -840,37 +910,58 @@ function LeaderboardContent() {
             </button>
           </div>
 
-          {/* Level 2: Subcategory Pills for Active Category with Subcategories (e.g. Qualification) */}
+          {/* Level 2: Subcategory Pills for Active Category with Subcategories */}
           {activeCategorySubcategories.length > 0 && (
-            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto p-1.5 sm:p-2 bg-blue-50/90 rounded-2xl border border-blue-200/80 animate-slide-down">
-              <span className="text-[10px] uppercase font-black text-blue-900 ml-1.5 shrink-0">Subcategories:</span>
+            <div className={`flex items-center gap-1.5 sm:gap-2 overflow-x-auto p-1.5 sm:p-2 rounded-2xl border animate-slide-down ${
+              currentCategory?.code === 'LITERARY'
+                ? 'bg-rose-50/90 border-rose-200/80'
+                : 'bg-blue-50/90 border-blue-200/80'
+            }`}>
+              <span className={`text-[10px] uppercase font-black ml-1.5 shrink-0 ${
+                currentCategory?.code === 'LITERARY' ? 'text-rose-900' : 'text-blue-900'
+              }`}>
+                Subcategories:
+              </span>
               <button
                 onClick={() => switchLeaderboard({ type: 'CATEGORY', categoryId: selectedCategory || activeCategoryId || qualCat?.id || 'QUALIFICATION' })}
                 className={`px-2.5 sm:px-3 py-1 rounded-xl text-[11px] sm:text-xs font-bold transition shrink-0 flex items-center space-x-1 ${
                   !selectedSubcategory
-                    ? 'bg-blue-700 text-white shadow-2xs'
-                    : 'bg-white text-slate-700 hover:bg-blue-100/60 border border-blue-200'
+                    ? currentCategory?.code === 'LITERARY' ? 'bg-rose-700 text-white shadow-2xs' : 'bg-blue-700 text-white shadow-2xs'
+                    : currentCategory?.code === 'LITERARY' ? 'bg-white text-slate-700 hover:bg-rose-100/60 border border-rose-200' : 'bg-white text-slate-700 hover:bg-blue-100/60 border border-blue-200'
                 }`}
               >
-                <span>⭐ All {currentCategory?.name || qualCat?.name || 'Qualification'}</span>
+                <span>⭐ All {currentCategory?.name || qualCat?.name || 'Category'}</span>
               </button>
-              {activeCategorySubcategories.map((sub) => (
-                <button
-                  key={sub.id}
-                  onClick={() => switchLeaderboard({ type: 'SUBCATEGORY', categoryId: selectedCategory || activeCategoryId || qualCat?.id || 'QUALIFICATION', subcategoryId: sub.id })}
-                  className={`px-2.5 sm:px-3 py-1 rounded-xl text-[11px] sm:text-xs font-bold transition shrink-0 flex items-center space-x-1 ${
-                    selectedSubcategory === sub.id
-                      ? 'bg-blue-700 text-white shadow-2xs'
-                      : 'bg-white text-slate-700 hover:bg-blue-100/60 border border-blue-200'
-                  }`}
-                >
-                  <span>{sub.name}</span>
-                </button>
-              ))}
+              {activeCategorySubcategories.map((sub) => {
+                const isSelected = selectedSubcategory === sub.id;
+                const getIcon = (n: string) => {
+                  const l = n.toLowerCase();
+                  if (l.includes('sahityotsav')) return '🎭';
+                  if (l.includes('kalotsav')) return '🎨';
+                  if (l.includes('m-lit') || l.includes('mlit')) return '📖';
+                  if (l.includes('mahr') || l.includes('jamia')) return '🏆';
+                  return '';
+                };
+                const icon = getIcon(sub.name);
+                return (
+                  <button
+                    key={sub.id}
+                    onClick={() => switchLeaderboard({ type: 'SUBCATEGORY', categoryId: selectedCategory || activeCategoryId || qualCat?.id || 'QUALIFICATION', subcategoryId: sub.id })}
+                    className={`px-2.5 sm:px-3 py-1 rounded-xl text-[11px] sm:text-xs font-bold transition shrink-0 flex items-center space-x-1.5 ${
+                      isSelected
+                        ? currentCategory?.code === 'LITERARY' ? 'bg-rose-700 text-white shadow-2xs' : 'bg-blue-700 text-white shadow-2xs'
+                        : currentCategory?.code === 'LITERARY' ? 'bg-white text-slate-700 hover:bg-rose-100/60 border border-rose-200' : 'bg-white text-slate-700 hover:bg-blue-100/60 border border-blue-200'
+                    }`}
+                  >
+                    {icon && <span>{icon}</span>}
+                    <span>{sub.name}</span>
+                  </button>
+                );
+              })}
             </div>
           )}
 
-          {/* Level 2: Subcategory Pills for Multi-Stream & Multi-Fest Wings */}
+          {/* Level 2: Subcategory Pills for Multi-Stream Wings (Islamic Studies) */}
           {isIslamicActive && (
             <div className="flex items-center gap-2 overflow-x-auto p-1.5 sm:p-2 bg-blue-50/90 rounded-2xl border border-blue-200/80 animate-slide-down">
               <span className="text-[10px] uppercase font-black text-blue-900 ml-1.5 shrink-0">Select Stream:</span>
@@ -906,52 +997,6 @@ function LeaderboardContent() {
                 }`}
               >
                 <span>📋 Combined Islamic</span>
-              </button>
-            </div>
-          )}
-
-          {isFestActive && (
-            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto p-1.5 sm:p-2 bg-rose-50/90 rounded-2xl border border-rose-200/80 animate-slide-down">
-              <span className="text-[10px] uppercase font-black text-rose-900 ml-1.5 shrink-0">Festival:</span>
-              <button
-                onClick={() => switchLeaderboard({ type: 'FEST', fest: 'SAHITYOTSAV' })}
-                className={`px-2.5 sm:px-3 py-1 rounded-xl text-[11px] sm:text-xs font-bold transition shrink-0 flex items-center space-x-1 ${
-                  selectedFest === 'SAHITYOTSAV'
-                    ? 'bg-rose-700 text-white shadow-2xs'
-                    : 'bg-white text-slate-700 hover:bg-rose-100/60 border border-rose-200'
-                }`}
-              >
-                <span>🎭 Sahityotsav</span>
-              </button>
-              <button
-                onClick={() => switchLeaderboard({ type: 'FEST', fest: 'KALOTSAV' })}
-                className={`px-2.5 sm:px-3 py-1 rounded-xl text-[11px] sm:text-xs font-bold transition shrink-0 flex items-center space-x-1 ${
-                  selectedFest === 'KALOTSAV'
-                    ? 'bg-blue-700 text-white shadow-2xs'
-                    : 'bg-white text-slate-700 hover:bg-blue-100/60 border border-blue-200'
-                }`}
-              >
-                <span>🎨 Kalotsavam</span>
-              </button>
-              <button
-                onClick={() => switchLeaderboard({ type: 'FEST', fest: 'M_LIT' })}
-                className={`px-2.5 sm:px-3 py-1 rounded-xl text-[11px] sm:text-xs font-bold transition shrink-0 flex items-center space-x-1 ${
-                  selectedFest === 'M_LIT'
-                    ? 'bg-emerald-700 text-white shadow-2xs'
-                    : 'bg-white text-slate-700 hover:bg-emerald-100/60 border border-emerald-200'
-                }`}
-              >
-                <span>📖 M-Lit</span>
-              </button>
-              <button
-                onClick={() => switchLeaderboard({ type: 'FEST', fest: 'JAMIA_MAHRAJAN' })}
-                className={`px-2.5 sm:px-3 py-1 rounded-xl text-[11px] sm:text-xs font-bold transition shrink-0 flex items-center space-x-1 ${
-                  selectedFest === 'JAMIA_MAHRAJAN'
-                    ? 'bg-amber-700 text-white shadow-2xs'
-                    : 'bg-white text-slate-700 hover:bg-amber-100/60 border border-amber-200'
-                }`}
-              >
-                <span>🏆 Mahrajan</span>
               </button>
             </div>
           )}
@@ -1060,10 +1105,24 @@ function LeaderboardContent() {
                       label: '📋 All Islamic Studies',
                       group: 'Islamic Studies Subcategories',
                     }] : []),
-                    { value: 'fest:SAHITYOTSAV', label: '🎭 Sahityotsav', group: 'Literary Festivals Subcategories' },
-                    { value: 'fest:KALOTSAV', label: '🎨 Kerala School Kalotsavam', group: 'Literary Festivals Subcategories' },
-                    { value: 'fest:M_LIT', label: '📖 M-Lit Fest', group: 'Literary Festivals Subcategories' },
-                    { value: 'fest:JAMIA_MAHRAJAN', label: '🏆 Jamia Mahrajan', group: 'Literary Festivals Subcategories' },
+                    ...(categories.find((c) => c.code === 'LITERARY') ? [
+                      { value: `cat:${categories.find((c) => c.code === 'LITERARY')?.id}`, label: '📋 All Literary Programmes', group: 'Literary Programmes Subcategories' },
+                      ...subcategories.filter((s) => s.categoryId === categories.find((c) => c.code === 'LITERARY')?.id).map((sub) => {
+                        const getIcon = (n: string) => {
+                          const l = n.toLowerCase();
+                          if (l.includes('sahityotsav')) return '🎭';
+                          if (l.includes('kalotsav')) return '🎨';
+                          if (l.includes('m-lit') || l.includes('mlit')) return '📖';
+                          if (l.includes('mahr') || l.includes('jamia')) return '🏆';
+                          return '🔹';
+                        };
+                        return {
+                          value: `sub:${sub.id}`,
+                          label: `${getIcon(sub.name)} ${sub.name}`,
+                          group: 'Literary Programmes Subcategories',
+                        };
+                      }),
+                    ] : []),
                     ...categories.map((c) => ({
                       value: `cat:${c.id}`,
                       label: c.name,

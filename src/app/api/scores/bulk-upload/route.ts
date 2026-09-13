@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
     const {
       categoryId,
       examId,
+      subcategoryId,
       examName,
       subjectId,
       subjectName,
@@ -432,7 +433,7 @@ export async function POST(req: NextRequest) {
           const entryLevelId = progEntry.levelId || row.levelId || resolvedLevelId;
 
           const compInfo = await getOrCreateCompetitionId(eventName, festTitle, maxScore, entryLevelId);
-          const activeSubId = progEntry.subcategoryId || row.subcategoryId || compInfo.subcategoryId;
+          const activeSubId = progEntry.subcategoryId || row.subcategoryId || subcategoryId || compInfo.subcategoryId;
 
           // Always create as separate distinct performance record for each competition award
           writeActions.push({
@@ -477,7 +478,7 @@ export async function POST(req: NextRequest) {
       }
 
       let activeLitCompId = literaryCompetitionId || row.literaryCompetitionId || null;
-      let resolvedSubId: string | null = row.subcategoryId || null;
+      let resolvedSubId: string | null = row.subcategoryId || subcategoryId || null;
 
       const targetFestName = row.festivalName || festivalName || '';
       const targetCompName = row.competitionName || competitionName || '';

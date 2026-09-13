@@ -155,9 +155,12 @@ export default function LiteraryProgramsPage() {
 
   // Score Entry Modal (Single Entry)
   const [modalOpen, setModalOpen] = useState(false);
+  const [subcategories, setSubcategories] = useState<any[]>([]);
+  const [litCategoryId, setLitCategoryId] = useState<string>('');
   const [formData, setFormData] = useState({
     studentId: '',
-    festivalName: 'Sahityotsav 2026',
+    subcategoryId: '',
+    festivalName: 'Sahityotsav',
     competitionName: 'Malayalam Essay Writing',
     levelId: '',
     score: '90',
@@ -178,11 +181,13 @@ export default function LiteraryProgramsPage() {
     grade: 'A+',
     remarks: '',
     levelId: '',
+    subcategoryId: '',
   });
 
   // --- MULTI-EVENT BULK UPLOAD MODAL STATES ---
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
-  const [bulkFestivalName, setBulkFestivalName] = useState('Sahityotsav 2026');
+  const [bulkSubcategoryId, setBulkSubcategoryId] = useState<string>('');
+  const [bulkFestivalName, setBulkFestivalName] = useState('Sahityotsav');
   const [bulkLevelId, setBulkLevelId] = useState<string>('');
   const [bulkClassId, setBulkClassId] = useState<string>('');
   const [bulkEvents, setBulkEvents] = useState<DynamicEvent[]>([
@@ -197,22 +202,37 @@ export default function LiteraryProgramsPage() {
   const [bulkFile, setBulkFile] = useState<File | null>(null);
   const [bulkUploading, setBulkUploading] = useState(false);
 
-  const festivals = ['Sahityotsav 2026', 'Kerala School Kalotsavam 2026', 'Jamia Mahrajan 2026', 'M-Lit Fest 2026'];
-
   const fetchData = async () => {
     try {
       setLoading(true);
       const dataMaster = await getAcademicMasterData();
       const litCat = dataMaster.categories?.find((c: any) => c.code === 'LITERARY');
+      if (litCat) setLitCategoryId(litCat.id);
       const scoreQuery = litCat ? `/api/scores?categoryId=${litCat.id}&limit=500` : '/api/scores?limit=500';
 
-      const [resStudents, resScores] = await Promise.all([
+      const [resStudents, resScores, resSubs] = await Promise.all([
         fetch('/api/students?all=true&minimal=true'),
         fetch(scoreQuery),
+        fetch('/api/subcategories'),
       ]);
 
       const dataStudents = await resStudents.json();
       const dataScores = await resScores.json();
+      const dataSubs = await resSubs.json();
+
+      if (dataSubs.subcategories) {
+        const litSubs = dataSubs.subcategories.filter((s: any) => s.categoryId === litCat?.id);
+        setSubcategories(litSubs);
+        if (litSubs.length > 0) {
+          setFormData((prev) => ({
+            ...prev,
+            subcategoryId: prev.subcategoryId || litSubs[0].id,
+            festivalName: prev.festivalName || litSubs[0].name,
+          }));
+          setBulkSubcategoryId((prev) => prev || litSubs[0].id);
+          setBulkFestivalName((prev) => prev || litSubs[0].name);
+        }
+      }
 
       if (dataMaster.levels) {
         setLevels(dataMaster.levels);
@@ -483,11 +503,15 @@ export default function LiteraryProgramsPage() {
         }).filter((r) => r.programmeScores.length > 0);
       }
 
+      const selectedSub = subcategories.find((s) => s.id === bulkSubcategoryId);
+      const subName = selectedSub?.name || bulkFestivalName || 'Sahityotsav';
+
       const res = await fetch('/api/scores/bulk-upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           categoryId: litCat.id,
+          subcategoryId: bulkSubcategoryId || selectedSub?.id || null,
           levelId: bulkLevelId,
           records: uploadRecords,
         }),
@@ -510,9 +534,12 @@ export default function LiteraryProgramsPage() {
     }
   };
 
-  // Helper: Get available levels for specific festivals
-  const getAvailableLevelsForFestival = (fName: string) => {
-    const lower = (fName || '').toLowerCase();
+  // Helper: Get available levels for specific festivals / subcategories
+  const getAvailableLevelsForFestival = (fNameOrSubId: string) => {
+    const matchedSub = subcategories.find(
+      (s) => s.id === fNameOrSubId || s.name === fNameOrSubId || s.code === fNameOrSubId
+    );
+    const lower = (matchedSub ? matchedSub.code + ' ' + matchedSub.name : fNameOrSubId || '').toLowerCase();
     if (lower.includes('sahityotsav')) {
       return levels.filter((l) =>
         ['DIVISION', 'DISTRICT', 'STATE', 'NATIONAL'].includes(l.name.toUpperCase()) ||
@@ -545,8 +572,11 @@ export default function LiteraryProgramsPage() {
       const dataMaster = await resMaster.json();
       const litCat = dataMaster.categories.find((c: any) => c.code === 'LITERARY');
 
+      const selectedSub = subcategories.find((s) => s.id === formData.subcategoryId);
+      const subName = selectedSub?.name || formData.festivalName || 'Sahityotsav';
+
       const scoreVal = Number(formData.score) || 0;
-      const remarksText = `${formData.festivalName} - ${formData.competitionName}. ${
+      const remarksText = `${subName} - ${formData.competitionName}. ${
         formData.position ? formData.position + ' Position. ' : ''
       }${formData.grade ? formData.grade + ' Grade. ' : ''}${formData.remarks || ''}`.trim();
 
@@ -555,15 +585,17 @@ export default function LiteraryProgramsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           categoryId: litCat?.id,
+          subcategoryId: formData.subcategoryId || selectedSub?.id || null,
           levelId: formData.levelId || null,
           competitionName: formData.competitionName,
-          festivalName: formData.festivalName,
+          festivalName: subName,
           records: [
             {
               studentId: formData.studentId,
               score: scoreVal,
               maxScore: 100,
               levelId: formData.levelId || null,
+              subcategoryId: formData.subcategoryId || selectedSub?.id || null,
               position: formData.position || null,
               grade: formData.grade || null,
               remarks: remarksText,
@@ -594,6 +626,7 @@ export default function LiteraryProgramsPage() {
       grade: rec.grade || '',
       remarks: rec.remarks || '',
       levelId: rec.levelId || levels[0]?.id || '',
+      subcategoryId: rec.subcategoryId || '',
     });
     setEditModalOpen(true);
   };
@@ -1051,23 +1084,32 @@ export default function LiteraryProgramsPage() {
               </p>
             </div>
 
-            {/* Step 1: Festival & Batch Configuration */}
+            {/* Step 1: Subcategory & Batch Configuration */}
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
               <div className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                1. Festival & Level Configuration
+                1. Subcategory & Level Configuration
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-2">
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Festival Name (Select or Type Ontime)
+                    Select Subcategory / Festival *
                   </label>
-                  <input
-                    type="text"
-                    value={bulkFestivalName}
-                    onChange={(e) => setBulkFestivalName(e.target.value)}
-                    placeholder="e.g. Sahityotsav 2026"
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-rose-600"
+                  <CustomSelect
+                    value={bulkSubcategoryId}
+                    onChange={(val) => {
+                      const sub = subcategories.find((s) => s.id === val);
+                      setBulkSubcategoryId(val);
+                      if (sub) {
+                        setBulkFestivalName(sub.name);
+                        handleBulkFestPreset(sub.name);
+                      }
+                    }}
+                    placeholder="Select Subcategory"
+                    options={subcategories.map((s) => ({
+                      value: s.id,
+                      label: s.name,
+                    }))}
                   />
                 </div>
 
@@ -1103,64 +1145,40 @@ export default function LiteraryProgramsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Festival Quick Presets</label>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Subcategory Quick Presets</label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleBulkFestPreset('Sahityotsav 2026')}
-                      className={`py-1.5 px-2 rounded-xl text-[10px] font-bold border transition flex items-center justify-center space-x-1.5 ${
-                        bulkFestivalName.includes('Sahityotsav')
-                          ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      <div className="w-3.5 h-3.5 shrink-0 rounded overflow-hidden">
-                        <Image src="/sahityotsav.png" alt="S" width={14} height={14} className="w-full h-full object-contain" />
-                      </div>
-                      <span className="truncate">Sahityotsav</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleBulkFestPreset('Kerala School Kalotsavam 2026')}
-                      className={`py-1.5 px-2 rounded-xl text-[10px] font-bold border transition flex items-center justify-center space-x-1.5 ${
-                        bulkFestivalName.includes('Kalotsav')
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      <div className="w-3.5 h-3.5 shrink-0 rounded overflow-hidden">
-                        <Image src="/kalotsav.png" alt="K" width={14} height={14} className="w-full h-full object-contain" />
-                      </div>
-                      <span className="truncate">Kalotsavam</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleBulkFestPreset('M-Lit Fest 2026')}
-                      className={`py-1.5 px-2 rounded-xl text-[10px] font-bold border transition flex items-center justify-center space-x-1.5 ${
-                        bulkFestivalName.includes('M-Lit')
-                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      <div className="w-3.5 h-3.5 shrink-0 rounded overflow-hidden">
-                        <Image src="/m-lit.png" alt="M" width={14} height={14} className="w-full h-full object-contain" />
-                      </div>
-                      <span className="truncate">M-Lit Fest</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleBulkFestPreset('Jamia Mahrajan 2026')}
-                      className={`py-1.5 px-2 rounded-xl text-[10px] font-bold border transition flex items-center justify-center space-x-1.5 ${
-                        bulkFestivalName.includes('Mahrajan')
-                          ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      <div className="w-3.5 h-3.5 shrink-0 rounded overflow-hidden">
-                        <Image src="/jamia-mahrajan.png" alt="J" width={14} height={14} className="w-full h-full object-contain" />
-                      </div>
-                      <span className="truncate">Mahrajan</span>
-                    </button>
+                    {subcategories.map((sub) => {
+                      const isSelected = bulkSubcategoryId === sub.id || bulkFestivalName.toLowerCase().includes(sub.name.toLowerCase());
+                      const getSubIcon = (name: string) => {
+                        const l = name.toLowerCase();
+                        if (l.includes('sahityotsav')) return '/sahityotsav.png';
+                        if (l.includes('kalotsav')) return '/kalotsav.png';
+                        if (l.includes('m-lit') || l.includes('mlit')) return '/m-lit.png';
+                        if (l.includes('mahr') || l.includes('jamia')) return '/jamia-mahrajan.png';
+                        return '/logo.png';
+                      };
+                      return (
+                        <button
+                          key={sub.id}
+                          type="button"
+                          onClick={() => {
+                            setBulkSubcategoryId(sub.id);
+                            setBulkFestivalName(sub.name);
+                            handleBulkFestPreset(sub.name);
+                          }}
+                          className={`py-1.5 px-2 rounded-xl text-[10px] font-bold border transition flex items-center justify-center space-x-1.5 ${
+                            isSelected
+                              ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          <div className="w-3.5 h-3.5 shrink-0 rounded overflow-hidden">
+                            <Image src={getSubIcon(sub.name)} alt={sub.name} width={14} height={14} className="w-full h-full object-contain" />
+                          </div>
+                          <span className="truncate">{sub.name}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -1322,30 +1340,42 @@ export default function LiteraryProgramsPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Festival Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.festivalName}
-                    onChange={(e) => setFormData({ ...formData, festivalName: e.target.value })}
-                    placeholder="Type festival ontime..."
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-rose-600"
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Subcategory / Festival *</label>
+                  <CustomSelect
+                    value={formData.subcategoryId}
+                    onChange={(val) => {
+                      const sub = subcategories.find((s) => s.id === val);
+                      setFormData((prev) => ({
+                        ...prev,
+                        subcategoryId: val,
+                        festivalName: sub?.name || prev.festivalName,
+                      }));
+                    }}
+                    placeholder="Select Subcategory"
+                    options={subcategories.map((s) => ({
+                      value: s.id,
+                      label: s.name,
+                    }))}
                   />
                   <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                    {festivals.map((fest) => (
+                    {subcategories.map((sub) => (
                       <button
-                        key={fest}
+                        key={sub.id}
                         type="button"
                         onClick={() => {
-                          setFormData({ ...formData, festivalName: fest });
+                          setFormData((prev) => ({
+                            ...prev,
+                            subcategoryId: sub.id,
+                            festivalName: sub.name,
+                          }));
                         }}
                         className={`text-[9px] px-2 py-0.5 rounded-md border font-semibold transition ${
-                          formData.festivalName === fest
-                            ? 'bg-rose-600 text-white border-rose-600'
+                          formData.subcategoryId === sub.id
+                            ? 'bg-rose-600 text-white border-rose-600 shadow-2xs'
                             : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
                         }`}
                       >
-                        {fest.replace(' 2026', '')}
+                        {sub.name}
                       </button>
                     ))}
                   </div>
@@ -1364,9 +1394,9 @@ export default function LiteraryProgramsPage() {
                 </div>
               </div>
 
-              {/* Dynamic Levels for Festival */}
+              {/* Dynamic Levels for Festival / Subcategory */}
               {(() => {
-                const availableLevels = getAvailableLevelsForFestival(formData.festivalName);
+                const availableLevels = getAvailableLevelsForFestival(formData.subcategoryId || formData.festivalName);
                 if (availableLevels.length === 0) return null;
                 return (
                   <div>
