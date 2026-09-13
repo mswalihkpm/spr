@@ -597,8 +597,8 @@ let homeAcademicMemory: any = null;
 
             {/* Quick Counters */}
             <div className="pt-2 grid grid-cols-2 gap-3 sm:gap-4 max-w-md mx-auto relative z-10">
-              <div className="p-2.5 sm:p-3.5 bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-200/90 shadow-sm animate-slide-left delay-200 card-interactive flex flex-col justify-center">
-                <div className="text-xl sm:text-2xl font-black text-blue-600 flex items-center space-x-1.5">
+              <div className="p-2.5 sm:p-3.5 bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-200/90 shadow-sm animate-slide-left delay-200 card-interactive flex flex-col items-center justify-center text-center">
+                <div className="text-xl sm:text-2xl font-black text-blue-600 flex items-center justify-center space-x-1.5 text-center">
                   {loadingLeaderboard ? (
                     <span className="inline-flex items-center space-x-1 text-xs font-bold text-blue-600 animate-pulse">
                       <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping inline-block mr-1"></span>
@@ -608,11 +608,11 @@ let homeAcademicMemory: any = null;
                     <span>{leaderboard.length}</span>
                   )}
                 </div>
-                <div className="text-[11px] sm:text-xs font-semibold text-slate-600 mt-0.5">Evaluated Students</div>
+                <div className="text-[11px] sm:text-xs font-semibold text-slate-600 mt-0.5 text-center">Evaluated Students</div>
               </div>
-              <div className="p-2.5 sm:p-3.5 bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-200/90 shadow-sm animate-slide-right delay-200 card-interactive flex flex-col justify-center">
-                <div className="text-xl sm:text-2xl font-black text-indigo-600">6 Wings</div>
-                <div className="text-[11px] sm:text-xs font-semibold text-slate-600 mt-0.5">Curricular & Co-curricular</div>
+              <div className="p-2.5 sm:p-3.5 bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-200/90 shadow-sm animate-slide-right delay-200 card-interactive flex flex-col items-center justify-center text-center">
+                <div className="text-xl sm:text-2xl font-black text-indigo-600 text-center">6 Wings</div>
+                <div className="text-[11px] sm:text-xs font-semibold text-slate-600 mt-0.5 text-center">Curricular & Co-curricular</div>
               </div>
             </div>
           </div>

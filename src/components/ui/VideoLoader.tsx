@@ -22,19 +22,19 @@ export function VideoLoaderComponent({
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Compute pixel dimensions
-  let pixelSize = 84;
+  let pixelSize = 64;
   if (typeof size === 'number') {
     pixelSize = size;
   } else if (size === 'xs') {
-    pixelSize = 36;
+    pixelSize = 30;
   } else if (size === 'sm') {
-    pixelSize = 56;
+    pixelSize = 44;
   } else if (size === 'md') {
-    pixelSize = 84;
+    pixelSize = 64;
   } else if (size === 'lg') {
-    pixelSize = 120;
+    pixelSize = 90;
   } else if (size === 'xl') {
-    pixelSize = 160;
+    pixelSize = 120;
   }
 
   useEffect(() => {

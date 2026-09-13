@@ -953,19 +953,6 @@ function LeaderboardContent() {
               >
                 <span>🏆 Mahrajan</span>
               </button>
-              <button
-                onClick={() => {
-                  const cat = categories.find((c) => c.code === 'LITERARY');
-                  if (cat) switchLeaderboard({ type: 'CATEGORY', categoryId: cat.id });
-                }}
-                className={`px-2.5 sm:px-3 py-1 rounded-xl text-[11px] sm:text-xs font-bold transition shrink-0 flex items-center space-x-1 ${
-                  selectedCategory && !selectedFest && currentCategory?.code === 'LITERARY'
-                    ? 'bg-slate-800 text-white shadow-2xs'
-                    : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-                }`}
-              >
-                <span>📋 All Fests</span>
-              </button>
             </div>
           )}
         </div>
@@ -1077,11 +1064,6 @@ function LeaderboardContent() {
                     { value: 'fest:KALOTSAV', label: '🎨 Kerala School Kalotsavam', group: 'Literary Festivals Subcategories' },
                     { value: 'fest:M_LIT', label: '📖 M-Lit Fest', group: 'Literary Festivals Subcategories' },
                     { value: 'fest:JAMIA_MAHRAJAN', label: '🏆 Jamia Mahrajan', group: 'Literary Festivals Subcategories' },
-                    ...(categories.find((c) => c.code === 'LITERARY') ? [{
-                      value: `cat:${categories.find((c) => c.code === 'LITERARY')?.id}`,
-                      label: '📋 All Literary Festivals',
-                      group: 'Literary Festivals Subcategories',
-                    }] : []),
                     ...categories.map((c) => ({
                       value: `cat:${c.id}`,
                       label: c.name,
