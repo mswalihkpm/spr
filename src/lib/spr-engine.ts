@@ -457,8 +457,7 @@ export async function calculateStudentSPR(
           };
         });
 
-        const catWeight = resolveCategoryWeight(cat);
-        earnedPoints = Number((sumPoints * catWeight).toFixed(2));
+        earnedPoints = Number(sumPoints.toFixed(2));
         rawInput = `${formatPoints(earnedPoints)} pts`;
         formula = `${categoryRecords.length} qualification(s) = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
@@ -502,8 +501,7 @@ export async function calculateStudentSPR(
           };
         });
 
-        const catWeight = resolveCategoryWeight(cat);
-        earnedPoints = Number((sumPoints * catWeight).toFixed(2));
+        earnedPoints = Number(sumPoints.toFixed(2));
         rawInput = `${formatPoints(earnedPoints)} pts`;
         formula = `${works.length} creative work(s) = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
@@ -571,8 +569,7 @@ export async function calculateStudentSPR(
           });
         });
 
-        const catWeight = resolveCategoryWeight(cat);
-        earnedPoints = Number((sumPoints * catWeight).toFixed(2));
+        earnedPoints = Number(sumPoints.toFixed(2));
         rawInput = `${formatPoints(earnedPoints)} pts`;
         formula = `Reading Milestones = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
@@ -613,8 +610,7 @@ export async function calculateStudentSPR(
           };
         });
 
-        const catWeight = resolveCategoryWeight(cat);
-        earnedPoints = Number((sumPoints * catWeight).toFixed(2));
+        earnedPoints = Number(sumPoints.toFixed(2));
         rawInput = `${formatPoints(earnedPoints)} pts`;
         formula = `${categoryRecords.length} literary achievement(s) = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
@@ -655,8 +651,7 @@ export async function calculateStudentSPR(
           };
         });
 
-        const catWeight = resolveCategoryWeight(cat);
-        earnedPoints = Number((sumPoints * catWeight).toFixed(2));
+        earnedPoints = Number(sumPoints.toFixed(2));
         rawInput = `${formatPoints(earnedPoints)} pts`;
         formula = `${categoryRecords.length} competition achievement(s) = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
@@ -685,8 +680,7 @@ export async function calculateStudentSPR(
             date: r.date ? r.date.toISOString() : null,
           };
         });
-        const catWeight = resolveCategoryWeight(cat);
-        earnedPoints = Number((sumPoints * catWeight).toFixed(2));
+        earnedPoints = Number(sumPoints.toFixed(2));
         rawInput = `${formatPoints(earnedPoints)} pts`;
         formula = `+${formatPoints(earnedPoints)} SPR Points`;
       } else {
@@ -1090,8 +1084,7 @@ export async function calculateAllLeaderboards(filters?: {
         });
       }
 
-      const catWeight = (cat.code === 'SCHOOL' || cat.code === 'ISLAMIC') ? 1.0 : resolveCategoryWeight(cat);
-      catEarned = Number((catEarned * catWeight).toFixed(2));
+      catEarned = Number(catEarned.toFixed(2));
       categoryPoints[cat.id] = catEarned;
 
       if (isIncluded) {
