@@ -32,42 +32,37 @@ import PublicFooter from '@/components/layout/PublicFooter';
 import { getAcademicMasterData } from '@/lib/academic-client';
 import CustomSelect from '@/components/ui/CustomSelect';
 
+// Global module-level client memory caches for instant 0ms loading
+const homeLeaderboardMemory = new Map<string, any[]>();
+const homeStudentProfileMemory = new Map<string, any>();
+
 export default function PublicHomePage() {
   const router = useRouter();
   const [categories, setCategories] = useState<any[]>([]);
   const [schools, setSchools] = useState<any[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
-  const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [leaderboard, setLeaderboard] = useState<any[]>(() => homeLeaderboardMemory.get('overview') || []);
   const [newsUpdates, setNewsUpdates] = useState<any[]>([]);
-  const [loadingLeaderboard, setLoadingLeaderboard] = useState(true);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(!homeLeaderboardMemory.has('overview'));
   const [scrolled, setScrolled] = useState(false);
 
-  // Filters (Overview only on home page; filter by Class & Search)
-  const [selectedClass, setSelectedClass] = useState<string>('');
-  const [tableSearch, setTableSearch] = useState<string>('');
-
-  // Global Student Search
+  // Search, modal and filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
-  const searchContainerRef = useRef<HTMLDivElement>(null);
-  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
-
-  // Student Scorecard Modal
+  const [tableSearch, setTableSearch] = useState('');
+  const [selectedClass, setSelectedClass] = useState<string>('');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [studentProfile, setStudentProfile] = useState<any | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
-  const [modalCalcTab, setModalCalcTab] = useState<'OVERALL' | 'SUBJECTS' | 'PROGRAMMES'>('OVERALL');
-
-  // Report Discrepancy Modal
+  const [modalCalcTab, setModalCalcTab] = useState<'OVERALL' | 'SUBJECTS' | 'PROGRAMMES' | 'RAW'>('OVERALL');
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportingStudent, setReportingStudent] = useState<any | null>(null);
 
-// Global client caches for instantaneous loading
-const homeLeaderboardMemory = new Map<string, any[]>();
-let homeAcademicMemory: any = null;
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
 
   // Track scroll position for header blur effect
   useEffect(() => {
@@ -177,21 +172,31 @@ let homeAcademicMemory: any = null;
     router.push(`/student/${studentId}`);
   };
 
-  // Open Student Modal Dossier
+  // Open Student Modal Dossier with 0ms instantaneous cache
   const openStudentDossier = (studentId: string) => {
     if (!studentId) return;
     setSelectedStudentId(studentId);
     setShowSearchDropdown(false);
-    setLoadingProfile(true);
+
+    const cached = homeStudentProfileMemory.get(studentId);
+    if (cached) {
+      setStudentProfile(cached);
+      setLoadingProfile(false);
+    } else {
+      setLoadingProfile(true);
+    }
+
     fetch(`/api/public/student/${studentId}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.profile) {
-          setStudentProfile({
+          const profileData = {
             ...data.profile,
             creativeWorks: data.creativeWorks || [],
             libraryRecords: data.libraryRecords || [],
-          });
+          };
+          homeStudentProfileMemory.set(studentId, profileData);
+          setStudentProfile(profileData);
         }
       })
       .catch((err) => console.error(err))

@@ -7,7 +7,7 @@ import { invalidateEngineCache } from '@/lib/spr-engine';
 import { logAuditAction } from '@/lib/audit';
 
 let cachedAcademicData: { timestamp: number; data: any } | null = null;
-const ACADEMIC_CACHE_TTL_MS = 60 * 1000; // 60 seconds TTL
+const ACADEMIC_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes TTL
 
 function invalidateAcademicCache() {
   cachedAcademicData = null;
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     if (cachedAcademicData && now - cachedAcademicData.timestamp < ACADEMIC_CACHE_TTL_MS) {
       return NextResponse.json(cachedAcademicData.data, {
         headers: {
-          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
         },
       });
     }
@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(payload, {
       headers: {
-        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
       },
     });
   } catch (error: any) {

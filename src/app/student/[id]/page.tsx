@@ -43,15 +43,19 @@ function formatPoints(pts: number): string {
   return Number.isInteger(pts) ? pts.toLocaleString() : pts.toFixed(2).replace(/\.?0+$/, '');
 }
 
+// Module-level memory cache for instant 0ms student dossier switching
+const publicStudentDetailMemory = new Map<string, { profile: any; creativeWorks: any[]; libraryRecords: any[] }>();
+
 export default function PublicStudentScorecardPage() {
   const params = useParams();
   const router = useRouter();
   const studentId = params?.id as string;
 
-  const [profile, setProfile] = useState<any | null>(null);
-  const [creativeWorks, setCreativeWorks] = useState<any[]>([]);
-  const [libraryRecords, setLibraryRecords] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cachedData = studentId ? publicStudentDetailMemory.get(studentId) : null;
+  const [profile, setProfile] = useState<any | null>(cachedData?.profile || null);
+  const [creativeWorks, setCreativeWorks] = useState<any[]>(cachedData?.creativeWorks || []);
+  const [libraryRecords, setLibraryRecords] = useState<any[]>(cachedData?.libraryRecords || []);
+  const [loading, setLoading] = useState(!cachedData);
   const [error, setError] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [collapsedAssessments, setCollapsedAssessments] = useState<Record<string, boolean>>({});
@@ -79,13 +83,27 @@ export default function PublicStudentScorecardPage() {
   useEffect(() => {
     if (!studentId) return;
 
-    setLoading(true);
+    const cached = publicStudentDetailMemory.get(studentId);
+    if (cached) {
+      setProfile(cached.profile);
+      setCreativeWorks(cached.creativeWorks);
+      setLibraryRecords(cached.libraryRecords);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
     fetch(`/api/public/student/${studentId}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.error) {
-          setError(data.error);
+          if (!cached) setError(data.error);
         } else {
+          publicStudentDetailMemory.set(studentId, {
+            profile: data.profile,
+            creativeWorks: data.creativeWorks || [],
+            libraryRecords: data.libraryRecords || [],
+          });
           setProfile(data.profile);
           setCreativeWorks(data.creativeWorks || []);
           setLibraryRecords(data.libraryRecords || []);
@@ -101,7 +119,7 @@ export default function PublicStudentScorecardPage() {
       })
       .catch((err) => {
         console.error(err);
-        setError('Failed to fetch student record.');
+        if (!cached) setError('Failed to fetch student record.');
       })
       .finally(() => setLoading(false));
   }, [studentId]);
@@ -507,7 +525,8 @@ export default function PublicStudentScorecardPage() {
             <div className="p-1.5 sm:p-3 rounded-lg sm:rounded-xl bg-slate-50 border border-slate-200 print:p-1.5 print:rounded-lg">
               <div className="text-[9px] sm:text-[11px] text-slate-500 font-medium print:text-[9px]">Overall Standing</div>
               <div className="text-xs sm:text-xl font-black text-blue-600 mt-0.5 print:text-xs">
-                #{profile.overallRank || 1}
+                #{profile.overallRank ?? profile.rank ?? 1}{' '}
+                <span className="text-[8.5px] sm:text-xs text-slate-400 font-normal print:text-[8.5px]">/ {profile.totalStudentsOverall || 1}</span>
               </div>
             </div>
           </div>

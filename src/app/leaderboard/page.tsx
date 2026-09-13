@@ -162,7 +162,7 @@ function LeaderboardContent() {
     }
 
     try {
-      const res = await fetch(`/api/leaderboard?${params.toString()}`, { cache: 'no-store' });
+      const res = await fetch(`/api/leaderboard?${params.toString()}`);
       const data = await res.json();
       if (data.leaderboard) {
         clientLeaderboardMemory.set(cacheKey, data.leaderboard);
@@ -208,7 +208,6 @@ function LeaderboardContent() {
     categoryId?: string;
     subcategoryId?: string;
   }) => {
-    clientLeaderboardMemory.clear();
     let newCat = '';
     let newSub = '';
     let newStream = '';

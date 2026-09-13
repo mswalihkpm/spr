@@ -54,18 +54,25 @@ export async function GET(req: NextRequest) {
       ],
     });
 
-    return NextResponse.json({
-      students: students.map((s) => ({
-        id: s.id,
-        studentId: s.studentId,
-        sprStudentId: s.sprStudentId,
-        fullName: s.fullName,
-        className: s.class?.name || '',
-        schoolName: s.school?.name || '',
-        division: s.division,
-        photoUrl: s.photoUrl,
-      })),
-    });
+    return NextResponse.json(
+      {
+        students: students.map((s) => ({
+          id: s.id,
+          studentId: s.studentId,
+          sprStudentId: s.sprStudentId,
+          fullName: s.fullName,
+          className: s.class?.name || '',
+          schoolName: s.school?.name || '',
+          division: s.division,
+          photoUrl: s.photoUrl,
+        })),
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Public search error:', error);
     return NextResponse.json({ error: 'Failed to search students.' }, { status: 500 });

@@ -9,12 +9,14 @@ let cachedCategories: { timestamp: number; data: any[] } | null = null;
 let cachedSettings: { timestamp: number; data: Record<string, string> } | null = null;
 let cachedLevels: { timestamp: number; data: any[] } | null = null;
 let cachedCreativeCategories: { timestamp: number; data: any[] } | null = null;
+let cachedActiveStudentsSnapshot: { timestamp: number; data: any[] } | null = null;
 
-const CACHE_TTL_MS = 30 * 1000; // 30 seconds TTL
+const CACHE_TTL_MS = 60 * 1000; // 60 seconds TTL
 
 export function invalidateEngineCache() {
   leaderboardCache.clear();
   studentSPRProfileCache.clear();
+  cachedActiveStudentsSnapshot = null;
   cachedMissingDataRule = null;
   cachedCategories = null;
   cachedSettings = null;
@@ -864,48 +866,48 @@ export async function calculateAllLeaderboards(filters?: {
     return cached.data;
   }
 
-  const whereClause: any = { status: 'ACTIVE' };
-  if (filters?.academicYearId) whereClause.academicYearId = filters.academicYearId;
-  if (filters?.classId) whereClause.classId = filters.classId;
-  if (filters?.schoolId) whereClause.schoolId = filters.schoolId;
-
-  const isFestOrStream = !!(filters?.fest || filters?.stream);
-
-  const students = await prisma.student.findMany({
-    where: whereClause,
-    include: {
-      class: true,
-      school: true,
-      academicYear: true,
-      performanceRecords: {
-        include: isFestOrStream
-          ? {
-              category: true,
-              subject: {
-                include: { institution: true, board: true },
-              },
-              competition: {
-                include: { program: true },
-              },
-              literaryCompetition: {
-                include: { event: true },
-              },
-              subcategory: true,
-              level: true,
-            }
-          : {
-              category: true,
-              subcategory: true,
-              level: true,
+  let allActiveStudents: any[];
+  if (cachedActiveStudentsSnapshot && now - cachedActiveStudentsSnapshot.timestamp < CACHE_TTL_MS) {
+    allActiveStudents = cachedActiveStudentsSnapshot.data;
+  } else {
+    allActiveStudents = await prisma.student.findMany({
+      where: { status: 'ACTIVE' },
+      include: {
+        class: true,
+        school: true,
+        academicYear: true,
+        performanceRecords: {
+          include: {
+            category: true,
+            subject: {
+              include: { institution: true, board: true },
             },
-      },
-      creativeWorks: {
-        include: {
-          category: true,
+            competition: {
+              include: { program: true },
+            },
+            literaryCompetition: {
+              include: { event: true },
+            },
+            subcategory: true,
+            level: true,
+          },
         },
+        creativeWorks: {
+          include: {
+            category: true,
+          },
+        },
+        libraryRecords: true,
       },
-      libraryRecords: true,
-    },
+    });
+    cachedActiveStudentsSnapshot = { timestamp: now, data: allActiveStudents };
+  }
+
+  const students = allActiveStudents.filter((st) => {
+    if (filters?.academicYearId && st.academicYearId !== filters.academicYearId) return false;
+    if (filters?.classId && st.classId !== filters.classId) return false;
+    if (filters?.schoolId && st.schoolId !== filters.schoolId) return false;
+    return true;
   });
 
   const [categories, settings, levelsList] = await Promise.all([
@@ -957,18 +959,66 @@ export async function calculateAllLeaderboards(filters?: {
           subcategoryRecordsCount = libRecords.length;
         }
       } else {
-        const subRecords = (student.performanceRecords as any[]).filter(
-          (r) =>
-            r.subcategoryId === filters.subcategoryId ||
-            r.subcategory?.code === filters.subcategoryId ||
-            (filters.subcategoryId === 'cmtx_sub_kuthbkhana' && (r.subcategoryId === 'cmtx_sub_kuthbkhana' || r.subcategory?.code === 'KUTHBKHANA'))
-        );
+        const targetSubId = filters.subcategoryId;
+        const matchedSubDef = categories
+          .flatMap((c) => c.subcategories || [])
+          .find((s: any) => s.id === targetSubId || s.code === targetSubId);
+        const targetSubName = (matchedSubDef?.name || '').toLowerCase();
+        const targetSubCode = (matchedSubDef?.code || '').toLowerCase();
+        const parentCat = categories.find((c) => c.id === matchedSubDef?.categoryId);
+        const isLiterarySub =
+          parentCat?.code === 'LITERARY' ||
+          targetSubName.includes('sahityotsav') ||
+          targetSubName.includes('kalotsav') ||
+          targetSubName.includes('m-lit') ||
+          targetSubName.includes('mlit') ||
+          targetSubName.includes('mahr') ||
+          targetSubName.includes('jamia') ||
+          targetSubName.includes('shastramela');
+
+        const subRecords = (student.performanceRecords as any[]).filter((r) => {
+          if (r.subcategoryId === targetSubId || r.subcategory?.id === targetSubId || r.subcategory?.code === targetSubId) {
+            return true;
+          }
+          if (targetSubCode === 'kuthbkhana' && (r.subcategoryId === 'cmtx_sub_kuthbkhana' || r.subcategory?.code === 'KUTHBKHANA')) {
+            return true;
+          }
+          // Fallback matching by festival / event name if record doesn't have explicit subcategoryId
+          if (isLiterarySub && targetSubName) {
+            const ev = (r.literaryCompetition?.event?.name || r.competition?.program?.name || r.remarks || '').toLowerCase();
+            const cn = (r.literaryCompetition?.name || r.competition?.name || '').toLowerCase();
+            if (targetSubName.includes('sahityotsav') && (ev.includes('sahityotsav') || cn.includes('sahityotsav'))) return true;
+            if (targetSubName.includes('kalotsav') && (ev.includes('kalotsav') || cn.includes('kalotsav'))) return true;
+            if (targetSubName.includes('m-lit') && (ev.includes('m-lit') || cn.includes('m-lit') || ev.includes('mlit'))) return true;
+            if (targetSubName.includes('mahr') && (ev.includes('mahr') || cn.includes('mahr') || ev.includes('jamia'))) return true;
+            if (targetSubName.includes('shastramela') && (ev.includes('shastramela') || cn.includes('shastramela'))) return true;
+          }
+          return false;
+        });
+
         if (subRecords.length > 0) {
           let subSum = 0;
           subRecords.forEach((r) => {
-            const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
-            const base = r.obtainedScore || 0;
-            subSum += (base * mult);
+            const lvlMult = resolveLevelMultiplier(r.level, levelsList);
+            const prizeMult = resolvePrizeMultiplier(r.position);
+            const prizeBase = resolvePrizeBaseScore(r.position, settings);
+            const subMult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
+            const catCode = r.category?.code || parentCat?.code || '';
+
+            if (catCode === 'LITERARY' || catCode === 'PROGRAMS' || isLiterarySub || r.literaryCompetitionId || r.competitionId) {
+              const base = typeof r.obtainedScore === 'number' && !isNaN(r.obtainedScore)
+                ? r.obtainedScore
+                : (prizeBase > 0 ? prizeBase : 50);
+              subSum += (base * prizeMult * lvlMult);
+            } else if (catCode === 'QUALIFICATION') {
+              const base = typeof r.obtainedScore === 'number' && !isNaN(r.obtainedScore)
+                ? r.obtainedScore
+                : (prizeBase > 0 ? prizeBase : (r.subcategory?.maxScore || 50));
+              subSum += (base * subMult * lvlMult * prizeMult);
+            } else {
+              const base = typeof r.obtainedScore === 'number' && !isNaN(r.obtainedScore) ? r.obtainedScore : 0;
+              subSum += (base * subMult);
+            }
           });
           subcategoryScore = Number(subSum.toFixed(2));
           subcategoryRecordsCount = subRecords.length;
@@ -1056,28 +1106,28 @@ export async function calculateAllLeaderboards(filters?: {
       let catEarned = 0;
 
       if (cat.code === 'CREATIVE_HUB') {
-        student.creativeWorks.forEach((w) => {
+        student.creativeWorks.forEach((w: any) => {
           const rawScore = typeof w.score === 'number' && !isNaN(w.score)
             ? w.score
             : (typeof w.category?.weight === 'number' && w.category.weight > 0 ? w.category.weight : 20);
           catEarned += rawScore;
         });
       } else if (cat.code === 'LIBRARY') {
-        student.libraryRecords.forEach((lib) => {
+        student.libraryRecords.forEach((lib: any) => {
           const pts = typeof lib.readingScore === 'number' && !isNaN(lib.readingScore)
             ? lib.readingScore
             : ((lib.booksRead || 0) * 20);
           catEarned += pts;
         });
-        const libPerfRecords = student.performanceRecords.filter((r) => r.categoryId === cat.id);
-        libPerfRecords.forEach((r) => {
+        const libPerfRecords = student.performanceRecords.filter((r: any) => r.categoryId === cat.id);
+        libPerfRecords.forEach((r: any) => {
           const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
           const base = typeof r.obtainedScore === 'number' && !isNaN(r.obtainedScore) ? r.obtainedScore : 0;
           catEarned += (base * mult);
         });
       } else if (cat.code === 'LITERARY' || cat.code === 'PROGRAMS') {
-        const records = student.performanceRecords.filter((r) => r.categoryId === cat.id);
-        records.forEach((r) => {
+        const records = student.performanceRecords.filter((r: any) => r.categoryId === cat.id);
+        records.forEach((r: any) => {
           const lvlMult = resolveLevelMultiplier(r.level, levelsList);
           const prizeMult = resolvePrizeMultiplier(r.position);
           const prizeBase = resolvePrizeBaseScore(r.position, settings);
@@ -1087,8 +1137,8 @@ export async function calculateAllLeaderboards(filters?: {
           catEarned += (baseScore * prizeMult * lvlMult);
         });
       } else if (cat.code === 'QUALIFICATION') {
-        const records = student.performanceRecords.filter((r) => r.categoryId === cat.id);
-        records.forEach((r) => {
+        const records = student.performanceRecords.filter((r: any) => r.categoryId === cat.id);
+        records.forEach((r: any) => {
           const subMult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
           const lvlMult = resolveLevelMultiplier(r.level, levelsList);
           const prizeMult = resolvePrizeMultiplier(r.position);
@@ -1099,7 +1149,7 @@ export async function calculateAllLeaderboards(filters?: {
           catEarned += (baseScore * subMult * lvlMult * prizeMult);
         });
       } else if (cat.code === 'SCHOOL' || cat.code === 'ISLAMIC') {
-        const records = student.performanceRecords.filter((r) => r.categoryId === cat.id);
+        const records = student.performanceRecords.filter((r: any) => r.categoryId === cat.id);
         if (records.length > 0) {
           const examGroups = new Map<string, any[]>();
           records.forEach((r: any) => {
@@ -1118,8 +1168,8 @@ export async function calculateAllLeaderboards(filters?: {
           catEarned = Number(catSum.toFixed(2));
         }
       } else {
-        const records = student.performanceRecords.filter((r) => r.categoryId === cat.id);
-        records.forEach((r) => {
+        const records = student.performanceRecords.filter((r: any) => r.categoryId === cat.id);
+        records.forEach((r: any) => {
           const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
           const lvlMult = resolveLevelMultiplier(r.level, levelsList);
           const prizeMult = resolvePrizeMultiplier(r.position);
@@ -1157,10 +1207,10 @@ export async function calculateAllLeaderboards(filters?: {
       if (matchedCategory?.code === 'CREATIVE_HUB') {
         totalRecords = student.creativeWorks?.length || 0;
       } else if (matchedCategory?.code === 'LIBRARY') {
-        const libPerf = student.performanceRecords.filter((r) => r.categoryId === matchedCategory.id).length;
+        const libPerf = student.performanceRecords.filter((r: any) => r.categoryId === matchedCategory.id).length;
         totalRecords = (student.libraryRecords?.length || 0) + libPerf;
       } else if (matchedCategory) {
-        totalRecords = student.performanceRecords.filter((r) => r.categoryId === matchedCategory.id).length;
+        totalRecords = student.performanceRecords.filter((r: any) => r.categoryId === matchedCategory.id).length;
       }
     } else {
       finalScore = Number(totalPoints.toFixed(2));

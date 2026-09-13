@@ -64,6 +64,7 @@ export interface StudentSPRProfile {
   totalPoints?: number;
   overallScore?: number;
   rank: number;
+  overallRank?: number;
   classRank: number;
   schoolRank: number;
   totalStudentsInClass: number;

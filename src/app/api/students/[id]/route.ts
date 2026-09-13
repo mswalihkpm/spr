@@ -37,6 +37,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const schoolEntry = schoolLeaderboard.find((e) => e.studentId === studentId);
 
     profile.rank = overallEntry?.rank || 1;
+    profile.overallRank = overallEntry?.rank || 1;
     profile.classRank = classEntry?.rank || 1;
     profile.schoolRank = schoolEntry?.rank || 1;
     profile.totalStudentsOverall = allLeaderboard.length;

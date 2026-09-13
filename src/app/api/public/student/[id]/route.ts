@@ -41,9 +41,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const classEntries = allLeaderboard.filter((e) => e.className === profile.student.class.name);
     const schoolEntries = allLeaderboard.filter((e) => e.schoolName === profile.student.school.name);
 
-    const overallEntry = allLeaderboard.find((e) => e.studentId === studentId);
-    const overallRank = overallEntry?.rank || 1;
-
     const computeTiedRank = (list: any[], id: string) => {
       const sorted = [...list].sort((a, b) => (b.spr || 0) - (a.spr || 0));
       let currentRank = 1;
@@ -58,10 +55,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return 1;
     };
 
+    const overallRank = computeTiedRank(allLeaderboard, studentId);
     const classRank = computeTiedRank(classEntries, studentId);
     const schoolRank = computeTiedRank(schoolEntries, studentId);
 
     profile.rank = overallRank;
+    profile.overallRank = overallRank;
     profile.classRank = classRank;
     profile.schoolRank = schoolRank;
     profile.totalStudentsOverall = allLeaderboard.length;
@@ -70,6 +69,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     const enrichedProfile: any = {
       ...profile,
+      rank: overallRank,
+      overallRank: overallRank,
+      classRank: classRank,
+      schoolRank: schoolRank,
+      totalStudentsOverall: allLeaderboard.length,
+      totalStudentsInClass: classEntries.length,
+      totalStudentsInSchool: schoolEntries.length,
       overallScore: profile.overallSPR,
       categoryBreakdown: (profile.categoryScores || []).map((c) => ({
         categoryId: c.categoryId,

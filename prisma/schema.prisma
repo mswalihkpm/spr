@@ -437,6 +437,7 @@ model PerformanceRecord {
 
   @@index([studentId])
   @@index([categoryId])
+  @@index([subcategoryId])
   @@index([academicYearId])
   @@index([termId])
   @@index([examId])
@@ -446,6 +447,7 @@ model PerformanceRecord {
   @@index([levelId])
   @@index([date])
   @@index([studentId, categoryId])
+  @@index([subcategoryId, studentId])
 }
 
 model CategoryWeight {

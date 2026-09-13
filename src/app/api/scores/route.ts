@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const categoryId = searchParams.get('categoryId');
+    const subcategoryId = searchParams.get('subcategoryId');
     const examId = searchParams.get('examId');
     const subjectId = searchParams.get('subjectId');
     const competitionId = searchParams.get('competitionId');
@@ -22,6 +23,7 @@ export async function GET(req: NextRequest) {
 
     const where: any = {};
     if (categoryId) where.categoryId = categoryId;
+    if (subcategoryId) where.subcategoryId = subcategoryId;
     if (examId) where.examId = examId;
     if (subjectId) where.subjectId = subjectId;
     if (competitionId) where.competitionId = competitionId;

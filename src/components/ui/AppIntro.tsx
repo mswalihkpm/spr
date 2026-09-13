@@ -3,15 +3,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 interface AppIntroProps {
-  duration?: number; // Duration in milliseconds before fading out (default: 2300ms = 2.3s)
+  duration?: number; // Duration in milliseconds before fading out (default: 1100ms = 1.1s)
   onComplete?: () => void;
 }
 
 export default function AppIntro({
-  duration = 2300,
+  duration = 1100,
   onComplete,
 }: AppIntroProps) {
-  const [show, setShow] = useState(true);
+  const [show, setShow] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const seen = sessionStorage.getItem('spr_intro_seen');
+      if (seen === 'true') return false;
+    }
+    return true;
+  });
   const [fadeOut, setFadeOut] = useState(false);
   const [footerText, setFooterText] = useState('2026 version 0.1');
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -63,13 +69,16 @@ export default function AppIntro({
       setFadeOut(true);
     }, duration);
 
-    // Completely unmount after fade transition completes (500ms transition)
+    // Completely unmount after fade transition completes (400ms transition)
     const unmountTimer = setTimeout(() => {
       setShow(false);
+      try {
+        if (typeof window !== 'undefined') sessionStorage.setItem('spr_intro_seen', 'true');
+      } catch {}
       if (onComplete) {
         onComplete();
       }
-    }, duration + 500);
+    }, duration + 400);
 
     return () => {
       clearTimeout(fadeTimer);
