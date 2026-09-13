@@ -238,7 +238,7 @@ export default function LiteraryProgramsPage() {
     setBulkEvents((prev) => prev.filter((e) => e.id !== id));
   };
 
-  // Generate and Download Multi-Event Excel Template
+  // Generate and Download Inclusive Multi-Event Excel Template
   const handleGenerateAndDownloadTemplate = async () => {
     if (bulkEvents.length === 0) {
       alert('Please add at least one competition event before generating the bulk template.');
@@ -259,13 +259,13 @@ export default function LiteraryProgramsPage() {
 
     const templateRows = batchStudents.map((st) => {
       const row: any = {
-        'Student ID': st.studentId,
+        'Student ID': st.studentId || st.sprStudentId || st.id,
         'Full Name': st.fullName,
         'Class': st.class?.name || '',
       };
       bulkEvents.forEach((ev) => {
-        const colHeader = `${ev.name} (Max: ${ev.maxScore})`;
-        row[colHeader] = '';
+        row[`${ev.name} [Score (Max: ${ev.maxScore})]`] = '';
+        row[`${ev.name} [Position (1st/2nd/3rd)]`] = '';
       });
       row['Remarks'] = '';
       return row;
@@ -275,9 +275,12 @@ export default function LiteraryProgramsPage() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Festival_Awards');
 
-    const colWidths = [{ wch: 14 }, { wch: 25 }, { wch: 12 }];
-    bulkEvents.forEach(() => colWidths.push({ wch: 28 }));
-    colWidths.push({ wch: 20 });
+    const colWidths = [{ wch: 16 }, { wch: 26 }, { wch: 12 }];
+    bulkEvents.forEach(() => {
+      colWidths.push({ wch: 32 });
+      colWidths.push({ wch: 30 });
+    });
+    colWidths.push({ wch: 22 });
     ws['!cols'] = colWidths;
 
     const festClean = bulkFestivalName.replace(/[^A-Za-z0-9]/g, '_');
@@ -286,7 +289,7 @@ export default function LiteraryProgramsPage() {
     XLSX.writeFile(wb, filename);
   };
 
-  // Parse and Upload Excel with Multiple Event Columns
+  // Parse and Upload Excel with Multiple Event Columns & Positions
   const handleProcessBulkUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!bulkFile) {
@@ -313,37 +316,114 @@ export default function LiteraryProgramsPage() {
 
       const firstRow = parsedJson[0];
       const keys = Object.keys(firstRow);
-      const eventCols = keys.filter((k) => {
-        const lower = k.toLowerCase().trim();
-        return !['student id', 'studentid', 'full name', 'fullname', 'name', 'student name', 'class', 'remarks'].includes(lower);
-      });
 
-      if (eventCols.length === 0) {
-        throw new Error('No competition event score columns detected in the Excel header.');
-      }
+      // Check if format is Detailed Single-Item Rows (has Competition/Event column)
+      const hasDetailedEventCol = keys.some((k) =>
+        ['event', 'event name', 'competition', 'competition name', 'activity', 'activity name'].includes(k.toLowerCase().trim())
+      );
 
-      const uploadRecords = parsedJson.map((row) => {
-        const studentId = row['Student ID'] || row['studentId'] || row['StudentID'] || row['Full Name'] || row['fullName'] || row['Name'];
-        const programmeScores = eventCols.map((colName) => {
-          const maxMatch = colName.match(/\(max:\s*(\d+)\)/i);
-          const maxScoreVal = maxMatch ? parseInt(maxMatch[1], 10) : 50;
-          const cleanEventName = colName.replace(/\(max:\s*\d+\)/i, '').trim();
+      let uploadRecords: any[] = [];
+
+      if (hasDetailedEventCol) {
+        // Detailed Row Format
+        uploadRecords = parsedJson.map((row) => {
+          const studentId = row['Student ID'] || row['studentId'] || row['StudentID'] || row['Full Name'] || row['fullName'] || row['Name'];
+          const compName =
+            row['Event'] ||
+            row['Event Name'] ||
+            row['Competition'] ||
+            row['Competition Name'] ||
+            row['Activity'] ||
+            row['Activity Name'] ||
+            'Festival Event';
+          const pos = row['Position'] || row['Prize'] || row['Place'] || '';
+          const rawScore = row['Score'] ?? row['Obtained Score'] ?? row['Marks'] ?? row['Score Awarded'];
+          const maxScore = Number(row['Max Score'] || row['Max Marks'] || 50);
+          const remarks = row['Remarks'] || `${bulkFestivalName} - ${compName}`;
+          const levelNameStr = row['Level'] || row['Event Level'];
+          const matchedLevel = levelNameStr
+            ? levels.find((l) => l.name.toLowerCase() === String(levelNameStr).toLowerCase().trim())
+            : null;
 
           return {
-            competitionName: cleanEventName,
+            studentId,
+            score: rawScore !== undefined && rawScore !== '' ? Number(rawScore) : undefined,
+            maxScore,
+            position: pos || null,
+            competitionName: compName,
             festivalName: bulkFestivalName,
-            obtainedScore: row[colName] !== undefined && row[colName] !== '' ? Number(row[colName]) : undefined,
-            maxScore: maxScoreVal,
+            levelId: matchedLevel?.id || bulkLevelId,
+            remarks,
+          };
+        }).filter((r) => r.studentId && (r.score !== undefined || r.position));
+      } else {
+        // Matrix Format: Event score & position columns
+        const nonEventCols = new Set([
+          'student id', 'studentid', 'full name', 'fullname', 'name', 'student name', 'class', 'remarks',
+        ]);
+
+        const candidateCols = keys.filter((k) => !nonEventCols.has(k.toLowerCase().trim()));
+
+        // Group headers by clean event base name
+        const eventMap = new Map<string, { scoreCol?: string; posCol?: string; maxScore: number }>();
+
+        candidateCols.forEach((col) => {
+          const lower = col.toLowerCase();
+          const isPosCol = lower.includes('[position') || lower.includes('position') || lower.includes('prize') || lower.includes('place');
+          const cleanName = col
+            .replace(/\[score.*?\]/i, '')
+            .replace(/\[position.*?\]/i, '')
+            .replace(/\(max:\s*\d+\)/i, '')
+            .replace(/- score/i, '')
+            .replace(/- position/i, '')
+            .trim();
+
+          if (!cleanName) return;
+
+          const maxMatch = col.match(/max:\s*(\d+)/i);
+          const maxScoreVal = maxMatch ? parseInt(maxMatch[1], 10) : 50;
+
+          if (!eventMap.has(cleanName)) {
+            eventMap.set(cleanName, { maxScore: maxScoreVal });
+          }
+
+          const entry = eventMap.get(cleanName)!;
+          if (isPosCol) {
+            entry.posCol = col;
+          } else {
+            entry.scoreCol = col;
+            if (maxMatch) entry.maxScore = maxScoreVal;
+          }
+        });
+
+        uploadRecords = parsedJson.map((row) => {
+          const studentId = row['Student ID'] || row['studentId'] || row['StudentID'] || row['Full Name'] || row['fullName'] || row['Name'];
+          const programmeScores: any[] = [];
+
+          eventMap.forEach((meta, eventName) => {
+            const scoreVal = meta.scoreCol ? row[meta.scoreCol] : undefined;
+            const posVal = meta.posCol ? row[meta.posCol] : undefined;
+
+            if ((scoreVal !== undefined && scoreVal !== '') || (posVal !== undefined && posVal !== '')) {
+              programmeScores.push({
+                competitionName: eventName,
+                festivalName: bulkFestivalName,
+                obtainedScore: scoreVal !== undefined && scoreVal !== '' ? Number(scoreVal) : undefined,
+                maxScore: meta.maxScore,
+                position: posVal ? String(posVal).trim() : undefined,
+                levelId: bulkLevelId,
+                remarks: row['Remarks'] || `${bulkFestivalName} - ${eventName}`,
+              });
+            }
+          });
+
+          return {
+            studentId,
+            programmeScores,
             remarks: row['Remarks'] || '',
           };
-        }).filter((ev) => ev.obtainedScore !== undefined && !isNaN(ev.obtainedScore));
-
-        return {
-          studentId,
-          programmeScores,
-          remarks: row['Remarks'] || '',
-        };
-      }).filter((r) => r.programmeScores.length > 0);
+        }).filter((r) => r.programmeScores.length > 0);
+      }
 
       const res = await fetch('/api/scores/bulk-upload', {
         method: 'POST',

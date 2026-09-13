@@ -432,9 +432,15 @@ export async function calculateStudentSPR(
         hasData = true;
         let sumPoints = 0;
         itemizedRecords = categoryRecords.map((r: any) => {
-          const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
-          const baseScore = r.obtainedScore > 0 ? r.obtainedScore : (r.subcategory?.maxScore || 50);
-          const pts = Number((baseScore * mult).toFixed(2));
+          const subMult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
+          const lvlMult = resolveLevelMultiplier(r.level, levelsList);
+          const prizeMult = resolvePrizeMultiplier(r.position);
+          const prizeBase = resolvePrizeBaseScore(r.position, settings);
+          const baseScore = typeof r.obtainedScore === 'number' && r.obtainedScore > 0
+            ? r.obtainedScore
+            : (prizeBase > 0 ? prizeBase : (r.subcategory?.maxScore || 50));
+          const totalMultiplier = Number((subMult * lvlMult * prizeMult).toFixed(2));
+          const pts = Number((baseScore * totalMultiplier).toFixed(2));
           sumPoints += pts;
 
           return {
@@ -445,11 +451,14 @@ export async function calculateStudentSPR(
             name: r.subcategory?.name || r.subject?.name || 'Qualification Milestone',
             subCategoryName: r.subcategory?.name || 'General Qualification',
             levelName: r.level?.name,
+            levelMultiplier: lvlMult,
+            prizeMultiplier: prizeMult,
             obtainedScore: r.obtainedScore,
             maxScore: r.maxScore,
             percentage: r.percentage,
+            basePoints: baseScore,
             earnedPoints: pts,
-            multiplier: mult,
+            multiplier: totalMultiplier,
             position: r.position,
             grade: r.grade,
             remarks: r.remarks,
@@ -583,11 +592,14 @@ export async function calculateStudentSPR(
         hasData = true;
         let sumPoints = 0;
         itemizedRecords = categoryRecords.map((r: any) => {
-          const mult = resolveLevelMultiplier(r.level, levelsList);
+          const lvlMult = resolveLevelMultiplier(r.level, levelsList);
           const prizeMult = resolvePrizeMultiplier(r.position);
           const prizeBase = resolvePrizeBaseScore(r.position, settings);
-          const baseScore = prizeBase > 0 ? prizeBase : (r.obtainedScore || 0);
-          const pts = Number((baseScore * prizeMult * mult).toFixed(2));
+          const baseScore = typeof r.obtainedScore === 'number' && r.obtainedScore > 0
+            ? r.obtainedScore
+            : (prizeBase > 0 ? prizeBase : 50);
+          const totalMult = Number((prizeMult * lvlMult).toFixed(2));
+          const pts = Number((baseScore * totalMult).toFixed(2));
           sumPoints += pts;
 
           return {
@@ -598,13 +610,14 @@ export async function calculateStudentSPR(
             name: r.literaryCompetition?.name || r.competition?.name || 'Literary Event',
             eventName: r.literaryCompetition?.event?.name || 'Literary Festival',
             levelName: r.level?.name || 'Campus',
-            levelMultiplier: mult,
+            levelMultiplier: lvlMult,
             prizeMultiplier: prizeMult,
             position: r.position,
-            prizeBaseScore: baseScore,
+            prizeBaseScore: prizeBase,
             basePoints: baseScore,
+            multiplier: totalMult,
             earnedPoints: pts,
-            obtainedScore: pts,
+            obtainedScore: r.obtainedScore,
             remarks: r.remarks,
             date: r.date ? r.date.toISOString() : null,
           };
@@ -624,11 +637,14 @@ export async function calculateStudentSPR(
         hasData = true;
         let sumPoints = 0;
         itemizedRecords = categoryRecords.map((r: any) => {
-          const mult = resolveLevelMultiplier(r.level, levelsList);
+          const lvlMult = resolveLevelMultiplier(r.level, levelsList);
           const prizeMult = resolvePrizeMultiplier(r.position);
           const prizeBase = resolvePrizeBaseScore(r.position, settings);
-          const baseScore = prizeBase > 0 ? prizeBase : (r.obtainedScore || 0);
-          const pts = Number((baseScore * prizeMult * mult).toFixed(2));
+          const baseScore = typeof r.obtainedScore === 'number' && r.obtainedScore > 0
+            ? r.obtainedScore
+            : (prizeBase > 0 ? prizeBase : 50);
+          const totalMult = Number((prizeMult * lvlMult).toFixed(2));
+          const pts = Number((baseScore * totalMult).toFixed(2));
           sumPoints += pts;
 
           return {
@@ -639,13 +655,14 @@ export async function calculateStudentSPR(
             name: r.competition?.name || r.literaryCompetition?.name || 'Competition Event',
             eventName: r.competition?.program?.name || 'Program',
             levelName: r.level?.name || 'Campus',
-            levelMultiplier: mult,
+            levelMultiplier: lvlMult,
             prizeMultiplier: prizeMult,
             position: r.position,
-            prizeBaseScore: baseScore,
+            prizeBaseScore: prizeBase,
             basePoints: baseScore,
+            multiplier: totalMult,
             earnedPoints: pts,
-            obtainedScore: pts,
+            obtainedScore: r.obtainedScore,
             remarks: r.remarks,
             date: r.date ? r.date.toISOString() : null,
           };
@@ -1000,7 +1017,9 @@ export async function calculateAllLeaderboards(filters?: {
           const mult = resolveLevelMultiplier(r.level, levelsList);
           const prizeMult = resolvePrizeMultiplier(r.position);
           const prizeBase = resolvePrizeBaseScore(r.position, settings);
-          const base = prizeBase > 0 ? prizeBase : (r.obtainedScore || 0);
+          const base = typeof r.obtainedScore === 'number' && r.obtainedScore > 0
+            ? r.obtainedScore
+            : (prizeBase > 0 ? prizeBase : 50);
           fSum += (base * prizeMult * mult);
         });
         festScore = Number(fSum.toFixed(2));
@@ -1013,7 +1032,9 @@ export async function calculateAllLeaderboards(filters?: {
             const mult = resolveLevelMultiplier(r.level, levelsList);
             const prizeMult = resolvePrizeMultiplier(r.position);
             const prizeBase = resolvePrizeBaseScore(r.position, settings);
-            const base = prizeBase > 0 ? prizeBase : (r.obtainedScore || 0);
+            const base = typeof r.obtainedScore === 'number' && r.obtainedScore > 0
+              ? r.obtainedScore
+              : (prizeBase > 0 ? prizeBase : 50);
             fSum += (base * prizeMult * mult);
           });
           festScore = Number(fSum.toFixed(2));
@@ -1050,11 +1071,25 @@ export async function calculateAllLeaderboards(filters?: {
       } else if (cat.code === 'LITERARY' || cat.code === 'PROGRAMS') {
         const records = student.performanceRecords.filter((r) => r.categoryId === cat.id);
         records.forEach((r) => {
-          const mult = resolveLevelMultiplier(r.level, levelsList);
+          const lvlMult = resolveLevelMultiplier(r.level, levelsList);
           const prizeMult = resolvePrizeMultiplier(r.position);
           const prizeBase = resolvePrizeBaseScore(r.position, settings);
-          const baseScore = prizeBase > 0 ? prizeBase : (r.obtainedScore || 0);
-          catEarned += (baseScore * prizeMult * mult);
+          const baseScore = typeof r.obtainedScore === 'number' && r.obtainedScore > 0
+            ? r.obtainedScore
+            : (prizeBase > 0 ? prizeBase : 50);
+          catEarned += (baseScore * prizeMult * lvlMult);
+        });
+      } else if (cat.code === 'QUALIFICATION') {
+        const records = student.performanceRecords.filter((r) => r.categoryId === cat.id);
+        records.forEach((r) => {
+          const subMult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
+          const lvlMult = resolveLevelMultiplier(r.level, levelsList);
+          const prizeMult = resolvePrizeMultiplier(r.position);
+          const prizeBase = resolvePrizeBaseScore(r.position, settings);
+          const baseScore = typeof r.obtainedScore === 'number' && r.obtainedScore > 0
+            ? r.obtainedScore
+            : (prizeBase > 0 ? prizeBase : (r.subcategory?.maxScore || 50));
+          catEarned += (baseScore * subMult * lvlMult * prizeMult);
         });
       } else if (cat.code === 'SCHOOL' || cat.code === 'ISLAMIC') {
         const records = student.performanceRecords.filter((r) => r.categoryId === cat.id);
@@ -1079,8 +1114,10 @@ export async function calculateAllLeaderboards(filters?: {
         const records = student.performanceRecords.filter((r) => r.categoryId === cat.id);
         records.forEach((r) => {
           const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
+          const lvlMult = resolveLevelMultiplier(r.level, levelsList);
+          const prizeMult = resolvePrizeMultiplier(r.position);
           const base = r.obtainedScore || 0;
-          catEarned += (base * mult);
+          catEarned += (base * mult * lvlMult * prizeMult);
         });
       }
 

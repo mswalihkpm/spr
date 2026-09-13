@@ -187,7 +187,7 @@ export default function CustomSelect({
   return (
     <div
       ref={containerRef}
-      className={`relative inline-block w-full text-left select-none ${className}`}
+      className={`relative inline-block w-full text-left select-none ${isOpen ? 'z-[60]' : 'z-10'} ${className}`}
       onKeyDown={handleKeyDown}
     >
       {/* Hidden input for HTML forms if name prop provided */}
@@ -230,7 +230,7 @@ export default function CustomSelect({
       {isOpen && (
         <div
           role="listbox"
-          className={`absolute left-0 right-0 mt-1.5 z-50 min-w-[200px] max-h-64 overflow-hidden bg-white border border-slate-200/90 rounded-2xl shadow-xl ring-1 ring-black/5 animate-in fade-in-0 zoom-in-95 duration-150 flex flex-col ${menuClassName}`}
+          className={`absolute left-0 right-0 mt-1.5 z-[100] min-w-[200px] max-h-64 overflow-hidden bg-white border border-slate-200/90 rounded-2xl shadow-2xl ring-1 ring-black/5 animate-in fade-in-0 zoom-in-95 duration-150 flex flex-col ${menuClassName}`}
         >
           {/* Search Box */}
           {isSearchable && (

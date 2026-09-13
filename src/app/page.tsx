@@ -865,7 +865,7 @@ let homeAcademicMemory: any = null;
         </div>
 
         {/* Filter Toolbar (Search & Class Filter Only) */}
-        <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs grid grid-cols-1 sm:grid-cols-2 gap-2.5 relative z-30">
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
             <input

@@ -1265,7 +1265,7 @@ function LeaderboardContent() {
         )}
 
         {/* Filter bar */}
-        <div className="bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200 shadow-xs grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 animate-slide-up delay-200">
+        <div className="bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200 shadow-xs grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 animate-slide-up delay-200 relative z-30">
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
             <input

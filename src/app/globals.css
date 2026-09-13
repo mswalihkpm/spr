@@ -224,12 +224,12 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* =========================================================================
-   UNIVERSAL PRINT STYLES - STRICT 1-PAGE A4 GUARANTEE
+   UNIVERSAL PRINT STYLES - EXECUTIVE A4 DOSSIER & MULTI-PAGE SUPPORT
    ========================================================================= */
 @media print {
   @page {
     size: A4 portrait;
-    margin: 5mm 6mm 5mm 6mm;
+    margin: 8mm 8mm 8mm 8mm;
   }
 
   *, *::before, *::after {
@@ -237,7 +237,7 @@ h1, h2, h3, h4, h5, h6 {
     print-color-adjust: exact !important;
   }
 
-  /* Hide headers, navigation, footers, search bars, action buttons, and background chrome */
+  /* Hide navigation, footers, search bars, action buttons, and background chrome */
   header,
   nav,
   footer,
@@ -248,19 +248,20 @@ h1, h2, h3, h4, h5, h6 {
     display: none !important;
   }
 
-  /* Reset body and html container for strict single A4 page */
+  /* Body and html container for multi-page and single-page A4 printing */
   html, body {
     width: 100% !important;
-    height: 100% !important;
-    max-height: 100% !important;
+    height: auto !important;
+    min-height: 100% !important;
+    max-height: none !important;
     margin: 0 !important;
     padding: 0 !important;
     background: white !important;
     color: #0f172a !important;
-    overflow: hidden !important;
+    overflow: visible !important;
   }
 
-  /* Scorecard Container - Perfectly sized to fit 1 A4 page */
+  /* Scorecard Container */
   .scorecard-container {
     padding: 0 !important;
     margin: 0 auto !important;
@@ -268,19 +269,34 @@ h1, h2, h3, h4, h5, h6 {
     box-shadow: none !important;
     max-width: 100% !important;
     width: 100% !important;
-    max-height: 282mm !important;
     height: auto !important;
-    display: flex !important;
-    flex-direction: column !important;
-    justify-content: space-between !important;
+    max-height: none !important;
+    display: block !important;
     box-sizing: border-box !important;
-    overflow: hidden !important;
+    overflow: visible !important;
+  }
+
+  /* Keep table headers repeated on new pages and prevent row slicing */
+  thead {
+    display: table-header-group !important;
+  }
+
+  tr {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
 
-  .page-break-avoid {
+  .page-break-avoid,
+  .print-itemized-section,
+  .print-category-card,
+  .print-signatures-section {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
+
+  .page-break-before {
+    break-before: page !important;
+    page-break-before: always !important;
+  }
 }
+

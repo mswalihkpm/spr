@@ -49,6 +49,7 @@ export default function ProgramsPage() {
     programName: 'Madin Excellence Talent Olympiad 2026',
     competitionName: 'English Elocution & Public Speaking',
     position: '1st',
+    levelId: '',
     grade: '',
     score: '90',
     remarks: '',
@@ -166,6 +167,7 @@ export default function ProgramsPage() {
         setLevels(dataMaster.levels);
         if (dataMaster.levels.length > 0) {
           if (!bulkLevelId) setBulkLevelId(dataMaster.levels[0].id);
+          setFormData((prev) => ({ ...prev, levelId: prev.levelId || dataMaster.levels[0].id }));
         }
       }
       if (dataStudents.students) {
@@ -249,7 +251,7 @@ export default function ProgramsPage() {
     setBulkActivities((prev) => prev.filter((a) => a.id !== id));
   };
 
-  // Generate & Download Multi-Activity Excel Template
+  // Generate & Download Inclusive Multi-Activity Excel Template
   const handleGenerateAndDownloadTemplate = async () => {
     if (bulkActivities.length === 0) {
       alert('Please add at least one program activity/competition before generating the bulk template.');
@@ -270,13 +272,13 @@ export default function ProgramsPage() {
 
     const templateRows = batchStudents.map((st) => {
       const row: any = {
-        'Student ID': st.studentId,
+        'Student ID': st.studentId || st.sprStudentId || st.id,
         'Full Name': st.fullName,
         'Class': st.class?.name || '',
       };
       bulkActivities.forEach((act) => {
-        const colHeader = `${act.name} (Max: ${act.maxScore})`;
-        row[colHeader] = '';
+        row[`${act.name} [Score (Max: ${act.maxScore})]`] = '';
+        row[`${act.name} [Position (1st/2nd/3rd)]`] = '';
       });
       row['Remarks'] = '';
       return row;
@@ -286,9 +288,12 @@ export default function ProgramsPage() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Program_Results');
 
-    const colWidths = [{ wch: 14 }, { wch: 25 }, { wch: 12 }];
-    bulkActivities.forEach(() => colWidths.push({ wch: 30 }));
-    colWidths.push({ wch: 20 });
+    const colWidths = [{ wch: 16 }, { wch: 26 }, { wch: 12 }];
+    bulkActivities.forEach(() => {
+      colWidths.push({ wch: 32 });
+      colWidths.push({ wch: 30 });
+    });
+    colWidths.push({ wch: 22 });
     ws['!cols'] = colWidths;
 
     const progClean = bulkProgramName.replace(/[^A-Za-z0-9]/g, '_');
@@ -297,7 +302,7 @@ export default function ProgramsPage() {
     XLSX.writeFile(wb, filename);
   };
 
-  // Parse and Upload Multi-Activity Excel
+  // Parse and Upload Excel with full support for Matrix format or Detailed Row format
   const handleProcessBulkUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!bulkFile) {
@@ -324,37 +329,115 @@ export default function ProgramsPage() {
 
       const firstRow = parsedJson[0];
       const keys = Object.keys(firstRow);
-      const activityCols = keys.filter((k) => {
-        const lower = k.toLowerCase().trim();
-        return !['student id', 'studentid', 'full name', 'fullname', 'name', 'student name', 'class', 'remarks'].includes(lower);
-      });
 
-      if (activityCols.length === 0) {
-        throw new Error('No activity/competition score columns detected in the Excel header.');
-      }
+      // Check if format is Detailed Single-Item Rows (has Competition/Activity column)
+      const hasDetailedEventCol = keys.some((k) =>
+        ['activity', 'activity name', 'competition', 'competition name', 'event', 'event name'].includes(k.toLowerCase().trim())
+      );
 
-      const uploadRecords = parsedJson.map((row) => {
-        const studentId = row['Student ID'] || row['studentId'] || row['StudentID'] || row['Full Name'] || row['fullName'] || row['Name'];
-        const programmeScores = activityCols.map((colName) => {
-          const maxMatch = colName.match(/\(max:\s*(\d+)\)/i);
-          const maxScoreVal = maxMatch ? parseInt(maxMatch[1], 10) : 50;
-          const cleanActivityName = colName.replace(/\(max:\s*\d+\)/i, '').trim();
+      let uploadRecords: any[] = [];
+
+      if (hasDetailedEventCol) {
+        // Detailed Row Format
+        uploadRecords = parsedJson.map((row) => {
+          const studentId = row['Student ID'] || row['studentId'] || row['StudentID'] || row['Full Name'] || row['fullName'] || row['Name'];
+          const compName =
+            row['Activity'] ||
+            row['Activity Name'] ||
+            row['Competition'] ||
+            row['Competition Name'] ||
+            row['Event'] ||
+            row['Event Name'] ||
+            bulkProgramName;
+          const pos = row['Position'] || row['Prize'] || row['Place'] || '';
+          const rawScore = row['Score'] ?? row['Obtained Score'] ?? row['Marks'] ?? row['Score Awarded'];
+          const maxScore = Number(row['Max Score'] || row['Max Marks'] || 50);
+          const remarks = row['Remarks'] || `${bulkProgramName} - ${compName}`;
+          const levelNameStr = row['Level'] || row['Event Level'];
+          const matchedLevel = levelNameStr
+            ? levels.find((l) => l.name.toLowerCase() === String(levelNameStr).toLowerCase().trim())
+            : null;
 
           return {
-            competitionName: cleanActivityName,
+            studentId,
+            score: rawScore !== undefined && rawScore !== '' ? Number(rawScore) : undefined,
+            maxScore,
+            position: pos || null,
+            competitionName: compName,
             festivalName: bulkProgramName,
-            obtainedScore: row[colName] !== undefined && row[colName] !== '' ? Number(row[colName]) : undefined,
-            maxScore: maxScoreVal,
+            levelId: matchedLevel?.id || bulkLevelId,
+            remarks,
+          };
+        }).filter((r) => r.studentId && (r.score !== undefined || r.position));
+      } else {
+        // Matrix Format: Activity score & position columns
+        // Identify all activity name bases from headers
+        const nonActivityCols = new Set([
+          'student id', 'studentid', 'full name', 'fullname', 'name', 'student name', 'class', 'remarks',
+        ]);
+
+        const candidateCols = keys.filter((k) => !nonActivityCols.has(k.toLowerCase().trim()));
+
+        // Group headers by clean activity base name
+        const activityMap = new Map<string, { scoreCol?: string; posCol?: string; maxScore: number }>();
+
+        candidateCols.forEach((col) => {
+          const lower = col.toLowerCase();
+          const isPosCol = lower.includes('[position') || lower.includes('position') || lower.includes('prize') || lower.includes('place');
+          const cleanName = col
+            .replace(/\[score.*?\]/i, '')
+            .replace(/\[position.*?\]/i, '')
+            .replace(/\(max:\s*\d+\)/i, '')
+            .replace(/- score/i, '')
+            .replace(/- position/i, '')
+            .trim();
+
+          if (!cleanName) return;
+
+          const maxMatch = col.match(/max:\s*(\d+)/i);
+          const maxScoreVal = maxMatch ? parseInt(maxMatch[1], 10) : 50;
+
+          if (!activityMap.has(cleanName)) {
+            activityMap.set(cleanName, { maxScore: maxScoreVal });
+          }
+
+          const entry = activityMap.get(cleanName)!;
+          if (isPosCol) {
+            entry.posCol = col;
+          } else {
+            entry.scoreCol = col;
+            if (maxMatch) entry.maxScore = maxScoreVal;
+          }
+        });
+
+        uploadRecords = parsedJson.map((row) => {
+          const studentId = row['Student ID'] || row['studentId'] || row['StudentID'] || row['Full Name'] || row['fullName'] || row['Name'];
+          const programmeScores: any[] = [];
+
+          activityMap.forEach((meta, actName) => {
+            const scoreVal = meta.scoreCol ? row[meta.scoreCol] : undefined;
+            const posVal = meta.posCol ? row[meta.posCol] : undefined;
+
+            if ((scoreVal !== undefined && scoreVal !== '') || (posVal !== undefined && posVal !== '')) {
+              programmeScores.push({
+                competitionName: actName,
+                festivalName: bulkProgramName,
+                obtainedScore: scoreVal !== undefined && scoreVal !== '' ? Number(scoreVal) : undefined,
+                maxScore: meta.maxScore,
+                position: posVal ? String(posVal).trim() : undefined,
+                levelId: bulkLevelId,
+                remarks: row['Remarks'] || `${bulkProgramName} - ${actName}`,
+              });
+            }
+          });
+
+          return {
+            studentId,
+            programmeScores,
             remarks: row['Remarks'] || '',
           };
-        }).filter((ev) => ev.obtainedScore !== undefined && !isNaN(ev.obtainedScore));
-
-        return {
-          studentId,
-          programmeScores,
-          remarks: row['Remarks'] || '',
-        };
-      }).filter((r) => r.programmeScores.length > 0);
+        }).filter((r) => r.programmeScores.length > 0);
+      }
 
       const res = await fetch('/api/scores/bulk-upload', {
         method: 'POST',
@@ -404,12 +487,14 @@ export default function ProgramsPage() {
         body: JSON.stringify({
           categoryId: progCat?.id,
           competitionName: formData.competitionName,
+          levelId: formData.levelId || bulkLevelId || (levels[0]?.id),
           records: [
             {
               studentId: formData.studentId,
               score: scoreVal,
               maxScore: 100,
               position: formData.position || null,
+              levelId: formData.levelId || bulkLevelId || (levels[0]?.id),
               grade: formData.grade || null,
               remarks: remarksText,
             },
@@ -750,21 +835,15 @@ export default function ProgramsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Grade <span className="text-slate-400 font-normal">(Optional)</span>
-                  </label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Level Multiplier</label>
                   <CustomSelect
-                    value={formData.grade}
-                    onChange={(val) => setFormData({ ...formData, grade: val })}
-                    placeholder="None / Optional"
-                    options={[
-                      { value: '', label: 'None / Optional' },
-                      { value: 'A+', label: 'A+ Grade' },
-                      { value: 'A', label: 'A Grade' },
-                      { value: 'B+', label: 'B+ Grade' },
-                      { value: 'B', label: 'B Grade' },
-                      { value: 'C', label: 'C Grade' },
-                    ]}
+                    value={formData.levelId}
+                    onChange={(val) => setFormData({ ...formData, levelId: val })}
+                    options={levels.map((l) => ({
+                      value: l.id,
+                      label: `${l.name} (${l.weightMultiplier}x)`,
+                      badge: `${l.weightMultiplier}x`,
+                    }))}
                   />
                 </div>
               </div>

@@ -392,7 +392,9 @@ export async function POST(req: NextRequest) {
                 obtainedScore,
                 maxScore,
                 percentage,
-                levelId: resolvedLevelId || existing.levelId,
+                position: progEntry.position || row.position || existing.position,
+                grade: progEntry.grade || row.grade || existing.grade,
+                levelId: progEntry.levelId || row.levelId || resolvedLevelId || existing.levelId,
                 remarks: progEntry.remarks || row.remarks || existing.remarks,
                 updatedById: user?.id,
               },
@@ -404,7 +406,9 @@ export async function POST(req: NextRequest) {
                 studentId: student.id,
                 categoryId,
                 literaryCompetitionId: compInfo.id,
-                levelId: resolvedLevelId,
+                levelId: progEntry.levelId || row.levelId || resolvedLevelId,
+                position: progEntry.position || row.position || null,
+                grade: progEntry.grade || row.grade || null,
                 termId: activeTermId,
                 academicYearId: activeYearId,
                 obtainedScore,
@@ -422,7 +426,9 @@ export async function POST(req: NextRequest) {
               examId: null,
               literaryCompetitionId: compInfo.id,
               competitionId: null,
-              levelId: resolvedLevelId,
+              levelId: progEntry.levelId || row.levelId || resolvedLevelId,
+              position: progEntry.position || row.position || null,
+              grade: progEntry.grade || row.grade || null,
               termId: activeTermId,
               academicYearId: activeYearId,
               obtainedScore,
@@ -455,12 +461,12 @@ export async function POST(req: NextRequest) {
       const maxScore = Number(row.maxScore) || 100;
       const percentage = normalizeScoreToPercentage(obtainedScore, maxScore);
 
-      let activeSubjectId = subjectId || null;
+      let activeSubjectId = subjectId || row.subjectId || null;
       if (!activeSubjectId && (row.subjectName || subjectName)) {
         activeSubjectId = await getOrCreateSubjectId(row.subjectName || subjectName, maxScore);
       }
 
-      let activeLitCompId = literaryCompetitionId || null;
+      let activeLitCompId = literaryCompetitionId || row.literaryCompetitionId || null;
       if (!activeLitCompId && (row.competitionName || competitionName)) {
         const compInfo = await getOrCreateCompetitionId(row.competitionName || competitionName, row.festivalName || 'Festival', maxScore);
         activeLitCompId = compInfo.id;
@@ -476,7 +482,10 @@ export async function POST(req: NextRequest) {
             obtainedScore,
             maxScore,
             percentage,
-            levelId: resolvedLevelId || existing.levelId,
+            levelId: row.levelId || resolvedLevelId || existing.levelId,
+            subcategoryId: row.subcategoryId || existing.subcategoryId,
+            position: row.position !== undefined ? row.position : existing.position,
+            grade: row.grade !== undefined ? row.grade : existing.grade,
             remarks: row.remarks || existing.remarks,
             updatedById: user?.id,
           },
@@ -489,8 +498,11 @@ export async function POST(req: NextRequest) {
             categoryId,
             examId: resolvedExamId,
             subjectId: activeSubjectId,
+            subcategoryId: row.subcategoryId || null,
             literaryCompetitionId: activeLitCompId,
-            levelId: resolvedLevelId,
+            levelId: row.levelId || resolvedLevelId,
+            position: row.position || null,
+            grade: row.grade || null,
             termId: activeTermId,
             academicYearId: activeYearId,
             obtainedScore,

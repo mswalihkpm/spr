@@ -277,7 +277,13 @@ export async function syncLibraryLeaderboardToSPR(): Promise<{
   // Remove existing library records to only keep the fresh, verified leaderboard data
   await prisma.libraryRecord.deleteMany({});
 
-  let importedCount = 0;
+  // Group readers by matched SPR student to ensure single consolidated score per student
+  const studentReaderMap = new Map<string, {
+    student: any;
+    booksRead: number;
+    points: number;
+    bestRank: number;
+  }>();
 
   for (let idx = 0; idx < leaderboard.length; idx++) {
     const reader = leaderboard[idx];
@@ -291,7 +297,7 @@ export async function syncLibraryLeaderboardToSPR(): Promise<{
 
       student = await prisma.student.create({
         data: {
-          studentId: `LIB-${String(importedCount + 1).padStart(3, '0')}`,
+          studentId: `LIB-${String(allSprStudents.length + 1).padStart(3, '0')}`,
           fullName: reader.name.toUpperCase(),
           classId: matchedClass.id,
           schoolId: defaultSchool.id,
@@ -308,13 +314,30 @@ export async function syncLibraryLeaderboardToSPR(): Promise<{
     reader.sprClass = student.class?.name;
     reader.sprSchool = student.school?.name;
 
+    if (studentReaderMap.has(student.id)) {
+      const existing = studentReaderMap.get(student.id)!;
+      existing.booksRead += reader.totalBooks;
+      existing.points += reader.points;
+      existing.bestRank = Math.min(existing.bestRank, rank);
+    } else {
+      studentReaderMap.set(student.id, {
+        student,
+        booksRead: reader.totalBooks,
+        points: reader.points,
+        bestRank: rank,
+      });
+    }
+  }
+
+  let importedCount = 0;
+  for (const entry of Array.from(studentReaderMap.values())) {
     await prisma.libraryRecord.create({
       data: {
-        studentId: student.id,
-        booksRead: reader.totalBooks,
-        readingScore: reader.points,
-        readingRank: rank,
-        readingPeriod: `${period} • #${rank} (${reader.points} pts)`,
+        studentId: entry.student.id,
+        booksRead: entry.booksRead,
+        readingScore: entry.points,
+        readingRank: entry.bestRank,
+        readingPeriod: `${period} • #${entry.bestRank} (${entry.points} pts)`,
       },
     });
     importedCount++;

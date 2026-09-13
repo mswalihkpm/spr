@@ -660,148 +660,145 @@ export default function PublicStudentScorecardPage() {
             </div>
           </div>
 
-          {/* SECTION: SELECTED CATEGORY ITEMIZED RECORDS */}
-          {activeCategory && (
-            <div className="print-itemized-section rounded-2xl border-2 border-blue-200/80 bg-gradient-to-b from-blue-50/40 via-white to-white p-4 sm:p-5 space-y-4 shadow-sm animate-fade-in page-break-avoid">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-blue-100">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md shrink-0">
-                    <ActiveIcon className="w-5 h-5" />
+          {/* SECTION: CATEGORY ITEMIZED ASSESSMENT RECORDS */}
+          {(() => {
+            const renderCategoryBlock = (cat: any, isPrintOnly = false) => {
+              if (!cat) return null;
+              const records = getCategoryRecords(cat);
+              const IconComp = getCategoryIcon(cat.categoryCode);
+              const earned = cat.earnedPoints ?? 0;
+              const isExam = isExamCategory(cat.categoryCode);
+
+              const groups: {
+                key: string;
+                title: string;
+                records: any[];
+                assessmentPct: number;
+                totObt: number;
+                totMax: number;
+                groupEarnedPoints: number;
+                actualMax: number;
+              }[] = [];
+              const map = new Map<string, { title: string; recs: any[] }>();
+
+              records.forEach((r: any) => {
+                const contextKey =
+                  r.examName ||
+                  r.termName ||
+                  r.festName ||
+                  r.programName ||
+                  r.eventName ||
+                  r.subCategoryName ||
+                  r.categoryName ||
+                  'General Assessment';
+                const normKey = contextKey.trim().toLowerCase();
+                if (!map.has(normKey)) map.set(normKey, { title: contextKey, recs: [] });
+                map.get(normKey)!.recs.push(r);
+              });
+
+              map.forEach(({ title, recs }, normKey) => {
+                const totObt = recs.reduce((acc, curr) => acc + (Number(curr.obtainedScore) || 0), 0);
+                const totMax = recs.reduce((acc, curr) => acc + (Number(curr.maxScore) || 100), 0);
+                const assessmentPct = totMax > 0 ? (totObt / totMax) * 100 : 0;
+                const actualMax = recs[0]?.exam?.maxScore || (cat.categoryCode === 'SCHOOL' ? 130 : 100);
+                const groupEarnedPoints = isExam
+                  ? Number(((assessmentPct / 100) * actualMax).toFixed(2))
+                  : recs.reduce(
+                      (acc, curr) =>
+                        acc +
+                        (Number(curr.earnedPoints) ||
+                          (Number(curr.obtainedScore) || 0) * (Number(curr.multiplier) || 1)),
+                      0
+                    );
+
+                groups.push({
+                  key: normKey,
+                  title,
+                  records: recs,
+                  assessmentPct,
+                  totObt,
+                  totMax,
+                  groupEarnedPoints,
+                  actualMax,
+                });
+              });
+
+              return (
+                <div
+                  key={cat.categoryId || cat.categoryCode}
+                  className="print-itemized-section rounded-2xl border-2 border-blue-200/80 bg-gradient-to-b from-blue-50/40 via-white to-white p-3 sm:p-5 space-y-3.5 shadow-sm print:p-2.5 print:rounded-xl print:space-y-2 page-break-avoid"
+                >
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-2.5 border-b border-blue-100">
+                    <div className="flex items-center space-x-2.5">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shrink-0 print:w-7 print:h-7 print:rounded-lg">
+                        <IconComp className="w-4 h-4 sm:w-5 sm:h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-1.5">
+                          <h4 className="text-xs sm:text-base font-black text-slate-900 print:text-xs">
+                            {cat.categoryName} Assessment Records
+                          </h4>
+                          <span className="px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-blue-100 text-blue-900 border border-blue-200 font-mono print:text-[8px]">
+                            {isExam ? 'Academic Evaluation' : 'Points & Weightage Scoring'}
+                          </span>
+                        </div>
+                        <div className="text-[10px] sm:text-[11px] text-slate-500 font-medium print:text-[8.5px]">
+                          {isExam
+                            ? 'Evaluated examinations and subject percentages'
+                            : 'Evaluated items showing exact score, prize positions, and level multipliers'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2 self-end sm:self-center">
+                      <div className="text-right bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200 shadow-2xs print:px-2 print:py-0.5">
+                        <div className="text-[8px] sm:text-[9px] uppercase font-bold text-emerald-800 print:text-[7.5px]">Earned Points</div>
+                        <div className="text-xs sm:text-base font-black text-emerald-700 font-mono leading-none mt-0.5 print:text-xs">
+                          +{formatPoints(earned)} pts
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <h4 className="text-sm sm:text-base font-black text-slate-900">
-                        {activeCategory.categoryName} Assessment Records
-                      </h4>
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-100 text-blue-900 border border-blue-200 font-mono">
-                        {isExamCategory(activeCategory.categoryCode) ? 'Academic Performance' : 'Points & Weightage Scoring'}
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-slate-600 font-medium mt-0.5">
-                      {isExamCategory(activeCategory.categoryCode)
-                        ? 'Evaluated examinations and subject percentages'
-                        : 'Evaluated items showing exact score and admin-defined weightage multipliers'}
-                    </div>
-                  </div>
-                </div>
 
-                <div className="flex items-center space-x-2 self-end sm:self-center">
-                  <div className="text-right bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 shadow-2xs">
-                    <div className="text-[9px] uppercase font-bold text-emerald-800">Earned Points</div>
-                    <div className="text-base font-black text-emerald-700 font-mono leading-none mt-0.5">
-                      +{formatPoints(activeEarned)} pts
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Category Records Summary Banner */}
-              <div className="p-3 bg-blue-50/80 rounded-xl border border-blue-200/90 text-xs text-blue-950 flex items-center justify-between">
-                <span className="font-bold text-blue-950">
-                  {activeCategory.categoryName} Evaluated Records
-                </span>
-                <span className="text-[11px] font-bold text-blue-800 bg-blue-100/80 px-2.5 py-0.5 rounded-lg border border-blue-200">
-                  {activeRecords.length} Record{activeRecords.length === 1 ? '' : 's'} Logged
-                </span>
-              </div>
-
-              {/* Assessment / Context Grouped Box Accordions */}
-              <div className="space-y-3">
-                {activeRecords.length === 0 ? (
-                  <div className="p-6 text-center rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
-                    <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center mx-auto text-sm font-bold">
-                      ℹ️
-                    </div>
-                    <div className="text-xs font-bold text-slate-700">
-                      No assessment records logged yet for {activeCategory.categoryName}.
-                    </div>
-                    <p className="text-[11px] text-slate-500 max-w-md mx-auto">
-                      Evaluated records for this category will appear here once published.
-                    </p>
-                  </div>
-                ) : (
-                  (() => {
-                    const isExam = isExamCategory(activeCategory.categoryCode);
-                    const groups: {
-                      key: string;
-                      title: string;
-                      records: any[];
-                      assessmentPct: number;
-                      totObt: number;
-                      totMax: number;
-                      groupEarnedPoints: number;
-                      actualMax: number;
-                    }[] = [];
-                    const map = new Map<string, { title: string; recs: any[] }>();
-
-                    activeRecords.forEach((r: any) => {
-                      const contextKey =
-                        r.examName ||
-                        r.termName ||
-                        r.festName ||
-                        r.programName ||
-                        r.eventName ||
-                        r.subCategoryName ||
-                        r.categoryName ||
-                        'General Assessment';
-                      const normKey = contextKey.trim().toLowerCase();
-                      if (!map.has(normKey)) map.set(normKey, { title: contextKey, recs: [] });
-                      map.get(normKey)!.recs.push(r);
-                    });
-
-                    map.forEach(({ title, recs }, normKey) => {
-                      const totObt = recs.reduce((acc, curr) => acc + (Number(curr.obtainedScore) || 0), 0);
-                      const totMax = recs.reduce((acc, curr) => acc + (Number(curr.maxScore) || 100), 0);
-                      const assessmentPct = totMax > 0 ? (totObt / totMax) * 100 : 0;
-                      const actualMax = recs[0]?.exam?.maxScore || (activeCategory.categoryCode === 'SCHOOL' ? 130 : 100);
-                      const groupEarnedPoints = isExam
-                        ? Number(((assessmentPct / 100) * actualMax).toFixed(2))
-                        : recs.reduce((acc, curr) => acc + (Number(curr.earnedPoints) || (Number(curr.obtainedScore) || 0) * (Number(curr.multiplier) || 1)), 0);
-
-                      groups.push({
-                        key: normKey,
-                        title,
-                        records: recs,
-                        assessmentPct,
-                        totObt,
-                        totMax,
-                        groupEarnedPoints,
-                        actualMax,
-                      });
-                    });
-
-                    return groups.map((group) => {
-                      const isCollapsed = !!collapsedAssessments[group.key];
-                      return (
-                        <div
-                          key={group.key}
-                          className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs transition duration-200 hover:border-blue-300"
-                        >
-                          {/* Assessment Header Card (Click to expand/collapse) */}
-                          <button
-                            type="button"
-                            onClick={() => toggleAssessment(group.key)}
-                            className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-slate-50 via-blue-50/20 to-white hover:bg-blue-50/50 transition cursor-pointer text-left border-b border-slate-100"
+                  {/* Assessment / Context Grouped Box Accordions */}
+                  <div className="space-y-2.5 print:space-y-1.5">
+                    {records.length === 0 ? (
+                      <div className="p-4 text-center rounded-xl bg-slate-50 border border-slate-200">
+                        <div className="text-xs font-bold text-slate-700">
+                          No assessment records logged yet for {cat.categoryName}.
+                        </div>
+                      </div>
+                    ) : (
+                      groups.map((group) => {
+                        const isCollapsed = !isPrintOnly && !!collapsedAssessments[group.key];
+                        return (
+                          <div
+                            key={group.key}
+                            className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs print:rounded-lg"
                           >
-                            <div className="flex items-center space-x-2.5">
-                              <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-800 flex items-center justify-center font-bold text-xs shrink-0">
-                                <Calendar className="w-3.5 h-3.5 text-blue-700" />
-                              </div>
-                              <div>
-                                <div className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight">
-                                  {group.title}
+                            <button
+                              type="button"
+                              onClick={() => !isPrintOnly && toggleAssessment(group.key)}
+                              className="w-full flex items-center justify-between px-3.5 py-2.5 bg-gradient-to-r from-slate-50 via-blue-50/20 to-white print:bg-slate-50 text-left border-b border-slate-100 print:py-1.5 print:px-2.5 cursor-pointer"
+                            >
+                              <div className="flex items-center space-x-2">
+                                <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-800 flex items-center justify-center font-bold text-xs shrink-0 print:w-5 print:h-5">
+                                  <Calendar className="w-3 h-3 text-blue-700" />
                                 </div>
-                                <div className="text-[10px] text-slate-500 font-medium">
-                                  {group.records.length} {group.records.length === 1 ? 'Entry' : 'Entries'}
+                                <div>
+                                  <div className="text-xs sm:text-sm font-bold text-slate-900 print:text-[10px]">
+                                    {group.title}
+                                  </div>
+                                  <div className="text-[9.5px] text-slate-500 font-medium print:text-[8px]">
+                                    {group.records.length} {group.records.length === 1 ? 'Entry' : 'Entries'}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
 
-                            <div className="flex items-center space-x-2.5">
-                              {isExam ? (
-                                <div className="text-right">
+                              <div className="flex items-center space-x-2">
+                                {isExam ? (
                                   <span
-                                    className={`px-2 py-0.5 rounded-md font-mono font-bold text-[11px] ${
+                                    className={`px-2 py-0.5 rounded-md font-mono font-bold text-[10px] sm:text-[11px] print:text-[9px] ${
                                       group.assessmentPct >= 85
                                         ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                                         : group.assessmentPct >= 70
@@ -811,120 +808,141 @@ export default function PublicStudentScorecardPage() {
                                   >
                                     {group.assessmentPct.toFixed(1)}%
                                   </span>
-                                </div>
-                              ) : (
-                                <span className="px-2 py-0.5 rounded-md font-mono font-bold text-[11px] bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                  +{formatPoints(group.groupEarnedPoints)} pts
-                                </span>
-                              )}
-                              <ChevronRight
-                                className={`w-4 h-4 text-slate-400 transition-transform duration-200 print:hidden ${
-                                  !isCollapsed ? 'rotate-90 text-blue-600' : ''
-                                }`}
-                              />
-                            </div>
-                          </button>
-
-                          {/* Collapsible Table */}
-                          <div className={`${isCollapsed ? 'hidden print:block' : 'block'} animate-fade-in`}>
-                            <table className="w-full text-left text-xs">
-                              <thead className="bg-slate-50/60 border-b border-slate-100 text-slate-400 uppercase tracking-wider font-semibold text-[10px]">
-                                {isExam ? (
-                                  <tr>
-                                    <th className="py-2 px-4">Subject / Exam Detail</th>
-                                    <th className="py-2 px-4 text-right">Percentage</th>
-                                  </tr>
                                 ) : (
-                                  <tr>
-                                    <th className="py-2 px-4">Item / Activity</th>
-                                    <th className="py-2 px-4 text-center">Base / Exact Score</th>
-                                    <th className="py-2 px-4 text-center">Admin Weightage</th>
-                                    <th className="py-2 px-4 text-right">Earned SPR Points</th>
-                                  </tr>
+                                  <span className="px-2 py-0.5 rounded-md font-mono font-bold text-[10px] sm:text-[11px] print:text-[9px] bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                    +{formatPoints(group.groupEarnedPoints)} pts
+                                  </span>
                                 )}
-                              </thead>
-                              <tbody className="divide-y divide-slate-100 bg-white">
-                                {group.records.map((r: any, rIdx: number) => {
-                                  const recordPct = typeof r.percentage === 'number' ? r.percentage : parseFloat(r.percentage || '0');
-                                  const displayName =
-                                    r.subjectName ||
-                                    r.competitionName ||
-                                    r.literaryCompetitionName ||
-                                    r.title ||
-                                    r.readingPeriod ||
-                                    r.name ||
-                                    'Assessment Record';
+                                {!isPrintOnly && (
+                                  <ChevronRight
+                                    className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 print:hidden ${
+                                      !isCollapsed ? 'rotate-90 text-blue-600' : ''
+                                    }`}
+                                  />
+                                )}
+                              </div>
+                            </button>
 
-                                  const extraDetail =
-                                    r.institutionName ||
-                                    r.boardName ||
-                                    (r.levelName ? `Level: ${r.levelName}` : null) ||
-                                    (r.position ? `Position: ${r.position}` : null) ||
-                                    (r.booksRead !== undefined ? `${r.booksRead} Books Read` : null) ||
-                                    (r.publicationStatus ? `Status: ${r.publicationStatus}` : null);
-
-                                  const baseScore = typeof r.basePoints === 'number' ? r.basePoints : (r.obtainedScore || 0);
-                                  const mult = typeof r.multiplier === 'number' && r.multiplier > 0 ? r.multiplier : 1.0;
-                                  const earnedPts = typeof r.earnedPoints === 'number' ? r.earnedPoints : (baseScore * mult);
-
-                                  return (
-                                    <tr key={r.id || rIdx} className="hover:bg-blue-50/30 transition">
-                                      <td className="py-2.5 px-4">
-                                        <div className="space-y-0.5">
-                                          <div className="font-bold text-slate-900 text-xs sm:text-sm">
-                                            {displayName}
-                                          </div>
-                                          {(r.remarks || extraDetail) && (
-                                            <div className="text-[10px] text-slate-500 font-medium">
-                                              {r.remarks || extraDetail}
-                                            </div>
-                                          )}
-                                        </div>
-                                      </td>
-
-                                      {isExam ? (
-                                        <td className="py-2.5 px-4 text-right">
-                                          <span
-                                            className={`px-2.5 py-1 rounded-md font-mono font-extrabold text-xs inline-block ${
-                                              recordPct >= 85
-                                                ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
-                                                : recordPct >= 70
-                                                ? 'bg-blue-100 text-blue-900 border border-blue-200'
-                                                : recordPct >= 50
-                                                ? 'bg-amber-100 text-amber-900 border border-amber-200'
-                                                : 'bg-slate-100 text-slate-700'
-                                            }`}
-                                          >
-                                            {recordPct.toFixed(1)}%
-                                          </span>
-                                        </td>
-                                      ) : (
-                                        <>
-                                          <td className="py-2.5 px-4 text-center font-mono font-medium text-slate-700">
-                                            {baseScore} pts
-                                          </td>
-                                          <td className="py-2.5 px-4 text-center font-mono font-bold text-blue-700">
-                                            {mult.toFixed(1)}x
-                                          </td>
-                                          <td className="py-2.5 px-4 text-right font-mono font-black text-emerald-700">
-                                            +{formatPoints(earnedPts)} pts
-                                          </td>
-                                        </>
-                                      )}
+                            <div className={`${isCollapsed ? 'hidden' : 'block'}`}>
+                              <table className="w-full text-left text-xs print:text-[9px]">
+                                <thead className="bg-slate-50/70 border-b border-slate-100 text-slate-500 uppercase tracking-wider font-semibold text-[9.5px] print:text-[8px]">
+                                  {isExam ? (
+                                    <tr>
+                                      <th className="py-1.5 px-3 print:py-1 print:px-2">Subject / Exam Detail</th>
+                                      <th className="py-1.5 px-3 text-right print:py-1 print:px-2">Percentage</th>
                                     </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
+                                  ) : (
+                                    <tr>
+                                      <th className="py-1.5 px-3 print:py-1 print:px-2">Item / Activity</th>
+                                      <th className="py-1.5 px-3 text-center print:py-1 print:px-2">Base Score</th>
+                                      <th className="py-1.5 px-3 text-center print:py-1 print:px-2">Weightage</th>
+                                      <th className="py-1.5 px-3 text-right print:py-1 print:px-2">Earned Points</th>
+                                    </tr>
+                                  )}
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 bg-white">
+                                  {group.records.map((r: any, rIdx: number) => {
+                                    const recordPct =
+                                      typeof r.percentage === 'number' ? r.percentage : parseFloat(r.percentage || '0');
+                                    const displayName =
+                                      r.subjectName ||
+                                      r.competitionName ||
+                                      r.literaryCompetitionName ||
+                                      r.title ||
+                                      r.readingPeriod ||
+                                      r.name ||
+                                      'Assessment Record';
+
+                                    const extraDetail =
+                                      r.institutionName ||
+                                      r.boardName ||
+                                      (r.levelName ? `Level: ${r.levelName}` : null) ||
+                                      (r.position ? `Position: ${r.position}` : null) ||
+                                      (r.booksRead !== undefined ? `${r.booksRead} Books Read` : null) ||
+                                      (r.publicationStatus ? `Status: ${r.publicationStatus}` : null);
+
+                                    const baseScore =
+                                      typeof r.basePoints === 'number' ? r.basePoints : r.obtainedScore || 0;
+                                    const mult =
+                                      typeof r.multiplier === 'number' && r.multiplier > 0 ? r.multiplier : 1.0;
+                                    const earnedPts =
+                                      typeof r.earnedPoints === 'number' ? r.earnedPoints : baseScore * mult;
+
+                                    return (
+                                      <tr key={r.id || rIdx} className="hover:bg-blue-50/30 transition">
+                                        <td className="py-2 px-3 print:py-1 print:px-2">
+                                          <div className="space-y-0.5">
+                                            <div className="font-bold text-slate-900 text-xs print:text-[9px]">
+                                              {displayName}
+                                            </div>
+                                            {(r.remarks || extraDetail) && (
+                                              <div className="text-[9.5px] text-slate-500 font-medium print:text-[8px]">
+                                                {r.remarks || extraDetail}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </td>
+
+                                        {isExam ? (
+                                          <td className="py-2 px-3 text-right print:py-1 print:px-2">
+                                            <span
+                                              className={`px-2 py-0.5 rounded font-mono font-extrabold text-xs print:text-[8.5px] inline-block ${
+                                                recordPct >= 85
+                                                  ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                                                  : recordPct >= 70
+                                                  ? 'bg-blue-100 text-blue-900 border border-blue-200'
+                                                  : recordPct >= 50
+                                                  ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                                                  : 'bg-slate-100 text-slate-700'
+                                              }`}
+                                            >
+                                              {recordPct.toFixed(1)}%
+                                            </span>
+                                          </td>
+                                        ) : (
+                                          <>
+                                            <td className="py-2 px-3 text-center font-mono font-medium text-slate-700 print:py-1 print:px-2">
+                                              {baseScore} pts
+                                            </td>
+                                            <td className="py-2 px-3 text-center font-mono font-bold text-blue-700 print:py-1 print:px-2">
+                                              {mult.toFixed(1)}x
+                                            </td>
+                                            <td className="py-2 px-3 text-right font-mono font-black text-emerald-700 print:py-1 print:px-2">
+                                              +{formatPoints(earnedPts)} pts
+                                            </td>
+                                          </>
+                                        )}
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    });
-                  })()
-                )}
-              </div>
-            </div>
-          )}
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              );
+            };
+
+            return (
+              <>
+                {/* Interactive Screen View: Active Tab */}
+                <div className="print:hidden">
+                  {activeCategory && renderCategoryBlock(activeCategory, false)}
+                </div>
+
+                {/* Certified Printout View: All Selected Categories in Multi-Page Mode */}
+                <div className="hidden print:block space-y-3">
+                  {categoriesList
+                    .filter((cat: any) => selectedPrintCategories[cat.categoryId || cat.categoryCode] !== false)
+                    .map((cat: any) => renderCategoryBlock(cat, true))}
+                </div>
+              </>
+            );
+          })()}
 
           {/* Official Verification Signatures & Stamp Block */}
           <div className="print-signatures-section pt-4 border-t border-slate-200 space-y-3 print:pt-2 print:space-y-1.5 page-break-avoid">
