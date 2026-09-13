@@ -853,13 +853,17 @@ export default function PublicStudentScorecardPage() {
                                       r.name ||
                                       'Assessment Record';
 
-                                    const extraDetail =
-                                      r.institutionName ||
-                                      r.boardName ||
-                                      (r.levelName ? `Level: ${r.levelName}` : null) ||
-                                      (r.position ? `Position: ${r.position}` : null) ||
-                                      (r.booksRead !== undefined ? `${r.booksRead} Books Read` : null) ||
-                                      (r.publicationStatus ? `Status: ${r.publicationStatus}` : null);
+                                    const detailParts: string[] = [];
+                                    if (r.institutionName) detailParts.push(r.institutionName);
+                                    if (r.boardName) detailParts.push(r.boardName);
+                                    if (r.levelName) detailParts.push(`Level: ${r.levelName}`);
+                                    if (r.position) detailParts.push(`Position: ${r.position}`);
+                                    if (r.grade) detailParts.push(`Grade: ${r.grade}`);
+                                    if (r.booksRead !== undefined) detailParts.push(`${r.booksRead} Books Read`);
+                                    if (r.publicationStatus) detailParts.push(`Status: ${r.publicationStatus}`);
+                                    if (r.remarks && !r.remarks.includes(displayName)) detailParts.push(r.remarks);
+
+                                    const extraDetail = detailParts.join(' • ');
 
                                     const baseScore =
                                       typeof r.basePoints === 'number' ? r.basePoints : r.obtainedScore || 0;
@@ -875,9 +879,9 @@ export default function PublicStudentScorecardPage() {
                                             <div className="font-bold text-slate-900 text-xs print:text-[9px]">
                                               {displayName}
                                             </div>
-                                            {(r.remarks || extraDetail) && (
+                                            {extraDetail && (
                                               <div className="text-[9.5px] text-slate-500 font-medium print:text-[8px]">
-                                                {r.remarks || extraDetail}
+                                                {extraDetail}
                                               </div>
                                             )}
                                           </div>
@@ -905,7 +909,7 @@ export default function PublicStudentScorecardPage() {
                                               {baseScore} pts
                                             </td>
                                             <td className="py-2 px-3 text-center font-mono font-bold text-blue-700 print:py-1 print:px-2">
-                                              {mult.toFixed(1)}x
+                                              {mult.toFixed(2)}x
                                             </td>
                                             <td className="py-2 px-3 text-right font-mono font-black text-emerald-700 print:py-1 print:px-2">
                                               +{formatPoints(earnedPts)} pts

@@ -31,6 +31,7 @@ import SearchableStudentSelect from '@/components/ui/SearchableStudentSelect';
 import { getAcademicMasterData } from '@/lib/academic-client';
 import CustomSelect from '@/components/ui/CustomSelect';
 
+const formatPoints = (val: number): string => (Number.isInteger(val) ? val.toString() : val.toFixed(2));
 
 interface DynamicEvent {
   id: string;
@@ -499,11 +500,13 @@ export default function LiteraryProgramsPage() {
           categoryId: litCat?.id,
           levelId: formData.levelId || null,
           competitionName: formData.competitionName,
+          festivalName: formData.festivalName,
           records: [
             {
               studentId: formData.studentId,
               score: scoreVal,
               maxScore: 100,
+              levelId: formData.levelId || null,
               position: formData.position || null,
               grade: formData.grade || null,
               remarks: remarksText,
@@ -1323,7 +1326,7 @@ export default function LiteraryProgramsPage() {
                 </div>
               </div>
 
-              {/* Direct Score Awarded */}
+              {/* Direct Score Awarded & Live Calculation Preview */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Score Awarded (0-100) *
@@ -1336,10 +1339,36 @@ export default function LiteraryProgramsPage() {
                   required
                   value={formData.score}
                   onChange={(e) => setFormData({ ...formData, score: e.target.value })}
-                  placeholder="e.g. 90"
+                  placeholder="e.g. 3"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-rose-600"
                 />
               </div>
+
+              {/* Dynamic Live Points Calculation Preview Card */}
+              {(() => {
+                const singleScoreVal = Number(formData.score) || 0;
+                const singleLevelObj = levels.find((l) => l.id === formData.levelId);
+                const singleLevelMult = singleLevelObj ? (singleLevelObj.weightMultiplier || 1.0) : 1.0;
+                const singlePrizeMult = formData.position?.startsWith('1') ? 2.0 : formData.position?.startsWith('2') ? 1.5 : formData.position?.startsWith('3') ? 1.0 : 1.0;
+                const singleCalculatedFinalPoints = Number((singleScoreVal * singlePrizeMult * singleLevelMult).toFixed(2));
+
+                return (
+                  <div className="p-3 bg-gradient-to-r from-rose-50 via-rose-100/40 to-amber-50 rounded-xl border border-rose-200/90 shadow-2xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wide flex items-center space-x-1">
+                        <Sparkles className="w-3.5 h-3.5 text-rose-600" />
+                        <span>Calculated SPR Score:</span>
+                      </span>
+                      <span className="text-xs font-black text-rose-700 font-mono">
+                        +{formatPoints(singleCalculatedFinalPoints)} Points
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-600 font-medium">
+                      Formula: <strong className="text-slate-900">{singleScoreVal}</strong> (Score) × <strong className="text-slate-900">{singlePrizeMult}x</strong> ({formData.position || 'Standard'}) {singleLevelObj ? `× ` : ''}{singleLevelObj ? <strong className="text-slate-900">{singleLevelMult}x ({singleLevelObj.name})</strong> : ''} = <strong className="text-rose-700 font-black">+{singleCalculatedFinalPoints} pts</strong>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -1424,7 +1453,7 @@ export default function LiteraryProgramsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Level</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Competition Level</label>
                 <CustomSelect
                   value={editFormData.levelId}
                   onChange={(val) => setEditFormData({ ...editFormData, levelId: val })}
@@ -1435,6 +1464,60 @@ export default function LiteraryProgramsPage() {
                   }))}
                 />
               </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Position Awarded</label>
+                  <CustomSelect
+                    value={editFormData.position}
+                    onChange={(val) => setEditFormData({ ...editFormData, position: val })}
+                    options={[
+                      { value: '1st', label: '1st Position (2x)', badge: '2x' },
+                      { value: '2nd', label: '2nd Position (1.5x)', badge: '1.5x' },
+                      { value: '3rd', label: '3rd Position (1x)', badge: '1x' },
+                      { value: 'Participated', label: 'Participated' },
+                      { value: 'None', label: 'None' },
+                    ]}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Grade</label>
+                  <CustomSelect
+                    value={editFormData.grade}
+                    onChange={(val) => setEditFormData({ ...editFormData, grade: val })}
+                    placeholder="None"
+                    options={[
+                      { value: '', label: 'None' },
+                      { value: 'A+', label: 'A+ Grade' },
+                      { value: 'A', label: 'A Grade' },
+                      { value: 'B+', label: 'B+ Grade' },
+                      { value: 'B', label: 'B Grade' },
+                      { value: 'C', label: 'C Grade' },
+                    ]}
+                  />
+                </div>
+              </div>
+
+              {/* Dynamic Live Points Calculation Preview in Edit Modal */}
+              {(() => {
+                const editScoreVal = Number(editFormData.obtainedScore) || 0;
+                const editLevelObj = levels.find((l) => l.id === editFormData.levelId);
+                const editLevelMult = editLevelObj ? (editLevelObj.weightMultiplier || 1.0) : 1.0;
+                const editPrizeMult = editFormData.position?.startsWith('1') ? 2.0 : editFormData.position?.startsWith('2') ? 1.5 : editFormData.position?.startsWith('3') ? 1.0 : 1.0;
+                const editCalculatedFinalPoints = Number((editScoreVal * editPrizeMult * editLevelMult).toFixed(2));
+
+                return (
+                  <div className="p-2.5 bg-gradient-to-r from-rose-50 to-amber-50 rounded-xl border border-rose-200 text-[10px] space-y-0.5">
+                    <div className="flex items-center justify-between font-bold text-slate-800">
+                      <span>Calculated Result Preview:</span>
+                      <span className="font-mono text-rose-700 font-black text-xs">+{formatPoints(editCalculatedFinalPoints)} pts</span>
+                    </div>
+                    <div className="text-slate-600">
+                      {editScoreVal} × {editPrizeMult}x ({editFormData.position || 'Standard'}) {editLevelObj ? `× ${editLevelMult}x (${editLevelObj.name})` : ''} = <strong className="text-rose-700 font-bold">{editCalculatedFinalPoints} pts</strong>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Remarks</label>

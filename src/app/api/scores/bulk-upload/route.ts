@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
       subjectName,
       competitionId,
       competitionName,
+      festivalName,
       literaryCompetitionId,
       levelId,
       levelName,
@@ -222,11 +223,11 @@ export async function POST(req: NextRequest) {
         await getOrCreateSubjectId(row.subjectName, Number(row.maxScore) || 100);
       }
       if (row.competitionName) {
-        await getOrCreateCompetitionId(row.competitionName, row.festivalName || 'Festival', Number(row.maxScore) || 50);
+        await getOrCreateCompetitionId(row.competitionName, row.festivalName || festivalName || 'Festival', Number(row.maxScore) || 50);
       }
     }
     if (subjectName) await getOrCreateSubjectId(subjectName, 100);
-    if (competitionName) await getOrCreateCompetitionId(competitionName, 'Festival', 100);
+    if (competitionName) await getOrCreateCompetitionId(competitionName, festivalName || 'Festival', 100);
 
     // Collect valid student records
     const studentRows: Array<{ student: (typeof allStudents)[0]; row: any; index: number }> = [];
@@ -468,7 +469,7 @@ export async function POST(req: NextRequest) {
 
       let activeLitCompId = literaryCompetitionId || row.literaryCompetitionId || null;
       if (!activeLitCompId && (row.competitionName || competitionName)) {
-        const compInfo = await getOrCreateCompetitionId(row.competitionName || competitionName, row.festivalName || 'Festival', maxScore);
+        const compInfo = await getOrCreateCompetitionId(row.competitionName || competitionName, row.festivalName || festivalName || 'Festival', maxScore);
         activeLitCompId = compInfo.id;
       }
 
