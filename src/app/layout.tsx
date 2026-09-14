@@ -42,8 +42,6 @@ export const viewport: Viewport = {
   themeColor: '#0A2540',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: 'cover',
 };
 
@@ -55,14 +53,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="manifest" href="/manifest.json" />
-        <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-        <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
-        <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
-        
-        {/* Apple iOS WebKit Native PWA Meta Tags */}
+        {/* Apple iOS Native WebApp Meta Tags */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -79,25 +70,66 @@ export default function RootLayout({
         <link rel="apple-touch-icon" sizes="72x72" href="/icon-72.png" />
         <link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png" />
         <link rel="apple-touch-startup-image" href="/icon-512.png" />
+
+        {/* Early PWA Event Interceptor & SW Registration Script */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                window.__deferredPrompt = null;
+                window.addEventListener('beforeinstallprompt', function(e) {
+                  e.preventDefault();
+                  window.__deferredPrompt = e;
+                  try {
+                    window.dispatchEvent(new CustomEvent('spr-deferred-prompt-ready', { detail: e }));
+                  } catch(err) {}
+                });
+
+                window.addEventListener('appinstalled', function() {
+                  window.__deferredPrompt = null;
+                  window.__pwaInstalled = true;
+                  try {
+                    window.dispatchEvent(new CustomEvent('spr-app-installed'));
+                  } catch(err) {}
+                });
+
+                if ('serviceWorker' in navigator) {
+                  var registerSW = function() {
+                    navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                      .then(function(reg) {
+                        // Periodic check for SW updates
+                        reg.addEventListener('updatefound', function() {
+                          var newWorker = reg.installing;
+                          if (newWorker) {
+                            newWorker.addEventListener('statechange', function() {
+                              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                window.dispatchEvent(new CustomEvent('spr-sw-updated'));
+                              }
+                            });
+                          }
+                        });
+                      })
+                      .catch(function(err) {
+                        console.warn('PWA SW register error:', err);
+                      });
+                  };
+
+                  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                    registerSW();
+                  } else {
+                    window.addEventListener('load', registerSW);
+                  }
+                }
+              })();
+            `,
+          }}
+        />
       </head>
       <body className="min-h-screen bg-slate-50 text-slate-900 antialiased selection:bg-madin-900 selection:text-white">
         <AppIntro />
         {children}
         <PWAInstallPrompt />
         <AppUpdateNotification />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js').catch(function(err) {
-                    console.log('SW registration error:', err);
-                  });
-                });
-              }
-            `,
-          }}
-        />
       </body>
     </html>
   );

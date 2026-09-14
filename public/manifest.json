@@ -1,16 +1,19 @@
 {
-  "id": "/",
+  "id": "/?utm_source=pwa",
   "name": "SPR — Students Performance Rate",
   "short_name": "SPR Madin",
-  "description": "Student Performance Rate Platform for Madin School of Excellence",
-  "start_url": "/",
+  "description": "Student Performance Rate Platform for Madin School of Excellence — Real-time academic, artistic & performance analytics.",
+  "start_url": "/?utm_source=pwa&mode=standalone",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "fullscreen", "window-controls-overlay"],
+  "display_override": ["standalone", "minimal-ui", "window-controls-overlay"],
   "orientation": "any",
   "background_color": "#0A2540",
   "theme_color": "#0A2540",
   "prefer_related_applications": false,
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["education", "productivity", "management"],
   "icons": [
     {
       "src": "/apple-touch-icon.png",
@@ -79,6 +82,12 @@
       "purpose": "any"
     },
     {
+      "src": "/pwa-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
       "src": "/icon-maskable-192.png",
       "sizes": "192x192",
       "type": "image/png",
@@ -91,5 +100,32 @@
       "purpose": "maskable"
     }
   ],
-  "categories": ["education", "productivity", "management"]
+  "shortcuts": [
+    {
+      "name": "Public Leaderboard",
+      "short_name": "Leaderboard",
+      "description": "View institutional student top rankings and scores",
+      "url": "/leaderboard?utm_source=pwa_shortcut",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Staff Portal Login",
+      "short_name": "Staff Login",
+      "description": "Secure access for mentors, examiners and admin staff",
+      "url": "/login?utm_source=pwa_shortcut",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
 }
