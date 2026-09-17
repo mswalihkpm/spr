@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
+import NewsDetailModal from '@/components/modals/NewsDetailModal';
 
 export default function UpdatesPublicPage() {
   const [newsList, setNewsList] = useState<any[]>([]);
@@ -206,19 +207,18 @@ export default function UpdatesPublicPage() {
                       {item.title}
                     </h3>
                     {item.subtitle && (
-                      <h4 className="text-xs font-semibold text-blue-700/90 leading-relaxed">
+                      <h4 className="text-xs font-semibold text-blue-700 leading-relaxed">
                         {item.subtitle}
                       </h4>
                     )}
-                    <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed">
-                      {item.body}
-                    </p>
                   </div>
                 </div>
 
-                <div className="p-5 pt-0 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-blue-600">
-                  <span className="group-hover:underline">Read Full Announcement</span>
-                  <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition" />
+                <div className="p-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-blue-600 group-hover:text-blue-700">
+                  <span className="group-hover:underline">Read Full</span>
+                  <div className="w-7 h-7 rounded-lg bg-blue-50 group-hover:bg-blue-100 flex items-center justify-center transition">
+                    <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition" />
+                  </div>
                 </div>
               </article>
             ))}
@@ -227,87 +227,11 @@ export default function UpdatesPublicPage() {
       </main>
 
       {/* Full News Reader Modal */}
-      {selectedNews && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-madin-950/70 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 animate-zoom-up">
-            {/* Modal Image Header */}
-            {selectedNews.imageUrl && (
-              <div className="relative w-full h-64 sm:h-80 bg-slate-100">
-                <Image
-                  src={selectedNews.imageUrl}
-                  alt={selectedNews.title}
-                  fill
-                  className="object-cover"
-                  unoptimized
-                />
-                <button
-                  onClick={() => setSelectedNews(null)}
-                  className="absolute top-4 right-4 p-2 rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-md transition"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            )}
-
-            <div className="p-6 sm:p-8 space-y-4">
-              {!selectedNews.imageUrl && (
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200 flex items-center space-x-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-blue-600" />
-                    <span>{formatDate(selectedNews.publishedAt)}</span>
-                  </span>
-                  <button
-                    onClick={() => setSelectedNews(null)}
-                    className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              )}
-
-              {selectedNews.imageUrl && (
-                <div className="flex items-center space-x-2 text-xs text-slate-500 font-medium">
-                  <Clock className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Published on {formatDate(selectedNews.publishedAt)}</span>
-                </div>
-              )}
-
-              <div>
-                <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-snug">
-                  {selectedNews.title}
-                </h2>
-                {selectedNews.subtitle && (
-                  <h3 className="text-sm font-semibold text-blue-700 mt-1">
-                    {selectedNews.subtitle}
-                  </h3>
-                )}
-              </div>
-
-              {/* Full Body */}
-              <div className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line border-t border-slate-100 pt-4">
-                {selectedNews.body}
-              </div>
-
-              {/* Modal Actions */}
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                <button
-                  onClick={() => handleShare(selectedNews)}
-                  className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition"
-                >
-                  <Share2 className="w-3.5 h-3.5" />
-                  <span>Share Update</span>
-                </button>
-                <button
-                  onClick={() => setSelectedNews(null)}
-                  className="px-5 py-2 bg-madin-900 hover:bg-madin-950 text-white rounded-xl text-xs font-bold shadow transition"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <NewsDetailModal
+        isOpen={!!selectedNews}
+        news={selectedNews}
+        onClose={() => setSelectedNews(null)}
+      />
 
       {/* Permanent Public Footer */}
       <PublicFooter />

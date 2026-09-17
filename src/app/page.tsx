@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import StudentReportModal from '@/components/modals/StudentReportModal';
+import NewsDetailModal from '@/components/modals/NewsDetailModal';
 import PwaFooterInstall from '@/components/pwa/PwaFooterInstall';
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
@@ -60,6 +61,7 @@ export default function PublicHomePage() {
   const [modalCalcTab, setModalCalcTab] = useState<'OVERALL' | 'SUBJECTS' | 'PROGRAMMES' | 'RAW'>('OVERALL');
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportingStudent, setReportingStudent] = useState<any | null>(null);
+  const [selectedNews, setSelectedNews] = useState<any | null>(null);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
@@ -1048,49 +1050,59 @@ export default function PublicHomePage() {
         </div>
 
         {newsUpdates.length > 0 ? (
-          <div className="grid grid-cols-3 gap-2 sm:gap-4 md:gap-5">
-            {newsUpdates.map((item, idx) => (
-              <Link
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {newsUpdates.map((item) => (
+              <div
                 key={item.id}
-                href="/updates"
-                className="group bg-white rounded-xl sm:rounded-2xl border border-slate-200 hover:border-amber-400 p-2.5 sm:p-5 shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between space-y-2 sm:space-y-3 relative overflow-hidden"
+                onClick={() => setSelectedNews(item)}
+                className="group cursor-pointer bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 hover:border-amber-400 p-3 sm:p-5 shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col justify-between space-y-3 relative overflow-hidden"
               >
-                <div className="space-y-1.5 sm:space-y-2.5">
+                <div className="space-y-2.5">
                   {item.imageUrl ? (
-                    <div className="relative w-full h-16 sm:h-36 rounded-lg sm:rounded-xl bg-slate-100 overflow-hidden border border-slate-200">
-                      <Image src={item.imageUrl} alt={item.title} fill className="object-cover group-hover:scale-105 transition duration-500" unoptimized />
+                    <div className="relative w-full h-40 sm:h-48 rounded-xl sm:rounded-2xl bg-slate-100 overflow-hidden border border-slate-200">
+                      <Image
+                        src={item.imageUrl}
+                        alt={item.title}
+                        fill
+                        className="object-cover group-hover:scale-105 transition duration-500"
+                        unoptimized
+                      />
                     </div>
                   ) : (
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200">
-                      <Megaphone className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200">
+                      <Megaphone className="w-6 h-6" />
                     </div>
                   )}
 
-                  <div className="flex items-center space-x-1 sm:space-x-2 text-[8px] sm:text-[10px] text-slate-400 font-medium">
-                    <Calendar className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-600 shrink-0" />
-                    <span className="truncate">{new Date(item.publishedAt).toLocaleDateString()}</span>
+                  <div className="flex items-center space-x-1.5 text-[10px] sm:text-xs text-slate-400 font-medium">
+                    <Calendar className="w-3 h-3 text-amber-600 shrink-0" />
+                    <span>
+                      {new Date(item.publishedAt).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </span>
                   </div>
 
-                  <h4 className="text-[10px] sm:text-sm font-bold text-slate-900 group-hover:text-amber-700 transition leading-tight line-clamp-2">
+                  <h4 className="text-sm sm:text-base font-black text-slate-900 group-hover:text-amber-700 transition leading-snug">
                     {item.title}
                   </h4>
 
                   {item.subtitle && (
-                    <p className="hidden sm:block text-xs text-blue-700 font-semibold line-clamp-1">
+                    <p className="text-xs sm:text-sm text-blue-700 font-semibold leading-relaxed">
                       {item.subtitle}
                     </p>
                   )}
-
-                  <p className="hidden sm:block text-xs text-slate-500 line-clamp-2 leading-relaxed">
-                    {item.body}
-                  </p>
                 </div>
 
-                <div className="pt-1.5 sm:pt-2 border-t border-slate-100 flex items-center justify-between text-[9px] sm:text-xs font-bold text-amber-700">
-                  <span className="truncate">Read More</span>
-                  <ArrowRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 group-hover:translate-x-1 transition shrink-0 ml-1" />
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-amber-700 group-hover:text-amber-800">
+                  <span className="group-hover:underline">Read Full</span>
+                  <div className="w-7 h-7 rounded-lg bg-amber-50 group-hover:bg-amber-100 flex items-center justify-center transition">
+                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition" />
+                  </div>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         ) : (
@@ -1371,6 +1383,13 @@ export default function PublicHomePage() {
           setReportingStudent(null);
         }}
         student={reportingStudent}
+      />
+
+      {/* News Detail Reader Modal */}
+      <NewsDetailModal
+        isOpen={!!selectedNews}
+        news={selectedNews}
+        onClose={() => setSelectedNews(null)}
       />
 
       {/* Permanent Public Footer */}
