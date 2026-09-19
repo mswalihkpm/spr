@@ -17,6 +17,7 @@ import {
   Sparkles,
   Loader2,
   Flame,
+  X,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
@@ -531,15 +532,23 @@ export default function LibraryPage() {
 
       {/* Manual Entry Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-madin-950/70 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-fade-in">
-            <h3 className="text-sm font-bold text-slate-900 pb-3 border-b border-slate-100">
-              Add Student Reading Log
-            </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-madin-950/70 backdrop-blur-sm overflow-y-auto animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 max-h-[calc(100dvh-2rem)] overflow-y-auto my-auto animate-scale-in flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+              <h3 className="text-sm font-bold text-slate-900">
+                Add Student Reading Log
+              </h3>
+              <button
+                onClick={() => setModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
             <ModalLoadingBar loading={saving} text="Saving library reading record..." color="emerald" />
 
-            <form onSubmit={handleManualImport} className="mt-4 space-y-3.5">
+            <form onSubmit={handleManualImport} className="mt-4 space-y-3.5 flex-1 flex flex-col">
               <div>
                 <SearchableStudentSelect
                   students={students}
@@ -598,18 +607,18 @@ export default function LibraryPage() {
                 />
               </div>
 
-              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+              <div className="sticky bottom-0 bg-white/95 backdrop-blur-xs pt-3 border-t border-slate-100 flex items-center justify-end space-x-2 mt-auto z-10">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl"
+                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-5 py-2.5 bg-madin-900 text-white rounded-xl text-xs font-bold hover:bg-madin-950 disabled:opacity-50 shadow flex items-center space-x-1.5 transition active:scale-95"
+                  className="px-5 py-2.5 bg-madin-900 text-white rounded-xl text-xs font-bold hover:bg-madin-950 disabled:opacity-50 shadow flex items-center space-x-1.5 transition active:scale-95 cursor-pointer"
                 >
                   {saving ? (
                     <>

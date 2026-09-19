@@ -1330,9 +1330,9 @@ export default function LiteraryProgramsPage() {
 
       {/* Record Award Modal (Single Entry with Ontime Typing) */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-madin-950/70 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-fade-in">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-madin-950/70 backdrop-blur-sm overflow-y-auto animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[calc(100dvh-2rem)] flex flex-col my-auto overflow-hidden">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
               <h3 className="text-sm font-bold text-slate-900">Record Literary Festival Result</h3>
               <button
                 onClick={() => setModalOpen(false)}
@@ -1343,192 +1343,194 @@ export default function LiteraryProgramsPage() {
             </div>
             <ModalLoadingBar loading={saving} text="Recording literary score..." color="rose" />
 
-            <form onSubmit={handleSaveScore} className="mt-4 space-y-3.5">
-              {/* Searchable Student Selector */}
-              <SearchableStudentSelect
-                students={students}
-                value={formData.studentId}
-                onChange={(id) => setFormData({ ...formData, studentId: id })}
-                label="Select Student"
-                required
-              />
+            <form onSubmit={handleSaveScore} className="mt-4 flex-1 overflow-y-auto pr-1 -mr-1 space-y-3.5 overscroll-contain flex flex-col justify-between">
+              <div className="space-y-3.5">
+                {/* Searchable Student Selector */}
+                <SearchableStudentSelect
+                  students={students}
+                  value={formData.studentId}
+                  onChange={(id) => setFormData({ ...formData, studentId: id })}
+                  label="Select Student"
+                  required
+                />
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Subcategory / Festival *</label>
-                  <CustomSelect
-                    value={formData.subcategoryId}
-                    onChange={(val) => {
-                      const sub = subcategories.find((s) => s.id === val);
-                      setFormData((prev) => ({
-                        ...prev,
-                        subcategoryId: val,
-                        festivalName: sub?.name || prev.festivalName,
-                      }));
-                    }}
-                    placeholder="Select Subcategory"
-                    options={subcategories.map((s) => ({
-                      value: s.id,
-                      label: s.name,
-                    }))}
-                  />
-                  <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                    {subcategories.map((sub) => (
-                      <button
-                        key={sub.id}
-                        type="button"
-                        onClick={() => {
-                          setFormData((prev) => ({
-                            ...prev,
-                            subcategoryId: sub.id,
-                            festivalName: sub.name,
-                          }));
-                        }}
-                        className={`text-[9px] px-2 py-0.5 rounded-md border font-semibold transition ${
-                          formData.subcategoryId === sub.id
-                            ? 'bg-rose-600 text-white border-rose-600 shadow-2xs'
-                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
-                        }`}
-                      >
-                        {sub.name}
-                      </button>
-                    ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Subcategory / Festival *</label>
+                    <CustomSelect
+                      value={formData.subcategoryId}
+                      onChange={(val) => {
+                        const sub = subcategories.find((s) => s.id === val);
+                        setFormData((prev) => ({
+                          ...prev,
+                          subcategoryId: val,
+                          festivalName: sub?.name || prev.festivalName,
+                        }));
+                      }}
+                      placeholder="Select Subcategory"
+                      options={subcategories.map((s) => ({
+                        value: s.id,
+                        label: s.name,
+                      }))}
+                    />
+                    <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                      {subcategories.map((sub) => (
+                        <button
+                          key={sub.id}
+                          type="button"
+                          onClick={() => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              subcategoryId: sub.id,
+                              festivalName: sub.name,
+                            }));
+                          }}
+                          className={`text-[9px] px-2 py-0.5 rounded-md border font-semibold transition ${
+                            formData.subcategoryId === sub.id
+                              ? 'bg-rose-600 text-white border-rose-600 shadow-2xs'
+                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {sub.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Competition / Item *</label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.competitionName}
+                      onChange={(e) => setFormData({ ...formData, competitionName: e.target.value })}
+                      placeholder="e.g. Malayalam Essay / Urdu Ghazal"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-rose-600"
+                    />
                   </div>
                 </div>
 
+                {/* Dynamic Levels for Festival / Subcategory */}
+                {(() => {
+                  const availableLevels = getAvailableLevelsForFestival(formData.subcategoryId || formData.festivalName);
+                  if (availableLevels.length === 0) return null;
+                  return (
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Competition Level *
+                      </label>
+                      <CustomSelect
+                        value={formData.levelId}
+                        onChange={(val) => setFormData({ ...formData, levelId: val })}
+                        placeholder={`Select Level (${availableLevels.map((l) => l.name).join(', ')})`}
+                        options={availableLevels.map((l) => ({
+                          value: l.id,
+                          label: `${l.name} (Weight Multiplier: ${l.weightMultiplier}x)`,
+                          badge: `${l.weightMultiplier}x`,
+                        }))}
+                      />
+                    </div>
+                  );
+                })()}
+
+                {/* Position & Grade Dropdowns */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Position Awarded *
+                    </label>
+                    <CustomSelect
+                      value={formData.position}
+                      onChange={(val) => setFormData({ ...formData, position: val })}
+                      options={[
+                        { value: '1st', label: '1st Position / Prize (2x)', badge: '2x' },
+                        { value: '2nd', label: '2nd Position / Prize (1.5x)', badge: '1.5x' },
+                        { value: '3rd', label: '3rd Position / Prize (1x)', badge: '1x' },
+                        { value: 'Participated', label: 'Participated / Qualified' },
+                        { value: 'None', label: 'None' },
+                      ]}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Grade <span className="text-slate-400 font-normal">(Optional)</span>
+                    </label>
+                    <CustomSelect
+                      value={formData.grade}
+                      onChange={(val) => setFormData({ ...formData, grade: val })}
+                      placeholder="None / Optional"
+                      options={[
+                        { value: '', label: 'None / Optional' },
+                        { value: 'A+', label: 'A+ Grade' },
+                        { value: 'A', label: 'A Grade' },
+                        { value: 'B+', label: 'B+ Grade' },
+                        { value: 'B', label: 'B Grade' },
+                        { value: 'C', label: 'C Grade' },
+                      ]}
+                    />
+                  </div>
+                </div>
+
+                {/* Direct Score Awarded & Live Calculation Preview */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Competition / Item *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Score Awarded (0-100) *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    max="1000"
+                    required
+                    value={formData.score}
+                    onChange={(e) => setFormData({ ...formData, score: e.target.value })}
+                    placeholder="e.g. 3"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-rose-600"
+                  />
+                </div>
+
+                {/* Dynamic Live Points Calculation Preview Card */}
+                {(() => {
+                  const singleScoreVal = Number(formData.score) || 0;
+                  const singleLevelObj = levels.find((l) => l.id === formData.levelId);
+                  const singleLevelMult = singleLevelObj ? (singleLevelObj.weightMultiplier || 1.0) : 1.0;
+                  const singlePrizeMult = formData.position?.startsWith('1') ? 2.0 : formData.position?.startsWith('2') ? 1.5 : formData.position?.startsWith('3') ? 1.0 : 1.0;
+                  const singleCalculatedFinalPoints = Number((singleScoreVal * singlePrizeMult * singleLevelMult).toFixed(2));
+
+                  return (
+                    <div className="p-3 bg-gradient-to-r from-rose-50 via-rose-100/40 to-amber-50 rounded-xl border border-rose-200/90 shadow-2xs space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wide flex items-center space-x-1">
+                          <Sparkles className="w-3.5 h-3.5 text-rose-600" />
+                          <span>Calculated SPR Score:</span>
+                        </span>
+                        <span className="text-xs font-black text-rose-700 font-mono">
+                          +{formatPoints(singleCalculatedFinalPoints)} Points
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-slate-600 font-medium">
+                        Formula: <strong className="text-slate-900">{singleScoreVal}</strong> (Score) × <strong className="text-slate-900">{singlePrizeMult}x</strong> ({formData.position || 'Standard'}) {singleLevelObj ? `× ` : ''}{singleLevelObj ? <strong className="text-slate-900">{singleLevelMult}x ({singleLevelObj.name})</strong> : ''} = <strong className="text-rose-700 font-black">+{singleCalculatedFinalPoints} pts</strong>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Remarks / Notes <span className="text-slate-400 font-normal">(Optional)</span>
+                  </label>
                   <input
                     type="text"
-                    required
-                    value={formData.competitionName}
-                    onChange={(e) => setFormData({ ...formData, competitionName: e.target.value })}
-                    placeholder="e.g. Malayalam Essay / Urdu Ghazal"
+                    value={formData.remarks}
+                    onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                    placeholder="e.g. Special jury distinction..."
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-rose-600"
                   />
                 </div>
               </div>
 
-              {/* Dynamic Levels for Festival / Subcategory */}
-              {(() => {
-                const availableLevels = getAvailableLevelsForFestival(formData.subcategoryId || formData.festivalName);
-                if (availableLevels.length === 0) return null;
-                return (
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Competition Level *
-                    </label>
-                    <CustomSelect
-                      value={formData.levelId}
-                      onChange={(val) => setFormData({ ...formData, levelId: val })}
-                      placeholder={`Select Level (${availableLevels.map((l) => l.name).join(', ')})`}
-                      options={availableLevels.map((l) => ({
-                        value: l.id,
-                        label: `${l.name} (Weight Multiplier: ${l.weightMultiplier}x)`,
-                        badge: `${l.weightMultiplier}x`,
-                      }))}
-                    />
-                  </div>
-                );
-              })()}
-
-              {/* Position & Grade Dropdowns */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Position Awarded *
-                  </label>
-                  <CustomSelect
-                    value={formData.position}
-                    onChange={(val) => setFormData({ ...formData, position: val })}
-                    options={[
-                      { value: '1st', label: '1st Position / Prize (2x)', badge: '2x' },
-                      { value: '2nd', label: '2nd Position / Prize (1.5x)', badge: '1.5x' },
-                      { value: '3rd', label: '3rd Position / Prize (1x)', badge: '1x' },
-                      { value: 'Participated', label: 'Participated / Qualified' },
-                      { value: 'None', label: 'None' },
-                    ]}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Grade <span className="text-slate-400 font-normal">(Optional)</span>
-                  </label>
-                  <CustomSelect
-                    value={formData.grade}
-                    onChange={(val) => setFormData({ ...formData, grade: val })}
-                    placeholder="None / Optional"
-                    options={[
-                      { value: '', label: 'None / Optional' },
-                      { value: 'A+', label: 'A+ Grade' },
-                      { value: 'A', label: 'A Grade' },
-                      { value: 'B+', label: 'B+ Grade' },
-                      { value: 'B', label: 'B Grade' },
-                      { value: 'C', label: 'C Grade' },
-                    ]}
-                  />
-                </div>
-              </div>
-
-              {/* Direct Score Awarded & Live Calculation Preview */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Score Awarded (0-100) *
-                </label>
-                <input
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  max="1000"
-                  required
-                  value={formData.score}
-                  onChange={(e) => setFormData({ ...formData, score: e.target.value })}
-                  placeholder="e.g. 3"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-rose-600"
-                />
-              </div>
-
-              {/* Dynamic Live Points Calculation Preview Card */}
-              {(() => {
-                const singleScoreVal = Number(formData.score) || 0;
-                const singleLevelObj = levels.find((l) => l.id === formData.levelId);
-                const singleLevelMult = singleLevelObj ? (singleLevelObj.weightMultiplier || 1.0) : 1.0;
-                const singlePrizeMult = formData.position?.startsWith('1') ? 2.0 : formData.position?.startsWith('2') ? 1.5 : formData.position?.startsWith('3') ? 1.0 : 1.0;
-                const singleCalculatedFinalPoints = Number((singleScoreVal * singlePrizeMult * singleLevelMult).toFixed(2));
-
-                return (
-                  <div className="p-3 bg-gradient-to-r from-rose-50 via-rose-100/40 to-amber-50 rounded-xl border border-rose-200/90 shadow-2xs space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wide flex items-center space-x-1">
-                        <Sparkles className="w-3.5 h-3.5 text-rose-600" />
-                        <span>Calculated SPR Score:</span>
-                      </span>
-                      <span className="text-xs font-black text-rose-700 font-mono">
-                        +{formatPoints(singleCalculatedFinalPoints)} Points
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-slate-600 font-medium">
-                      Formula: <strong className="text-slate-900">{singleScoreVal}</strong> (Score) × <strong className="text-slate-900">{singlePrizeMult}x</strong> ({formData.position || 'Standard'}) {singleLevelObj ? `× ` : ''}{singleLevelObj ? <strong className="text-slate-900">{singleLevelMult}x ({singleLevelObj.name})</strong> : ''} = <strong className="text-rose-700 font-black">+{singleCalculatedFinalPoints} pts</strong>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Remarks / Notes <span className="text-slate-400 font-normal">(Optional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.remarks}
-                  onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-                  placeholder="e.g. Special jury distinction..."
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-rose-600"
-                />
-              </div>
-
-              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100 shrink-0 sticky bottom-0 bg-white/95 backdrop-blur-xs">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
@@ -1561,9 +1563,9 @@ export default function LiteraryProgramsPage() {
 
       {/* Edit Modal */}
       {editModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-madin-950/70 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-madin-950/70 backdrop-blur-sm overflow-y-auto animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[calc(100dvh-2rem)] flex flex-col my-auto overflow-hidden">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
               <h3 className="text-sm font-bold text-slate-900">Edit Award Record</h3>
               <button
                 onClick={() => setEditModalOpen(false)}
@@ -1573,117 +1575,119 @@ export default function LiteraryProgramsPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveEdit} className="mt-4 space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Student</label>
-                <div className="text-xs font-bold text-slate-900 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                  {editingRecord?.student?.fullName}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleSaveEdit} className="mt-4 flex-1 overflow-y-auto pr-1 -mr-1 space-y-3 overscroll-contain flex flex-col justify-between">
+              <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Obtained Score</label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    required
-                    value={editFormData.obtainedScore}
-                    onChange={(e) => setEditFormData({ ...editFormData, obtainedScore: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Max Score</label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={editFormData.maxScore}
-                    onChange={(e) => setEditFormData({ ...editFormData, maxScore: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Competition Level</label>
-                <CustomSelect
-                  value={editFormData.levelId}
-                  onChange={(val) => setEditFormData({ ...editFormData, levelId: val })}
-                  options={levels.map((l) => ({
-                    value: l.id,
-                    label: `${l.name} (${l.weightMultiplier}x)`,
-                    badge: `${l.weightMultiplier}x`,
-                  }))}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Position Awarded</label>
-                  <CustomSelect
-                    value={editFormData.position}
-                    onChange={(val) => setEditFormData({ ...editFormData, position: val })}
-                    options={[
-                      { value: '1st', label: '1st Position (2x)', badge: '2x' },
-                      { value: '2nd', label: '2nd Position (1.5x)', badge: '1.5x' },
-                      { value: '3rd', label: '3rd Position (1x)', badge: '1x' },
-                      { value: 'Participated', label: 'Participated' },
-                      { value: 'None', label: 'None' },
-                    ]}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Grade</label>
-                  <CustomSelect
-                    value={editFormData.grade}
-                    onChange={(val) => setEditFormData({ ...editFormData, grade: val })}
-                    placeholder="None"
-                    options={[
-                      { value: '', label: 'None' },
-                      { value: 'A+', label: 'A+ Grade' },
-                      { value: 'A', label: 'A Grade' },
-                      { value: 'B+', label: 'B+ Grade' },
-                      { value: 'B', label: 'B Grade' },
-                      { value: 'C', label: 'C Grade' },
-                    ]}
-                  />
-                </div>
-              </div>
-
-              {/* Dynamic Live Points Calculation Preview in Edit Modal */}
-              {(() => {
-                const editScoreVal = Number(editFormData.obtainedScore) || 0;
-                const editLevelObj = levels.find((l) => l.id === editFormData.levelId);
-                const editLevelMult = editLevelObj ? (editLevelObj.weightMultiplier || 1.0) : 1.0;
-                const editPrizeMult = editFormData.position?.startsWith('1') ? 2.0 : editFormData.position?.startsWith('2') ? 1.5 : editFormData.position?.startsWith('3') ? 1.0 : 1.0;
-                const editCalculatedFinalPoints = Number((editScoreVal * editPrizeMult * editLevelMult).toFixed(2));
-
-                return (
-                  <div className="p-2.5 bg-gradient-to-r from-rose-50 to-amber-50 rounded-xl border border-rose-200 text-[10px] space-y-0.5">
-                    <div className="flex items-center justify-between font-bold text-slate-800">
-                      <span>Calculated Result Preview:</span>
-                      <span className="font-mono text-rose-700 font-black text-xs">+{formatPoints(editCalculatedFinalPoints)} pts</span>
-                    </div>
-                    <div className="text-slate-600">
-                      {editScoreVal} × {editPrizeMult}x ({editFormData.position || 'Standard'}) {editLevelObj ? `× ${editLevelMult}x (${editLevelObj.name})` : ''} = <strong className="text-rose-700 font-bold">{editCalculatedFinalPoints} pts</strong>
-                    </div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Student</label>
+                  <div className="text-xs font-bold text-slate-900 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                    {editingRecord?.student?.fullName}
                   </div>
-                );
-              })()}
+                </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Remarks</label>
-                <input
-                  type="text"
-                  value={editFormData.remarks}
-                  onChange={(e) => setEditFormData({ ...editFormData, remarks: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none"
-                />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Obtained Score</label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      required
+                      value={editFormData.obtainedScore}
+                      onChange={(e) => setEditFormData({ ...editFormData, obtainedScore: Number(e.target.value) })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Max Score</label>
+                    <input
+                      type="number"
+                      min="1"
+                      required
+                      value={editFormData.maxScore}
+                      onChange={(e) => setEditFormData({ ...editFormData, maxScore: Number(e.target.value) })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Competition Level</label>
+                  <CustomSelect
+                    value={editFormData.levelId}
+                    onChange={(val) => setEditFormData({ ...editFormData, levelId: val })}
+                    options={levels.map((l) => ({
+                      value: l.id,
+                      label: `${l.name} (${l.weightMultiplier}x)`,
+                      badge: `${l.weightMultiplier}x`,
+                    }))}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Position Awarded</label>
+                    <CustomSelect
+                      value={editFormData.position}
+                      onChange={(val) => setEditFormData({ ...editFormData, position: val })}
+                      options={[
+                        { value: '1st', label: '1st Position (2x)', badge: '2x' },
+                        { value: '2nd', label: '2nd Position (1.5x)', badge: '1.5x' },
+                        { value: '3rd', label: '3rd Position (1x)', badge: '1x' },
+                        { value: 'Participated', label: 'Participated' },
+                        { value: 'None', label: 'None' },
+                      ]}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Grade</label>
+                    <CustomSelect
+                      value={editFormData.grade}
+                      onChange={(val) => setEditFormData({ ...editFormData, grade: val })}
+                      placeholder="None"
+                      options={[
+                        { value: '', label: 'None' },
+                        { value: 'A+', label: 'A+ Grade' },
+                        { value: 'A', label: 'A Grade' },
+                        { value: 'B+', label: 'B+ Grade' },
+                        { value: 'B', label: 'B Grade' },
+                        { value: 'C', label: 'C Grade' },
+                      ]}
+                    />
+                  </div>
+                </div>
+
+                {/* Dynamic Live Points Calculation Preview in Edit Modal */}
+                {(() => {
+                  const editScoreVal = Number(editFormData.obtainedScore) || 0;
+                  const editLevelObj = levels.find((l) => l.id === editFormData.levelId);
+                  const editLevelMult = editLevelObj ? (editLevelObj.weightMultiplier || 1.0) : 1.0;
+                  const editPrizeMult = editFormData.position?.startsWith('1') ? 2.0 : editFormData.position?.startsWith('2') ? 1.5 : editFormData.position?.startsWith('3') ? 1.0 : 1.0;
+                  const editCalculatedFinalPoints = Number((editScoreVal * editPrizeMult * editLevelMult).toFixed(2));
+
+                  return (
+                    <div className="p-2.5 bg-gradient-to-r from-rose-50 to-amber-50 rounded-xl border border-rose-200 text-[10px] space-y-0.5">
+                      <div className="flex items-center justify-between font-bold text-slate-800">
+                        <span>Calculated Result Preview:</span>
+                        <span className="font-mono text-rose-700 font-black text-xs">+{formatPoints(editCalculatedFinalPoints)} pts</span>
+                      </div>
+                      <div className="text-slate-600">
+                        {editScoreVal} × {editPrizeMult}x ({editFormData.position || 'Standard'}) {editLevelObj ? `× ${editLevelMult}x (${editLevelObj.name})` : ''} = <strong className="text-rose-700 font-bold">{editCalculatedFinalPoints} pts</strong>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Remarks</label>
+                  <input
+                    type="text"
+                    value={editFormData.remarks}
+                    onChange={(e) => setEditFormData({ ...editFormData, remarks: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none"
+                  />
+                </div>
               </div>
 
-              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100 shrink-0 sticky bottom-0 bg-white/95 backdrop-blur-xs">
                 <button
                   type="button"
                   onClick={() => setEditModalOpen(false)}

@@ -713,9 +713,9 @@ export default function KuthbkhanaPage() {
 
       {/* Record Add / Edit Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 animate-scale-in">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm overflow-y-auto animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 max-h-[calc(100dvh-2rem)] overflow-y-auto my-auto animate-scale-in flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 rounded-xl bg-blue-900 p-1 flex items-center justify-center text-white">
                   <BookOpen className="w-4 h-4 text-gold-400" />
@@ -729,7 +729,7 @@ export default function KuthbkhanaPage() {
               </div>
               <button
                 onClick={() => setModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -737,7 +737,7 @@ export default function KuthbkhanaPage() {
 
             <ModalLoadingBar loading={saving} text="Recording Kuthbkhana score..." color="blue" />
 
-            <form onSubmit={handleSaveRecord} className="mt-4 space-y-3.5">
+            <form onSubmit={handleSaveRecord} className="mt-4 space-y-3.5 flex-1 flex flex-col">
               {/* Type Selection: Muthala vs Point picking */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
@@ -771,39 +771,46 @@ export default function KuthbkhanaPage() {
                 </div>
               </div>
 
-              {/* Student Select */}
+              {/* Student Selector */}
               <div>
                 <SearchableStudentSelect
                   students={students}
                   value={formData.studentId}
-                  onChange={(id) => setFormData((prev) => ({ ...prev, studentId: id }))}
+                  onChange={(stId) => setFormData({ ...formData, studentId: stId })}
                   required
-                  label="Student *"
+                  label="Select Student"
+                  placeholder="Search student by name or SPR ID..."
                 />
               </div>
 
-              {/* Kithab Name (Required for both Muthala and Point picking) */}
+              {/* Book / Subject Name */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Kithab / Classical Text Name *
+                  Book Name / Topic *
                 </label>
                 <input
                   type="text"
                   required
+                  placeholder={
+                    formData.type === 'Muthala'
+                      ? 'e.g. Fath-ul-Mueen, Tafseer Al-Jalalayn, Ihya Uloom...'
+                      : 'e.g. Arabic Syntax rules, Fiqh terminology...'
+                  }
                   value={formData.kithabName}
                   onChange={(e) => setFormData({ ...formData, kithabName: e.target.value })}
-                  placeholder="e.g. Fathul Mueen, Safinathun-Naja, Ihya Uloomiddin"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-600"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:ring-2 focus:ring-blue-600"
                 />
 
                 {/* Classical Book Suggestions */}
                 <div className="mt-1.5 flex items-center gap-1 flex-wrap">
-                  <span className="text-[9px] font-bold text-slate-400">Kithab suggestions:</span>
-                  {MUTHALA_SUGGESTIONS.slice(0, 5).map((item) => (
+                  <span className="text-[9px] font-bold text-slate-400">
+                    {formData.type === 'Point picking' ? 'Topic suggestions:' : 'Kithab suggestions:'}
+                  </span>
+                  {(formData.type === 'Point picking' ? POINT_PICKING_SUGGESTIONS : MUTHALA_SUGGESTIONS).slice(0, 5).map((item) => (
                     <button
                       key={item}
                       type="button"
-                      onClick={() => setFormData({ ...formData, kithabName: item })}
+                      onClick={() => setFormData({ ...formData, kithabName: item.split(' (')[0] })}
                       className="text-[9px] font-semibold bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 px-1.5 py-0.5 rounded-md transition cursor-pointer"
                     >
                       {item.split(' (')[0]}
@@ -812,40 +819,18 @@ export default function KuthbkhanaPage() {
                 </div>
               </div>
 
-              {/* Topic / Details (Optional) */}
+              {/* Optional Notes */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  {formData.type === 'Point picking' ? 'Point Picking Topic / Notes' : 'Session Focus / Notes'}{' '}
-                  <span className="text-[10px] font-normal text-slate-400">(Optional)</span>
+                  Notes / Details <span className="text-[10px] font-normal text-slate-400">(Optional)</span>
                 </label>
                 <input
                   type="text"
+                  placeholder="e.g. Completed Chapter 1, Special points noted..."
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder={
-                    formData.type === 'Point picking'
-                      ? 'e.g. Scholarly Points Session, Library Research Notes'
-                      : 'e.g. Chapter on Taharah, Advanced Research'
-                  }
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:ring-2 focus:ring-blue-600"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-blue-600"
                 />
-
-                {/* Point Picking Topic Suggestions */}
-                {formData.type === 'Point picking' && (
-                  <div className="mt-1.5 flex items-center gap-1 flex-wrap">
-                    <span className="text-[9px] font-bold text-slate-400">Topic suggestions:</span>
-                    {POINT_PICKING_SUGGESTIONS.slice(0, 4).map((item) => (
-                      <button
-                        key={item}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, notes: item })}
-                        className="text-[9px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-md transition cursor-pointer"
-                      >
-                        {item}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
 
               {/* Points (Numerical) & Date (Optional) */}
@@ -883,11 +868,11 @@ export default function KuthbkhanaPage() {
               </div>
 
               {/* Actions */}
-              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+              <div className="sticky bottom-0 bg-white/95 backdrop-blur-xs pt-3 border-t border-slate-100 flex items-center justify-end space-x-2 mt-auto z-10">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer transition"
                 >
                   Cancel
                 </button>

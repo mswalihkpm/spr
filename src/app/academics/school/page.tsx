@@ -1646,8 +1646,8 @@ export default function SchoolStudiesPage() {
 
       {/* Edit Single Score Modal */}
       {editModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-zoom-up">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 animate-zoom-up max-h-[calc(100dvh-2rem)] overflow-y-auto my-auto">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900">Edit Score Record</h3>
               <button onClick={() => setEditModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-700">

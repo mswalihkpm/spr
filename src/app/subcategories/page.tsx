@@ -1325,9 +1325,9 @@ export default function OtherSubcategoriesPage() {
 
         {/* Builder Modal with Advanced Feature Management */}
         {builderModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-madin-950/70 backdrop-blur-sm animate-fade-in overflow-y-auto">
-            <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 animate-zoom-up my-8 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-madin-950/70 backdrop-blur-sm animate-fade-in overflow-y-auto">
+            <div className="bg-white rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl border border-slate-200 animate-zoom-up my-auto max-h-[calc(100dvh-2rem)] overflow-y-auto flex flex-col">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
                 <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
                   <Layers className="w-5 h-5 text-indigo-600" />
                   <span>{editingSubId ? 'Edit Subcategory Features & Rules' : 'Build New Subcategory & Features'}</span>
@@ -1337,7 +1337,7 @@ export default function OtherSubcategoriesPage() {
                 </button>
               </div>
 
-              <form onSubmit={handleSaveSubcategory} className="mt-4 space-y-5">
+              <form onSubmit={handleSaveSubcategory} className="mt-4 space-y-5 flex-1 flex flex-col">
                 {/* 1. Basic Info */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -1635,18 +1635,18 @@ export default function OtherSubcategoriesPage() {
 
                 <ModalLoadingBar loading={savingBuilder} text="Saving subcategory features..." color="indigo" />
 
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
+                <div className="sticky bottom-0 bg-white/95 backdrop-blur-xs pt-3 border-t border-slate-100 flex items-center justify-end space-x-2 mt-auto z-10">
                   <button
                     type="button"
                     onClick={() => setBuilderModalOpen(false)}
-                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={savingBuilder}
-                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow flex items-center space-x-1.5 disabled:opacity-50 transition active:scale-95"
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow flex items-center space-x-1.5 disabled:opacity-50 transition active:scale-95 cursor-pointer"
                   >
                     {savingBuilder ? (
                       <>

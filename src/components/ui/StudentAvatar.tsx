@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface StudentAvatarProps {
   photoUrl?: string | null;
@@ -37,6 +37,11 @@ export function StudentAvatar({
   const displayName = fullName || name || 'ST';
   const [imageError, setImageError] = useState(false);
 
+  // Reset image error state whenever photoUrl changes
+  useEffect(() => {
+    setImageError(false);
+  }, [photoUrl]);
+
   // Generate consistent gradient based on student name
   const nameHash = displayName
     .split('')
@@ -52,7 +57,8 @@ export function StudentAvatar({
     initials = words[0].slice(0, 2).toUpperCase();
   }
 
-  const hasValidPhoto = photoUrl && typeof photoUrl === 'string' && photoUrl.trim().length > 0 && !imageError;
+  const cleanPhotoUrl = typeof photoUrl === 'string' && photoUrl.trim().length > 0 ? photoUrl.trim() : null;
+  const hasValidPhoto = Boolean(cleanPhotoUrl && !imageError);
 
   return (
     <div
@@ -62,10 +68,10 @@ export function StudentAvatar({
     >
       {hasValidPhoto ? (
         <img
-          src={photoUrl}
-          alt={name}
-          loading="lazy"
-          decoding="async"
+          src={cleanPhotoUrl!}
+          alt={displayName}
+          referrerPolicy="no-referrer"
+          crossOrigin="anonymous"
           onError={() => setImageError(true)}
           className="w-full h-full object-cover"
         />
@@ -77,3 +83,4 @@ export function StudentAvatar({
 }
 
 export default StudentAvatar;
+

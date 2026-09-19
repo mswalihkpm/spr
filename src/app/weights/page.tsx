@@ -1055,14 +1055,14 @@ export default function WeightsPage() {
 
         {/* Add Level Modal */}
         {newLevelModalOpen && (
-          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-4">
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fade-in">
+            <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-4 max-h-[calc(100dvh-2rem)] overflow-y-auto my-auto animate-scale-in">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <h3 className="text-sm font-black text-slate-900">Add Competition Level</h3>
                 <button
                   type="button"
                   onClick={() => setNewLevelModalOpen(false)}
-                  className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 cursor-pointer"
+                  className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 cursor-pointer transition"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1108,14 +1108,14 @@ export default function WeightsPage() {
                 <button
                   type="button"
                   onClick={() => setNewLevelModalOpen(false)}
-                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleCreateLevel}
-                  className="px-5 py-2 text-xs font-bold text-white bg-madin-900 hover:bg-madin-950 rounded-xl shadow cursor-pointer"
+                  className="px-5 py-2 text-xs font-bold text-white bg-madin-900 hover:bg-madin-950 rounded-xl shadow cursor-pointer transition active:scale-95"
                 >
                   Create Level
                 </button>
@@ -1126,14 +1126,14 @@ export default function WeightsPage() {
 
         {/* Add Creative Form Modal */}
         {newCreativeFormModalOpen && (
-          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-4">
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fade-in">
+            <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-4 max-h-[calc(100dvh-2rem)] overflow-y-auto my-auto animate-scale-in">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <h3 className="text-sm font-black text-slate-900">Add Creative Hub Form</h3>
                 <button
                   type="button"
                   onClick={() => setNewCreativeFormModalOpen(false)}
-                  className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 cursor-pointer"
+                  className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 cursor-pointer transition"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1179,16 +1179,16 @@ export default function WeightsPage() {
                 <button
                   type="button"
                   onClick={() => setNewCreativeFormModalOpen(false)}
-                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleCreateCreativeForm}
-                  className="px-5 py-2 text-xs font-bold text-white bg-madin-900 hover:bg-madin-950 rounded-xl shadow cursor-pointer"
+                  className="px-5 py-2 text-xs font-bold text-white bg-madin-900 hover:bg-madin-950 rounded-xl shadow cursor-pointer transition active:scale-95"
                 >
-                  Create Form
+                  Add Creative Form
                 </button>
               </div>
             </div>

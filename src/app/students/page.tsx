@@ -616,6 +616,107 @@ export default function StudentsPage() {
             </table>
           </div>
 
+          {/* Mobile Student Card List (Visible on mobile screens) */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {loading ? (
+              <div className="py-10 text-center">
+                <VideoLoader size="md" text="Loading student directory..." subtext="Accessing SPR Institutional Registry" showProgress={true} />
+              </div>
+            ) : students.length === 0 ? (
+              <div className="py-10 text-center text-slate-500 text-xs">
+                No students found matching your filters.
+              </div>
+            ) : (
+              students.map((st) => {
+                const isSelected = selectedStudentIds.includes(st.id);
+                return (
+                  <div
+                    key={st.id}
+                    className={`p-3.5 space-y-2.5 transition-colors ${
+                      isSelected ? 'bg-rose-50/50' : 'hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2.5">
+                      <div className="flex items-center space-x-3 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelectStudent(st.id)}
+                          className="w-4 h-4 rounded text-blue-600 focus:ring-blue-600 cursor-pointer mt-0.5 shrink-0"
+                        />
+                        <StudentAvatar photoUrl={st.photoUrl} name={st.fullName} size="md" className="shrink-0 ring-1 ring-slate-200" />
+                        <div className="min-w-0">
+                          <div
+                            onClick={() => router.push(`/students/${st.id}`)}
+                            className="font-bold text-slate-900 hover:text-blue-600 cursor-pointer text-xs truncate"
+                          >
+                            {st.fullName}
+                          </div>
+                          <div className="flex items-center space-x-1.5 mt-0.5">
+                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                              {st.sprStudentId || 'SPR ID'}
+                            </span>
+                            <span
+                              className={`px-1.5 py-0.2 rounded-full text-[9px] font-semibold ${
+                                st.status === 'ACTIVE'
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : 'bg-slate-100 text-slate-600'
+                              }`}
+                            >
+                              {st.status}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Quick Actions */}
+                      <div className="flex items-center space-x-1 shrink-0">
+                        <button
+                          onClick={() => router.push(`/students/${st.id}`)}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition"
+                          title="View 360° Performance Dossier"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleOpenEdit(st)}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition"
+                          title="Edit Student Profile"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(st)}
+                          disabled={deletingStudentId === st.id}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-50 transition"
+                          title="Delete Student"
+                        >
+                          {deletingStudentId === st.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-rose-600" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 pl-7">
+                      <div>
+                        <span className="font-semibold text-slate-800">{st.class?.name || 'Class'}</span>
+                        <span className="ml-1 px-1 py-0.2 rounded bg-slate-100 text-slate-600 text-[10px]">
+                          Div {st.division}
+                        </span>
+                      </div>
+                      <div className="truncate max-w-[150px] text-right font-medium text-slate-600">
+                        {st.school?.name || st.academicYear?.name}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
           {/* Pagination Toolbar */}
           <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
             <div className="flex items-center space-x-2">
@@ -720,9 +821,9 @@ export default function StudentsPage() {
 
       {/* Add / Edit Student Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto animate-scale-in">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm overflow-y-auto animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 max-h-[calc(100dvh-2rem)] overflow-y-auto my-auto animate-scale-in flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
               <h3 className="text-sm font-bold text-slate-900">
                 {editingStudent ? 'Edit Student Profile' : 'Add New Student to SPR'}
               </h3>
@@ -735,7 +836,7 @@ export default function StudentsPage() {
             </div>
 
             {formError && (
-              <div className="mt-3 p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center space-x-2">
+              <div className="mt-3 p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center space-x-2 shrink-0">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{formError}</span>
               </div>
@@ -743,7 +844,7 @@ export default function StudentsPage() {
 
             <ModalLoadingBar loading={formLoading} text="Saving student profile to database..." color="blue" />
 
-            <form onSubmit={handleFormSubmit} className="mt-4 space-y-3.5">
+            <form onSubmit={handleFormSubmit} className="mt-4 space-y-3.5 flex-1 flex flex-col">
               {/* Profile Photo Drag & Drop Upload Section */}
               <div
                 onDragOver={handlePhotoDragOver}
@@ -941,7 +1042,7 @@ export default function StudentsPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+              <div className="sticky bottom-0 bg-white/95 backdrop-blur-xs pt-3 border-t border-slate-100 flex items-center justify-end space-x-2 mt-auto z-10">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
@@ -952,7 +1053,7 @@ export default function StudentsPage() {
                 <button
                   type="submit"
                   disabled={formLoading || uploadingPhoto}
-                  className="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 disabled:opacity-50 shadow transition flex items-center space-x-1.5 active:scale-95"
+                  className="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 disabled:opacity-50 shadow transition flex items-center space-x-1.5 active:scale-95 cursor-pointer"
                 >
                   {formLoading ? (
                     <>

@@ -1250,8 +1250,8 @@ export default function IslamicStudiesPage() {
 
       {/* Edit Single Score Modal */}
       {editModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[calc(100dvh-2rem)] overflow-y-auto my-auto animate-scale-in">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900">Edit Score Record</h3>
               <button onClick={() => setEditModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-700">
@@ -1304,23 +1304,16 @@ export default function IslamicStudiesPage() {
                 <button
                   type="button"
                   onClick={() => setEditModalOpen(false)}
-                  className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg"
+                  className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingEdit}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow transition flex items-center space-x-1.5 disabled:opacity-50 active:scale-95"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 disabled:opacity-50"
                 >
-                  {savingEdit ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
-                      <span>Updating...</span>
-                    </>
-                  ) : (
-                    <span>Update Score</span>
-                  )}
+                  {savingEdit ? 'Updating...' : 'Update Score'}
                 </button>
               </div>
             </form>

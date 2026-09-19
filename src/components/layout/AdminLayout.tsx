@@ -168,13 +168,22 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
           </div>
         </div>
 
-        <div className="flex items-center space-x-1.5">
+        <div className="flex items-center space-x-2">
           <button
             onClick={() => setSearchOpen(true)}
             className="p-2 rounded-lg bg-white/10 text-slate-200 hover:text-white"
             aria-label="Search"
           >
             <Search className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="flex items-center space-x-1.5 p-1 rounded-full bg-gold-500/20 border border-gold-500/40 text-gold-300 hover:scale-105 transition"
+            title={user?.name || 'Admin Menu & Profile'}
+          >
+            <div className="w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs bg-gold-500/30 text-gold-200">
+              {user?.name ? user.name.slice(0, 2).toUpperCase() : 'AD'}
+            </div>
           </button>
         </div>
       </header>
