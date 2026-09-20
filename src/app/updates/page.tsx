@@ -28,9 +28,12 @@ export default function UpdatesPublicPage() {
 
   useEffect(() => {
     fetch('/api/news')
-      .then((res) => res.json())
+      .then(async (res) => {
+        if (!res.ok) return { news: [] };
+        return res.json().catch(() => ({ news: [] }));
+      })
       .then((data) => {
-        if (data.news) setNewsList(data.news);
+        if (data?.news) setNewsList(data.news);
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));

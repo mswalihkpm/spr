@@ -43,8 +43,14 @@ export async function POST(req: NextRequest) {
     const { user, errorResponse } = await authenticateApiRequest(req, 'ADMIN');
     if (errorResponse) return errorResponse;
 
-    const body = await req.json();
-    const { title, subtitle, body: newsBody, imageUrl, publishedAt, active } = body;
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid or missing JSON request body.' }, { status: 400 });
+    }
+
+    const { title, subtitle, body: newsBody, imageUrl, publishedAt, active } = body || {};
 
     if (!title || !title.trim() || !newsBody || !newsBody.trim()) {
       return NextResponse.json({ error: 'Title and news body are required.' }, { status: 400 });
@@ -83,8 +89,14 @@ export async function PUT(req: NextRequest) {
     const { user, errorResponse } = await authenticateApiRequest(req, 'ADMIN');
     if (errorResponse) return errorResponse;
 
-    const body = await req.json();
-    const { id, title, subtitle, body: newsBody, imageUrl, publishedAt, active } = body;
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid or missing JSON request body.' }, { status: 400 });
+    }
+
+    const { id, title, subtitle, body: newsBody, imageUrl, publishedAt, active } = body || {};
 
     if (!id) {
       return NextResponse.json({ error: 'News ID is required.' }, { status: 400 });

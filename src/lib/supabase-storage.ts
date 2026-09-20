@@ -97,21 +97,40 @@ export function isSupabaseStorageUrl(url?: string | null): boolean {
 /**
  * Optimizes an image buffer into high-quality, lightweight WebP format.
  * - Auto-orients based on EXIF metadata
- * - Resizes to 360x360 (crisp high-DPI avatar display)
+ * - Supports square avatars (360x360 cover) and responsive banners (1200x800 inside)
  * - Compresses with WebP quality 85
  */
 export async function optimizePhotoToWebP(
   inputBuffer: Buffer,
   size: number = 360,
-  quality: number = 85
+  quality: number = 85,
+  options?: {
+    fit?: 'cover' | 'inside' | 'contain';
+    width?: number;
+    height?: number;
+  }
 ): Promise<{ buffer: Buffer; contentType: string }> {
-  const optimizedBuffer = await sharp(inputBuffer)
-    .rotate() // auto-orient based on EXIF
-    .resize(size, size, {
+  const isBanner = options?.fit === 'inside' || (options?.width && options?.height);
+  const targetWidth = options?.width || (isBanner ? 1200 : size);
+  const targetHeight = options?.height || (isBanner ? 800 : size);
+  const targetFit = options?.fit || (isBanner ? 'inside' : 'cover');
+
+  const sharpInstance = sharp(inputBuffer).rotate();
+
+  if (targetFit === 'inside') {
+    sharpInstance.resize(targetWidth, targetHeight, {
+      fit: 'inside',
+      withoutEnlargement: true,
+    });
+  } else {
+    sharpInstance.resize(targetWidth, targetHeight, {
       fit: 'cover',
       position: 'center',
       withoutEnlargement: false,
-    })
+    });
+  }
+
+  const optimizedBuffer = await sharpInstance
     .webp({
       quality,
       effort: 4,
@@ -145,6 +164,9 @@ export async function uploadStudentPhoto(
     skipOptimization?: boolean;
     quality?: number;
     size?: number;
+    fit?: 'cover' | 'inside' | 'contain';
+    width?: number;
+    height?: number;
   }
 ): Promise<UploadPhotoResult> {
   const bucket = options?.bucket || STORAGE_BUCKET;
@@ -157,7 +179,8 @@ export async function uploadStudentPhoto(
     const optimized = await optimizePhotoToWebP(
       inputBuffer,
       options?.size || 360,
-      options?.quality || 85
+      options?.quality || 85,
+      options
     );
     bufferToUpload = optimized.buffer;
     contentType = optimized.contentType;
@@ -196,6 +219,10 @@ export async function uploadBase64StudentPhoto(
     customPath?: string;
     bucket?: string;
     quality?: number;
+    size?: number;
+    fit?: 'cover' | 'inside' | 'contain';
+    width?: number;
+    height?: number;
   }
 ): Promise<UploadPhotoResult> {
   const cleanBase64 = base64String.includes(',')

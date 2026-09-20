@@ -21,6 +21,8 @@ import {
 import VideoLoader from '@/components/ui/VideoLoader';
 import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
 
+import { compressImageClientSide } from '@/lib/image-utils';
+
 export default function AdminNewsManagementPage() {
   const [newsList, setNewsList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,11 +53,22 @@ export default function AdminNewsManagementPage() {
     try {
       setLoading(true);
       const res = await fetch('/api/news?all=true');
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        // Response was not JSON
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || `Failed to load news updates (${res.status}).`);
+      }
+
       if (data.news) setNewsList(data.news);
     } catch (err: any) {
       console.error(err);
-      setStatusMsg({ type: 'error', text: 'Failed to load news updates.' });
+      setStatusMsg({ type: 'error', text: err.message || 'Failed to load news updates.' });
     } finally {
       setLoading(false);
     }
@@ -90,8 +103,13 @@ export default function AdminNewsManagementPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: selectedNewsIds }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to bulk delete news announcements.');
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch {}
+
+      if (!res.ok) throw new Error(data.error || `Failed to bulk delete news announcements (${res.status}).`);
 
       const count = selectedNewsIds.length;
       setSelectedNewsIds([]);
@@ -134,45 +152,46 @@ export default function AdminNewsManagementPage() {
     setModalOpen(true);
   };
 
-  // Upload image from PC
+  // Upload and compress image from PC
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Optional upload via API or convert to compressed base64 data URL
-    setUploadingImage(true);
-    try {
-      const uploadFormData = new FormData();
-      uploadFormData.append('file', file);
+    if (!file.type.startsWith('image/')) {
+      setStatusMsg({ type: 'error', text: 'Please select a valid image file (JPEG, PNG, WebP).' });
+      return;
+    }
 
+    setUploadingImage(true);
+    setStatusMsg(null);
+    try {
+      // 1. Instant client-side compression to max 1200px and lightweight payload (<100KB)
+      const compressedDataUrl = await compressImageClientSide(file, 1200, 0.85);
+
+      // Instantly show image preview and set as initial value
+      setFormData((prev) => ({ ...prev, imageUrl: compressedDataUrl }));
+
+      // 2. Upload to storage API as banner
       const res = await fetch('/api/upload', {
         method: 'POST',
-        body: uploadFormData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: compressedDataUrl, type: 'banner' }),
       });
 
       if (res.ok) {
-        const data = await res.json();
-        if (data.url) {
-          setFormData((prev) => ({ ...prev, imageUrl: data.url }));
-          return;
-        }
+        const text = await res.text();
+        try {
+          const data = JSON.parse(text);
+          if (data.url) {
+            setFormData((prev) => ({ ...prev, imageUrl: data.url }));
+          }
+        } catch {}
       }
-
-      // Fallback to FileReader base64
-      const reader = new FileReader();
-      reader.onload = () => {
-        setFormData((prev) => ({ ...prev, imageUrl: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      console.error('Image upload fallback to base64', err);
-      const reader = new FileReader();
-      reader.onload = () => {
-        setFormData((prev) => ({ ...prev, imageUrl: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.warn('Image optimization/upload fallback to base64 preview:', err);
     } finally {
       setUploadingImage(false);
+      e.target.value = '';
     }
   };
 
@@ -191,8 +210,20 @@ export default function AdminNewsManagementPage() {
         body: JSON.stringify(body),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save news.');
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        // Not a JSON response
+      }
+
+      if (!res.ok) {
+        if (res.status === 413) {
+          throw new Error('The image or announcement payload is too large. Please select a smaller photo.');
+        }
+        throw new Error(data.error || `Failed to save news announcement (Server returned ${res.status}).`);
+      }
 
       setStatusMsg({
         type: 'success',
@@ -201,7 +232,7 @@ export default function AdminNewsManagementPage() {
       setModalOpen(false);
       fetchNews();
     } catch (err: any) {
-      setStatusMsg({ type: 'error', text: err.message });
+      setStatusMsg({ type: 'error', text: err.message || 'Failed to save news announcement.' });
     } finally {
       setSaving(false);
     }
@@ -213,8 +244,13 @@ export default function AdminNewsManagementPage() {
 
     try {
       const res = await fetch(`/api/news?id=${item.id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to delete news.');
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch {}
+
+      if (!res.ok) throw new Error(data.error || `Failed to delete news (${res.status}).`);
 
       setSelectedNewsIds((prev) => prev.filter((id) => id !== item.id));
       setStatusMsg({ type: 'success', text: 'Announcement deleted.' });

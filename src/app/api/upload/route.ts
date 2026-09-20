@@ -26,6 +26,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'No image data provided.' }, { status: 400 });
       }
 
+      const isBanner = body.type === 'banner' || body.type === 'news' || Boolean(body.isBanner);
+      const resizeOptions = isBanner
+        ? { fit: 'inside' as const, width: 1200, height: 800, quality: 85 }
+        : { fit: 'cover' as const, size: 360, quality: 85 };
+
       // Check if Supabase credentials are configured
       const hasSupabaseKey =
         Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY) ||
@@ -34,7 +39,7 @@ export async function POST(req: NextRequest) {
 
       if (hasSupabaseKey) {
         try {
-          const uploadRes = await uploadBase64StudentPhoto(image);
+          const uploadRes = await uploadBase64StudentPhoto(image, resizeOptions);
           finalUrl = uploadRes.url;
           uploadedPath = uploadRes.path;
           sizeBytes = uploadRes.sizeBytes;
@@ -43,7 +48,7 @@ export async function POST(req: NextRequest) {
           // Fallback: Optimize image to WebP buffer and return base64
           const cleanBase64 = image.includes(',') ? image.split(',')[1] : image;
           const rawBuffer = Buffer.from(cleanBase64, 'base64');
-          const optimized = await optimizePhotoToWebP(rawBuffer, 360, 85);
+          const optimized = await optimizePhotoToWebP(rawBuffer, resizeOptions.size || 360, 85, resizeOptions);
           finalUrl = `data:image/webp;base64,${optimized.buffer.toString('base64')}`;
           sizeBytes = optimized.buffer.length;
         }
@@ -51,13 +56,14 @@ export async function POST(req: NextRequest) {
         // Fallback when Supabase key not yet supplied
         const cleanBase64 = image.includes(',') ? image.split(',')[1] : image;
         const rawBuffer = Buffer.from(cleanBase64, 'base64');
-        const optimized = await optimizePhotoToWebP(rawBuffer, 360, 85);
+        const optimized = await optimizePhotoToWebP(rawBuffer, resizeOptions.size || 360, 85, resizeOptions);
         finalUrl = `data:image/webp;base64,${optimized.buffer.toString('base64')}`;
         sizeBytes = optimized.buffer.length;
       }
     } else {
       const formData = await req.formData();
       const file = formData.get('file') as File | null;
+      const typeParam = (formData.get('type') as string) || '';
 
       if (!file) {
         return NextResponse.json({ error: 'No file uploaded.' }, { status: 400 });
@@ -70,6 +76,11 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      const isBanner = typeParam === 'banner' || typeParam === 'news';
+      const resizeOptions = isBanner
+        ? { fit: 'inside' as const, width: 1200, height: 800, quality: 85 }
+        : { fit: 'cover' as const, size: 360, quality: 85 };
+
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
       filename = file.name || `photo_${Date.now()}.webp`;
@@ -81,18 +92,18 @@ export async function POST(req: NextRequest) {
 
       if (hasSupabaseKey) {
         try {
-          const uploadRes = await uploadStudentPhoto(buffer);
+          const uploadRes = await uploadStudentPhoto(buffer, resizeOptions);
           finalUrl = uploadRes.url;
           uploadedPath = uploadRes.path;
           sizeBytes = uploadRes.sizeBytes;
         } catch (storageErr: any) {
           console.error('[UploadAPI] Supabase Storage upload failed, falling back to WebP Base64:', storageErr.message);
-          const optimized = await optimizePhotoToWebP(buffer, 360, 85);
+          const optimized = await optimizePhotoToWebP(buffer, resizeOptions.size || 360, 85, resizeOptions);
           finalUrl = `data:image/webp;base64,${optimized.buffer.toString('base64')}`;
           sizeBytes = optimized.buffer.length;
         }
       } else {
-        const optimized = await optimizePhotoToWebP(buffer, 360, 85);
+        const optimized = await optimizePhotoToWebP(buffer, resizeOptions.size || 360, 85, resizeOptions);
         finalUrl = `data:image/webp;base64,${optimized.buffer.toString('base64')}`;
         sizeBytes = optimized.buffer.length;
       }
