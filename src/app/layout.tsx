@@ -3,6 +3,7 @@ import './globals.css';
 import AppIntro from '@/components/ui/AppIntro';
 import PWAInstallPrompt from '@/components/ui/PWAInstallPrompt';
 import AppUpdateNotification from '@/components/ui/AppUpdateNotification';
+import { AppBootstrapProvider } from '@/context/AppBootstrapContext';
 
 export const metadata: Metadata = {
   title: 'SPR — Students Performance Rate | Madin School of Excellence',
@@ -126,10 +127,12 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-slate-50 text-slate-900 antialiased selection:bg-madin-900 selection:text-white">
-        <AppIntro />
-        {children}
-        <PWAInstallPrompt />
-        <AppUpdateNotification />
+        <AppBootstrapProvider>
+          <AppIntro />
+          {children}
+          <PWAInstallPrompt />
+          <AppUpdateNotification />
+        </AppBootstrapProvider>
       </body>
     </html>
   );

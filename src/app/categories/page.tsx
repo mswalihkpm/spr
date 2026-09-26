@@ -37,13 +37,28 @@ import { getAcademicMasterData } from '@/lib/academic-client';
 import CustomSelect from '@/components/ui/CustomSelect';
 import PublicFooter from '@/components/layout/PublicFooter';
 import { getCategoryIcon, getCategoryColor, getCategoryLogo, getCategoryDualLogos, getCategoryModulePath } from '@/lib/category-utils';
+import { useAppBootstrap } from '@/context/AppBootstrapContext';
 
 export default function CategoriesPage() {
   const router = useRouter();
-  const [categories, setCategories] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { categories: bootstrapCategories, academicData: bootstrapAcademic, isBootstrapped } = useAppBootstrap();
+
+  const [categories, setCategories] = useState<any[]>(() => {
+    if (bootstrapCategories && bootstrapCategories.length > 0) return bootstrapCategories;
+    if (bootstrapAcademic?.categories && bootstrapAcademic.categories.length > 0) return bootstrapAcademic.categories;
+    return [];
+  });
+  const [loading, setLoading] = useState(() => (bootstrapCategories && bootstrapCategories.length > 0 ? false : true));
   const [searchQuery, setSearchQuery] = useState('');
   const [currentUser, setCurrentUser] = useState<any | null>(null);
+
+  // Sync with bootstrap data
+  useEffect(() => {
+    if (bootstrapCategories && bootstrapCategories.length > 0) {
+      setCategories(bootstrapCategories);
+      setLoading(false);
+    }
+  }, [bootstrapCategories]);
 
   // Modal State for Admin Management
   const [modalOpen, setModalOpen] = useState(false);
@@ -78,7 +93,7 @@ export default function CategoriesPage() {
 
   const fetchCategories = async (silent = false) => {
     try {
-      if (!silent) setLoading(true);
+      if (!silent && categories.length === 0) setLoading(true);
       const res = await fetch('/api/categories');
       const data = await res.json();
       if (data.categories) setCategories(data.categories);
@@ -90,7 +105,7 @@ export default function CategoriesPage() {
   };
 
   useEffect(() => {
-    fetchCategories();
+    fetchCategories(categories.length > 0);
   }, []);
 
   const deletableCategories = categories.filter((c) => !c.isSystem);

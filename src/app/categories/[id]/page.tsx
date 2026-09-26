@@ -17,22 +17,49 @@ import {
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
 import { getCategoryIcon, getCategoryColor, getCategoryLogo, getCategoryDualLogos } from '@/lib/category-utils';
+import { useAppBootstrap } from '@/context/AppBootstrapContext';
 
 export default function PublicCategorySubcategoriesPage() {
   const router = useRouter();
   const params = useParams();
   const categoryId = params?.id as string;
 
-  const [category, setCategory] = useState<any | null>(null);
-  const [subcategories, setSubcategories] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { categories: bootstrapCategories, subcategories: bootstrapSubcategories, isBootstrapped } = useAppBootstrap();
+
+  const preloadedCategory = useMemo(() => {
+    if (!categoryId || !bootstrapCategories) return null;
+    return bootstrapCategories.find(
+      (c: any) => c.id === categoryId || c.code === categoryId.toUpperCase()
+    ) || null;
+  }, [categoryId, bootstrapCategories]);
+
+  const preloadedSubs = useMemo(() => {
+    if (!categoryId || !bootstrapSubcategories) return [];
+    const catId = preloadedCategory?.id || categoryId;
+    return bootstrapSubcategories.filter((s: any) => s.categoryId === catId);
+  }, [categoryId, preloadedCategory, bootstrapSubcategories]);
+
+  const [category, setCategory] = useState<any | null>(() => preloadedCategory);
+  const [subcategories, setSubcategories] = useState<any[]>(() => preloadedSubs);
+  const [loading, setLoading] = useState(() => (!preloadedCategory));
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Sync if preloadedCategory / preloadedSubs become available from bootstrap
+  useEffect(() => {
+    if (preloadedCategory) {
+      setCategory(preloadedCategory);
+      if (preloadedSubs.length > 0) {
+        setSubcategories(preloadedSubs);
+        setLoading(false);
+      }
+    }
+  }, [preloadedCategory, preloadedSubs]);
 
   // Load category details and subcategories
   const loadData = async () => {
     if (!categoryId) return;
     try {
-      setLoading(true);
+      if (!category) setLoading(true);
 
       const [catRes, subRes] = await Promise.all([
         fetch(`/api/categories?id=${categoryId}`),

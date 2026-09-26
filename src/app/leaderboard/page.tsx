@@ -34,6 +34,7 @@ import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
 import { getAcademicMasterData } from '@/lib/academic-client';
 import CustomSelect from '@/components/ui/CustomSelect';
+import { useAppBootstrap } from '@/context/AppBootstrapContext';
 
 // Global client-side memory caches for 0ms instant loading
 const clientLeaderboardMemory = new Map<string, any[]>();
@@ -47,12 +48,34 @@ function LeaderboardContent() {
   const initialStream = searchParams.get('stream') || '';
   const initialFest = searchParams.get('fest') || '';
 
-  const [leaderboard, setLeaderboard] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [subcategories, setSubcategories] = useState<any[]>([]);
-  const [classes, setClasses] = useState<any[]>([]);
-  const [schools, setSchools] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    overviewLeaderboard: bootstrapLeaderboard,
+    categories: bootstrapCategories,
+    subcategories: bootstrapSubcategories,
+    academicData: bootstrapAcademic,
+    isBootstrapped,
+  } = useAppBootstrap();
+
+  const isDefaultOverview = !initialCategory && !initialSubcategory && !initialStream && !initialFest;
+
+  const [leaderboard, setLeaderboard] = useState<any[]>(() => {
+    if (isDefaultOverview && bootstrapLeaderboard.length > 0) return bootstrapLeaderboard;
+    return clientLeaderboardMemory.get('overall') || [];
+  });
+  const [categories, setCategories] = useState<any[]>(() =>
+    bootstrapCategories.length > 0 ? bootstrapCategories : bootstrapAcademic?.categories || []
+  );
+  const [subcategories, setSubcategories] = useState<any[]>(() =>
+    bootstrapSubcategories.length > 0 ? bootstrapSubcategories : []
+  );
+  const [classes, setClasses] = useState<any[]>(() => bootstrapAcademic?.classes || []);
+  const [schools, setSchools] = useState<any[]>(() => bootstrapAcademic?.schools || []);
+  const [loading, setLoading] = useState(() => {
+    if (isDefaultOverview && (bootstrapLeaderboard.length > 0 || clientLeaderboardMemory.has('overall'))) {
+      return false;
+    }
+    return true;
+  });
 
   // Filters
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
@@ -71,6 +94,25 @@ function LeaderboardContent() {
   const [studentProfile, setStudentProfile] = useState<any | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [modalCalcTab, setModalCalcTab] = useState<'OVERALL' | 'SUBJECTS' | 'PROGRAMMES'>('OVERALL');
+
+  // Sync state from bootstrap context
+  useEffect(() => {
+    if (bootstrapLeaderboard.length > 0) {
+      clientLeaderboardMemory.set('overall', bootstrapLeaderboard);
+      if (!selectedCategory && !selectedSubcategory && !selectedStream && !selectedFest && !selectedClass) {
+        setLeaderboard(bootstrapLeaderboard);
+        setLoading(false);
+      }
+    }
+  }, [bootstrapLeaderboard]);
+
+  useEffect(() => {
+    if (bootstrapCategories.length > 0) setCategories(bootstrapCategories);
+    else if (bootstrapAcademic?.categories) setCategories(bootstrapAcademic.categories);
+    if (bootstrapSubcategories.length > 0) setSubcategories(bootstrapSubcategories);
+    if (bootstrapAcademic?.classes) setClasses(bootstrapAcademic.classes);
+    if (bootstrapAcademic?.schools) setSchools(bootstrapAcademic.schools);
+  }, [bootstrapCategories, bootstrapSubcategories, bootstrapAcademic]);
 
   // Sync parameters from URL query changes
   useEffect(() => {
@@ -119,22 +161,26 @@ function LeaderboardContent() {
     }
   }, [searchParams, categories, subcategories]);
 
-  // Fetch reference master data & subcategories with instant memory load
+  // Fetch reference master data & subcategories with instant memory load if not in bootstrap
   useEffect(() => {
-    getAcademicMasterData()
-      .then((data) => {
-        if (data.classes) setClasses(data.classes);
-        if (data.schools) setSchools(data.schools);
-        if (data.categories) setCategories(data.categories);
-      })
-      .catch((err) => console.error(err));
+    if (classes.length === 0 || schools.length === 0 || categories.length === 0) {
+      getAcademicMasterData()
+        .then((data) => {
+          if (data.classes) setClasses(data.classes);
+          if (data.schools) setSchools(data.schools);
+          if (data.categories) setCategories(data.categories);
+        })
+        .catch((err) => console.error(err));
+    }
 
-    fetch('/api/subcategories')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.subcategories) setSubcategories(data.subcategories);
-      })
-      .catch((err) => console.error('Error fetching subcategories:', err));
+    if (subcategories.length === 0) {
+      fetch('/api/subcategories')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.subcategories) setSubcategories(data.subcategories);
+        })
+        .catch((err) => console.error('Error fetching subcategories:', err));
+    }
   }, []);
 
   const fetchLeaderboard = async () => {
@@ -152,8 +198,16 @@ function LeaderboardContent() {
     if (selectedClass) params.append('classId', selectedClass);
 
     const cacheKey = params.toString() || 'overall';
-    const cached = clientLeaderboardMemory.get(cacheKey);
 
+    // If default overall view and we already have bootstrapLeaderboard, use it without network delay
+    if (cacheKey === 'overall' && bootstrapLeaderboard.length > 0) {
+      setLeaderboard(bootstrapLeaderboard);
+      setLoading(false);
+      clientLeaderboardMemory.set('overall', bootstrapLeaderboard);
+      return;
+    }
+
+    const cached = clientLeaderboardMemory.get(cacheKey);
     if (cached) {
       setLeaderboard(cached);
       setLoading(false);

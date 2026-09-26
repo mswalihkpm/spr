@@ -32,6 +32,7 @@ import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
 import { getAcademicMasterData } from '@/lib/academic-client';
 import CustomSelect from '@/components/ui/CustomSelect';
+import { useAppBootstrap } from '@/context/AppBootstrapContext';
 
 // Global module-level client memory caches for instant 0ms loading
 const homeLeaderboardMemory = new Map<string, any[]>();
@@ -39,13 +40,54 @@ const homeStudentProfileMemory = new Map<string, any>();
 
 export default function PublicHomePage() {
   const router = useRouter();
-  const [categories, setCategories] = useState<any[]>([]);
-  const [schools, setSchools] = useState<any[]>([]);
-  const [classes, setClasses] = useState<any[]>([]);
-  const [leaderboard, setLeaderboard] = useState<any[]>(() => homeLeaderboardMemory.get('overview') || []);
-  const [newsUpdates, setNewsUpdates] = useState<any[]>([]);
-  const [loadingLeaderboard, setLoadingLeaderboard] = useState(!homeLeaderboardMemory.has('overview'));
+  const {
+    overviewLeaderboard: bootstrapLeaderboard,
+    categories: bootstrapCategories,
+    academicData: bootstrapAcademic,
+    news: bootstrapNews,
+    isBootstrapped,
+  } = useAppBootstrap();
+
+  const [categories, setCategories] = useState<any[]>(() =>
+    bootstrapCategories.length > 0 ? bootstrapCategories : bootstrapAcademic?.categories || []
+  );
+  const [schools, setSchools] = useState<any[]>(() => bootstrapAcademic?.schools || []);
+  const [classes, setClasses] = useState<any[]>(() => bootstrapAcademic?.classes || []);
+  const [leaderboard, setLeaderboard] = useState<any[]>(() =>
+    bootstrapLeaderboard.length > 0 ? bootstrapLeaderboard : homeLeaderboardMemory.get('overview') || []
+  );
+  const [newsUpdates, setNewsUpdates] = useState<any[]>(() =>
+    bootstrapNews.length > 0 ? bootstrapNews.slice(0, 3) : []
+  );
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(
+    () => bootstrapLeaderboard.length === 0 && !homeLeaderboardMemory.has('overview')
+  );
   const [scrolled, setScrolled] = useState(false);
+
+  // Sync state when bootstrap loads data
+  useEffect(() => {
+    if (bootstrapLeaderboard.length > 0 && !selectedClass) {
+      setLeaderboard(bootstrapLeaderboard);
+      setLoadingLeaderboard(false);
+      homeLeaderboardMemory.set('overview', bootstrapLeaderboard);
+    }
+  }, [bootstrapLeaderboard]);
+
+  useEffect(() => {
+    if (bootstrapCategories.length > 0) {
+      setCategories(bootstrapCategories);
+    } else if (bootstrapAcademic?.categories) {
+      setCategories(bootstrapAcademic.categories);
+    }
+    if (bootstrapAcademic?.classes) setClasses(bootstrapAcademic.classes);
+    if (bootstrapAcademic?.schools) setSchools(bootstrapAcademic.schools);
+  }, [bootstrapCategories, bootstrapAcademic]);
+
+  useEffect(() => {
+    if (bootstrapNews.length > 0) {
+      setNewsUpdates(bootstrapNews.slice(0, 3));
+    }
+  }, [bootstrapNews]);
 
   // Search, modal and filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -75,15 +117,16 @@ export default function PublicHomePage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Fetch Latest 3 Updates for Homepage
+  // Fetch Latest 3 Updates if not yet available in bootstrap
   useEffect(() => {
+    if (bootstrapNews.length > 0) return;
     fetch('/api/news?limit=3')
       .then((res) => res.json())
       .then((data) => {
         if (data.news) setNewsUpdates(data.news);
       })
       .catch((err) => console.error('Error fetching homepage news:', err));
-  }, []);
+  }, [bootstrapNews]);
 
   // Click outside to close search dropdown
   useEffect(() => {
@@ -96,8 +139,9 @@ export default function PublicHomePage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch initial master data with instant client cache
+  // Fetch initial master data if not in bootstrap
   useEffect(() => {
+    if (categories.length > 0 && classes.length > 0) return;
     getAcademicMasterData()
       .then((data) => {
         if (data.categories) setCategories(data.categories);
@@ -107,11 +151,18 @@ export default function PublicHomePage() {
       .catch((err) => console.error('Error fetching academic master data:', err));
   }, []);
 
-  // Fetch Overall SPR leaderboard (Overview only) with instant cache
+  // Fetch Overall SPR leaderboard (with instant cache for default & filtered class views)
   useEffect(() => {
     const params = new URLSearchParams();
     if (selectedClass) params.append('classId', selectedClass);
     const cacheKey = params.toString() || 'overview';
+
+    // If overview and we have bootstrap data, use it immediately
+    if (!selectedClass && bootstrapLeaderboard.length > 0) {
+      setLeaderboard(bootstrapLeaderboard);
+      setLoadingLeaderboard(false);
+      return;
+    }
 
     const cached = homeLeaderboardMemory.get(cacheKey);
     if (cached) {
@@ -131,7 +182,7 @@ export default function PublicHomePage() {
       })
       .catch((err) => console.error('Error fetching leaderboard:', err))
       .finally(() => setLoadingLeaderboard(false));
-  }, [selectedClass]);
+  }, [selectedClass, bootstrapLeaderboard]);
 
   // Global search debouncing (search by Name, ID, Class, School)
   useEffect(() => {

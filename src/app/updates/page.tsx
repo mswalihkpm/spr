@@ -19,14 +19,23 @@ import {
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
 import NewsDetailModal from '@/components/modals/NewsDetailModal';
+import { useAppBootstrap } from '@/context/AppBootstrapContext';
 
 export default function UpdatesPublicPage() {
-  const [newsList, setNewsList] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { news: bootstrapNews, isBootstrapped } = useAppBootstrap();
+
+  const [newsList, setNewsList] = useState<any[]>(() => bootstrapNews || []);
+  const [loading, setLoading] = useState(() => (bootstrapNews && bootstrapNews.length > 0 ? false : true));
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedNews, setSelectedNews] = useState<any | null>(null);
 
   useEffect(() => {
+    if (bootstrapNews && bootstrapNews.length > 0) {
+      setNewsList(bootstrapNews);
+      setLoading(false);
+      return;
+    }
+
     fetch('/api/news')
       .then(async (res) => {
         if (!res.ok) return { news: [] };
@@ -37,7 +46,7 @@ export default function UpdatesPublicPage() {
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
-  }, []);
+  }, [bootstrapNews]);
 
   const filteredNews = newsList.filter((item) => {
     if (!searchQuery.trim()) return true;

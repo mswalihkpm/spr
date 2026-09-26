@@ -1,16 +1,19 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useAppBootstrap } from '@/context/AppBootstrapContext';
 
 interface AppIntroProps {
-  maxDuration?: number; // Maximum fallback duration in ms before forcing completion (default: 2200ms)
+  maxDuration?: number; // Maximum fallback duration in ms before forcing completion (default: 2400ms)
   onComplete?: () => void;
 }
 
 export default function AppIntro({
-  maxDuration = 2200,
+  maxDuration = 2400,
   onComplete,
 }: AppIntroProps) {
+  const { isBootstrapped, bootstrapProgress, bootstrapStatus, displayConfig } = useAppBootstrap();
+
   const [show, setShow] = useState(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -25,30 +28,26 @@ export default function AppIntro({
   const [progress, setProgress] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const isReadyRef = useRef(false);
   const progressRef = useRef(0);
   const animFrameRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
+  const completedRef = useRef<boolean>(false);
 
-  // Fetch footer text from API or localStorage
+  // Sync footer text from bootstrap display config or local cache
   useEffect(() => {
+    if (displayConfig?.introFooter) {
+      setFooterText(displayConfig.introFooter);
+      try {
+        if (typeof window !== 'undefined') localStorage.setItem('spr_intro_footer', displayConfig.introFooter);
+      } catch {}
+      return;
+    }
+
     try {
       const cached = typeof window !== 'undefined' ? localStorage.getItem('spr_intro_footer') : null;
       if (cached) setFooterText(cached);
     } catch {}
-
-    fetch('/api/display')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.introFooter) {
-          setFooterText(data.introFooter);
-          try {
-            if (typeof window !== 'undefined') localStorage.setItem('spr_intro_footer', data.introFooter);
-          } catch {}
-        }
-      })
-      .catch(() => {});
-  }, []);
+  }, [displayConfig]);
 
   // Ensure video playback starts promptly
   useEffect(() => {
@@ -71,75 +70,49 @@ export default function AppIntro({
     }
   }, []);
 
-  // Application readiness & smooth 0% -> 100% progress animation loop
+  // Smooth progress animation loop directly driven by genuine bootstrap state
   useEffect(() => {
     if (!show) return;
 
     startTimeRef.current = performance.now();
 
-    // Check application readiness
-    const checkReadiness = () => {
-      if (typeof document !== 'undefined') {
-        if (document.readyState === 'complete') {
-          // Allow minimum 500ms of smooth animation before completing
-          const elapsed = performance.now() - startTimeRef.current;
-          if (elapsed >= 500) {
-            isReadyRef.current = true;
-          } else {
-            setTimeout(() => {
-              isReadyRef.current = true;
-            }, 500 - elapsed);
-          }
-        }
-      }
-    };
-
-    if (typeof window !== 'undefined') {
-      if (document.readyState === 'complete') {
-        checkReadiness();
-      } else {
-        window.addEventListener('load', checkReadiness);
-        document.addEventListener('readystatechange', checkReadiness);
-      }
-    }
-
-    // Safety fallback timeout to prevent getting stuck
+    // Safety fallback timer to prevent getting stuck
     const fallbackTimer = setTimeout(() => {
-      isReadyRef.current = true;
+      completedRef.current = true;
     }, maxDuration);
 
-    let completed = false;
-
-    // Smooth continuous animation frame step
     const step = () => {
       const now = performance.now();
       const elapsed = now - startTimeRef.current;
 
-      // Determine target progress based on state and elapsed time
+      // Real target progress derived from actual parallel bootstrap progress
       let targetProgress = 0;
-      if (isReadyRef.current) {
-        targetProgress = 100;
+      if (isBootstrapped || completedRef.current) {
+        // Guarantee minimum 450ms intro animation for pristine visual feel before hitting 100%
+        if (elapsed >= 450) {
+          targetProgress = 100;
+        } else {
+          targetProgress = Math.min(Math.round((elapsed / 450) * 100), 100);
+        }
       } else {
-        // Asymptotically approach 90% while application is loading
-        const t = Math.min(elapsed / 1600, 1);
-        targetProgress = Math.min(Math.round(15 + 75 * (1 - Math.pow(1 - t, 2.5))), 90);
+        // Track genuine bootstrapProgress while smoothing
+        targetProgress = Math.min(Math.max(bootstrapProgress, Math.round(15 + Math.min(elapsed / 25, 75))), 95);
       }
 
-      // Smoothly interpolate current progress towards target
+      // Smooth interpolation towards target
       const current = progressRef.current;
-      const speed = isReadyRef.current ? 0.14 : 0.08;
+      const speed = targetProgress >= 100 ? 0.16 : 0.09;
       const nextProgress = current + (targetProgress - current) * speed;
 
-      if (Math.abs(nextProgress - current) > 0.05 || (isReadyRef.current && nextProgress < 99.9)) {
+      if (Math.abs(nextProgress - current) > 0.05 || (targetProgress >= 100 && nextProgress < 99.8)) {
         progressRef.current = nextProgress;
         setProgress(Math.min(Math.round(nextProgress), 100));
         animFrameRef.current = requestAnimationFrame(step);
-      } else if (isReadyRef.current && !completed) {
-        completed = true;
+      } else if ((isBootstrapped || completedRef.current || targetProgress >= 100) && !fadeOut) {
         progressRef.current = 100;
         setProgress(100);
 
-        // Brief 120ms pause at 100% for crisp visual feedback, then smooth fade-out
+        // Brief 120ms pause at 100% for crisp feedback, then smooth fade-out
         setTimeout(() => {
           setFadeOut(true);
           setTimeout(() => {
@@ -162,12 +135,8 @@ export default function AppIntro({
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       clearTimeout(fallbackTimer);
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('load', checkReadiness);
-        document.removeEventListener('readystatechange', checkReadiness);
-      }
     };
-  }, [show, maxDuration, onComplete]);
+  }, [show, isBootstrapped, bootstrapProgress, maxDuration, onComplete, fadeOut]);
 
   if (!show) return null;
 
