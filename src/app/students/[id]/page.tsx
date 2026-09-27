@@ -33,15 +33,19 @@ import { StudentAvatar } from '@/components/ui/StudentAvatar';
 import VideoLoader from '@/components/ui/VideoLoader';
 import { compressImageClientSide } from '@/lib/image-utils';
 
+// Module-level memory cache for instant admin student dossier switching
+const adminStudentDetailMemory = new Map<string, { profile: any; creativeWorks: any[]; libraryRecords: any[] }>();
+
 export default function StudentProfilePage() {
   const params = useParams();
   const router = useRouter();
   const studentId = params?.id as string;
 
-  const [loading, setLoading] = useState(true);
-  const [profileData, setProfileData] = useState<any>(null);
-  const [creativeWorks, setCreativeWorks] = useState<any[]>([]);
-  const [libraryRecords, setLibraryRecords] = useState<any[]>([]);
+  const cachedData = studentId ? adminStudentDetailMemory.get(studentId) : null;
+  const [loading, setLoading] = useState(!cachedData);
+  const [profileData, setProfileData] = useState<any>(cachedData?.profile || null);
+  const [creativeWorks, setCreativeWorks] = useState<any[]>(cachedData?.creativeWorks || []);
+  const [libraryRecords, setLibraryRecords] = useState<any[]>(cachedData?.libraryRecords || []);
   const [activeTab, setActiveTab] = useState<string>('OVERVIEW');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [isDraggingPhoto, setIsDraggingPhoto] = useState(false);
@@ -141,13 +145,21 @@ export default function StudentProfilePage() {
 
   useEffect(() => {
     if (!studentId) return;
-    setLoading(true);
+    const cached = adminStudentDetailMemory.get(studentId);
+    if (!cached) {
+      setLoading(true);
+    }
     fetch(`/api/students/${studentId}`)
       .then((res) => {
         if (!res.ok) throw new Error('Student not found');
         return res.json();
       })
       .then((data) => {
+        adminStudentDetailMemory.set(studentId, {
+          profile: data.profile,
+          creativeWorks: data.creativeWorks || [],
+          libraryRecords: data.libraryRecords || [],
+        });
         setProfileData(data.profile);
         setCreativeWorks(data.creativeWorks || []);
         setLibraryRecords(data.libraryRecords || []);

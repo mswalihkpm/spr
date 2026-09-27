@@ -88,23 +88,18 @@ export default function AppIntro({
       // Real target progress derived from actual parallel bootstrap progress
       let targetProgress = 0;
       if (isBootstrapped || completedRef.current) {
-        // Guarantee minimum 450ms intro animation for pristine visual feel before hitting 100%
-        if (elapsed >= 450) {
-          targetProgress = 100;
-        } else {
-          targetProgress = Math.min(Math.round((elapsed / 450) * 100), 100);
-        }
+        targetProgress = 100;
       } else {
         // Track genuine bootstrapProgress while smoothing
-        targetProgress = Math.min(Math.max(bootstrapProgress, Math.round(15 + Math.min(elapsed / 25, 75))), 95);
+        targetProgress = Math.min(Math.max(bootstrapProgress, Math.round(bootstrapProgress)), 98);
       }
 
-      // Smooth interpolation towards target
+      // Smooth interpolation towards target (snappy acceleration when done)
       const current = progressRef.current;
-      const speed = targetProgress >= 100 ? 0.16 : 0.09;
+      const speed = isBootstrapped || completedRef.current ? 0.35 : 0.15;
       const nextProgress = current + (targetProgress - current) * speed;
 
-      if (Math.abs(nextProgress - current) > 0.05 || (targetProgress >= 100 && nextProgress < 99.8)) {
+      if (Math.abs(nextProgress - current) > 0.1 || (targetProgress >= 100 && nextProgress < 99.5)) {
         progressRef.current = nextProgress;
         setProgress(Math.min(Math.round(nextProgress), 100));
         animFrameRef.current = requestAnimationFrame(step);
@@ -112,19 +107,17 @@ export default function AppIntro({
         progressRef.current = 100;
         setProgress(100);
 
-        // Brief 120ms pause at 100% for crisp feedback, then smooth fade-out
+        // Immediate crisp transition to fade-out without artificial delay
+        setFadeOut(true);
         setTimeout(() => {
-          setFadeOut(true);
-          setTimeout(() => {
-            setShow(false);
-            try {
-              if (typeof window !== 'undefined') sessionStorage.setItem('spr_intro_seen', 'true');
-            } catch {}
-            if (onComplete) {
-              onComplete();
-            }
-          }, 450);
-        }, 120);
+          setShow(false);
+          try {
+            if (typeof window !== 'undefined') sessionStorage.setItem('spr_intro_seen', 'true');
+          } catch {}
+          if (onComplete) {
+            onComplete();
+          }
+        }, 250);
       } else {
         animFrameRef.current = requestAnimationFrame(step);
       }

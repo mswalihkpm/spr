@@ -9,33 +9,62 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const studentIdentifier = params.id;
 
     // Find student either by database ID, studentId (e.g. MSOE-2026-001), or sprStudentId (e.g. SPR0001)
-    let student = await prisma.student.findUnique({
-      where: { id: studentIdentifier },
+    const student = await prisma.student.findFirst({
+      where: {
+        OR: [
+          { id: studentIdentifier },
+          { studentId: { equals: studentIdentifier, mode: 'insensitive' } },
+          { sprStudentId: { equals: studentIdentifier, mode: 'insensitive' } },
+        ],
+      },
+      select: { id: true },
     });
-
-    if (!student) {
-      student = await prisma.student.findFirst({
-        where: {
-          OR: [
-            { studentId: { equals: studentIdentifier, mode: 'insensitive' } },
-            { sprStudentId: { equals: studentIdentifier, mode: 'insensitive' } },
-          ],
-        },
-      });
-    }
 
     if (!student) {
       return NextResponse.json({ error: 'Student record not found in SPR database.' }, { status: 404 });
     }
 
     const studentId = student.id;
-    const profile = await calculateStudentSPR(studentId);
+
+    // Parallel fetch: SPR computation + published creative works + library reading history
+    const [profile, creativeWorks, libraryRecords] = await Promise.all([
+      calculateStudentSPR(studentId),
+      prisma.creativeHubSubmission.findMany({
+        where: { studentId, publicationStatus: { in: ['PUBLISHED', 'FEATURED'] } },
+        select: {
+          id: true,
+          title: true,
+          content: true,
+          date: true,
+          score: true,
+          publicationStatus: true,
+          publicationLink: true,
+          attachmentUrl: true,
+          remarks: true,
+          category: { select: { id: true, name: true, code: true, weight: true } },
+          publishedMedia: { select: { id: true, name: true } },
+        },
+        orderBy: { date: 'desc' },
+      }),
+      prisma.libraryRecord.findMany({
+        where: { studentId },
+        select: {
+          id: true,
+          booksRead: true,
+          readingScore: true,
+          readingRank: true,
+          readingPeriod: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
 
     if (!profile) {
       return NextResponse.json({ error: 'Failed to compute student performance dossier.' }, { status: 500 });
     }
 
-    // Compute live rankings with lightweight rank calculation
+    // Compute live rankings with lightweight instant rank calculation
     const ranks = await calculateFastStudentRanks(
       studentId,
       profile.student.academicYear?.id,
@@ -86,19 +115,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       })),
     };
 
-    // Fetch student's published creative works & library reading history
-    const [creativeWorks, libraryRecords] = await Promise.all([
-      prisma.creativeHubSubmission.findMany({
-        where: { studentId, publicationStatus: { in: ['PUBLISHED', 'FEATURED'] } },
-        include: { category: true },
-        orderBy: { date: 'desc' },
-      }),
-      prisma.libraryRecord.findMany({
-        where: { studentId },
-        orderBy: { createdAt: 'desc' },
-      }),
-    ]);
-
     return NextResponse.json(
       {
         profile: enrichedProfile,
@@ -107,7 +123,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       },
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=45',
+          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
         },
       }
     );

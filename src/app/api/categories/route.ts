@@ -4,6 +4,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
+import { invalidateEngineCache } from '@/lib/spr-engine';
+
+let cachedCategoriesResponse: { timestamp: number; data: any } | null = null;
+const CATEGORIES_CACHE_TTL = 60 * 1000;
+
+function invalidateLocalCategoriesCache() {
+  cachedCategoriesResponse = null;
+  invalidateEngineCache();
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -47,6 +56,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ category });
     }
 
+    if (!id && cachedCategoriesResponse && Date.now() - cachedCategoriesResponse.timestamp < CATEGORIES_CACHE_TTL) {
+      return NextResponse.json(cachedCategoriesResponse.data, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        },
+      });
+    }
+
     const categories = await prisma.category.findMany({
       include: {
         subcategories: {
@@ -67,7 +84,16 @@ export async function GET(req: NextRequest) {
       orderBy: { displayOrder: 'asc' },
     });
 
-    return NextResponse.json({ categories });
+    const payload = { categories };
+    if (!id) {
+      cachedCategoriesResponse = { timestamp: Date.now(), data: payload };
+    }
+
+    return NextResponse.json(payload, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+      },
+    });
   } catch (error: any) {
     console.error('Categories fetch error:', error);
     return NextResponse.json({ error: 'Failed to fetch categories.' }, { status: 500 });
@@ -140,6 +166,8 @@ export async function POST(req: NextRequest) {
       entityId: category.id,
       newValue: category,
     });
+
+    invalidateLocalCategoriesCache();
 
     return NextResponse.json({
       success: true,
@@ -245,6 +273,8 @@ export async function PUT(req: NextRequest) {
       newValue: updatedCategory,
     });
 
+    invalidateLocalCategoriesCache();
+
     return NextResponse.json({
       success: true,
       category: updatedCategory,
@@ -321,6 +351,8 @@ export async function DELETE(req: NextRequest) {
       entity: 'Category',
       newValue: { count: targetIds.length, categoryIds: targetIds },
     });
+
+    invalidateLocalCategoriesCache();
 
     return NextResponse.json({
       success: true,

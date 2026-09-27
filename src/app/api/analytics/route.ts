@@ -5,10 +5,22 @@ import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { calculateAllLeaderboards } from '@/lib/spr-engine';
 
+let cachedAnalytics: { timestamp: number; data: any } | null = null;
+const ANALYTICS_CACHE_TTL = 30 * 1000;
+
 export async function GET(req: NextRequest) {
   try {
     const { user, errorResponse } = await authenticateApiRequest(req, 'VIEWER');
     if (errorResponse) return errorResponse;
+
+    const now = Date.now();
+    if (cachedAnalytics && now - cachedAnalytics.timestamp < ANALYTICS_CACHE_TTL) {
+      return NextResponse.json(cachedAnalytics.data, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+        },
+      });
+    }
 
     const [
       totalStudents,
@@ -110,7 +122,7 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({
+    const payload = {
       kpi: {
         totalStudents,
         overallAverageSPR,
@@ -126,6 +138,14 @@ export async function GET(req: NextRequest) {
       categoryPerformance,
       topStudents: leaderboard.slice(0, 5),
       recentActivities,
+    };
+
+    cachedAnalytics = { timestamp: Date.now(), data: payload };
+
+    return NextResponse.json(payload, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+      },
     });
   } catch (error: any) {
     console.error('Analytics fetch error:', error);

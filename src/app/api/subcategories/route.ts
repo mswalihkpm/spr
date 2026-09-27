@@ -6,14 +6,31 @@ import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
 import { invalidateEngineCache } from '@/lib/spr-engine';
 
+let cachedSubcategoriesMap = new Map<string, { timestamp: number; data: any }>();
+const SUBCATEGORIES_CACHE_TTL = 60 * 1000;
+
+function invalidateSubcategoriesCache() {
+  cachedSubcategoriesMap.clear();
+  invalidateEngineCache();
+}
+
 // GET all subcategories
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const categoryId = searchParams.get('categoryId');
+    const categoryId = searchParams.get('categoryId') || 'all';
+
+    const cached = cachedSubcategoriesMap.get(categoryId);
+    if (cached && Date.now() - cached.timestamp < SUBCATEGORIES_CACHE_TTL) {
+      return NextResponse.json(cached.data, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        },
+      });
+    }
 
     const whereClause: any = {};
-    if (categoryId) {
+    if (categoryId !== 'all') {
       whereClause.OR = [
         { categoryId: categoryId },
         { category: { code: categoryId.toUpperCase() } },
@@ -33,7 +50,14 @@ export async function GET(req: NextRequest) {
       ],
     });
 
-    return NextResponse.json({ subcategories });
+    const payload = { subcategories };
+    cachedSubcategoriesMap.set(categoryId, { timestamp: Date.now(), data: payload });
+
+    return NextResponse.json(payload, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+      },
+    });
   } catch (error: any) {
     console.error('Fetch subcategories error:', error);
     return NextResponse.json({ error: 'Failed to fetch subcategories.' }, { status: 500 });
@@ -109,7 +133,7 @@ export async function POST(req: NextRequest) {
       newValue: subcategory,
     });
 
-    invalidateEngineCache();
+    invalidateSubcategoriesCache();
 
     return NextResponse.json({ success: true, subcategory });
   } catch (error: any) {
@@ -137,7 +161,7 @@ export async function PUT(req: NextRequest) {
             : Promise.resolve()
         )
       );
-      invalidateEngineCache();
+      invalidateSubcategoriesCache();
       return NextResponse.json({ success: true, message: 'Subcategory priorities updated successfully.' });
     }
 
@@ -201,7 +225,7 @@ export async function PUT(req: NextRequest) {
       newValue: updated,
     });
 
-    invalidateEngineCache();
+    invalidateSubcategoriesCache();
 
     return NextResponse.json({ success: true, subcategory: updated });
   } catch (error: any) {
@@ -260,7 +284,7 @@ export async function DELETE(req: NextRequest) {
       newValue: { count: deleteSubcategoriesResult.count, ids: idsToDelete, deletedRecords: deleteRecordsResult.count },
     });
 
-    invalidateEngineCache();
+    invalidateSubcategoriesCache();
 
     return NextResponse.json({
       success: true,

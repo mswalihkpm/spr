@@ -3,6 +3,10 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+// Short in-memory cache for hot search queries
+const searchCache = new Map<string, { timestamp: number; data: any }>();
+const SEARCH_CACHE_TTL = 15 * 1000;
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -10,6 +14,17 @@ export async function GET(req: NextRequest) {
 
     if (!q) {
       return NextResponse.json({ students: [] });
+    }
+
+    const cacheKey = q.toLowerCase();
+    const now = Date.now();
+    const cached = searchCache.get(cacheKey);
+    if (cached && now - cached.timestamp < SEARCH_CACHE_TTL) {
+      return NextResponse.json(cached.data, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+        },
+      });
     }
 
     // Split search query into individual words/tokens for flexible multi-term matching
@@ -43,9 +58,15 @@ export async function GET(req: NextRequest) {
         status: { not: 'INACTIVE' },
         AND: andConditions,
       },
-      include: {
-        class: true,
-        school: true,
+      select: {
+        id: true,
+        studentId: true,
+        sprStudentId: true,
+        fullName: true,
+        division: true,
+        photoUrl: true,
+        class: { select: { id: true, name: true, numericGrade: true } },
+        school: { select: { id: true, name: true } },
       },
       take: 25,
       orderBy: [
@@ -54,25 +75,26 @@ export async function GET(req: NextRequest) {
       ],
     });
 
-    return NextResponse.json(
-      {
-        students: students.map((s) => ({
-          id: s.id,
-          studentId: s.studentId,
-          sprStudentId: s.sprStudentId,
-          fullName: s.fullName,
-          className: s.class?.name || '',
-          schoolName: s.school?.name || '',
-          division: s.division,
-          photoUrl: s.photoUrl,
-        })),
+    const payload = {
+      students: students.map((s) => ({
+        id: s.id,
+        studentId: s.studentId,
+        sprStudentId: s.sprStudentId,
+        fullName: s.fullName,
+        className: s.class?.name || '',
+        schoolName: s.school?.name || '',
+        division: s.division,
+        photoUrl: s.photoUrl,
+      })),
+    };
+
+    searchCache.set(cacheKey, { timestamp: now, data: payload });
+
+    return NextResponse.json(payload, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
       },
-      {
-        headers: {
-          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
-        },
-      }
-    );
+    });
   } catch (error: any) {
     console.error('Public search error:', error);
     return NextResponse.json({ error: 'Failed to search students.' }, { status: 500 });

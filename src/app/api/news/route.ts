@@ -5,12 +5,29 @@ import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
 
+const newsCache = new Map<string, { timestamp: number; data: any }>();
+const NEWS_CACHE_TTL = 30 * 1000;
+
+function invalidateNewsCache() {
+  newsCache.clear();
+}
+
 // GET all news/updates (Public with edge cache)
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : undefined;
     const includeInactive = searchParams.get('all') === 'true';
+
+    const cacheKey = `${limit || 'all'}_${includeInactive ? '1' : '0'}`;
+    const cached = newsCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < NEWS_CACHE_TTL) {
+      return NextResponse.json(cached.data, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+        },
+      });
+    }
 
     const whereClause: any = {};
     if (!includeInactive) {
@@ -23,11 +40,14 @@ export async function GET(req: NextRequest) {
       orderBy: { publishedAt: 'desc' },
     });
 
+    const payload = { news };
+    newsCache.set(cacheKey, { timestamp: Date.now(), data: payload });
+
     return NextResponse.json(
-      { news },
+      payload,
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=45',
+          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
         },
       }
     );
@@ -75,6 +95,8 @@ export async function POST(req: NextRequest) {
       entityId: newsItem.id,
       newValue: newsItem,
     });
+
+    invalidateNewsCache();
 
     return NextResponse.json({ success: true, news: newsItem });
   } catch (error: any) {
@@ -128,6 +150,8 @@ export async function PUT(req: NextRequest) {
       previousValue: existing,
       newValue: updated,
     });
+
+    invalidateNewsCache();
 
     return NextResponse.json({ success: true, news: updated });
   } catch (error: any) {
@@ -184,6 +208,8 @@ export async function DELETE(req: NextRequest) {
       entity: 'News',
       newValue: { count: deleteResult.count, ids: idsToDelete },
     });
+
+    invalidateNewsCache();
 
     return NextResponse.json({
       success: true,

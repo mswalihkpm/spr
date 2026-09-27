@@ -4,17 +4,36 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
+import { invalidateEngineCache } from '@/lib/spr-engine';
+
+let cachedExamsMap = new Map<string, { timestamp: number; data: any }>();
+const EXAMS_CACHE_TTL = 60 * 1000;
+
+function invalidateExamsCache() {
+  cachedExamsMap.clear();
+  invalidateEngineCache();
+}
 
 // GET all exams
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const categoryId = searchParams.get('categoryId');
-    const termId = searchParams.get('termId');
+    const categoryId = searchParams.get('categoryId') || 'all';
+    const termId = searchParams.get('termId') || 'all';
+
+    const cacheKey = `${categoryId}_${termId}`;
+    const cached = cachedExamsMap.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < EXAMS_CACHE_TTL) {
+      return NextResponse.json(cached.data, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        },
+      });
+    }
 
     const whereClause: any = {};
-    if (categoryId) whereClause.categoryId = categoryId;
-    if (termId) whereClause.termId = termId;
+    if (categoryId !== 'all') whereClause.categoryId = categoryId;
+    if (termId !== 'all') whereClause.termId = termId;
 
     const exams = await prisma.exam.findMany({
       where: whereClause,
@@ -27,7 +46,14 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json({ exams });
+    const payload = { exams };
+    cachedExamsMap.set(cacheKey, { timestamp: Date.now(), data: payload });
+
+    return NextResponse.json(payload, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+      },
+    });
   } catch (error: any) {
     console.error('Fetch exams error:', error);
     return NextResponse.json({ error: 'Failed to fetch exams.' }, { status: 500 });
@@ -89,6 +115,8 @@ export async function POST(req: NextRequest) {
       newValue: exam,
     });
 
+    invalidateExamsCache();
+
     return NextResponse.json({ success: true, exam });
   } catch (error: any) {
     console.error('Create exam error:', error);
@@ -138,6 +166,8 @@ export async function PUT(req: NextRequest) {
       previousValue: existing,
       newValue: updated,
     });
+
+    invalidateExamsCache();
 
     return NextResponse.json({ success: true, exam: updated });
   } catch (error: any) {
@@ -206,6 +236,8 @@ export async function DELETE(req: NextRequest) {
       entity: 'Exam',
       newValue: { count: validIds.length, ids: validIds },
     });
+
+    invalidateExamsCache();
 
     return NextResponse.json({
       success: true,

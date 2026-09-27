@@ -4,10 +4,28 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
+import { invalidateEngineCache } from '@/lib/spr-engine';
+
+let cachedTermsResponse: { timestamp: number; data: any } | null = null;
+const TERMS_CACHE_TTL = 60 * 1000;
+
+function invalidateTermsCache() {
+  cachedTermsResponse = null;
+  invalidateEngineCache();
+}
 
 // GET all terms
 export async function GET(req: NextRequest) {
   try {
+    const now = Date.now();
+    if (cachedTermsResponse && now - cachedTermsResponse.timestamp < TERMS_CACHE_TTL) {
+      return NextResponse.json(cachedTermsResponse.data, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        },
+      });
+    }
+
     const terms = await prisma.term.findMany({
       include: {
         academicYear: true,
@@ -22,7 +40,14 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'asc' },
     });
 
-    return NextResponse.json({ terms });
+    const payload = { terms };
+    cachedTermsResponse = { timestamp: Date.now(), data: payload };
+
+    return NextResponse.json(payload, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+      },
+    });
   } catch (error: any) {
     console.error('Fetch terms error:', error);
     return NextResponse.json({ error: 'Failed to fetch assessment terms.' }, { status: 500 });
@@ -77,6 +102,8 @@ export async function POST(req: NextRequest) {
       newValue: term,
     });
 
+    invalidateTermsCache();
+
     return NextResponse.json({ success: true, term });
   } catch (error: any) {
     console.error('Create term error:', error);
@@ -127,6 +154,8 @@ export async function PUT(req: NextRequest) {
       previousValue: existing,
       newValue: updated,
     });
+
+    invalidateTermsCache();
 
     return NextResponse.json({ success: true, term: updated });
   } catch (error: any) {
@@ -203,6 +232,8 @@ export async function DELETE(req: NextRequest) {
       entity: 'Term',
       newValue: { count: validIds.length, ids: validIds },
     });
+
+    invalidateTermsCache();
 
     return NextResponse.json({
       success: true,

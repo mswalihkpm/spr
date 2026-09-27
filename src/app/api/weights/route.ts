@@ -6,10 +6,27 @@ import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
 import { invalidateEngineCache, getCachedSettings } from '@/lib/spr-engine';
 
+let cachedWeightsResponse: { timestamp: number; data: any } | null = null;
+const WEIGHTS_CACHE_TTL = 60 * 1000;
+
+function invalidateWeightsCache() {
+  cachedWeightsResponse = null;
+  invalidateEngineCache();
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { user, errorResponse } = await authenticateApiRequest(req, 'VIEWER');
     if (errorResponse) return errorResponse;
+
+    const now = Date.now();
+    if (cachedWeightsResponse && now - cachedWeightsResponse.timestamp < WEIGHTS_CACHE_TTL) {
+      return NextResponse.json(cachedWeightsResponse.data, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        },
+      });
+    }
 
     const currentYear = await prisma.academicYear.findFirst({ where: { isCurrent: true } }) ||
       await prisma.academicYear.findFirst();
@@ -52,7 +69,7 @@ export async function GET(req: NextRequest) {
       isIncludedInSPR: cat.categoryWeights[0]?.isIncludedInSPR ?? cat.includeInSPR,
     }));
 
-    return NextResponse.json({
+    const payload = {
       weights,
       levels,
       subcategories,
@@ -74,6 +91,14 @@ export async function GET(req: NextRequest) {
         qualificationBaseDefault: settings.QUALIFICATION_BASE_DEFAULT || '50',
       },
       academicYear: currentYear,
+    };
+
+    cachedWeightsResponse = { timestamp: Date.now(), data: payload };
+
+    return NextResponse.json(payload, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+      },
     });
   } catch (error: any) {
     console.error('Weights fetch error:', error);
@@ -299,7 +324,7 @@ async function handleUpdateWeights(req: NextRequest) {
       }
     }
 
-    invalidateEngineCache();
+    invalidateWeightsCache();
 
     await logAuditAction({
       userId: user?.id,

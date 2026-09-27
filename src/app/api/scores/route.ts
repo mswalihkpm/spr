@@ -45,7 +45,6 @@ export async function GET(req: NextRequest) {
             sprStudentId: true,
             fullName: true,
             division: true,
-            photoUrl: true,
             status: true,
             classId: true,
             schoolId: true,

@@ -4,6 +4,8 @@ import { MissingDataRule, CategorySummary, StudentSPRProfile, LeaderboardEntry }
 // High-performance server-side in-memory cache with TTL for ultra-fast loading
 const leaderboardCache = new Map<string, { timestamp: number; data: LeaderboardEntry[] }>();
 const studentSPRProfileCache = new Map<string, { timestamp: number; data: StudentSPRProfile }>();
+const inFlightLeaderboardPromises = new Map<string, Promise<LeaderboardEntry[]>>();
+let inFlightActiveStudentsPromise: Promise<any[]> | null = null;
 let cachedMissingDataRule: { timestamp: number; value: MissingDataRule } | null = null;
 let cachedCategories: { timestamp: number; data: any[] } | null = null;
 let cachedSettings: { timestamp: number; data: Record<string, string> } | null = null;
@@ -16,6 +18,8 @@ const CACHE_TTL_MS = 60 * 1000; // 60 seconds TTL
 export function invalidateEngineCache() {
   leaderboardCache.clear();
   studentSPRProfileCache.clear();
+  inFlightLeaderboardPromises.clear();
+  inFlightActiveStudentsPromise = null;
   cachedActiveStudentsSnapshot = null;
   cachedMissingDataRule = null;
   cachedCategories = null;
@@ -266,24 +270,16 @@ export async function calculateStudentSPR(
     libraryRecords: true,
   };
 
-  let student = await prisma.student.findUnique({
-    where: { id: studentId },
+  let student = await prisma.student.findFirst({
+    where: {
+      OR: [
+        { id: studentId },
+        { studentId },
+        { sprStudentId: { equals: studentId, mode: 'insensitive' } },
+      ],
+    },
     include: includeConfig,
   });
-
-  if (!student) {
-    student = await prisma.student.findUnique({
-      where: { studentId },
-      include: includeConfig,
-    });
-  }
-
-  if (!student) {
-    student = await prisma.student.findFirst({
-      where: { sprStudentId: { equals: studentId, mode: 'insensitive' } },
-      include: includeConfig,
-    });
-  }
 
   if (!student) return null;
 
@@ -866,6 +862,121 @@ export async function calculateStudentSPR(
   return profileResult;
 }
 
+async function getActiveStudentsSnapshot(): Promise<any[]> {
+  const now = Date.now();
+  if (cachedActiveStudentsSnapshot && now - cachedActiveStudentsSnapshot.timestamp < CACHE_TTL_MS) {
+    return cachedActiveStudentsSnapshot.data;
+  }
+  if (inFlightActiveStudentsPromise) {
+    return inFlightActiveStudentsPromise;
+  }
+
+  inFlightActiveStudentsPromise = (async () => {
+    try {
+      const students = await prisma.student.findMany({
+        where: { status: 'ACTIVE' },
+        select: {
+          id: true,
+          studentId: true,
+          sprStudentId: true,
+          fullName: true,
+          division: true,
+          status: true,
+          classId: true,
+          schoolId: true,
+          academicYearId: true,
+          class: { select: { id: true, name: true, numericGrade: true } },
+          school: { select: { id: true, name: true, code: true } },
+          academicYear: { select: { id: true, name: true, isCurrent: true } },
+          performanceRecords: {
+            select: {
+              id: true,
+              categoryId: true,
+              subcategoryId: true,
+              examId: true,
+              subjectId: true,
+              competitionId: true,
+              literaryCompetitionId: true,
+              levelId: true,
+              obtainedScore: true,
+              maxScore: true,
+              position: true,
+              grade: true,
+              remarks: true,
+              category: { select: { id: true, code: true, name: true } },
+              subcategory: { select: { id: true, code: true, name: true, weight: true, maxScore: true } },
+              subject: {
+                select: {
+                  id: true,
+                  name: true,
+                  maxScore: true,
+                  institution: { select: { id: true, code: true, name: true } },
+                  board: { select: { id: true, code: true, name: true } },
+                },
+              },
+              exam: {
+                select: {
+                  id: true,
+                  name: true,
+                  maxScore: true,
+                  termId: true,
+                  term: { select: { id: true, name: true } },
+                },
+              },
+              competition: {
+                select: {
+                  id: true,
+                  name: true,
+                  program: { select: { id: true, name: true } },
+                },
+              },
+              literaryCompetition: {
+                select: {
+                  id: true,
+                  name: true,
+                  event: { select: { id: true, name: true } },
+                },
+              },
+              level: {
+                select: {
+                  id: true,
+                  name: true,
+                  code: true,
+                  weightMultiplier: true,
+                },
+              },
+            },
+          },
+          creativeWorks: {
+            select: {
+              id: true,
+              score: true,
+              title: true,
+              publicationStatus: true,
+              categoryId: true,
+              category: { select: { id: true, name: true, weight: true } },
+            },
+          },
+          libraryRecords: {
+            select: {
+              id: true,
+              booksRead: true,
+              readingScore: true,
+              readingPeriod: true,
+            },
+          },
+        },
+      });
+      cachedActiveStudentsSnapshot = { timestamp: Date.now(), data: students };
+      return students;
+    } finally {
+      inFlightActiveStudentsPromise = null;
+    }
+  })();
+
+  return inFlightActiveStudentsPromise;
+}
+
 export async function calculateAllLeaderboards(filters?: {
   academicYearId?: string;
   classId?: string;
@@ -882,42 +993,13 @@ export async function calculateAllLeaderboards(filters?: {
     return cached.data;
   }
 
-  let allActiveStudents: any[];
-  if (cachedActiveStudentsSnapshot && now - cachedActiveStudentsSnapshot.timestamp < CACHE_TTL_MS) {
-    allActiveStudents = cachedActiveStudentsSnapshot.data;
-  } else {
-    allActiveStudents = await prisma.student.findMany({
-      where: { status: 'ACTIVE' },
-      include: {
-        class: true,
-        school: true,
-        academicYear: true,
-        performanceRecords: {
-          include: {
-            category: true,
-            subject: {
-              include: { institution: true, board: true },
-            },
-            competition: {
-              include: { program: true },
-            },
-            literaryCompetition: {
-              include: { event: true },
-            },
-            subcategory: true,
-            level: true,
-          },
-        },
-        creativeWorks: {
-          include: {
-            category: true,
-          },
-        },
-        libraryRecords: true,
-      },
-    });
-    cachedActiveStudentsSnapshot = { timestamp: now, data: allActiveStudents };
+  if (inFlightLeaderboardPromises.has(cacheKey)) {
+    return inFlightLeaderboardPromises.get(cacheKey)!;
   }
+
+  const computePromise = (async () => {
+    try {
+      const allActiveStudents = await getActiveStudentsSnapshot();
 
   const students = allActiveStudents.filter((st) => {
     if (filters?.academicYearId && st.academicYearId !== filters.academicYearId) return false;
@@ -1281,8 +1363,15 @@ export async function calculateAllLeaderboards(filters?: {
     e.tiedCount = scoreCounts[e.spr];
   });
 
-  leaderboardCache.set(cacheKey, { timestamp: now, data: rankedEntries });
+  leaderboardCache.set(cacheKey, { timestamp: Date.now(), data: rankedEntries });
   return rankedEntries;
+    } finally {
+      inFlightLeaderboardPromises.delete(cacheKey);
+    }
+  })();
+
+  inFlightLeaderboardPromises.set(cacheKey, computePromise);
+  return computePromise;
 }
 
 // Lightweight fast rank calculation for single student profile
@@ -1299,168 +1388,45 @@ export async function calculateFastStudentRanks(
   totalStudentsInClass: number;
   totalStudentsInSchool: number;
 }> {
-  const [categories, settings, levelsList, students] = await Promise.all([
-    getCachedCategories(),
-    getCachedSettings(),
-    getCachedLevels(),
-    prisma.student.findMany({
-      where: {
-        status: 'ACTIVE',
-        ...(academicYearId ? { academicYearId } : {}),
-      },
-      select: {
-        id: true,
-        classId: true,
-        schoolId: true,
-        performanceRecords: {
-          select: {
-            categoryId: true,
-            obtainedScore: true,
-            maxScore: true,
-            position: true,
-            subcategory: { select: { weight: true, maxScore: true } },
-            level: true,
-            exam: { select: { name: true, maxScore: true } },
-            subject: { select: { maxScore: true } },
-          },
-        },
-        creativeWorks: {
-          select: {
-            score: true,
-            category: { select: { weight: true } },
-          },
-        },
-        libraryRecords: {
-          select: {
-            readingScore: true,
-            booksRead: true,
-          },
-        },
-      },
-    }),
-  ]);
+  const leaderboard = await calculateAllLeaderboards({ academicYearId });
+  const studentEntry = leaderboard.find((e) => e.studentId === studentId);
+  const overallRank = studentEntry?.rank || 1;
 
-  const parsedCategories = categories.map((cat) => {
-    const activeWeightRecord = cat.categoryWeights?.find((w: any) => w.isActive !== false) || cat.categoryWeights?.[0];
-    const isCatActive = activeWeightRecord?.isActive ?? cat.active;
-    const isIncluded = activeWeightRecord?.isIncludedInSPR ?? cat.includeInSPR;
-    return { cat, isCatActive, isIncluded };
-  });
+  const classEntries = classId
+    ? leaderboard.filter((e) => e.className === studentEntry?.className)
+    : leaderboard;
 
-  const studentScores: { id: string; spr: number; classId: string; schoolId: string }[] = [];
+  const schoolEntries = schoolId
+    ? leaderboard.filter((e) => e.schoolName === studentEntry?.schoolName)
+    : leaderboard;
 
-  for (const st of students) {
-    let totalPoints = 0;
-    for (const { cat, isCatActive, isIncluded } of parsedCategories) {
-      if (!isCatActive || !isIncluded) continue;
-
-      let catEarned = 0;
-      if (cat.code === 'CREATIVE_HUB') {
-        st.creativeWorks.forEach((w: any) => {
-          const rawScore = typeof w.score === 'number' && !isNaN(w.score)
-            ? w.score
-            : (typeof w.category?.weight === 'number' && w.category.weight > 0 ? w.category.weight : 20);
-          catEarned += rawScore;
-        });
-      } else if (cat.code === 'LIBRARY') {
-        st.libraryRecords.forEach((lib: any) => {
-          const pts = typeof lib.readingScore === 'number' && !isNaN(lib.readingScore)
-            ? lib.readingScore
-            : ((lib.booksRead || 0) * 20);
-          catEarned += pts;
-        });
-        const libPerf = st.performanceRecords.filter((r: any) => r.categoryId === cat.id);
-        libPerf.forEach((r: any) => {
-          const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
-          const base = typeof r.obtainedScore === 'number' && !isNaN(r.obtainedScore) ? r.obtainedScore : 0;
-          catEarned += (base * mult);
-        });
-      } else if (cat.code === 'LITERARY' || cat.code === 'PROGRAMS') {
-        const records = st.performanceRecords.filter((r: any) => r.categoryId === cat.id);
-        records.forEach((r: any) => {
-          const lvlMult = resolveLevelMultiplier(r.level, levelsList);
-          const prizeMult = resolvePrizeMultiplier(r.position);
-          const prizeBase = resolvePrizeBaseScore(r.position, settings);
-          const baseScore = typeof r.obtainedScore === 'number' && !isNaN(r.obtainedScore)
-            ? r.obtainedScore
-            : (prizeBase > 0 ? prizeBase : 50);
-          catEarned += (baseScore * prizeMult * lvlMult);
-        });
-      } else if (cat.code === 'QUALIFICATION') {
-        const records = st.performanceRecords.filter((r: any) => r.categoryId === cat.id);
-        records.forEach((r: any) => {
-          const subMult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
-          const lvlMult = resolveLevelMultiplier(r.level, levelsList);
-          const prizeMult = resolvePrizeMultiplier(r.position);
-          const prizeBase = resolvePrizeBaseScore(r.position, settings);
-          const baseScore = typeof r.obtainedScore === 'number' && !isNaN(r.obtainedScore)
-            ? r.obtainedScore
-            : (prizeBase > 0 ? prizeBase : (r.subcategory?.maxScore || 50));
-          catEarned += (baseScore * subMult * lvlMult * prizeMult);
-        });
-      } else if (cat.code === 'SCHOOL' || cat.code === 'ISLAMIC') {
-        const records = st.performanceRecords.filter((r: any) => r.categoryId === cat.id);
-        if (records.length > 0) {
-          const examGroups = new Map<string, any[]>();
-          records.forEach((r: any) => {
-            const key = (r.exam?.name || (r as any).examId || 'General Assessment').trim().toLowerCase();
-            if (!examGroups.has(key)) examGroups.set(key, []);
-            examGroups.get(key)!.push(r);
-          });
-          let catSum = 0;
-          examGroups.forEach((recs) => {
-            const examActualMax = recs[0]?.exam?.maxScore || (cat.code === 'SCHOOL' ? 130 : 100);
-            const totObt = recs.reduce((sum: number, r: any) => sum + (r.obtainedScore || 0), 0);
-            const totMax = recs.reduce((sum: number, r: any) => sum + (r.maxScore || r.subject?.maxScore || 100), 0);
-            const pct = totMax > 0 ? (totObt / totMax) * 100 : 0;
-            catSum += ((pct / 100) * examActualMax);
-          });
-          catEarned = Number(catSum.toFixed(2));
-        }
-      } else {
-        const records = st.performanceRecords.filter((r: any) => r.categoryId === cat.id);
-        records.forEach((r: any) => {
-          const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
-          const lvlMult = resolveLevelMultiplier(r.level, levelsList);
-          const prizeMult = resolvePrizeMultiplier(r.position);
-          const base = r.obtainedScore || 0;
-          catEarned += (base * mult * lvlMult * prizeMult);
-        });
+  const computeTiedRank = (list: LeaderboardEntry[], targetId: string) => {
+    const sorted = [...list].sort((a, b) => {
+      if (b.spr !== a.spr) return b.spr - a.spr;
+      if ((b.recordsCount || 0) !== (a.recordsCount || 0)) {
+        return (b.recordsCount || 0) - (a.recordsCount || 0);
       }
-      totalPoints += Number(catEarned.toFixed(2));
-    }
-    studentScores.push({
-      id: st.id,
-      spr: Number(totalPoints.toFixed(2)),
-      classId: st.classId,
-      schoolId: st.schoolId,
+      return (a.name || '').localeCompare(b.name || '');
     });
-  }
-
-  const computeTiedRank = (list: { id: string; spr: number }[], targetId: string) => {
-    const sorted = [...list].sort((a, b) => (b.spr || 0) - (a.spr || 0));
     let currentRank = 1;
     for (let i = 0; i < sorted.length; i++) {
       if (i > 0 && (sorted[i].spr || 0) < (sorted[i - 1].spr || 0)) {
         currentRank = i + 1;
       }
-      if (sorted[i].id === targetId) {
+      if (sorted[i].studentId === targetId) {
         return currentRank;
       }
     }
     return 1;
   };
 
-  const classList = classId ? studentScores.filter((s) => s.classId === classId) : studentScores;
-  const schoolList = schoolId ? studentScores.filter((s) => s.schoolId === schoolId) : studentScores;
-
   return {
-    overallRank: computeTiedRank(studentScores, studentId),
-    classRank: computeTiedRank(classList, studentId),
-    schoolRank: computeTiedRank(schoolList, studentId),
-    totalStudentsOverall: studentScores.length,
-    totalStudentsInClass: classList.length,
-    totalStudentsInSchool: schoolList.length,
+    overallRank,
+    classRank: computeTiedRank(classEntries, studentId),
+    schoolRank: computeTiedRank(schoolEntries, studentId),
+    totalStudentsOverall: leaderboard.length,
+    totalStudentsInClass: classEntries.length,
+    totalStudentsInSchool: schoolEntries.length,
   };
 }
 

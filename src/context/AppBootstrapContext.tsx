@@ -189,9 +189,9 @@ export function AppBootstrapProvider({ children }: { children: React.ReactNode }
           updateProgress(calculateTotalProgress());
         });
 
-      // Safety timeout: Maximum 2800ms before forcing 100% completion so slow network never blocks user
+      // Safety timeout: Maximum 1200ms before forcing 100% completion so slow network never blocks user
       const safetyTimeout = new Promise<void>((resolve) => {
-        setTimeout(() => resolve(), 2800);
+        setTimeout(() => resolve(), 1200);
       });
 
       // Wait for all critical parallel requests to complete or timeout

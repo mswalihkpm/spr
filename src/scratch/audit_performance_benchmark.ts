@@ -425,36 +425,15 @@ async function runBenchmark() {
 
   // 9. Inspect Memory / Cache Snapshot Retention
   console.log('\n--- 9. Analyzing Memory Snapshot Size & Entity Counts ---');
-  const snapshotRaw = await prisma.student.findMany({
-    where: { status: 'ACTIVE' },
-    include: {
-      class: true,
-      school: true,
-      academicYear: true,
-      performanceRecords: {
-        include: {
-          category: true,
-          subject: { include: { institution: true, board: true } },
-          competition: { include: { program: true } },
-          literaryCompetition: { include: { event: true } },
-          subcategory: true,
-          level: true,
-        },
-      },
-      creativeWorks: { include: { category: true } },
-      libraryRecords: true,
-    },
-  });
-  const snapshotByteSize = Buffer.byteLength(JSON.stringify(snapshotRaw));
-  const totalPerfRecords = snapshotRaw.reduce((acc, s) => acc + s.performanceRecords.length, 0);
-  const totalCreative = snapshotRaw.reduce((acc, s) => acc + s.creativeWorks.length, 0);
-  const totalLib = snapshotRaw.reduce((acc, s) => acc + s.libraryRecords.length, 0);
+  const snapshotCount = await prisma.student.count({ where: { status: 'ACTIVE' } });
+  const totalPerfRecords = await prisma.performanceRecord.count();
+  const totalCreative = await prisma.creativeHubSubmission.count();
+  const totalLib = await prisma.libraryRecord.count();
 
-  console.log(`Active Students: ${snapshotRaw.length}`);
+  console.log(`Active Students: ${snapshotCount}`);
   console.log(`Total Performance Records: ${totalPerfRecords}`);
   console.log(`Total Creative Works: ${totalCreative}`);
   console.log(`Total Library Records: ${totalLib}`);
-  console.log(`Raw In-Memory Snapshot JSON Size: ${(snapshotByteSize / 1024).toFixed(1)} KB`);
 
   // Print Formatted Table
   console.log('\n=================================================================');

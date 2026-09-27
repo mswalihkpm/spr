@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
-import { calculateStudentSPR, calculateAllLeaderboards, invalidateEngineCache } from '@/lib/spr-engine';
+import { calculateStudentSPR, calculateFastStudentRanks, invalidateEngineCache } from '@/lib/spr-engine';
 import { checkSprIdAvailable, normalizeSprId } from '@/lib/spr-id';
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -13,39 +13,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     if (errorResponse) return errorResponse;
 
     const studentId = params.id;
-    const profile = await calculateStudentSPR(studentId);
 
-    if (!profile) {
-      return NextResponse.json({ error: 'Student not found.' }, { status: 404 });
-    }
-
-    // Calculate real rank within Class, School, and Overall
-    const allLeaderboard = await calculateAllLeaderboards({
-      academicYearId: profile.student.academicYear.id,
-    });
-    const classLeaderboard = await calculateAllLeaderboards({
-      academicYearId: profile.student.academicYear.id,
-      classId: profile.student.class.id,
-    });
-    const schoolLeaderboard = await calculateAllLeaderboards({
-      academicYearId: profile.student.academicYear.id,
-      schoolId: profile.student.school.id,
-    });
-
-    const overallEntry = allLeaderboard.find((e) => e.studentId === studentId);
-    const classEntry = classLeaderboard.find((e) => e.studentId === studentId);
-    const schoolEntry = schoolLeaderboard.find((e) => e.studentId === studentId);
-
-    profile.rank = overallEntry?.rank || 1;
-    profile.overallRank = overallEntry?.rank || 1;
-    profile.classRank = classEntry?.rank || 1;
-    profile.schoolRank = schoolEntry?.rank || 1;
-    profile.totalStudentsOverall = allLeaderboard.length;
-    profile.totalStudentsInClass = classLeaderboard.length;
-    profile.totalStudentsInSchool = schoolLeaderboard.length;
-
-    // Fetch student's Creative Hub submissions & Library logs for detailed tab view
-    const [creativeWorks, libraryRecords] = await Promise.all([
+    // Parallel fetch: SPR computation + creative hub + library records
+    const [profile, creativeWorks, libraryRecords] = await Promise.all([
+      calculateStudentSPR(studentId),
       prisma.creativeHubSubmission.findMany({
         where: { studentId },
         include: { category: true },
@@ -56,6 +27,26 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         orderBy: { createdAt: 'desc' },
       }),
     ]);
+
+    if (!profile) {
+      return NextResponse.json({ error: 'Student not found.' }, { status: 404 });
+    }
+
+    // Compute live rankings with lightweight instant calculation
+    const ranks = await calculateFastStudentRanks(
+      profile.student.id,
+      profile.student.academicYear?.id,
+      profile.student.class?.id,
+      profile.student.school?.id
+    );
+
+    profile.rank = ranks.overallRank;
+    profile.overallRank = ranks.overallRank;
+    profile.classRank = ranks.classRank;
+    profile.schoolRank = ranks.schoolRank;
+    profile.totalStudentsOverall = ranks.totalStudentsOverall;
+    profile.totalStudentsInClass = ranks.totalStudentsInClass;
+    profile.totalStudentsInSchool = ranks.totalStudentsInSchool;
 
     return NextResponse.json({
       profile,

@@ -28,9 +28,14 @@ export async function GET(req: NextRequest) {
         where,
         include: {
           student: {
-            include: {
-              class: true,
-              school: true,
+            select: {
+              id: true,
+              fullName: true,
+              studentId: true,
+              sprStudentId: true,
+              division: true,
+              class: { select: { id: true, name: true } },
+              school: { select: { id: true, name: true } },
             },
           },
           category: true,
