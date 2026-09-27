@@ -183,6 +183,66 @@ function LeaderboardContent() {
     }
   }, []);
 
+function deriveCategoryLeaderboard(
+  masterList: any[],
+  targetCatId: string,
+  categoriesList: any[],
+  classIdFilter?: string
+) {
+  if (!masterList || masterList.length === 0 || !targetCatId) return [];
+
+  const matchedCat = categoriesList.find(
+    (c) =>
+      c.id === targetCatId ||
+      c.code?.toUpperCase() === targetCatId.toUpperCase() ||
+      c.name?.toLowerCase() === targetCatId.toLowerCase()
+  );
+  const catKey = matchedCat?.id || targetCatId;
+
+  let derived = masterList
+    .map((e) => {
+      const catPts = e.categoryPoints ? (e.categoryPoints[catKey] ?? 0) : 0;
+      return {
+        ...e,
+        spr: Number(catPts.toFixed(2)),
+        overallScore: Number(catPts.toFixed(2)),
+        totalSprPoints: Number(catPts.toFixed(2)),
+      };
+    })
+    .filter((e) => (e.spr || 0) > 0);
+
+  if (classIdFilter) {
+    derived = derived.filter((e) => e.classId === classIdFilter || e.className === classIdFilter);
+  }
+
+  derived.sort((a, b) => {
+    if (b.spr !== a.spr) return b.spr - a.spr;
+    if ((b.recordsCount || 0) !== (a.recordsCount || 0)) {
+      return (b.recordsCount || 0) - (a.recordsCount || 0);
+    }
+    return (a.name || '').localeCompare(b.name || '');
+  });
+
+  for (let i = 0; i < derived.length; i++) {
+    if (i > 0 && derived[i].spr === derived[i - 1].spr) {
+      derived[i].rank = derived[i - 1].rank;
+    } else {
+      derived[i].rank = i + 1;
+    }
+  }
+
+  const scoreCounts: Record<number, number> = {};
+  derived.forEach((e) => {
+    scoreCounts[e.spr] = (scoreCounts[e.spr] || 0) + 1;
+  });
+  derived.forEach((e: any) => {
+    e.isTied = scoreCounts[e.spr] > 1;
+    e.tiedCount = scoreCounts[e.spr];
+  });
+
+  return derived;
+}
+
   const fetchLeaderboard = async () => {
     const params = new URLSearchParams();
     if (selectedSubcategory) {
@@ -198,12 +258,13 @@ function LeaderboardContent() {
     if (selectedClass) params.append('classId', selectedClass);
 
     const cacheKey = params.toString() || 'overall';
+    const masterList = bootstrapLeaderboard.length > 0 ? bootstrapLeaderboard : clientLeaderboardMemory.get('overall') || [];
 
     // If default overall view and we already have bootstrapLeaderboard, use it without network delay
-    if (cacheKey === 'overall' && bootstrapLeaderboard.length > 0) {
-      setLeaderboard(bootstrapLeaderboard);
+    if (cacheKey === 'overall' && masterList.length > 0) {
+      setLeaderboard(masterList);
       setLoading(false);
-      clientLeaderboardMemory.set('overall', bootstrapLeaderboard);
+      clientLeaderboardMemory.set('overall', masterList);
       return;
     }
 
@@ -211,6 +272,16 @@ function LeaderboardContent() {
     if (cached) {
       setLeaderboard(cached);
       setLoading(false);
+    } else if (masterList.length > 0 && selectedCategory && !selectedSubcategory && !selectedFest && !selectedStream) {
+      // Instantly derive category leaderboard from in-memory master data with 0ms loading delay!
+      const derived = deriveCategoryLeaderboard(masterList, selectedCategory, categories, selectedClass);
+      if (derived.length > 0) {
+        clientLeaderboardMemory.set(cacheKey, derived);
+        setLeaderboard(derived);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
     } else {
       setLoading(true);
     }

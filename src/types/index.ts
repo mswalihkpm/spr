@@ -102,6 +102,8 @@ export interface LeaderboardEntry {
   studentName?: string;
   className: string;
   schoolName: string;
+  classId?: string;
+  schoolId?: string;
   spr: number; // Total SPR Points (e.g. 8500)
   totalSprPoints?: number;
   overallScore?: number;
