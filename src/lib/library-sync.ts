@@ -1,5 +1,6 @@
 import { prisma } from './prisma';
 import { invalidateEngineCache } from './spr-engine';
+import { isValidSprId, normalizeSprId } from './spr-id';
 
 const LIBRARY_BASE_URL = 'https://msoelibrary.vercel.app';
 const SUPABASE_REST_URL = 'https://lezoaunsbfgrbcskedoq.supabase.co';
@@ -57,14 +58,14 @@ export interface LibraryLeaderboardEntry {
 
 /**
  * Authoritative Student Matching by Exact SPR ID Only.
- * NEVER uses name, fuzzy matching, class, or school.
+ * NEVER uses name, class, spelling similarity, or any other field.
  */
 export function matchStudentBySprId(sprId: string | undefined | null, allSprStudents: any[]): any {
   if (!sprId || typeof sprId !== 'string') return null;
-  const normalized = sprId.trim().toUpperCase();
-  if (!normalized) return null;
+  const normalized = normalizeSprId(sprId);
+  if (!isValidSprId(normalized)) return null;
   return allSprStudents.find(
-    (s) => s.sprStudentId && s.sprStudentId.trim().toUpperCase() === normalized
+    (s) => s.sprStudentId && normalizeSprId(s.sprStudentId) === normalized
   ) || null;
 }
 
@@ -110,7 +111,8 @@ export async function fetchLibraryLeaderboard(): Promise<{
     if (!borrowerName) continue;
 
     const studentObj = rec.student_id ? studentsMap.get(rec.student_id) : null;
-    const sprStudentId = studentObj?.spr_student_id ? studentObj.spr_student_id.trim().toUpperCase() : null;
+    const rawSprId = studentObj?.spr_student_id ? String(studentObj.spr_student_id).trim() : null;
+    const sprStudentId = rawSprId && isValidSprId(rawSprId) ? normalizeSprId(rawSprId) : null;
 
     const groupKey = rec.student_id ? `id:${rec.student_id}` : `name:${borrowerName}`;
 
@@ -176,9 +178,21 @@ export async function fetchLibraryLeaderboard(): Promise<{
   };
 }
 
+/**
+ * Synchronize Library Leaderboard to SPR.
+ *
+ * Rules:
+ * 1. Only include Library Leaderboard students who already have a valid SPR ID.
+ * 2. SPR ID is the ONLY eligibility/matching key.
+ * 3. If a Library student has NO SPR ID -> completely exclude them from the SPR sync list/results.
+ * 4. Never match using name, class, spelling similarity, or any guessed identity.
+ * 5. Do not create new SPR IDs or new students during sync.
+ * 6. Do not delete, modify, or overwrite any existing SPR or Library data.
+ */
 export async function syncLibraryLeaderboardToSPR(): Promise<{
   importedCount: number;
   totalLeaderboardEntries: number;
+  eligibleLeaderboardCount: number;
   skippedWithoutSprIdCount: number;
   notice: string;
   leaderboard: LibraryLeaderboardEntry[];
@@ -193,7 +207,12 @@ export async function syncLibraryLeaderboardToSPR(): Promise<{
     include: { class: true, school: true },
   });
 
-  // Group readers strictly by exact SPR ID match
+  // Filter: Only include Library students who already have a valid SPR ID
+  const eligibleReaders = leaderboard.filter(
+    (reader) => reader.sprStudentId && isValidSprId(reader.sprStudentId)
+  );
+
+  const syncedLeaderboardEntries: LibraryLeaderboardEntry[] = [];
   const studentReaderMap = new Map<string, {
     student: any;
     booksRead: number;
@@ -201,24 +220,15 @@ export async function syncLibraryLeaderboardToSPR(): Promise<{
     libraryRank: number;
   }>();
 
-  let skippedWithoutSprIdCount = 0;
-
-  for (let idx = 0; idx < leaderboard.length; idx++) {
-    const reader = leaderboard[idx];
-
-    // Rule 4: If reader does not have an SPR ID -> DO NOT SYNCHRONIZE
-    if (!reader.sprStudentId || reader.sprStudentId.trim().length === 0) {
-      skippedWithoutSprIdCount++;
-      continue;
-    }
-
-    // Rule 3 & 5: Exact SPR ID match ONLY
+  for (const reader of eligibleReaders) {
+    // Match SPR student strictly by exact SPR ID
     const student = matchStudentBySprId(reader.sprStudentId, allSprStudents);
 
     if (student) {
       reader.sprStudentName = student.fullName;
       reader.sprClass = student.class?.name;
       reader.sprSchool = student.school?.name;
+      syncedLeaderboardEntries.push(reader);
 
       if (studentReaderMap.has(student.id)) {
         const existing = studentReaderMap.get(student.id)!;
@@ -232,16 +242,13 @@ export async function syncLibraryLeaderboardToSPR(): Promise<{
           libraryRank: reader.rank,
         });
       }
-    } else {
-      // SPR ID present on library but not found in SPR database -> skip (do not create dummy students)
-      skippedWithoutSprIdCount++;
     }
   }
 
   let importedCount = 0;
 
   for (const entry of Array.from(studentReaderMap.values())) {
-    // Check if record exists for this student to safely update or create without deleting existing table data
+    // Safely update or create library record for this student without deleting existing table data
     const existingRecord = await prisma.libraryRecord.findFirst({
       where: { studentId: entry.student.id },
     });
@@ -298,8 +305,9 @@ export async function syncLibraryLeaderboardToSPR(): Promise<{
   return {
     importedCount,
     totalLeaderboardEntries: leaderboard.length,
-    skippedWithoutSprIdCount,
+    eligibleLeaderboardCount: eligibleReaders.length,
+    skippedWithoutSprIdCount: leaderboard.length - eligibleReaders.length,
     notice,
-    leaderboard,
+    leaderboard: syncedLeaderboardEntries, // only included / synced students with SPR IDs!
   };
 }
