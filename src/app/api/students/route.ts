@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
                 select: { id: true, name: true, isCurrent: true },
               },
             },
-        orderBy: [{ class: { numericGrade: 'asc' } }, { fullName: 'asc' }],
+        orderBy: [{ fullName: 'asc' }],
         skip,
         take: isAll ? undefined : limit,
       }),
