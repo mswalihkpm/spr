@@ -4,26 +4,6 @@ import { invalidateEngineCache } from './spr-engine';
 const LIBRARY_BASE_URL = 'https://msoelibrary.vercel.app';
 const SUPABASE_REST_URL = 'https://lezoaunsbfgrbcskedoq.supabase.co';
 
-function normalize(str: string): string {
-  return (str || '')
-    .toLowerCase()
-    .replace(/mohmmed/g, 'mohammed')
-    .replace(/muhammed/g, 'muhammad')
-    .replace(/[^a-z0-9]/g, '');
-}
-
-function normalizeClass(cls: string | undefined | null): string {
-  if (!cls) return '';
-  const c = cls.toString().toLowerCase().trim();
-  if (c.includes('plus two') || c.includes('+2') || c.includes('12') || c.includes('plus 2') || c.includes('plustwo')) return '+2';
-  if (c.includes('plus one') || c.includes('+1') || c.includes('11') || c.includes('plus 1') || c.includes('plusone')) return '+1';
-  if (c.includes('10')) return '10';
-  if (c.includes('9')) return '9';
-  if (c.includes('8')) return '8';
-  if (c.includes('7')) return '7';
-  return c.replace(/[^a-z0-9]/g, '');
-}
-
 function getPageBucket(pages: number | string | undefined | null): string {
   const pageNum = typeof pages === 'number' ? pages : parseInt(String(pages || '0').replace(/[^\d]/g, ''), 10) || 0;
   if (pageNum < 50) return 'b50';
@@ -75,100 +55,17 @@ export interface LibraryLeaderboardEntry {
   sprSchool?: string | null;
 }
 
-export function matchStudent(readerName: string, readerClass: string | undefined, allStudents: any[]): any {
-  const rNorm = normalize(readerName);
-  const rClassNorm = normalizeClass(readerClass);
-
-  // 1. Exact normalized full name match with class preference
-  const exactMatches = allStudents.filter((s) => normalize(s.fullName) === rNorm);
-  if (exactMatches.length === 1 && (!rClassNorm || normalizeClass(exactMatches[0]?.class?.name) === rClassNorm)) {
-    return exactMatches[0];
-  }
-  if (exactMatches.length > 0 && rClassNorm) {
-    const classMatch = exactMatches.find((s) => normalizeClass(s.class?.name) === rClassNorm);
-    if (classMatch) return classMatch;
-  }
-
-  // Tokenize
-  const commonPrefixes = ['MUHAMMED', 'MUHAMMAD', 'MOHAMMED', 'MOHMMED', 'SAYYID', 'AHMED', 'AHMAD'];
-  const rWords = readerName.toUpperCase().replace(/[^A-Z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
-  const rMainWords = rWords.filter((w: string) => !commonPrefixes.includes(w) && w.length >= 3);
-  const rInitials = rWords.filter((w: string) => w.length < 3 || commonPrefixes.includes(w));
-
-  // If readerName only consists of common names/initials (e.g. "MUHAMMED")
-  if (rMainWords.length === 0) {
-    const classStudents = allStudents.filter((s) => !rClassNorm || normalizeClass(s.class?.name) === rClassNorm);
-    
-    // Check if there is a student whose fullName only has common prefixes/initials (e.g. "MUHAMMED E")
-    const simpleMatches = classStudents.filter((s) => {
-      const sWords = s.fullName.toUpperCase().replace(/[^A-Z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
-      const sMainWords = sWords.filter((w: string) => !commonPrefixes.includes(w) && w.length >= 3);
-      return sMainWords.length === 0;
-    });
-
-    if (simpleMatches.length === 1) {
-      return simpleMatches[0];
-    }
-  }
-
-  let bestMatch: any = null;
-  let highestScore = 0;
-
-  for (const s of allStudents) {
-    const sClassNorm = normalizeClass(s.class?.name);
-    const sWords: string[] = s.fullName.toUpperCase().replace(/[^A-Z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
-    const sMainWords = sWords.filter((w: string) => !commonPrefixes.includes(w) && w.length >= 3);
-
-    let score = 0;
-
-    // Check if main distinctive words match
-    let mainWordsMatched = 0;
-    for (const mw of rMainWords) {
-      if (sMainWords.some((sw) => sw === mw || sw.startsWith(mw) || mw.startsWith(sw) || (mw.length > 4 && sw.includes(mw)) || (sw.length > 4 && mw.includes(sw)))) {
-        mainWordsMatched++;
-        score += 20;
-      }
-    }
-
-    if (rMainWords.length > 0 && mainWordsMatched === rMainWords.length) {
-      score += 30; // Full main name match
-    } else if (rMainWords.length > 0 && mainWordsMatched === 0) {
-      const fuzzyMatch = rMainWords.some((mw) =>
-        sMainWords.some((sw) => mw.replace(/^H/, '') === sw.replace(/^H/, ''))
-      );
-      if (fuzzyMatch) {
-        score += 15;
-      } else {
-        continue;
-      }
-    }
-
-    // Penalty if student has extra main distinctive words that the reader name does not have
-    if (rMainWords.length === 0 && sMainWords.length > 0) {
-      score -= 20;
-    }
-
-    // Check class match
-    if (rClassNorm && sClassNorm) {
-      if (rClassNorm === sClassNorm) {
-        score += 25;
-      } else {
-        score -= 40; // Heavy penalty for class mismatch
-      }
-    }
-
-    // Check initials and common names
-    for (const init of rInitials) {
-      if (sWords.includes(init)) score += 2;
-    }
-
-    if (score > highestScore && score >= 20) {
-      highestScore = score;
-      bestMatch = s;
-    }
-  }
-
-  return bestMatch;
+/**
+ * Authoritative Student Matching by Exact SPR ID Only.
+ * NEVER uses name, fuzzy matching, class, or school.
+ */
+export function matchStudentBySprId(sprId: string | undefined | null, allSprStudents: any[]): any {
+  if (!sprId || typeof sprId !== 'string') return null;
+  const normalized = sprId.trim().toUpperCase();
+  if (!normalized) return null;
+  return allSprStudents.find(
+    (s) => s.sprStudentId && s.sprStudentId.trim().toUpperCase() === normalized
+  ) || null;
 }
 
 export async function fetchLibraryLeaderboard(): Promise<{
@@ -191,17 +88,19 @@ export async function fetchLibraryLeaderboard(): Promise<{
   const anonKey = anonKeyMatch[0];
   const headers = { apikey: anonKey, Authorization: `Bearer ${anonKey}` };
 
-  // 2. Query settings, books (paginated), and borrow records (paginated)
-  const [settingsRes, booksRes, borrowRes] = await Promise.all([
+  // 2. Query settings, books (paginated), borrow records (paginated), and students (paginated)
+  const [settingsRes, booksRes, borrowRes, studentsRes] = await Promise.all([
     fetch(`${SUPABASE_REST_URL}/rest/v1/admin_settings?select=*&limit=1`, { headers, cache: 'no-store' }).then((r) => r.json()),
     fetchAllSupabase('books?select=*&order=average_rating.desc', headers),
     fetchAllSupabase('borrow_records?select=*&order=created_at.desc', headers),
+    fetchAllSupabase('students?select=*&order=name.asc', headers),
   ]);
 
   const settings = settingsRes?.[0] || {};
   const scoringTable = settings.scoring_table || {};
   const reviewPointsDefault = settings.review_points_default ?? 10;
   const booksMap = new Map<string, any>((booksRes || []).map((b: any) => [b.id, b]));
+  const studentsMap = new Map<string, any>((studentsRes || []).map((s: any) => [s.id, s]));
 
   // 3. Compute exact Leaderboard scores identical to MSOE Library
   const studentMap = new Map<string, any>();
@@ -210,17 +109,28 @@ export async function fetchLibraryLeaderboard(): Promise<{
     const borrowerName = (rec.borrower_name || '').trim();
     if (!borrowerName) continue;
 
-    const student = studentMap.get(borrowerName) ?? {
+    const studentObj = rec.student_id ? studentsMap.get(rec.student_id) : null;
+    const sprStudentId = studentObj?.spr_student_id ? studentObj.spr_student_id.trim().toUpperCase() : null;
+
+    const groupKey = rec.student_id ? `id:${rec.student_id}` : `name:${borrowerName}`;
+
+    const student = studentMap.get(groupKey) ?? {
+      studentId: rec.student_id || null,
       name: borrowerName,
-      className: rec.borrower_class || '',
+      className: rec.borrower_class || studentObj?.class || '',
+      sprStudentId: sprStudentId,
       points: 0,
       fullRead: 0,
       halfRead: 0,
       reviewCount: 0,
     };
 
-    if (!student.className && rec.borrower_class) {
-      student.className = rec.borrower_class;
+    if (!student.sprStudentId && sprStudentId) {
+      student.sprStudentId = sprStudentId;
+    }
+
+    if (!student.className && (rec.borrower_class || studentObj?.class)) {
+      student.className = rec.borrower_class || studentObj?.class || '';
     }
 
     const book = booksMap.get(rec.book_id);
@@ -239,7 +149,7 @@ export async function fetchLibraryLeaderboard(): Promise<{
       student.points += (rec.review_points ?? reviewPointsDefault);
     }
 
-    studentMap.set(borrowerName, student);
+    studentMap.set(groupKey, student);
   }
 
   // Filter only readers with points or read books (Exact Leaderboard of Library Website)
@@ -256,6 +166,7 @@ export async function fetchLibraryLeaderboard(): Promise<{
     halfRead: item.halfRead,
     reviewCount: item.reviewCount,
     totalBooks: item.fullRead + item.halfRead,
+    sprStudentId: item.sprStudentId || null,
   }));
 
   return {
@@ -268,6 +179,7 @@ export async function fetchLibraryLeaderboard(): Promise<{
 export async function syncLibraryLeaderboardToSPR(): Promise<{
   importedCount: number;
   totalLeaderboardEntries: number;
+  skippedWithoutSprIdCount: number;
   notice: string;
   leaderboard: LibraryLeaderboardEntry[];
 }> {
@@ -281,56 +193,29 @@ export async function syncLibraryLeaderboardToSPR(): Promise<{
     include: { class: true, school: true },
   });
 
-  let defaultSchool = await prisma.school.findFirst();
-  if (!defaultSchool) {
-    defaultSchool = await prisma.school.create({
-      data: { name: "Ma'din Higher Secondary School", code: 'MHSS' },
-    });
-  }
-
-  const classes = await prisma.academicClass.findMany();
-  let academicYear = await prisma.academicYear.findFirst({ where: { isCurrent: true } });
-  if (!academicYear) {
-    academicYear = (await prisma.academicYear.findFirst()) || (await prisma.academicYear.create({
-      data: { name: '2025-2026', isCurrent: true },
-    }));
-  }
-
-  // Remove existing library records to only keep the fresh, verified leaderboard data
-  await prisma.libraryRecord.deleteMany({});
-
-  // Group readers by matched SPR student to ensure single consolidated score per student
+  // Group readers strictly by exact SPR ID match
   const studentReaderMap = new Map<string, {
     student: any;
     booksRead: number;
     points: number;
+    libraryRank: number;
   }>();
+
+  let skippedWithoutSprIdCount = 0;
 
   for (let idx = 0; idx < leaderboard.length; idx++) {
     const reader = leaderboard[idx];
 
-    let student = matchStudent(reader.name, reader.className, allSprStudents);
-
-    if (!student && classes.length > 0) {
-      const normCls = normalizeClass(reader.className);
-      const matchedClass = classes.find((c) => normalizeClass(c.name) === normCls) || classes[0];
-
-      student = await prisma.student.create({
-        data: {
-          studentId: `LIB-${String(allSprStudents.length + 1).padStart(3, '0')}`,
-          fullName: reader.name.toUpperCase(),
-          classId: matchedClass.id,
-          schoolId: defaultSchool.id,
-          academicYearId: academicYear.id,
-          status: 'ACTIVE',
-        },
-        include: { class: true, school: true },
-      });
-      allSprStudents.push(student);
+    // Rule 4: If reader does not have an SPR ID -> DO NOT SYNCHRONIZE
+    if (!reader.sprStudentId || reader.sprStudentId.trim().length === 0) {
+      skippedWithoutSprIdCount++;
+      continue;
     }
 
+    // Rule 3 & 5: Exact SPR ID match ONLY
+    const student = matchStudentBySprId(reader.sprStudentId, allSprStudents);
+
     if (student) {
-      reader.sprStudentId = student.id;
       reader.sprStudentName = student.fullName;
       reader.sprClass = student.class?.name;
       reader.sprSchool = student.school?.name;
@@ -344,38 +229,44 @@ export async function syncLibraryLeaderboardToSPR(): Promise<{
           student,
           booksRead: reader.totalBooks,
           points: reader.points,
+          libraryRank: reader.rank,
         });
       }
+    } else {
+      // SPR ID present on library but not found in SPR database -> skip (do not create dummy students)
+      skippedWithoutSprIdCount++;
     }
   }
 
-  // Sort consolidated students descending by points, books read, and student name
-  const consolidatedList = Array.from(studentReaderMap.values()).sort(
-    (a, b) => b.points - a.points || b.booksRead - a.booksRead || a.student.fullName.localeCompare(b.student.fullName)
-  );
-
   let importedCount = 0;
-  let currentRank = 1;
 
-  for (let i = 0; i < consolidatedList.length; i++) {
-    if (
-      i > 0 &&
-      (consolidatedList[i].points < consolidatedList[i - 1].points ||
-        consolidatedList[i].booksRead < consolidatedList[i - 1].booksRead)
-    ) {
-      currentRank = i + 1;
-    }
-
-    const entry = consolidatedList[i];
-    await prisma.libraryRecord.create({
-      data: {
-        studentId: entry.student.id,
-        booksRead: entry.booksRead,
-        readingScore: entry.points,
-        readingRank: currentRank,
-        readingPeriod: `${period} • #${currentRank} (${entry.points} pts)`,
-      },
+  for (const entry of Array.from(studentReaderMap.values())) {
+    // Check if record exists for this student to safely update or create without deleting existing table data
+    const existingRecord = await prisma.libraryRecord.findFirst({
+      where: { studentId: entry.student.id },
     });
+
+    if (existingRecord) {
+      await prisma.libraryRecord.update({
+        where: { id: existingRecord.id },
+        data: {
+          booksRead: entry.booksRead,
+          readingScore: entry.points,
+          readingRank: entry.libraryRank,
+          readingPeriod: `${period} • #${entry.libraryRank} (${entry.points} pts)`,
+        },
+      });
+    } else {
+      await prisma.libraryRecord.create({
+        data: {
+          studentId: entry.student.id,
+          booksRead: entry.booksRead,
+          readingScore: entry.points,
+          readingRank: entry.libraryRank,
+          readingPeriod: `${period} • #${entry.libraryRank} (${entry.points} pts)`,
+        },
+      });
+    }
     importedCount++;
   }
 
@@ -407,6 +298,7 @@ export async function syncLibraryLeaderboardToSPR(): Promise<{
   return {
     importedCount,
     totalLeaderboardEntries: leaderboard.length,
+    skippedWithoutSprIdCount,
     notice,
     leaderboard,
   };
