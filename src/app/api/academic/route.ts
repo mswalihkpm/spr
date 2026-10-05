@@ -3,26 +3,23 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
-import { invalidateEngineCache } from '@/lib/spr-engine';
 import { logAuditAction } from '@/lib/audit';
-
-let cachedAcademicData: { timestamp: number; data: any } | null = null;
-const ACADEMIC_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes TTL
-
-function invalidateAcademicCache() {
-  cachedAcademicData = null;
-  invalidateEngineCache();
-}
+import { getCachedAcademicData, setCachedAcademicData, invalidateAcademicCache } from '@/lib/academic-cache';
 
 export async function GET(req: NextRequest) {
   try {
-    const now = Date.now();
-    if (cachedAcademicData && now - cachedAcademicData.timestamp < ACADEMIC_CACHE_TTL_MS) {
-      return NextResponse.json(cachedAcademicData.data, {
-        headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-        },
-      });
+    const { searchParams } = new URL(req.url);
+    const forceRefresh = searchParams.get('force') === 'true' || searchParams.has('t') || searchParams.get('cache') === 'no-store';
+
+    if (!forceRefresh) {
+      const cached = getCachedAcademicData();
+      if (cached) {
+        return NextResponse.json(cached, {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+          },
+        });
+      }
     }
 
     const { user, errorResponse } = await authenticateApiRequest(req, 'VIEWER');
@@ -73,11 +70,11 @@ export async function GET(req: NextRequest) {
       literaryEvents,
     };
 
-    cachedAcademicData = { timestamp: now, data: payload };
+    setCachedAcademicData(payload);
 
     return NextResponse.json(payload, {
       headers: {
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
       },
     });
   } catch (error: any) {
@@ -109,39 +106,91 @@ export async function POST(req: NextRequest) {
       let code = data.code?.trim() || data.name.toUpperCase().replace(/[^A-Z0-9]/g, '_').slice(0, 10);
       const existing = await prisma.subject.findFirst({ where: { code } });
       if (existing) code = `${code}_${Date.now().toString(36).slice(-4).toUpperCase()}`;
+      
+      let categoryId = data.categoryId;
+      if (!categoryId) {
+        const defaultCat = await prisma.category.findFirst({ where: { code: 'SCHOOL' } }) || await prisma.category.findFirst();
+        categoryId = defaultCat?.id;
+      }
+
       createdRecord = await prisma.subject.create({
         data: {
           name: data.name.trim(),
           code,
-          categoryId: data.categoryId,
+          categoryId: categoryId || '',
           institutionId: data.institutionId || null,
           boardId: data.boardId || null,
           maxScore: Number(data.maxScore) || 100,
         },
       });
     } else if (type === 'EXAM') {
-      const currentYear = await prisma.academicYear.findFirst({ where: { isCurrent: true } });
-      const currentTerm = await prisma.term.findFirst({ where: { isCurrent: true } });
+      let currentYear = await prisma.academicYear.findFirst({ where: { isCurrent: true } }) ||
+        await prisma.academicYear.findFirst();
+      if (!currentYear) {
+        currentYear = await prisma.academicYear.create({
+          data: { name: '2025-2026', isCurrent: true, startDate: new Date('2025-06-01'), endDate: new Date('2026-03-31') },
+        });
+      }
+
+      let currentTerm = data.termId 
+        ? await prisma.term.findUnique({ where: { id: data.termId } })
+        : (await prisma.term.findFirst({ where: { isCurrent: true } }) || await prisma.term.findFirst());
+      
+      if (!currentTerm) {
+        currentTerm = await prisma.term.create({
+          data: { name: 'Term 1', code: 'T1', academicYearId: currentYear.id, isCurrent: true },
+        });
+      }
+
+      let targetCategoryId = data.categoryId;
+      if (!targetCategoryId) {
+        const cat = await prisma.category.findFirst({ where: { code: 'SCHOOL' } }) || await prisma.category.findFirst();
+        targetCategoryId = cat?.id;
+      }
+
+      if (!targetCategoryId) {
+        return NextResponse.json({ error: 'Valid Category is required to create an exam.' }, { status: 400 });
+      }
+
       createdRecord = await prisma.exam.create({
         data: {
           name: data.name.trim(),
-          categoryId: data.categoryId,
-          termId: data.termId || currentTerm?.id || '',
-          academicYearId: data.academicYearId || currentYear?.id || '',
-          maxScore: data.maxScore !== undefined && data.maxScore !== null ? Number(data.maxScore) : 100.0,
-          targetScore: data.targetScore !== undefined && data.targetScore !== null ? Number(data.targetScore) : 100.0,
+          categoryId: targetCategoryId,
+          termId: currentTerm.id,
+          academicYearId: data.academicYearId || currentYear.id,
+          maxScore: data.maxScore !== undefined && data.maxScore !== null && !isNaN(Number(data.maxScore)) ? Number(data.maxScore) : 100.0,
+          targetScore: data.targetScore !== undefined && data.targetScore !== null && !isNaN(Number(data.targetScore)) ? Number(data.targetScore) : 100.0,
+        },
+        include: {
+          category: true,
+          term: true,
         },
       });
     } else if (type === 'TERM') {
-      const currentYear = await prisma.academicYear.findFirst({ where: { isCurrent: true } });
+      let currentYear = await prisma.academicYear.findFirst({ where: { isCurrent: true } }) ||
+        await prisma.academicYear.findFirst();
+      if (!currentYear) {
+        currentYear = await prisma.academicYear.create({
+          data: { name: '2025-2026', isCurrent: true, startDate: new Date('2025-06-01'), endDate: new Date('2026-03-31') },
+        });
+      }
+
       let code = data.code?.trim() || data.name.toUpperCase().replace(/[^A-Z0-9]/g, '_');
       const existing = await prisma.term.findFirst({ where: { code } });
       if (existing) code = `${code}_${Date.now().toString(36).slice(-4).toUpperCase()}`;
+
+      if (data.isCurrent) {
+        await prisma.term.updateMany({
+          where: { academicYearId: currentYear.id },
+          data: { isCurrent: false },
+        });
+      }
+
       createdRecord = await prisma.term.create({
         data: {
           name: data.name.trim(),
           code,
-          academicYearId: data.academicYearId || currentYear?.id || '',
+          academicYearId: data.academicYearId || currentYear.id,
           isCurrent: !!data.isCurrent,
         },
       });
@@ -158,13 +207,19 @@ export async function POST(req: NextRequest) {
         },
       });
     } else if (type === 'PROGRAM') {
-      const currentYear = await prisma.academicYear.findFirst({ where: { isCurrent: true } });
+      let currentYear = await prisma.academicYear.findFirst({ where: { isCurrent: true } }) ||
+        await prisma.academicYear.findFirst();
+      if (!currentYear) {
+        currentYear = await prisma.academicYear.create({
+          data: { name: '2025-2026', isCurrent: true, startDate: new Date('2025-06-01'), endDate: new Date('2026-03-31') },
+        });
+      }
       createdRecord = await prisma.program.create({
         data: {
           name: data.name.trim(),
           organizer: data.organizer?.trim() || null,
           levelId: data.levelId || null,
-          academicYearId: data.academicYearId || currentYear?.id || '',
+          academicYearId: data.academicYearId || currentYear.id,
           date: data.date ? new Date(data.date) : new Date(),
         },
       });
@@ -268,6 +323,12 @@ export async function PUT(req: NextRequest) {
       });
     } else if (type === 'TERM') {
       prevRecord = await prisma.term.findUnique({ where: { id } });
+      if (data.isCurrent && prevRecord?.academicYearId) {
+        await prisma.term.updateMany({
+          where: { academicYearId: prevRecord.academicYearId },
+          data: { isCurrent: false },
+        });
+      }
       updatedRecord = await prisma.term.update({
         where: { id },
         data: {

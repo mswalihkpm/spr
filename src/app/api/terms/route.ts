@@ -4,24 +4,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
-import { invalidateEngineCache } from '@/lib/spr-engine';
-
-let cachedTermsResponse: { timestamp: number; data: any } | null = null;
-const TERMS_CACHE_TTL = 60 * 1000;
+import { getCachedTerms, setCachedTerms, invalidateAcademicCache } from '@/lib/academic-cache';
 
 function invalidateTermsCache() {
-  cachedTermsResponse = null;
-  invalidateEngineCache();
+  invalidateAcademicCache();
 }
 
 // GET all terms
 export async function GET(req: NextRequest) {
   try {
-    const now = Date.now();
-    if (cachedTermsResponse && now - cachedTermsResponse.timestamp < TERMS_CACHE_TTL) {
-      return NextResponse.json(cachedTermsResponse.data, {
+    const cached = getCachedTerms();
+    if (cached) {
+      return NextResponse.json(cached, {
         headers: {
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
         },
       });
     }
@@ -41,11 +37,11 @@ export async function GET(req: NextRequest) {
     });
 
     const payload = { terms };
-    cachedTermsResponse = { timestamp: Date.now(), data: payload };
+    setCachedTerms(payload);
 
     return NextResponse.json(payload, {
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
       },
     });
   } catch (error: any) {

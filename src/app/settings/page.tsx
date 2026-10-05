@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import CustomSelect from '@/components/ui/CustomSelect';
 import VideoLoader from '@/components/ui/VideoLoader';
+import { invalidateClientAcademicCache } from '@/lib/academic-client';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<string>('INSTITUTION');
@@ -216,22 +217,31 @@ export default function SettingsPage() {
   const handleBulkDeleteExams = async () => {
     if (selectedExamIds.length === 0) return;
     setBulkDeletingExams(true);
+    const idsToDelete = [...selectedExamIds];
+
+    // Instant optimistic state update
+    setMasterData((prev: any) => ({
+      ...prev,
+      exams: (prev.exams || []).filter((e: any) => !idsToDelete.includes(e.id)),
+    }));
+    setSelectedExamIds([]);
+    setConfirmBulkDeleteExamsOpen(false);
+
     try {
       const res = await fetch('/api/exams', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: selectedExamIds }),
+        body: JSON.stringify({ ids: idsToDelete }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to bulk delete exams.');
 
-      const count = selectedExamIds.length;
-      setSelectedExamIds([]);
-      setConfirmBulkDeleteExamsOpen(false);
-      setStatusMsg({ type: 'success', text: `Successfully deleted ${count} exam(s).` });
+      setStatusMsg({ type: 'success', text: `Successfully deleted ${idsToDelete.length} exam(s).` });
+      invalidateClientAcademicCache();
       fetchSettings(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting exams.' });
+      fetchSettings(true);
     } finally {
       setBulkDeletingExams(false);
     }
@@ -257,22 +267,31 @@ export default function SettingsPage() {
   const handleBulkDeleteTerms = async () => {
     if (selectedTermIds.length === 0) return;
     setBulkDeletingTerms(true);
+    const idsToDelete = [...selectedTermIds];
+
+    // Instant optimistic state update
+    setMasterData((prev: any) => ({
+      ...prev,
+      terms: (prev.terms || []).filter((t: any) => !idsToDelete.includes(t.id)),
+    }));
+    setSelectedTermIds([]);
+    setConfirmBulkDeleteTermsOpen(false);
+
     try {
       const res = await fetch('/api/terms', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: selectedTermIds }),
+        body: JSON.stringify({ ids: idsToDelete }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to bulk delete terms.');
 
-      const count = selectedTermIds.length;
-      setSelectedTermIds([]);
-      setConfirmBulkDeleteTermsOpen(false);
-      setStatusMsg({ type: 'success', text: `Successfully deleted ${count} assessment term(s).` });
+      setStatusMsg({ type: 'success', text: `Successfully deleted ${idsToDelete.length} assessment term(s).` });
+      invalidateClientAcademicCache();
       fetchSettings(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting terms.' });
+      fetchSettings(true);
     } finally {
       setBulkDeletingTerms(false);
     }
@@ -298,22 +317,30 @@ export default function SettingsPage() {
   const handleBulkDeleteSchools = async () => {
     if (selectedSchoolIds.length === 0) return;
     setBulkDeletingSchools(true);
+    const idsToDelete = [...selectedSchoolIds];
+
+    setMasterData((prev: any) => ({
+      ...prev,
+      schools: (prev.schools || []).filter((s: any) => !idsToDelete.includes(s.id)),
+    }));
+    setSelectedSchoolIds([]);
+    setConfirmBulkDeleteSchoolsOpen(false);
+
     try {
       const res = await fetch('/api/academic', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'SCHOOL', ids: selectedSchoolIds }),
+        body: JSON.stringify({ type: 'SCHOOL', ids: idsToDelete }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to bulk delete schools.');
 
-      const count = selectedSchoolIds.length;
-      setSelectedSchoolIds([]);
-      setConfirmBulkDeleteSchoolsOpen(false);
-      setStatusMsg({ type: 'success', text: `Successfully deleted ${count} school(s).` });
+      setStatusMsg({ type: 'success', text: `Successfully deleted ${idsToDelete.length} school(s).` });
+      invalidateClientAcademicCache();
       fetchSettings(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting schools.' });
+      fetchSettings(true);
     } finally {
       setBulkDeletingSchools(false);
     }
@@ -339,22 +366,30 @@ export default function SettingsPage() {
   const handleBulkDeleteClasses = async () => {
     if (selectedClassIds.length === 0) return;
     setBulkDeletingClasses(true);
+    const idsToDelete = [...selectedClassIds];
+
+    setMasterData((prev: any) => ({
+      ...prev,
+      classes: (prev.classes || []).filter((c: any) => !idsToDelete.includes(c.id)),
+    }));
+    setSelectedClassIds([]);
+    setConfirmBulkDeleteClassesOpen(false);
+
     try {
       const res = await fetch('/api/academic', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'CLASS', ids: selectedClassIds }),
+        body: JSON.stringify({ type: 'CLASS', ids: idsToDelete }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to bulk delete classes.');
 
-      const count = selectedClassIds.length;
-      setSelectedClassIds([]);
-      setConfirmBulkDeleteClassesOpen(false);
-      setStatusMsg({ type: 'success', text: `Successfully deleted ${count} class(es).` });
+      setStatusMsg({ type: 'success', text: `Successfully deleted ${idsToDelete.length} class(es).` });
+      invalidateClientAcademicCache();
       fetchSettings(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting classes.' });
+      fetchSettings(true);
     } finally {
       setBulkDeletingClasses(false);
     }
@@ -380,35 +415,44 @@ export default function SettingsPage() {
   const handleBulkDeleteSubjects = async () => {
     if (selectedSubjectIds.length === 0) return;
     setBulkDeletingSubjects(true);
+    const idsToDelete = [...selectedSubjectIds];
+
+    setMasterData((prev: any) => ({
+      ...prev,
+      subjects: (prev.subjects || []).filter((s: any) => !idsToDelete.includes(s.id)),
+    }));
+    setSelectedSubjectIds([]);
+    setConfirmBulkDeleteSubjectsOpen(false);
+
     try {
       const res = await fetch('/api/academic', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'SUBJECT', ids: selectedSubjectIds }),
+        body: JSON.stringify({ type: 'SUBJECT', ids: idsToDelete }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to bulk delete subjects.');
 
-      const count = selectedSubjectIds.length;
-      setSelectedSubjectIds([]);
-      setConfirmBulkDeleteSubjectsOpen(false);
-      setStatusMsg({ type: 'success', text: `Successfully deleted ${count} subject(s).` });
+      setStatusMsg({ type: 'success', text: `Successfully deleted ${idsToDelete.length} subject(s).` });
+      invalidateClientAcademicCache();
       fetchSettings(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting subjects.' });
+      fetchSettings(true);
     } finally {
       setBulkDeletingSubjects(false);
     }
   };
 
-
   const fetchSettings = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
+      invalidateClientAcademicCache();
+      const ts = Date.now();
       const [resMaster, resSettings, resLogs] = await Promise.all([
-        fetch('/api/academic'),
-        fetch('/api/settings'),
-        fetch('/api/audit-logs?limit=40'),
+        fetch(`/api/academic?t=${ts}`, { cache: 'no-store' }),
+        fetch(`/api/settings?t=${ts}`, { cache: 'no-store' }),
+        fetch(`/api/audit-logs?limit=40&t=${ts}`, { cache: 'no-store' }),
       ]);
 
       const dataMaster = await resMaster.json();
@@ -593,9 +637,22 @@ export default function SettingsPage() {
 
     try {
       const method = editingEntityId ? 'PUT' : 'POST';
+      const cleanData = { ...entityData };
+
+      if (entityType === 'EXAM') {
+        cleanData.categoryId = cleanData.categoryId || masterData.categories?.[0]?.id;
+        cleanData.termId = cleanData.termId || masterData.terms?.[0]?.id;
+        cleanData.maxScore = cleanData.maxScore !== undefined && cleanData.maxScore !== null && !isNaN(Number(cleanData.maxScore)) ? Number(cleanData.maxScore) : 100;
+        cleanData.targetScore = cleanData.targetScore !== undefined && cleanData.targetScore !== null && !isNaN(Number(cleanData.targetScore)) ? Number(cleanData.targetScore) : 100;
+      }
+
+      if (entityType === 'TERM') {
+        cleanData.code = cleanData.code || cleanData.name?.toUpperCase().replace(/\s+/g, '_');
+      }
+
       const body = editingEntityId
-        ? { type: entityType, id: editingEntityId, data: entityData }
-        : { type: entityType, data: entityData };
+        ? { type: entityType, id: editingEntityId, data: cleanData }
+        : { type: entityType, data: cleanData };
 
       const res = await fetch('/api/academic', {
         method,
@@ -606,11 +663,36 @@ export default function SettingsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
+      // Instant optimistic state update
+      if (data.data) {
+        setMasterData((prev: any) => {
+          const keyMap: Record<string, string> = {
+            EXAM: 'exams',
+            TERM: 'terms',
+            SCHOOL: 'schools',
+            CLASS: 'classes',
+            SUBJECT: 'subjects',
+            LEVEL: 'levels',
+            PROGRAM: 'programs',
+            COMPETITION: 'competitions',
+          };
+          const key = keyMap[entityType];
+          if (!key) return prev;
+          const list = prev[key] || [];
+          if (editingEntityId) {
+            return { ...prev, [key]: list.map((item: any) => (item.id === editingEntityId ? { ...item, ...data.data } : item)) };
+          } else {
+            return { ...prev, [key]: [data.data, ...list] };
+          }
+        });
+      }
+
       setStatusMsg({
         type: 'success',
         text: `${entityType} ${editingEntityId ? 'updated' : 'created'} successfully.`,
       });
       setEntityModalOpen(false);
+      invalidateClientAcademicCache();
       fetchSettings(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
@@ -623,6 +705,23 @@ export default function SettingsPage() {
       return;
     }
 
+    // Instant optimistic removal from UI
+    setMasterData((prev: any) => {
+      const keyMap: Record<string, string> = {
+        EXAM: 'exams',
+        TERM: 'terms',
+        SCHOOL: 'schools',
+        CLASS: 'classes',
+        SUBJECT: 'subjects',
+        LEVEL: 'levels',
+        PROGRAM: 'programs',
+        COMPETITION: 'competitions',
+      };
+      const key = keyMap[type];
+      if (!key) return prev;
+      return { ...prev, [key]: (prev[key] || []).filter((item: any) => item.id !== id) };
+    });
+
     try {
       const res = await fetch(`/api/academic?type=${type}&id=${id}`, {
         method: 'DELETE',
@@ -631,9 +730,11 @@ export default function SettingsPage() {
       if (!res.ok) throw new Error(data.error);
 
       setStatusMsg({ type: 'success', text: `${type} "${name}" deleted.` });
+      invalidateClientAcademicCache();
       fetchSettings(true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
+      fetchSettings(true);
     }
   };
 

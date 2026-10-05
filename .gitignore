@@ -40,4 +40,8 @@ backups/
 prisma/dev.db
 prisma/dev.db-journal
 
+# supabase temp
+supabase/.temp/
+
 .vercel
+

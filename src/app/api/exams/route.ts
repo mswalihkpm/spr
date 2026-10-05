@@ -4,14 +4,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
-import { invalidateEngineCache } from '@/lib/spr-engine';
-
-let cachedExamsMap = new Map<string, { timestamp: number; data: any }>();
-const EXAMS_CACHE_TTL = 60 * 1000;
+import { getCachedExams, setCachedExams, invalidateAcademicCache } from '@/lib/academic-cache';
 
 function invalidateExamsCache() {
-  cachedExamsMap.clear();
-  invalidateEngineCache();
+  invalidateAcademicCache();
 }
 
 // GET all exams
@@ -22,11 +18,11 @@ export async function GET(req: NextRequest) {
     const termId = searchParams.get('termId') || 'all';
 
     const cacheKey = `${categoryId}_${termId}`;
-    const cached = cachedExamsMap.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < EXAMS_CACHE_TTL) {
-      return NextResponse.json(cached.data, {
+    const cached = getCachedExams(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
         headers: {
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
         },
       });
     }
@@ -47,11 +43,11 @@ export async function GET(req: NextRequest) {
     });
 
     const payload = { exams };
-    cachedExamsMap.set(cacheKey, { timestamp: Date.now(), data: payload });
+    setCachedExams(cacheKey, payload);
 
     return NextResponse.json(payload, {
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
       },
     });
   } catch (error: any) {

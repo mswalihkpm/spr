@@ -31,17 +31,23 @@ if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
   }
 }
 
-// Supabase configuration
-const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  process.env.SUPABASE_URL ||
-  'https://sjfhldnuszrewncmysrv.supabase.co';
+// Dynamic Supabase configuration helper
+export function getSupabaseUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.SUPABASE_URL ||
+    ''
+  );
+}
 
-const SUPABASE_SERVICE_ROLE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  '';
+export function getSupabaseServiceKey(): string {
+  return (
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    ''
+  );
+}
 
 export const STORAGE_BUCKET =
   process.env.SUPABASE_STORAGE_BUCKET || 'student-photos';
@@ -52,13 +58,15 @@ let supabaseClientInstance: SupabaseClient | null = null;
  * Returns a singleton Supabase client using the service role key for administrative storage operations.
  */
 export function getSupabaseAdminClient(): SupabaseClient {
+  const url = getSupabaseUrl();
+  const key = getSupabaseServiceKey();
   if (!supabaseClientInstance) {
-    if (!SUPABASE_SERVICE_ROLE_KEY) {
+    if (!key) {
       console.warn(
         '[SupabaseStorage] SUPABASE_SERVICE_ROLE_KEY is not configured in environment.'
       );
     }
-    supabaseClientInstance = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    supabaseClientInstance = createClient(url, key, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
@@ -83,7 +91,8 @@ export function generateTokenizedPhotoPath(extension: string = 'webp'): string {
  */
 export function getPublicStorageUrl(filePath: string, bucket: string = STORAGE_BUCKET): string {
   const cleanPath = filePath.startsWith('/') ? filePath.slice(1) : filePath;
-  return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${cleanPath}`;
+  const baseUrl = getSupabaseUrl();
+  return `${baseUrl}/storage/v1/object/public/${bucket}/${cleanPath}`;
 }
 
 /**
