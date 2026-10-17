@@ -2,13 +2,18 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { onInvalidateEngine } from '@/lib/spr-engine';
 
 const programmesHistoryCache = new Map<string, { timestamp: number; data: any }>();
 const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes cache
 
-export function invalidateProgrammesHistoryCache() {
+function invalidateProgrammesHistoryCache() {
   programmesHistoryCache.clear();
 }
+
+onInvalidateEngine(() => {
+  programmesHistoryCache.clear();
+});
 
 export async function GET(req: NextRequest) {
   try {
