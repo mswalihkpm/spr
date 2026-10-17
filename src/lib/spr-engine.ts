@@ -13,8 +13,18 @@ let cachedSettings: { timestamp: number; data: Record<string, string> } | null =
 let cachedLevels: { timestamp: number; data: any[] } | null = null;
 let cachedCreativeCategories: { timestamp: number; data: any[] } | null = null;
 let cachedActiveStudentsSnapshot: { timestamp: number; data: any[] } | null = null;
+let cachedSubjectsMap: { timestamp: number; data: Map<string, any> } | null = null;
+let cachedExamsMap: { timestamp: number; data: Map<string, any> } | null = null;
+let cachedCompetitionsMap: { timestamp: number; data: Map<string, any> } | null = null;
+let cachedLiteraryCompsMap: { timestamp: number; data: Map<string, any> } | null = null;
 
-const CACHE_TTL_MS = 60 * 1000; // 60 seconds TTL
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes TTL (actively invalidated on any mutation)
+
+const engineInvalidationListeners: Array<() => void> = [];
+
+export function onInvalidateEngine(cb: () => void) {
+  engineInvalidationListeners.push(cb);
+}
 
 export function invalidateEngineCache() {
   leaderboardCache.clear();
@@ -28,6 +38,17 @@ export function invalidateEngineCache() {
   cachedSettings = null;
   cachedLevels = null;
   cachedCreativeCategories = null;
+  cachedSubjectsMap = null;
+  cachedExamsMap = null;
+  cachedCompetitionsMap = null;
+  cachedLiteraryCompsMap = null;
+  for (const listener of engineInvalidationListeners) {
+    try {
+      listener();
+    } catch (e) {
+      // ignore
+    }
+  }
 }
 
 export function formatPoints(val: number): string {
@@ -142,6 +163,73 @@ export async function getCachedCategories() {
   });
   cachedCategories = { timestamp: now, data: categories };
   return categories;
+}
+
+export async function getCachedSubjectsMap(): Promise<Map<string, any>> {
+  const now = Date.now();
+  if (cachedSubjectsMap && now - cachedSubjectsMap.timestamp < CACHE_TTL_MS) {
+    return cachedSubjectsMap.data;
+  }
+  const subjects = await prisma.subject.findMany({
+    select: {
+      id: true,
+      name: true,
+      maxScore: true,
+      institution: { select: { id: true, code: true, name: true } },
+      board: { select: { id: true, code: true, name: true } },
+    },
+  });
+  const map = new Map(subjects.map((s) => [s.id, s]));
+  cachedSubjectsMap = { timestamp: now, data: map };
+  return map;
+}
+
+export async function getCachedExamsMap(): Promise<Map<string, any>> {
+  const now = Date.now();
+  if (cachedExamsMap && now - cachedExamsMap.timestamp < CACHE_TTL_MS) {
+    return cachedExamsMap.data;
+  }
+  const exams = await prisma.exam.findMany({
+    select: { id: true, name: true, maxScore: true },
+  });
+  const map = new Map(exams.map((e) => [e.id, e]));
+  cachedExamsMap = { timestamp: now, data: map };
+  return map;
+}
+
+export async function getCachedCompetitionsMap(): Promise<Map<string, any>> {
+  const now = Date.now();
+  if (cachedCompetitionsMap && now - cachedCompetitionsMap.timestamp < CACHE_TTL_MS) {
+    return cachedCompetitionsMap.data;
+  }
+  const competitions = await prisma.competition.findMany({
+    select: {
+      id: true,
+      name: true,
+      program: { select: { id: true, name: true } },
+    },
+  });
+  const map = new Map(competitions.map((c) => [c.id, c]));
+  cachedCompetitionsMap = { timestamp: now, data: map };
+  return map;
+}
+
+export async function getCachedLiteraryCompsMap(): Promise<Map<string, any>> {
+  const now = Date.now();
+  if (cachedLiteraryCompsMap && now - cachedLiteraryCompsMap.timestamp < CACHE_TTL_MS) {
+    return cachedLiteraryCompsMap.data;
+  }
+  const literaryComps = await prisma.literaryCompetition.findMany({
+    select: {
+      id: true,
+      name: true,
+      event: { select: { id: true, name: true } },
+      level: { select: { id: true, name: true, code: true, weightMultiplier: true } },
+    },
+  });
+  const map = new Map(literaryComps.map((l) => [l.id, l]));
+  cachedLiteraryCompsMap = { timestamp: now, data: map };
+  return map;
 }
 
 // Helper to resolve level multiplier safely
@@ -875,7 +963,22 @@ async function getActiveStudentsSnapshot(): Promise<any[]> {
 
   inFlightActiveStudentsPromise = (async () => {
     try {
-      const students = await prisma.student.findMany({
+      const [categories, levels, subjectsMap, examsMap, competitionsMap, literaryCompsMap, creativeCats] = await Promise.all([
+        getCachedCategories(),
+        getCachedLevels(),
+        getCachedSubjectsMap(),
+        getCachedExamsMap(),
+        getCachedCompetitionsMap(),
+        getCachedLiteraryCompsMap(),
+        getCachedCreativeCategories(),
+      ]);
+
+      const catMap = new Map(categories.map((c) => [c.id, c]));
+      const subMap = new Map(categories.flatMap((c) => c.subcategories || []).map((s: any) => [s.id, s]));
+      const levelMap = new Map(levels.map((l) => [l.id, l]));
+      const creativeCatMap = new Map(creativeCats.map((c) => [c.id, c]));
+
+      const rawStudents = await prisma.student.findMany({
         where: { status: 'ACTIVE' },
         select: {
           id: true,
@@ -904,50 +1007,7 @@ async function getActiveStudentsSnapshot(): Promise<any[]> {
               obtainedScore: true,
               maxScore: true,
               position: true,
-              grade: true,
               remarks: true,
-              category: { select: { id: true, code: true, name: true } },
-              subcategory: { select: { id: true, code: true, name: true, weight: true, maxScore: true } },
-              subject: {
-                select: {
-                  id: true,
-                  name: true,
-                  maxScore: true,
-                  institution: { select: { id: true, code: true, name: true } },
-                  board: { select: { id: true, code: true, name: true } },
-                },
-              },
-              exam: {
-                select: {
-                  id: true,
-                  name: true,
-                  maxScore: true,
-                  termId: true,
-                  term: { select: { id: true, name: true } },
-                },
-              },
-              competition: {
-                select: {
-                  id: true,
-                  name: true,
-                  program: { select: { id: true, name: true } },
-                },
-              },
-              literaryCompetition: {
-                select: {
-                  id: true,
-                  name: true,
-                  event: { select: { id: true, name: true } },
-                },
-              },
-              level: {
-                select: {
-                  id: true,
-                  name: true,
-                  code: true,
-                  weightMultiplier: true,
-                },
-              },
             },
           },
           creativeWorks: {
@@ -957,7 +1017,6 @@ async function getActiveStudentsSnapshot(): Promise<any[]> {
               title: true,
               publicationStatus: true,
               categoryId: true,
-              category: { select: { id: true, name: true, weight: true } },
             },
           },
           libraryRecords: {
@@ -970,6 +1029,24 @@ async function getActiveStudentsSnapshot(): Promise<any[]> {
           },
         },
       });
+
+      const students = rawStudents.map((st) => ({
+        ...st,
+        performanceRecords: st.performanceRecords.map((r) => ({
+          ...r,
+          category: catMap.get(r.categoryId),
+          subcategory: r.subcategoryId ? subMap.get(r.subcategoryId) : undefined,
+          level: r.levelId ? levelMap.get(r.levelId) : undefined,
+          subject: r.subjectId ? subjectsMap.get(r.subjectId) : undefined,
+          exam: r.examId ? examsMap.get(r.examId) : undefined,
+          competition: r.competitionId ? competitionsMap.get(r.competitionId) : undefined,
+          literaryCompetition: r.literaryCompetitionId ? literaryCompsMap.get(r.literaryCompetitionId) : undefined,
+        })),
+        creativeWorks: st.creativeWorks.map((w) => ({
+          ...w,
+          category: w.categoryId ? creativeCatMap.get(w.categoryId) : undefined,
+        })),
+      }));
 
       cachedActiveStudentsSnapshot = { timestamp: Date.now(), data: students };
       return students;

@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { calculateAllLeaderboards } from '@/lib/spr-engine';
 
 const displayCache = new Map<string, { timestamp: number; data: any }>();
-const DISPLAY_CACHE_TTL = 60 * 1000;
+const DISPLAY_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     if (cached && Date.now() - cached.timestamp < DISPLAY_CACHE_TTL) {
       return NextResponse.json(cached.data, {
         headers: {
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+          'Cache-Control': 'public, s-maxage=180, stale-while-revalidate=300',
         },
       });
     }
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(responsePayload, {
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        'Cache-Control': 'public, s-maxage=180, stale-while-revalidate=300',
       },
     });
   } catch (error: any) {

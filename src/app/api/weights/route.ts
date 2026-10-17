@@ -7,7 +7,7 @@ import { logAuditAction } from '@/lib/audit';
 import { invalidateEngineCache, getCachedSettings } from '@/lib/spr-engine';
 
 let cachedWeightsResponse: { timestamp: number; data: any } | null = null;
-const WEIGHTS_CACHE_TTL = 60 * 1000;
+const WEIGHTS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
 function invalidateWeightsCache() {
   cachedWeightsResponse = null;
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     if (cachedWeightsResponse && now - cachedWeightsResponse.timestamp < WEIGHTS_CACHE_TTL) {
       return NextResponse.json(cachedWeightsResponse.data, {
         headers: {
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
         },
       });
     }
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
       }),
       prisma.subcategory.findMany({
         where: { active: true },
-        include: { category: true },
+        include: { category: { select: { id: true, code: true, name: true } } },
         orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
       }),
       prisma.creativeHubCategory.findMany({
@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(payload, {
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
       },
     });
   } catch (error: any) {

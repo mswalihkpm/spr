@@ -8,48 +8,67 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const itemId = searchParams.get('id') || '';
+    const itemIds = searchParams.get('ids') || '';
     const itemName = searchParams.get('name')?.trim() || '';
     const itemType = searchParams.get('type') || ''; // 'LITERARY_COMPETITION' | 'COMPETITION' | 'EXAM' | 'SUBJECT' | 'GENERIC'
     const classId = searchParams.get('classId') || '';
 
-    if (!itemId && !itemName) {
+    const idsList = Array.from(
+      new Set(
+        [
+          itemId,
+          ...(itemIds ? itemIds.split(',').map((s) => s.trim()) : []),
+        ].filter(Boolean)
+      )
+    );
+
+    if (idsList.length === 0 && !itemName) {
       return NextResponse.json({ error: 'Item ID or Item Name is required.' }, { status: 400 });
     }
 
     const levels = await prisma.level.findMany({ where: { active: true } });
 
+    // Resolve common name if not explicitly provided
+    let resolvedTargetName = itemName;
+    if (!resolvedTargetName && idsList.length > 0) {
+      const firstId = idsList[0];
+      const [lc, comp, ex, sub] = await Promise.all([
+        prisma.literaryCompetition.findUnique({ where: { id: firstId }, select: { name: true } }),
+        prisma.competition.findUnique({ where: { id: firstId }, select: { name: true } }),
+        prisma.exam.findUnique({ where: { id: firstId }, select: { name: true } }),
+        prisma.subject.findUnique({ where: { id: firstId }, select: { name: true } }),
+      ]);
+      resolvedTargetName = lc?.name || comp?.name || ex?.name || sub?.name || '';
+    }
+
     // Build conditions to find all performance records associated with this programme / competition / exam
     const orConditions: any[] = [];
 
-    if (itemId) {
+    if (idsList.length > 0) {
       if (itemType === 'LITERARY_COMPETITION') {
-        orConditions.push({ literaryCompetitionId: itemId });
+        orConditions.push({ literaryCompetitionId: { in: idsList } });
       } else if (itemType === 'COMPETITION') {
-        orConditions.push({ competitionId: itemId });
+        orConditions.push({ competitionId: { in: idsList } });
       } else if (itemType === 'EXAM') {
-        orConditions.push({ examId: itemId });
+        orConditions.push({ examId: { in: idsList } });
       } else if (itemType === 'SUBJECT') {
-        orConditions.push({ subjectId: itemId });
+        orConditions.push({ subjectId: { in: idsList } });
       } else {
         orConditions.push(
-          { literaryCompetitionId: itemId },
-          { competitionId: itemId },
-          { examId: itemId },
-          { subjectId: itemId }
+          { literaryCompetitionId: { in: idsList } },
+          { competitionId: { in: idsList } },
+          { examId: { in: idsList } },
+          { subjectId: { in: idsList } }
         );
       }
     }
 
-    if (itemName) {
+    if (resolvedTargetName) {
       orConditions.push(
-        { literaryCompetition: { name: { equals: itemName } } },
-        { literaryCompetition: { name: { contains: itemName } } },
-        { competition: { name: { equals: itemName } } },
-        { competition: { name: { contains: itemName } } },
-        { exam: { name: { equals: itemName } } },
-        { exam: { name: { contains: itemName } } },
-        { subject: { name: { equals: itemName } } },
-        { remarks: { contains: itemName } }
+        { literaryCompetition: { name: { equals: resolvedTargetName, mode: 'insensitive' } } },
+        { competition: { name: { equals: resolvedTargetName, mode: 'insensitive' } } },
+        { exam: { name: { equals: resolvedTargetName, mode: 'insensitive' } } },
+        { subject: { name: { equals: resolvedTargetName, mode: 'insensitive' } } }
       );
     }
 
@@ -76,17 +95,26 @@ export async function GET(req: NextRequest) {
             school: { select: { id: true, name: true } },
           },
         },
-        level: true,
-        category: true,
-        subcategory: true,
+        level: { select: { id: true, name: true, weightMultiplier: true } },
+        category: { select: { id: true, name: true, code: true } },
+        subcategory: { select: { id: true, name: true, code: true, weight: true } },
         literaryCompetition: {
-          include: { event: true, level: true },
+          select: {
+            id: true,
+            name: true,
+            event: { select: { id: true, name: true } },
+            level: { select: { id: true, name: true, weightMultiplier: true } },
+          },
         },
         competition: {
-          include: { program: true },
+          select: {
+            id: true,
+            name: true,
+            program: { select: { id: true, name: true } },
+          },
         },
-        exam: true,
-        subject: true,
+        exam: { select: { id: true, name: true, maxScore: true } },
+        subject: { select: { id: true, name: true, maxScore: true } },
       },
       orderBy: [{ obtainedScore: 'desc' }, { createdAt: 'asc' }],
     });
@@ -173,6 +201,16 @@ export async function GET(req: NextRequest) {
       };
     });
 
+    // Deduplicate entries by studentId if a student has multiple records across merged same-name competitions
+    const studentBestMap = new Map<string, (typeof processedEntries)[0]>();
+    for (const entry of processedEntries) {
+      const existing = studentBestMap.get(entry.studentId);
+      if (!existing || entry.sprPoints > existing.sprPoints) {
+        studentBestMap.set(entry.studentId, entry);
+      }
+    }
+    const uniqueEntries = Array.from(studentBestMap.values());
+
     // Helper: Position rank priority (1st > 2nd > 3rd)
     const getPosPriority = (pos: string | null | undefined): number => {
       if (!pos) return 99;
@@ -184,7 +222,7 @@ export async function GET(req: NextRequest) {
     };
 
     // Sort by position priority first, then sprPoints descending, then student name
-    processedEntries.sort((a, b) => {
+    uniqueEntries.sort((a, b) => {
       const pA = getPosPriority(a.position);
       const pB = getPosPriority(b.position);
       if (pA !== pB) return pA - pB;
@@ -194,10 +232,12 @@ export async function GET(req: NextRequest) {
 
     // Assign joint rankings
     let currentRank = 1;
-    const rankedLeaderboard = processedEntries.map((entry, idx) => {
+    const rankedLeaderboard = uniqueEntries.map((entry, idx) => {
       if (idx > 0) {
-        const prev = processedEntries[idx - 1];
-        const isSameScore = prev.sprPoints === entry.sprPoints && prev.position === entry.position;
+        const prev = uniqueEntries[idx - 1];
+        const isSameScore =
+          prev.sprPoints === entry.sprPoints &&
+          getPosPriority(prev.position) === getPosPriority(entry.position);
         if (!isSameScore) {
           currentRank = idx + 1;
         }
@@ -220,20 +260,27 @@ export async function GET(req: NextRequest) {
           )
         : 0;
 
-    return NextResponse.json({
-      item: {
-        id: itemId || firstRec.literaryCompetitionId || firstRec.competitionId || firstRec.examId,
-        name: resolvedItemName,
-        parentName,
-        categoryName,
-        categoryCode,
-        totalParticipants: rankedLeaderboard.length,
-        topScore,
-        avgScore,
+    return NextResponse.json(
+      {
+        item: {
+          id: itemId || firstRec.literaryCompetitionId || firstRec.competitionId || firstRec.examId,
+          name: resolvedItemName,
+          parentName,
+          categoryName,
+          categoryCode,
+          totalParticipants: rankedLeaderboard.length,
+          topScore,
+          avgScore,
+        },
+        leaderboard: rankedLeaderboard,
+        totalStudents: rankedLeaderboard.length,
       },
-      leaderboard: rankedLeaderboard,
-      totalStudents: rankedLeaderboard.length,
-    });
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Item leaderboard fetch error:', error);
     return NextResponse.json({ error: 'Failed to calculate item leaderboard.' }, { status: 500 });

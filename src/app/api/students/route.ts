@@ -5,7 +5,18 @@ import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
 import { generateNextSprId, checkSprIdAvailable, normalizeSprId } from '@/lib/spr-id';
-import { invalidateEngineCache } from '@/lib/spr-engine';
+import { invalidateEngineCache, onInvalidateEngine } from '@/lib/spr-engine';
+
+const minimalStudentsCache = new Map<string, { timestamp: number; payload: any }>();
+const MINIMAL_CACHE_TTL = 10 * 60 * 1000; // 10 minutes (actively invalidated on student mutations)
+
+function invalidateStudentsCache() {
+  minimalStudentsCache.clear();
+}
+
+onInvalidateEngine(() => {
+  minimalStudentsCache.clear();
+});
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,9 +30,25 @@ export async function GET(req: NextRequest) {
     const academicYearId = searchParams.get('academicYearId') || '';
     const status = searchParams.get('status') || '';
     const isAll = searchParams.get('all') === 'true';
+    const isMinimal = searchParams.get('minimal') === 'true';
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = isAll ? 5000 : parseInt(searchParams.get('limit') || '50', 10);
     const skip = isAll ? 0 : (page - 1) * limit;
+
+    // Cache lookup for rapid dropdown / directory queries
+    const isCacheable = (isMinimal || isAll) && !search && !schoolId && !academicYearId && !status;
+    const cacheKey = isCacheable ? `min_${isMinimal}_all_${isAll}_cls_${classId || 'all'}` : null;
+
+    if (cacheKey) {
+      const cached = minimalStudentsCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < MINIMAL_CACHE_TTL) {
+        return NextResponse.json(cached.payload, {
+          headers: {
+            'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
+          },
+        });
+      }
+    }
 
     const where: any = {};
 
@@ -53,8 +80,6 @@ export async function GET(req: NextRequest) {
     if (academicYearId) where.academicYearId = academicYearId;
     if (status) where.status = status;
 
-    const isMinimal = searchParams.get('minimal') === 'true';
-
     const [total, students] = await Promise.all([
       prisma.student.count({ where }),
       prisma.student.findMany({
@@ -66,7 +91,6 @@ export async function GET(req: NextRequest) {
               sprStudentId: true,
               fullName: true,
               division: true,
-              photoUrl: true,
               status: true,
               class: {
                 select: { id: true, name: true },
@@ -99,13 +123,25 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
-    return NextResponse.json({
+    const payload = {
       students,
       pagination: {
         total,
         page,
         limit,
         totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+
+    if (cacheKey) {
+      minimalStudentsCache.set(cacheKey, { timestamp: Date.now(), payload });
+    }
+
+    return NextResponse.json(payload, {
+      headers: {
+        'Cache-Control': isCacheable
+          ? 'public, s-maxage=120, stale-while-revalidate=300'
+          : 'private, no-cache',
       },
     });
   } catch (error: any) {
@@ -188,6 +224,7 @@ export async function POST(req: NextRequest) {
     });
 
     invalidateEngineCache();
+    invalidateStudentsCache();
 
     return NextResponse.json({
       success: true,
@@ -263,6 +300,7 @@ export async function DELETE(req: NextRequest) {
     });
 
     invalidateEngineCache();
+    invalidateStudentsCache();
 
     return NextResponse.json({
       success: true,

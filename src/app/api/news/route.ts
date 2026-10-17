@@ -6,7 +6,7 @@ import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
 
 const newsCache = new Map<string, { timestamp: number; data: any }>();
-const NEWS_CACHE_TTL = 30 * 1000;
+const NEWS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes cache
 
 function invalidateNewsCache() {
   newsCache.clear();
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     if (cached && Date.now() - cached.timestamp < NEWS_CACHE_TTL) {
       return NextResponse.json(cached.data, {
         headers: {
-          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
         },
       });
     }
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
       payload,
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
         },
       }
     );

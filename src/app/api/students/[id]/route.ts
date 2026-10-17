@@ -6,6 +6,7 @@ import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
 import { calculateStudentSPR, calculateFastStudentRanks, invalidateEngineCache } from '@/lib/spr-engine';
 import { checkSprIdAvailable, normalizeSprId } from '@/lib/spr-id';
+import { invalidatePhotoCache } from '@/lib/avatar-handler';
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -19,11 +20,29 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       calculateStudentSPR(studentId),
       prisma.creativeHubSubmission.findMany({
         where: { studentId },
-        include: { category: true },
+        select: {
+          id: true,
+          title: true,
+          content: true,
+          date: true,
+          score: true,
+          percentage: true,
+          reviewer: true,
+          category: {
+            select: { id: true, name: true, code: true },
+          },
+        },
         orderBy: { date: 'desc' },
       }),
       prisma.libraryRecord.findMany({
         where: { studentId },
+        select: {
+          id: true,
+          booksRead: true,
+          readingScore: true,
+          readingRank: true,
+          readingPeriod: true,
+        },
         orderBy: { createdAt: 'desc' },
       }),
     ]);
@@ -117,6 +136,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     });
 
     invalidateEngineCache();
+    invalidatePhotoCache(studentId);
 
     return NextResponse.json({
       success: true,
@@ -161,6 +181,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     });
 
     invalidateEngineCache();
+    invalidatePhotoCache(studentId);
 
     return NextResponse.json({
       success: true,

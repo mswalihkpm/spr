@@ -4,7 +4,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
-import { normalizeScoreToPercentage, invalidateEngineCache } from '@/lib/spr-engine';
+import { normalizeScoreToPercentage, invalidateEngineCache, onInvalidateEngine } from '@/lib/spr-engine';
+
+const scoresMemoryCache = new Map<string, { timestamp: number; data: any }>();
+const SCORES_MEMORY_TTL = 90 * 1000; // 90 seconds (invalidated on any score mutation)
+
+function clearScoresMemoryCache() {
+  scoresMemoryCache.clear();
+}
+
+onInvalidateEngine(() => {
+  scoresMemoryCache.clear();
+});
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,6 +31,19 @@ export async function GET(req: NextRequest) {
     const academicYearId = searchParams.get('academicYearId');
     const studentId = searchParams.get('studentId');
     const limit = parseInt(searchParams.get('limit') || '500', 10);
+
+    const cacheKey = searchParams.toString() || 'all';
+    const cached = scoresMemoryCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < SCORES_MEMORY_TTL) {
+      return NextResponse.json(
+        { records: cached.data },
+        {
+          headers: {
+            'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+          },
+        }
+      );
+    }
 
     const where: any = {};
     if (categoryId) where.categoryId = categoryId;
@@ -37,7 +61,26 @@ export async function GET(req: NextRequest) {
 
     const records = await prisma.performanceRecord.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        studentId: true,
+        categoryId: true,
+        subcategoryId: true,
+        subjectId: true,
+        examId: true,
+        competitionId: true,
+        literaryCompetitionId: true,
+        levelId: true,
+        termId: true,
+        academicYearId: true,
+        obtainedScore: true,
+        maxScore: true,
+        percentage: true,
+        position: true,
+        grade: true,
+        remarks: true,
+        date: true,
+        createdAt: true,
         student: {
           select: {
             id: true,
@@ -56,23 +99,51 @@ export async function GET(req: NextRequest) {
             },
           },
         },
-        category: true,
-        subcategory: true,
-        subject: true,
-        exam: true,
+        category: {
+          select: { id: true, name: true, code: true, defaultWeight: true },
+        },
+        subcategory: {
+          select: { id: true, name: true, code: true, weight: true, maxScore: true, categoryId: true },
+        },
+        subject: {
+          select: { id: true, name: true, code: true, maxScore: true },
+        },
+        exam: {
+          select: { id: true, name: true, maxScore: true, targetScore: true, categoryId: true, termId: true },
+        },
         competition: {
-          include: { program: true },
+          select: {
+            id: true,
+            name: true,
+            program: { select: { id: true, name: true } },
+          },
         },
         literaryCompetition: {
-          include: { event: true, level: true },
+          select: {
+            id: true,
+            name: true,
+            event: { select: { id: true, name: true } },
+            level: { select: { id: true, name: true, weightMultiplier: true } },
+          },
         },
-        level: true,
+        level: {
+          select: { id: true, name: true, weightMultiplier: true },
+        },
       },
       orderBy: { createdAt: 'desc' },
       take: limit,
     });
 
-    return NextResponse.json({ records });
+    scoresMemoryCache.set(cacheKey, { timestamp: Date.now(), data: records });
+
+    return NextResponse.json(
+      { records },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Fetch scores error:', error);
     return NextResponse.json({ error: 'Failed to fetch score records.' }, { status: 500 });
@@ -208,6 +279,22 @@ export async function POST(req: NextRequest) {
             categoryId: targetCategoryId,
             ...(defaultTermId ? { termId: defaultTermId } : {}),
           },
+          select: {
+            id: true,
+            studentId: true,
+            categoryId: true,
+            subcategoryId: true,
+            examId: true,
+            subjectId: true,
+            competitionId: true,
+            literaryCompetitionId: true,
+            termId: true,
+            levelId: true,
+            position: true,
+            grade: true,
+            date: true,
+            remarks: true,
+          },
         })
       : [];
 
@@ -313,6 +400,7 @@ export async function POST(req: NextRequest) {
     });
 
     invalidateEngineCache();
+    clearScoresMemoryCache();
 
     return NextResponse.json({
       success: true,
@@ -383,6 +471,7 @@ export async function PUT(req: NextRequest) {
     });
 
     invalidateEngineCache();
+    clearScoresMemoryCache();
 
     return NextResponse.json({
       success: true,
@@ -481,6 +570,7 @@ export async function DELETE(req: NextRequest) {
     });
 
     invalidateEngineCache();
+    clearScoresMemoryCache();
 
     return NextResponse.json({
       success: true,

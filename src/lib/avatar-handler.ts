@@ -3,12 +3,15 @@ import { prisma } from '@/lib/prisma';
 import { isGoogleDriveUrl, formatGoogleDriveDirectUrl } from '@/lib/google-drive';
 
 const photoCache = new Map<string, { buffer: Buffer; contentType: string } | null>();
+const studentPhotoUrlCache = new Map<string, string | null>();
 
 export function invalidatePhotoCache(studentId?: string) {
   if (studentId) {
     photoCache.delete(studentId);
+    studentPhotoUrlCache.delete(studentId);
   } else {
     photoCache.clear();
+    studentPhotoUrlCache.clear();
   }
 }
 
@@ -18,22 +21,38 @@ export async function handleStudentPhotoRequest(req: NextRequest, studentIdentif
       return new NextResponse('Student ID required', { status: 400 });
     }
 
-    const student = await prisma.student.findFirst({
-      where: {
-        OR: [
-          { id: studentIdentifier },
-          { studentId: { equals: studentIdentifier, mode: 'insensitive' } },
-          { sprStudentId: { equals: studentIdentifier, mode: 'insensitive' } },
-        ],
-      },
-      select: { id: true, photoUrl: true },
-    });
+    const cachedUrl = studentPhotoUrlCache.get(studentIdentifier);
+    let photoStr: string | null = null;
 
-    if (!student || !student.photoUrl || student.photoUrl.trim() === '') {
-      return new NextResponse('Photo not found', { status: 404 });
+    if (cachedUrl !== undefined) {
+      photoStr = cachedUrl;
+    } else {
+      const student = await prisma.student.findFirst({
+        where: {
+          OR: [
+            { id: studentIdentifier },
+            { studentId: { equals: studentIdentifier, mode: 'insensitive' } },
+            { sprStudentId: { equals: studentIdentifier, mode: 'insensitive' } },
+          ],
+        },
+        select: { id: true, studentId: true, sprStudentId: true, photoUrl: true },
+      });
+
+      if (!student || !student.photoUrl || student.photoUrl.trim() === '') {
+        studentPhotoUrlCache.set(studentIdentifier, null);
+        return new NextResponse('Photo not found', { status: 404 });
+      }
+
+      photoStr = student.photoUrl.trim();
+      studentPhotoUrlCache.set(studentIdentifier, photoStr);
+      if (student.id) studentPhotoUrlCache.set(student.id, photoStr);
+      if (student.studentId) studentPhotoUrlCache.set(student.studentId, photoStr);
+      if (student.sprStudentId) studentPhotoUrlCache.set(student.sprStudentId, photoStr);
     }
 
-    const photoStr = student.photoUrl.trim();
+    if (!photoStr) {
+      return new NextResponse('Photo not found', { status: 404 });
+    }
 
     // 1. Google Drive URLs: Redirect directly to Google CDN edge
     if (isGoogleDriveUrl(photoStr)) {
@@ -41,7 +60,7 @@ export async function handleStudentPhotoRequest(req: NextRequest, studentIdentif
       return NextResponse.redirect(directUrl, {
         status: 307,
         headers: {
-          'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+          'Cache-Control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400',
         },
       });
     }
@@ -51,7 +70,7 @@ export async function handleStudentPhotoRequest(req: NextRequest, studentIdentif
       return NextResponse.redirect(photoStr, {
         status: 307,
         headers: {
-          'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+          'Cache-Control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400',
         },
       });
     }

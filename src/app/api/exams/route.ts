@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     if (cached) {
       return NextResponse.json(cached, {
         headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
         },
       });
     }
@@ -34,9 +34,9 @@ export async function GET(req: NextRequest) {
     const exams = await prisma.exam.findMany({
       where: whereClause,
       include: {
-        category: true,
-        term: true,
-        academicYear: true,
+        category: { select: { id: true, name: true, code: true } },
+        term: { select: { id: true, name: true, code: true } },
+        academicYear: { select: { id: true, name: true, isCurrent: true } },
         _count: { select: { performanceRecords: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(payload, {
       headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
       },
     });
   } catch (error: any) {

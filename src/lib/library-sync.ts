@@ -119,19 +119,31 @@ export function matchStudentBySprId(sprId: string | undefined | null, allSprStud
   ) || null;
 }
 
-export async function fetchLibraryLeaderboard(): Promise<{
+let cachedLibraryLeaderboard: { timestamp: number; data: any } | null = null;
+const LIBRARY_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache
+
+export function invalidateLibraryCache() {
+  cachedLibraryLeaderboard = null;
+}
+
+export async function fetchLibraryLeaderboard(forceRefresh = false): Promise<{
   settings: any;
   leaderboard: LibraryLeaderboardEntry[];
   totalReaders: number;
 }> {
+  const now = Date.now();
+  if (!forceRefresh && cachedLibraryLeaderboard && now - cachedLibraryLeaderboard.timestamp < LIBRARY_CACHE_TTL_MS) {
+    return cachedLibraryLeaderboard.data;
+  }
+
   // 1. Fetch anon key from JS bundle
-  const html = await fetch(`${LIBRARY_BASE_URL}/leaderboard`, { cache: 'no-store' }).then((r) => r.text());
+  const html = await fetch(`${LIBRARY_BASE_URL}/leaderboard`, { next: { revalidate: 3600 } }).then((r) => r.text());
   const jsMatch = html.match(/src="(\/assets\/[^"]+\.js)"/);
   if (!jsMatch) {
     throw new Error('Could not locate JavaScript bundle from MSOE Library website.');
   }
 
-  const jsCode = await fetch(`${LIBRARY_BASE_URL}${jsMatch[1]}`, { cache: 'no-store' }).then((r) => r.text());
+  const jsCode = await fetch(`${LIBRARY_BASE_URL}${jsMatch[1]}`, { next: { revalidate: 3600 } }).then((r) => r.text());
   const anonKeyMatch = jsCode.match(/eyJhbGciOi[a-zA-Z0-9_\-\.]+/);
   if (!anonKeyMatch) {
     throw new Error('Could not retrieve API credentials for MSOE Library.');
@@ -139,13 +151,13 @@ export async function fetchLibraryLeaderboard(): Promise<{
   const anonKey = anonKeyMatch[0];
   const headers = { apikey: anonKey, Authorization: `Bearer ${anonKey}` };
 
-  // 2. Query settings, books (paginated), borrow records (paginated), students (paginated), and rate versions
+  // 2. Query settings, books, borrow records, students, and rate versions with ONLY REQUIRED COLUMNS
   const [settingsRes, booksRes, borrowRes, studentsRes, ratesRes] = await Promise.all([
-    fetch(`${SUPABASE_REST_URL}/rest/v1/admin_settings?select=*&limit=1`, { headers, cache: 'no-store' }).then((r) => r.json()),
-    fetchAllSupabase('books?select=*&order=average_rating.desc', headers),
-    fetchAllSupabase('borrow_records?select=*&order=created_at.desc', headers),
-    fetchAllSupabase('students?select=*&order=name.asc', headers),
-    fetchAllSupabase('reading_rate_versions?select=*&order=effective_from.desc', headers),
+    fetch(`${SUPABASE_REST_URL}/rest/v1/admin_settings?select=review_points_default&limit=1`, { headers, next: { revalidate: 600 } }).then((r) => r.json()),
+    fetchAllSupabase('books?select=id,category,pages&order=average_rating.desc', headers),
+    fetchAllSupabase('borrow_records?select=borrower_name,student_id,book_id,return_option,read_status,pages_read,calculated_points,rate_used,rate_version_id,review_conducted,review_points,borrower_class&order=created_at.desc', headers),
+    fetchAllSupabase('students?select=id,name,class,spr_student_id&order=name.asc', headers),
+    fetchAllSupabase('reading_rate_versions?select=id,category,points_per_10_pages,effective_from&order=effective_from.desc', headers),
   ]);
 
   const settings = settingsRes?.[0] || {};
@@ -367,6 +379,7 @@ export async function syncLibraryLeaderboardToSPR(): Promise<{
     });
   }
 
+  invalidateLibraryCache();
   invalidateEngineCache();
 
   return {

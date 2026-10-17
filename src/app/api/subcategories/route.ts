@@ -7,7 +7,7 @@ import { logAuditAction } from '@/lib/audit';
 import { invalidateEngineCache } from '@/lib/spr-engine';
 
 let cachedSubcategoriesMap = new Map<string, { timestamp: number; data: any }>();
-const SUBCATEGORIES_CACHE_TTL = 60 * 1000;
+const SUBCATEGORIES_CACHE_TTL = 15 * 60 * 1000; // 15 minutes cache (actively invalidated on mutation)
 
 function invalidateSubcategoriesCache() {
   cachedSubcategoriesMap.clear();
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     if (cached && Date.now() - cached.timestamp < SUBCATEGORIES_CACHE_TTL) {
       return NextResponse.json(cached.data, {
         headers: {
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+          'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1200',
         },
       });
     }
@@ -41,8 +41,7 @@ export async function GET(req: NextRequest) {
     const subcategories = await prisma.subcategory.findMany({
       where: whereClause,
       include: {
-        category: true,
-        _count: { select: { performanceRecords: true } },
+        category: { select: { id: true, name: true, code: true } },
       },
       orderBy: [
         { displayOrder: 'asc' },
@@ -55,7 +54,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(payload, {
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1200',
       },
     });
   } catch (error: any) {

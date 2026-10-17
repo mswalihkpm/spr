@@ -3,11 +3,28 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+const programmesHistoryCache = new Map<string, { timestamp: number; data: any }>();
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes cache
+
+export function invalidateProgrammesHistoryCache() {
+  programmesHistoryCache.clear();
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const category = searchParams.get('category')?.toUpperCase() || ''; // 'LITERARY' | 'PROGRAMS' | ''
     const q = searchParams.get('q')?.trim().toLowerCase() || '';
+
+    const cacheKey = `${category}_${q}`;
+    const cached = programmesHistoryCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return NextResponse.json(cached.data, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+        },
+      });
+    }
 
     // 1. Fetch relevant categories
     const categories = await prisma.category.findMany({
@@ -205,9 +222,17 @@ export async function GET(req: NextRequest) {
     // Sort by usage count desc, then alphabetically
     programmes.sort((a, b) => b.usageCount - a.usageCount || a.name.localeCompare(b.name));
 
-    return NextResponse.json({
+    const payload = {
       programmes,
       total: programmes.length,
+    };
+
+    programmesHistoryCache.set(cacheKey, { timestamp: Date.now(), data: payload });
+
+    return NextResponse.json(payload, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+      },
     });
   } catch (error: any) {
     console.error('Fetch programmes history error:', error);

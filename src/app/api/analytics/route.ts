@@ -6,7 +6,7 @@ import { authenticateApiRequest } from '@/lib/auth';
 import { calculateAllLeaderboards } from '@/lib/spr-engine';
 
 let cachedAnalytics: { timestamp: number; data: any } | null = null;
-const ANALYTICS_CACHE_TTL = 30 * 1000;
+const ANALYTICS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     if (cachedAnalytics && now - cachedAnalytics.timestamp < ANALYTICS_CACHE_TTL) {
       return NextResponse.json(cachedAnalytics.data, {
         headers: {
-          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
         },
       });
     }
@@ -41,9 +41,20 @@ export async function GET(req: NextRequest) {
       prisma.creativeHubSubmission.count(),
       prisma.performanceRecord.count({ where: { category: { code: 'LITERARY' } } }),
       prisma.libraryRecord.aggregate({ _sum: { booksRead: true } }),
-      prisma.academicClass.findMany({ where: { active: true }, orderBy: { numericGrade: 'asc' } }),
-      prisma.school.findMany({ where: { active: true } }),
-      prisma.category.findMany({ where: { active: true }, orderBy: { displayOrder: 'asc' } }),
+      prisma.academicClass.findMany({
+        where: { active: true },
+        select: { id: true, name: true, numericGrade: true },
+        orderBy: { numericGrade: 'asc' },
+      }),
+      prisma.school.findMany({
+        where: { active: true },
+        select: { id: true, name: true, code: true },
+      }),
+      prisma.category.findMany({
+        where: { active: true },
+        select: { id: true, name: true, code: true, icon: true, defaultWeight: true },
+        orderBy: { displayOrder: 'asc' },
+      }),
     ]);
 
     const totalBooksRead = booksAggregate._sum.booksRead || 0;
@@ -134,7 +145,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(payload, {
       headers: {
-        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
       },
     });
   } catch (error: any) {

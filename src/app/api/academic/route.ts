@@ -39,19 +39,77 @@ export async function GET(req: NextRequest) {
       competitions,
       literaryEvents,
     ] = await Promise.all([
-      prisma.school.findMany({ orderBy: { name: 'asc' } }),
-      prisma.academicClass.findMany({ orderBy: { numericGrade: 'asc' } }),
-      prisma.academicYear.findMany({ orderBy: { name: 'desc' } }),
-      prisma.term.findMany({ orderBy: { name: 'asc' } }),
-      prisma.exam.findMany({ include: { category: true, term: true, _count: { select: { performanceRecords: true } } }, orderBy: { name: 'asc' } }),
-      prisma.subject.findMany({ include: { category: true, institution: true, board: true }, orderBy: { name: 'asc' } }),
-      prisma.level.findMany({ orderBy: { displayOrder: 'asc' } }),
-      prisma.academicInstitution.findMany({ orderBy: { name: 'asc' } }),
-      prisma.boardSyllabus.findMany({ orderBy: { name: 'asc' } }),
-      prisma.category.findMany({ orderBy: { displayOrder: 'asc' } }),
-      prisma.program.findMany({ include: { level: true, academicYear: true, competitions: true }, orderBy: { date: 'desc' } }),
-      prisma.competition.findMany({ include: { program: true }, orderBy: { name: 'asc' } }),
-      prisma.literaryEvent.findMany({ include: { competitions: true, academicYear: true }, orderBy: { date: 'desc' } }),
+      prisma.school.findMany({ select: { id: true, name: true, code: true, active: true }, orderBy: { name: 'asc' } }),
+      prisma.academicClass.findMany({ select: { id: true, name: true, numericGrade: true, active: true }, orderBy: { numericGrade: 'asc' } }),
+      prisma.academicYear.findMany({ select: { id: true, name: true, isCurrent: true, startDate: true, endDate: true }, orderBy: { name: 'desc' } }),
+      prisma.term.findMany({ select: { id: true, name: true, code: true, academicYearId: true, isCurrent: true }, orderBy: { name: 'asc' } }),
+      prisma.exam.findMany({
+        select: {
+          id: true,
+          name: true,
+          categoryId: true,
+          termId: true,
+          academicYearId: true,
+          maxScore: true,
+          targetScore: true,
+          category: { select: { id: true, name: true, code: true } },
+          term: { select: { id: true, name: true } },
+        },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.subject.findMany({
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          categoryId: true,
+          institutionId: true,
+          boardId: true,
+          maxScore: true,
+          category: { select: { id: true, name: true, code: true } },
+          institution: { select: { id: true, name: true, code: true } },
+          board: { select: { id: true, name: true, code: true } },
+        },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.level.findMany({ select: { id: true, name: true, code: true, weightMultiplier: true, displayOrder: true, active: true }, orderBy: { displayOrder: 'asc' } }),
+      prisma.academicInstitution.findMany({ select: { id: true, name: true, code: true, active: true }, orderBy: { name: 'asc' } }),
+      prisma.boardSyllabus.findMany({ select: { id: true, name: true, code: true, active: true }, orderBy: { name: 'asc' } }),
+      prisma.category.findMany({ select: { id: true, code: true, name: true, icon: true, isSystem: true, active: true, displayOrder: true, defaultWeight: true, includeInSPR: true }, orderBy: { displayOrder: 'asc' } }),
+      prisma.program.findMany({
+        select: {
+          id: true,
+          name: true,
+          organizer: true,
+          academicYearId: true,
+          levelId: true,
+          date: true,
+          level: { select: { id: true, name: true } },
+          competitions: { select: { id: true, name: true, maxScore: true } },
+        },
+        orderBy: { date: 'desc' },
+      }),
+      prisma.competition.findMany({
+        select: {
+          id: true,
+          name: true,
+          programId: true,
+          maxScore: true,
+          program: { select: { id: true, name: true } },
+        },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.literaryEvent.findMany({
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          academicYearId: true,
+          date: true,
+          competitions: { select: { id: true, name: true, maxScore: true } },
+        },
+        orderBy: { date: 'desc' },
+      }),
     ]);
 
     const payload = {
@@ -76,7 +134,7 @@ export async function GET(req: NextRequest) {
       headers: {
         'Cache-Control': forceRefresh
           ? 'no-cache, no-store, must-revalidate'
-          : 'public, s-maxage=300, stale-while-revalidate=600',
+          : 'public, s-maxage=900, stale-while-revalidate=1800',
       },
     });
   } catch (error: any) {

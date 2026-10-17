@@ -1,13 +1,13 @@
 import { invalidateEngineCache } from '@/lib/spr-engine';
 
 let cachedAcademicData: { timestamp: number; data: any } | null = null;
-const ACADEMIC_CACHE_TTL_MS = 30 * 1000; // 30 seconds
+const ACADEMIC_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes TTL (invalidated on mutation)
 
 let cachedExamsMap = new Map<string, { timestamp: number; data: any }>();
-const EXAMS_CACHE_TTL = 30 * 1000;
+const EXAMS_CACHE_TTL = 15 * 60 * 1000;
 
 let cachedTermsResponse: { timestamp: number; data: any } | null = null;
-const TERMS_CACHE_TTL = 30 * 1000;
+const TERMS_CACHE_TTL = 15 * 60 * 1000;
 
 export function getCachedAcademicData() {
   const now = Date.now();

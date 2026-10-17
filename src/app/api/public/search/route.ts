@@ -3,9 +3,8 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// Short in-memory cache for hot search queries
 const searchCache = new Map<string, { timestamp: number; data: any }>();
-const SEARCH_CACHE_TTL = 15 * 1000;
+const SEARCH_CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
 
 export async function GET(req: NextRequest) {
   try {
@@ -76,9 +75,19 @@ export async function GET(req: NextRequest) {
       orderBy: [{ class: { numericGrade: 'asc' } }, { fullName: 'asc' }],
     });
 
-    // 2. PROGRAMMES, COMPETITIONS & EXAMS SEARCH
-    // Query literary competitions
+    // 2. PROGRAMMES, COMPETITIONS & EXAMS SEARCH (Filtered at database level!)
+    const itemOrConditions = rawWords.map((w) => ({
+      name: { contains: w, mode: 'insensitive' as const },
+    }));
+
+    // Query literary competitions matching keywords
     const litCompsPromise = prisma.literaryCompetition.findMany({
+      where: {
+        OR: [
+          ...itemOrConditions,
+          { event: { name: { contains: q, mode: 'insensitive' as const } } },
+        ],
+      },
       select: {
         id: true,
         name: true,
@@ -86,11 +95,17 @@ export async function GET(req: NextRequest) {
         event: { select: { name: true } },
         _count: { select: { performanceRecords: true } },
       },
-      take: 200,
+      take: 20,
     });
 
-    // Query program competitions
+    // Query program competitions matching keywords
     const compsPromise = prisma.competition.findMany({
+      where: {
+        OR: [
+          ...itemOrConditions,
+          { program: { name: { contains: q, mode: 'insensitive' as const } } },
+        ],
+      },
       select: {
         id: true,
         name: true,
@@ -98,18 +113,24 @@ export async function GET(req: NextRequest) {
         program: { select: { name: true } },
         _count: { select: { performanceRecords: true } },
       },
-      take: 200,
+      take: 20,
     });
 
-    // Query exams
+    // Query exams matching keywords
     const examsPromise = prisma.exam.findMany({
+      where: {
+        OR: [
+          ...itemOrConditions,
+          { category: { name: { contains: q, mode: 'insensitive' as const } } },
+        ],
+      },
       select: {
         id: true,
         name: true,
         category: { select: { name: true, code: true } },
         _count: { select: { performanceRecords: true } },
       },
-      take: 100,
+      take: 15,
     });
 
     const [students, litComps, comps, exams] = await Promise.all([
@@ -145,7 +166,23 @@ export async function GET(req: NextRequest) {
       return matchCount >= Math.min(searchTokens.length, 2) || (searchTokens.length === 1 && matchCount === 1);
     };
 
-    const items: Array<{
+    // Unified items map to merge duplicate items with identical names into a single leaderboard entry
+    const itemsMap = new Map<
+      string,
+      {
+        id: string;
+        ids: string[];
+        name: string;
+        type: 'LITERARY_COMPETITION' | 'COMPETITION' | 'EXAM';
+        parentName: string;
+        categoryName: string;
+        categoryCode: string;
+        participantCount: number;
+        maxScore?: number;
+      }
+    >();
+
+    const registerItem = (item: {
       id: string;
       name: string;
       type: 'LITERARY_COMPETITION' | 'COMPETITION' | 'EXAM';
@@ -154,13 +191,32 @@ export async function GET(req: NextRequest) {
       categoryCode: string;
       participantCount: number;
       maxScore?: number;
-    }> = [];
+    }) => {
+      const cleanName = item.name.trim();
+      const groupKey = `${item.type}_${cleanName.toLowerCase()}`;
+      const existing = itemsMap.get(groupKey);
+      if (existing) {
+        existing.participantCount += item.participantCount;
+        if (!existing.ids.includes(item.id)) {
+          existing.ids.push(item.id);
+        }
+        if (!existing.parentName && item.parentName) {
+          existing.parentName = item.parentName;
+        }
+      } else {
+        itemsMap.set(groupKey, {
+          ...item,
+          name: cleanName,
+          ids: [item.id],
+        });
+      }
+    };
 
     // Filter literary competitions
     litComps.forEach((lc) => {
       const parent = lc.event?.name || 'Literary Festival';
       if (matchesQuery(lc.name, parent)) {
-        items.push({
+        registerItem({
           id: lc.id,
           name: lc.name,
           type: 'LITERARY_COMPETITION',
@@ -177,7 +233,7 @@ export async function GET(req: NextRequest) {
     comps.forEach((c) => {
       const parent = c.program?.name || 'Programs';
       if (matchesQuery(c.name, parent)) {
-        items.push({
+        registerItem({
           id: c.id,
           name: c.name,
           type: 'COMPETITION',
@@ -194,7 +250,7 @@ export async function GET(req: NextRequest) {
     exams.forEach((e) => {
       const parent = e.category?.name || 'Academic Assessment';
       if (matchesQuery(e.name, parent)) {
-        items.push({
+        registerItem({
           id: e.id,
           name: e.name,
           type: 'EXAM',
@@ -205,6 +261,8 @@ export async function GET(req: NextRequest) {
         });
       }
     });
+
+    const items = Array.from(itemsMap.values());
 
     // Sort items: items with more participants and closer name match first
     items.sort((a, b) => {
@@ -233,7 +291,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(payload, {
       headers: {
-        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+        'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
       },
     });
   } catch (error: any) {

@@ -86,8 +86,12 @@ export default function ItemLeaderboardModal({
     setLoading(true);
     const params = new URLSearchParams();
     if (item.id) params.append('id', item.id);
+    if ((item as any).ids && Array.isArray((item as any).ids)) {
+      params.append('ids', (item as any).ids.join(','));
+    }
     if (item.name) params.append('name', item.name);
     if (item.type) params.append('type', item.type);
+    if (filterClass !== 'ALL') params.append('classId', filterClass);
 
     fetch(`/api/public/item-leaderboard?${params.toString()}`)
       .then((res) => res.json())
@@ -305,18 +309,28 @@ export default function ItemLeaderboardModal({
               {/* Podium Highlight (Top 3 ranks) if multiple participants */}
               {topThree.length >= 2 && !searchStudent && filterClass === 'ALL' && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 pb-4">
-                  {topThree.map((st, index) => {
-                    const isFirst = index === 0;
-                    const isSecond = index === 1;
-                    const isThird = index === 2;
+                  {topThree.map((st) => {
+                    const isRank1 = st.rank === 1;
+                    const isRank2 = st.rank === 2;
+                    const isRank3 = st.rank === 3;
 
-                    const cardBg = isFirst
+                    const cardBg = isRank1
                       ? 'bg-gradient-to-b from-amber-500/10 to-amber-500/5 border-amber-300 dark:border-amber-600/40'
-                      : isSecond
+                      : isRank2
                       ? 'bg-gradient-to-b from-slate-200/50 to-slate-200/10 border-slate-300 dark:border-slate-700'
-                      : 'bg-gradient-to-b from-orange-400/10 to-orange-400/5 border-orange-300 dark:border-orange-600/40';
+                      : isRank3
+                      ? 'bg-gradient-to-b from-orange-400/10 to-orange-400/5 border-orange-300 dark:border-orange-600/40'
+                      : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700';
 
-                    const rankIcon = isFirst ? '🥇 1st Rank' : isSecond ? '🥈 2nd Rank' : '🥉 3rd Rank';
+                    const rankIcon = isRank1 ? '🥇 1st Rank' : isRank2 ? '🥈 2nd Rank' : isRank3 ? '🥉 3rd Rank' : `🎖️ #${st.rank} Rank`;
+
+                    const rankBadgeBg = isRank1
+                      ? 'bg-amber-500 text-white'
+                      : isRank2
+                      ? 'bg-slate-500 text-white'
+                      : isRank3
+                      ? 'bg-amber-700 text-white'
+                      : 'bg-blue-600 text-white';
 
                     return (
                       <div
@@ -330,7 +344,7 @@ export default function ItemLeaderboardModal({
 
                         <div className="mt-2 mb-2 relative">
                           <StudentAvatar photoUrl={st.photoUrl} name={st.fullName} size="md" />
-                          <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-black text-[10px] shadow-sm">
+                          <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full ${rankBadgeBg} flex items-center justify-center font-black text-[10px] shadow-sm`}>
                             #{st.rank}
                           </div>
                         </div>

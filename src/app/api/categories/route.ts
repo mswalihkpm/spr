@@ -7,7 +7,7 @@ import { logAuditAction } from '@/lib/audit';
 import { invalidateEngineCache } from '@/lib/spr-engine';
 
 let cachedCategoriesResponse: { timestamp: number; data: any } | null = null;
-const CATEGORIES_CACHE_TTL = 60 * 1000;
+const CATEGORIES_CACHE_TTL = 15 * 60 * 1000; // 15 minutes cache (actively invalidated on mutation)
 
 function invalidateLocalCategoriesCache() {
   cachedCategoriesResponse = null;
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
     if (!id && cachedCategoriesResponse && Date.now() - cachedCategoriesResponse.timestamp < CATEGORIES_CACHE_TTL) {
       return NextResponse.json(cachedCategoriesResponse.data, {
         headers: {
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+          'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1200',
         },
       });
     }
@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(payload, {
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1200',
       },
     });
   } catch (error: any) {

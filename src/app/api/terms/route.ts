@@ -17,15 +17,15 @@ export async function GET(req: NextRequest) {
     if (cached) {
       return NextResponse.json(cached, {
         headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
         },
       });
     }
 
     const terms = await prisma.term.findMany({
       include: {
-        academicYear: true,
-        exams: true,
+        academicYear: { select: { id: true, name: true, isCurrent: true } },
+        exams: { select: { id: true, name: true, categoryId: true, maxScore: true } },
         _count: {
           select: {
             performanceRecords: true,
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(payload, {
       headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
       },
     });
   } catch (error: any) {

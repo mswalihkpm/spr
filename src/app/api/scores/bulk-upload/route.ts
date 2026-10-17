@@ -124,8 +124,15 @@ export async function POST(req: NextRequest) {
       if (inst) resolvedInstitutionId = inst.id;
     }
 
-    // Fetch all students for rapid in-memory matching
-    const allStudents = await prisma.student.findMany();
+    // Fetch all students for rapid in-memory matching (minimal identifiers only)
+    const allStudents = await prisma.student.findMany({
+      select: {
+        id: true,
+        studentId: true,
+        sprStudentId: true,
+        fullName: true,
+      },
+    });
     const studentMapById = new Map<string, (typeof allStudents)[0]>();
     const studentMapByName = new Map<string, (typeof allStudents)[0]>();
     allStudents.forEach((s) => {
@@ -136,7 +143,9 @@ export async function POST(req: NextRequest) {
     });
 
     // All subcategories for automatic matching
-    const allSubcategories = await prisma.subcategory.findMany({ include: { category: true } });
+    const allSubcategories = await prisma.subcategory.findMany({
+      select: { id: true, code: true, name: true, categoryId: true },
+    });
 
     const resolveSubcategoryId = (festOrSubName?: string, explicitSubId?: string, catId?: string): string | null => {
       if (explicitSubId) {
@@ -340,6 +349,15 @@ export async function POST(req: NextRequest) {
             studentId: { in: matchedStudentIds },
             categoryId,
             termId: activeTermId,
+          },
+          select: {
+            id: true,
+            studentId: true,
+            categoryId: true,
+            termId: true,
+            subjectId: true,
+            examId: true,
+            remarks: true,
           },
         })
       : [];
