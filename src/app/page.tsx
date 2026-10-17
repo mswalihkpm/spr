@@ -27,6 +27,7 @@ import {
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import StudentReportModal from '@/components/modals/StudentReportModal';
 import NewsDetailModal from '@/components/modals/NewsDetailModal';
+import ItemLeaderboardModal from '@/components/modals/ItemLeaderboardModal';
 import PwaFooterInstall from '@/components/pwa/PwaFooterInstall';
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
@@ -93,6 +94,9 @@ export default function PublicHomePage() {
   // Search, modal and filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchItems, setSearchItems] = useState<any[]>([]);
+  const [selectedItemLeaderboard, setSelectedItemLeaderboard] = useState<any | null>(null);
+  const [itemLeaderboardModalOpen, setItemLeaderboardModalOpen] = useState(false);
   const [searching, setSearching] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -219,11 +223,12 @@ export default function PublicHomePage() {
       .finally(() => setLoadingLeaderboard(false));
   }, [selectedClass, bootstrapLeaderboard]);
 
-  // Global search debouncing (search by Name, ID, Class, School)
+  // Global search debouncing (search by Name, ID, Class, School, Programmes, Competitions, Exams)
   useEffect(() => {
     const trimmed = searchQuery.trim();
     if (!trimmed) {
       setSearchResults([]);
+      setSearchItems([]);
       setShowSearchDropdown(false);
       setSearching(false);
       return;
@@ -238,8 +243,15 @@ export default function PublicHomePage() {
         .then((data) => {
           if (data.students) {
             setSearchResults(data.students);
-            setShowSearchDropdown(true);
+          } else {
+            setSearchResults([]);
           }
+          if (data.items) {
+            setSearchItems(data.items);
+          } else {
+            setSearchItems([]);
+          }
+          setShowSearchDropdown(true);
         })
         .catch((err) => {
           if (err.name !== 'AbortError') console.error(err);
@@ -252,6 +264,14 @@ export default function PublicHomePage() {
       controller.abort();
     };
   }, [searchQuery]);
+
+  // Click on a Programme / Exam item from search
+  const handleItemClick = (item: any) => {
+    setSelectedItemLeaderboard(item);
+    setItemLeaderboardModalOpen(true);
+    setShowSearchDropdown(false);
+    setMobileSearchOpen(false);
+  };
 
   // Direct Navigation to Student Profile
   const handleStudentClick = (studentId: string) => {
@@ -560,38 +580,83 @@ export default function PublicHomePage() {
               <div className="py-6 flex items-center justify-center">
                 <VideoLoader size="sm" text="Searching registry..." />
               </div>
-            ) : searchResults.length > 0 ? (
-              <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
-                {searchResults.map((st) => (
-                  <button
-                    key={st.id}
-                    onClick={() => {
-                      setMobileSearchOpen(false);
-                      handleStudentClick(st.id);
-                    }}
-                    className="w-full p-2.5 text-left hover:bg-blue-50/80 dark:hover:bg-slate-800/80 flex items-center justify-between transition"
-                  >
-                    <div className="flex items-center space-x-2.5 min-w-0">
-                      <StudentAvatar photoUrl={st.photoUrl} name={st.fullName} size="sm" />
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{st.fullName}</div>
-                        <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate flex items-center space-x-1 mt-0.5">
-                          <span className="font-mono font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/70 px-1 py-0.2 rounded border border-blue-200 dark:border-blue-800 text-[9px]">
-                            {st.sprStudentId || st.studentId}
+            ) : (searchItems.length > 0 || searchResults.length > 0) ? (
+              <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                {/* Programmes, Competitions & Exams */}
+                {searchItems.length > 0 && (
+                  <div className="border-b border-slate-100 dark:border-slate-800">
+                    <div className="p-2 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-slate-800 dark:to-amber-950/30 text-[10.5px] font-bold text-amber-900 dark:text-amber-300 flex items-center justify-between">
+                      <span className="flex items-center space-x-1">
+                        <Trophy className="w-3 h-3 text-amber-600" />
+                        <span>Programmes & Exams ({searchItems.length})</span>
+                      </span>
+                      <span className="text-[9.5px] text-amber-700 dark:text-amber-400">View Rankings</span>
+                    </div>
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {searchItems.map((item) => (
+                        <button
+                          key={`m-${item.type}-${item.id || item.name}`}
+                          onClick={() => handleItemClick(item)}
+                          className="w-full p-2.5 text-left hover:bg-amber-50/70 dark:hover:bg-slate-800/80 flex items-center justify-between transition"
+                        >
+                          <div className="min-w-0 pr-2">
+                            <div className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                              {item.name}
+                            </div>
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                              {item.parentName ? `${item.parentName} • ` : ''}{item.categoryName}
+                              {item.participantCount > 0 ? ` • ${item.participantCount} students` : ''}
+                            </div>
+                          </div>
+                          <span className="shrink-0 px-2 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold text-[10px] border border-amber-300 dark:border-amber-700">
+                            Leaderboard
                           </span>
-                          <span>• Standard {formatClassNumber(st.className)}</span>
-                        </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Students */}
+                {searchResults.length > 0 && (
+                  <div>
+                    {searchItems.length > 0 && (
+                      <div className="p-2 bg-slate-50 dark:bg-slate-800/80 text-[10.5px] font-bold text-slate-600 dark:text-slate-300">
+                        Students ({searchResults.length})
                       </div>
-                    </div>
-                    <div className="w-6 h-6 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 ml-2">
-                      <Trophy className="w-3 h-3" />
-                    </div>
-                  </button>
-                ))}
+                    )}
+                    {searchResults.map((st) => (
+                      <button
+                        key={st.id}
+                        onClick={() => {
+                          setMobileSearchOpen(false);
+                          handleStudentClick(st.id);
+                        }}
+                        className="w-full p-2.5 text-left hover:bg-blue-50/80 dark:hover:bg-slate-800/80 flex items-center justify-between transition"
+                      >
+                        <div className="flex items-center space-x-2.5 min-w-0">
+                          <StudentAvatar photoUrl={st.photoUrl} name={st.fullName} size="sm" />
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{st.fullName}</div>
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate flex items-center space-x-1 mt-0.5">
+                              <span className="font-mono font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/70 px-1 py-0.2 rounded border border-blue-200 dark:border-blue-800 text-[9px]">
+                                {st.sprStudentId || st.studentId}
+                              </span>
+                              <span>• Standard {formatClassNumber(st.className)}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="w-6 h-6 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 ml-2">
+                          <Trophy className="w-3 h-3" />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : searchQuery.trim() ? (
               <div className="py-4 text-center text-xs text-slate-400">
-                No students found matching &quot;{searchQuery}&quot;
+                No programmes, exams, or students found matching &quot;{searchQuery}&quot;
               </div>
             ) : null}
           </div>
@@ -654,7 +719,7 @@ export default function PublicHomePage() {
                     }
                   }}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search student by name (e.g. Irfan, Swalih), ID, or Class..."
+                  placeholder="Search student, programme (e.g. HS Essay, Elocution), or exam..."
                   className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 bg-transparent outline-none font-semibold"
                 />
                 {searching && (
@@ -665,6 +730,7 @@ export default function PublicHomePage() {
                     onClick={() => {
                       setSearchQuery('');
                       setSearchResults([]);
+                      setSearchItems([]);
                       setShowSearchDropdown(false);
                     }}
                     className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 mr-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -676,54 +742,104 @@ export default function PublicHomePage() {
 
               {/* Completely Opaque Isolated Search Dropdown (z-[100]) */}
               {showSearchDropdown && searchQuery.trim().length >= 1 && (
-                <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-[100] max-h-80 overflow-y-auto animate-slide-up">
+                <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-[100] max-h-96 overflow-y-auto animate-slide-up divide-y divide-slate-100 dark:divide-slate-800">
                   {searching ? (
                     <div className="py-6 px-4 flex items-center justify-center">
-                      <VideoLoader size="sm" text="Searching students..." subtext="SPR Registry" />
+                      <VideoLoader size="sm" text="Searching registry..." subtext="SPR Registry" />
                     </div>
-                  ) : searchResults.length > 0 ? (
+                  ) : (searchItems.length > 0 || searchResults.length > 0) ? (
                     <>
-                      <div className="p-2.5 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-bold">
-                        <span>Found {searchResults.length} Students</span>
-                        <button
-                          onClick={() => setShowSearchDropdown(false)}
-                          className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                      <div className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
-                        {searchResults.map((st) => (
-                          <button
-                            key={st.id}
-                            onClick={() => handleStudentClick(st.id)}
-                            className="w-full px-3.5 py-2.5 text-left bg-white dark:bg-slate-900 hover:bg-blue-50/80 dark:hover:bg-slate-800/80 flex items-center justify-between group transition-colors duration-150"
-                          >
-                            <div className="flex items-center space-x-2.5 min-w-0">
-                              <StudentAvatar photoUrl={st.photoUrl} name={st.fullName} size="sm" />
-                              <div className="min-w-0">
-                                <div className="text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
-                                  {st.fullName}
+                      {/* Section 1: Programmes, Competitions & Exams */}
+                      {searchItems.length > 0 && (
+                        <div>
+                          <div className="p-2.5 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent dark:from-amber-950/40 dark:to-transparent border-b border-amber-200/60 dark:border-slate-800 flex items-center justify-between text-[11px] text-amber-900 dark:text-amber-300 font-bold">
+                            <span className="flex items-center space-x-1.5">
+                              <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                              <span>Programmes, Competitions & Exams ({searchItems.length})</span>
+                            </span>
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">Click to view leaderboard</span>
+                          </div>
+                          <div className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+                            {searchItems.map((item) => (
+                              <button
+                                key={`d-${item.type}-${item.id || item.name}`}
+                                onClick={() => handleItemClick(item)}
+                                className="w-full px-3.5 py-2.5 text-left bg-white dark:bg-slate-900 hover:bg-amber-50/70 dark:hover:bg-slate-800/80 flex items-center justify-between group transition-colors"
+                              >
+                                <div className="min-w-0 pr-3">
+                                  <div className="text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors truncate flex items-center space-x-1.5">
+                                    <span>{item.name}</span>
+                                  </div>
+                                  <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate flex items-center space-x-1.5 mt-0.5">
+                                    {item.parentName && (
+                                      <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.2 rounded text-slate-700 dark:text-slate-300 font-semibold">
+                                        {item.parentName}
+                                      </span>
+                                    )}
+                                    <span>• {item.categoryName}</span>
+                                    {item.participantCount > 0 && (
+                                      <span className="text-blue-600 dark:text-blue-400 font-bold">
+                                        • {item.participantCount} evaluated
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
-                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate flex items-center space-x-1 mt-0.5">
-                                  <span className="font-mono font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/70 px-1.5 py-0.2 rounded border border-blue-200 dark:border-blue-800 text-[9.5px]">
-                                    {st.sprStudentId || st.studentId}
-                                  </span>
-                                  <span>• Standard {formatClassNumber(st.className)} {st.division ? `(${st.division})` : ''} {st.schoolName ? `• ${st.schoolName}` : ''}</span>
+                                <div className="shrink-0 flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/70 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs font-bold shadow-2xs group-hover:bg-amber-500 group-hover:text-white transition">
+                                  <span>Leaderboard</span>
+                                  <ArrowRight className="w-3 h-3 ml-0.5" />
                                 </div>
-                              </div>
-                            </div>
-                            <div className="w-6 h-6 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition shadow-2xs shrink-0 ml-2">
-                              <Trophy className="w-3 h-3" />
-                            </div>
-                          </button>
-                        ))}
-                      </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Section 2: Students */}
+                      {searchResults.length > 0 && (
+                        <div>
+                          <div className="p-2.5 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-bold">
+                            <span>Found {searchResults.length} Students</span>
+                            <button
+                              onClick={() => setShowSearchDropdown(false)}
+                              className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          <div className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+                            {searchResults.map((st) => (
+                              <button
+                                key={st.id}
+                                onClick={() => handleStudentClick(st.id)}
+                                className="w-full px-3.5 py-2.5 text-left bg-white dark:bg-slate-900 hover:bg-blue-50/80 dark:hover:bg-slate-800/80 flex items-center justify-between group transition-colors duration-150"
+                              >
+                                <div className="flex items-center space-x-2.5 min-w-0">
+                                  <StudentAvatar photoUrl={st.photoUrl} name={st.fullName} size="sm" />
+                                  <div className="min-w-0">
+                                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+                                      {st.fullName}
+                                    </div>
+                                    <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate flex items-center space-x-1 mt-0.5">
+                                      <span className="font-mono font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/70 px-1.5 py-0.2 rounded border border-blue-200 dark:border-blue-800 text-[9.5px]">
+                                        {st.sprStudentId || st.studentId}
+                                      </span>
+                                      <span>• Standard {formatClassNumber(st.className)} {st.division ? `(${st.division})` : ''} {st.schoolName ? `• ${st.schoolName}` : ''}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="w-6 h-6 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition shadow-2xs shrink-0 ml-2">
+                                  <Trophy className="w-3 h-3" />
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </>
                   ) : (
                     <div className="py-6 px-4 text-center text-xs text-slate-500 dark:text-slate-400">
-                      <p>No students found for &ldquo;<span className="font-semibold text-slate-800 dark:text-slate-200">{searchQuery}</span>&rdquo;</p>
-                      <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Try searching by student name, ID code (e.g. MSOE), or class number.</p>
+                      <p>No programmes, exams or students found for &ldquo;<span className="font-semibold text-slate-800 dark:text-slate-200">{searchQuery}</span>&rdquo;</p>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Try searching by student name, ID code (e.g. MSOE), or programme name (e.g. HS Essay, Elocution).</p>
                     </div>
                   )}
                 </div>
@@ -1533,6 +1649,20 @@ export default function PublicHomePage() {
         isOpen={!!selectedNews}
         news={selectedNews}
         onClose={() => setSelectedNews(null)}
+      />
+
+      {/* Programme / Competition / Exam Item Leaderboard Modal */}
+      <ItemLeaderboardModal
+        isOpen={itemLeaderboardModalOpen}
+        onClose={() => {
+          setItemLeaderboardModalOpen(false);
+          setSelectedItemLeaderboard(null);
+        }}
+        item={selectedItemLeaderboard}
+        onSelectStudent={(studentId) => {
+          setItemLeaderboardModalOpen(false);
+          openStudentDossier(studentId);
+        }}
       />
 
       {/* Permanent Public Footer */}

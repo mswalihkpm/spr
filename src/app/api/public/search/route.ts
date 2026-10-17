@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     const q = searchParams.get('q')?.trim() || '';
 
     if (!q) {
-      return NextResponse.json({ students: [] });
+      return NextResponse.json({ students: [], items: [] });
     }
 
     const cacheKey = q.toLowerCase();
@@ -28,12 +28,16 @@ export async function GET(req: NextRequest) {
     }
 
     // Split search query into individual words/tokens for flexible multi-term matching
-    const words = q.split(/\s+/).filter(Boolean);
-    if (words.length === 0) {
-      return NextResponse.json({ students: [] });
+    const rawWords = q.split(/\s+/).filter(Boolean);
+    if (rawWords.length === 0) {
+      return NextResponse.json({ students: [], items: [] });
     }
 
-    const andConditions = words.map((w) => {
+    // Expand search words with aliases (e.g. "hs" -> "highschool", "high school")
+    const words = rawWords.map((w) => w.toLowerCase());
+
+    // 1. STUDENTS SEARCH
+    const andConditions = rawWords.map((w) => {
       const orConditions: any[] = [
         { fullName: { contains: w, mode: 'insensitive' as const } },
         { studentId: { contains: w, mode: 'insensitive' as const } },
@@ -53,7 +57,7 @@ export async function GET(req: NextRequest) {
       return { OR: orConditions };
     });
 
-    const students = await prisma.student.findMany({
+    const studentsPromise = prisma.student.findMany({
       where: {
         status: { not: 'INACTIVE' },
         AND: andConditions,
@@ -68,11 +72,147 @@ export async function GET(req: NextRequest) {
         class: { select: { id: true, name: true, numericGrade: true } },
         school: { select: { id: true, name: true } },
       },
-      take: 25,
-      orderBy: [
-        { class: { numericGrade: 'asc' } },
-        { fullName: 'asc' },
-      ],
+      take: 20,
+      orderBy: [{ class: { numericGrade: 'asc' } }, { fullName: 'asc' }],
+    });
+
+    // 2. PROGRAMMES, COMPETITIONS & EXAMS SEARCH
+    // Query literary competitions
+    const litCompsPromise = prisma.literaryCompetition.findMany({
+      select: {
+        id: true,
+        name: true,
+        maxScore: true,
+        event: { select: { name: true } },
+        _count: { select: { performanceRecords: true } },
+      },
+      take: 200,
+    });
+
+    // Query program competitions
+    const compsPromise = prisma.competition.findMany({
+      select: {
+        id: true,
+        name: true,
+        maxScore: true,
+        program: { select: { name: true } },
+        _count: { select: { performanceRecords: true } },
+      },
+      take: 200,
+    });
+
+    // Query exams
+    const examsPromise = prisma.exam.findMany({
+      select: {
+        id: true,
+        name: true,
+        category: { select: { name: true, code: true } },
+        _count: { select: { performanceRecords: true } },
+      },
+      take: 100,
+    });
+
+    const [students, litComps, comps, exams] = await Promise.all([
+      studentsPromise,
+      litCompsPromise,
+      compsPromise,
+      examsPromise,
+    ]);
+
+    // Normalize matching text helper: replaces "highschool" with "hs", removes punctuation
+    const normalizeString = (str: string) => {
+      return (str || '')
+        .toLowerCase()
+        .replace(/highschool|high\s*school/g, 'hs')
+        .replace(/junior/g, 'jr')
+        .replace(/senior/g, 'sr')
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
+
+    const searchTokens = words.map(normalizeString).filter(Boolean);
+    const normalizedQuery = normalizeString(q);
+
+    const matchesQuery = (name: string, parentName: string = '') => {
+      const fullNormalized = normalizeString(`${name} ${parentName}`);
+      if (fullNormalized.includes(normalizedQuery)) return true;
+      // All tokens or significant tokens match
+      let matchCount = 0;
+      for (const token of searchTokens) {
+        if (fullNormalized.includes(token)) matchCount++;
+      }
+      return matchCount >= Math.min(searchTokens.length, 2) || (searchTokens.length === 1 && matchCount === 1);
+    };
+
+    const items: Array<{
+      id: string;
+      name: string;
+      type: 'LITERARY_COMPETITION' | 'COMPETITION' | 'EXAM';
+      parentName: string;
+      categoryName: string;
+      categoryCode: string;
+      participantCount: number;
+      maxScore?: number;
+    }> = [];
+
+    // Filter literary competitions
+    litComps.forEach((lc) => {
+      const parent = lc.event?.name || 'Literary Festival';
+      if (matchesQuery(lc.name, parent)) {
+        items.push({
+          id: lc.id,
+          name: lc.name,
+          type: 'LITERARY_COMPETITION',
+          parentName: parent,
+          categoryName: 'Literary Festivals',
+          categoryCode: 'LITERARY',
+          participantCount: lc._count?.performanceRecords || 0,
+          maxScore: lc.maxScore,
+        });
+      }
+    });
+
+    // Filter program competitions
+    comps.forEach((c) => {
+      const parent = c.program?.name || 'Programs';
+      if (matchesQuery(c.name, parent)) {
+        items.push({
+          id: c.id,
+          name: c.name,
+          type: 'COMPETITION',
+          parentName: parent,
+          categoryName: 'Programs & Competitions',
+          categoryCode: 'PROGRAMS',
+          participantCount: c._count?.performanceRecords || 0,
+          maxScore: c.maxScore,
+        });
+      }
+    });
+
+    // Filter exams
+    exams.forEach((e) => {
+      const parent = e.category?.name || 'Academic Assessment';
+      if (matchesQuery(e.name, parent)) {
+        items.push({
+          id: e.id,
+          name: e.name,
+          type: 'EXAM',
+          parentName: parent,
+          categoryName: e.category?.name || 'School Studies',
+          categoryCode: e.category?.code || 'SCHOOL',
+          participantCount: e._count?.performanceRecords || 0,
+        });
+      }
+    });
+
+    // Sort items: items with more participants and closer name match first
+    items.sort((a, b) => {
+      const aExact = normalizeString(a.name) === normalizedQuery ? 1 : 0;
+      const bExact = normalizeString(b.name) === normalizedQuery ? 1 : 0;
+      if (bExact !== aExact) return bExact - aExact;
+      if (b.participantCount !== a.participantCount) return b.participantCount - a.participantCount;
+      return a.name.localeCompare(b.name);
     });
 
     const payload = {
@@ -86,6 +226,7 @@ export async function GET(req: NextRequest) {
         division: s.division,
         photoUrl: s.photoUrl,
       })),
+      items: items.slice(0, 15),
     };
 
     searchCache.set(cacheKey, { timestamp: now, data: payload });
@@ -97,7 +238,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('Public search error:', error);
-    return NextResponse.json({ error: 'Failed to search students.' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to search students and items.' }, { status: 500 });
   }
 }
-

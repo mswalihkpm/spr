@@ -23,12 +23,16 @@ import {
   Award,
   Loader2,
   Sparkles,
+  Users,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
 import { getAcademicMasterData } from '@/lib/academic-client';
 import SearchableStudentSelect from '@/components/ui/SearchableStudentSelect';
+import SearchableProgrammeSelect from '@/components/ui/SearchableProgrammeSelect';
 import CustomSelect from '@/components/ui/CustomSelect';
+import MultiStudentRecordModal from '@/components/modals/MultiStudentRecordModal';
+import MultiProgrammeRecordModal from '@/components/modals/MultiProgrammeRecordModal';
 
 const resolveLevelMultiplier = (lvl: any, levelsList: any[]): number => {
   if (!lvl) return 1.0;
@@ -78,6 +82,9 @@ export default function ProgramsPage() {
     score: '90',
     remarks: '',
   });
+  const [multiStudentModalOpen, setMultiStudentModalOpen] = useState(false);
+  const [multiProgrammeModalOpen, setMultiProgrammeModalOpen] = useState(false);
+  const [progCategoryId, setProgCategoryId] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -172,6 +179,7 @@ export default function ProgramsPage() {
       if (!silent) setLoading(true);
       const dataMaster = await getAcademicMasterData();
       const progCat = dataMaster.categories?.find((c: any) => c.code === 'PROGRAMS');
+      if (progCat) setProgCategoryId(progCat.id);
       const scoreQuery = progCat ? `/api/scores?categoryId=${progCat.id}&limit=500` : '/api/scores?limit=500';
 
       const [resScores, resStudents] = await Promise.all([
@@ -624,20 +632,36 @@ export default function ProgramsPage() {
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => setBulkModalOpen(true)}
-              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center space-x-1.5 shadow transition-all hover:shadow-md"
+              onClick={() => setMultiStudentModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center space-x-1.5 shadow-sm transition hover:scale-105 active:scale-95"
+              title="Add more than one student to the same programme"
             >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-100" />
-              <span>Multi-Activity Bulk Upload</span>
+              <Users className="w-4 h-4 text-amber-300" />
+              <span>Multi-Student Entry</span>
+            </button>
+            <button
+              onClick={() => setMultiProgrammeModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center space-x-1.5 shadow-sm transition hover:scale-105 active:scale-95"
+              title="Add more than one programme for the same student"
+            >
+              <Trophy className="w-4 h-4 text-amber-300" />
+              <span>Multi-Programme Entry</span>
             </button>
             <button
               onClick={() => setModalOpen(true)}
-              className="px-4 py-2 rounded-xl bg-madin-900 hover:bg-madin-950 text-white text-xs font-semibold flex items-center space-x-1.5 shadow transition-all"
+              className="px-3.5 py-2 rounded-xl bg-madin-900 hover:bg-madin-950 text-white text-xs font-semibold flex items-center space-x-1.5 shadow transition-all"
             >
               <Plus className="w-4 h-4 text-gold-400" />
-              <span>Record Single Result</span>
+              <span>Single Result</span>
+            </button>
+            <button
+              onClick={() => setBulkModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center space-x-1.5 shadow transition-all hover:shadow-md"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-100" />
+              <span>Excel Bulk</span>
             </button>
           </div>
         </div>
@@ -885,14 +909,24 @@ export default function ProgramsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Activity / Competition * (Ontime)</label>
-                    <input
-                      type="text"
-                      required
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                      <span>Activity / Competition *</span>
+                      <span className="text-[10px] text-blue-600 font-normal">(search historical base points)</span>
+                    </label>
+                    <SearchableProgrammeSelect
                       value={formData.competitionName}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, competitionName: e.target.value }))}
-                      placeholder="e.g. Elocution & Speech"
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
+                      onChange={(name, histBase, histLevel) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          competitionName: name,
+                          score: histBase ? String(histBase) : prev.score,
+                          levelId: histLevel || prev.levelId,
+                        }));
+                      }}
+                      onBasePointsChange={(pts) => setFormData((prev) => ({ ...prev, score: String(pts) }))}
+                      categoryType="PROGRAMS"
+                      placeholder="Select or search competition..."
+                      required
                     />
                   </div>
                 </div>
@@ -1441,6 +1475,31 @@ export default function ProgramsPage() {
           </div>
         </div>
       )}
+
+      {/* Mode A: Same Programme -> Multiple Students Modal */}
+      <MultiStudentRecordModal
+        isOpen={multiStudentModalOpen}
+        onClose={() => setMultiStudentModalOpen(false)}
+        categoryType="PROGRAMS"
+        categoryTitle="Programs & Competitions"
+        categoryId={progCategoryId}
+        levels={levels}
+        classes={classes}
+        students={allStudents.length > 0 ? allStudents : students}
+        onSuccess={() => fetchData(true)}
+      />
+
+      {/* Mode B: Same Student -> Multiple Programmes Modal */}
+      <MultiProgrammeRecordModal
+        isOpen={multiProgrammeModalOpen}
+        onClose={() => setMultiProgrammeModalOpen(false)}
+        categoryType="PROGRAMS"
+        categoryTitle="Programs & Competitions"
+        categoryId={progCategoryId}
+        levels={levels}
+        students={allStudents.length > 0 ? allStudents : students}
+        onSuccess={() => fetchData(true)}
+      />
     </AdminLayout>
   );
 }

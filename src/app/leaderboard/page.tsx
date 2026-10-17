@@ -1214,56 +1214,7 @@ function deriveCategoryLeaderboard(
             </HorizontalScrollRibbon>
           )}
 
-          {/* Level 2: Subcategory Pills for Multi-Stream Wings (Islamic Studies) */}
-          {isIslamicActive && (
-            <HorizontalScrollRibbon
-              activeItemId={selectedStream || (selectedCategory && !selectedStream ? 'COMBINED' : '')}
-              className="rounded-2xl animate-slide-down shadow-xs"
-              containerClassName="p-1.5 sm:p-2 bg-blue-50/90 rounded-2xl border border-blue-200/80 items-center gap-2"
-              ariaLabel="Islamic studies stream filters"
-            >
-              <span className="text-[10px] uppercase font-black text-blue-900 ml-1.5 shrink-0">Select Stream:</span>
-              <button
-                data-item-id="JAMIATHUL_HIND"
-                data-active={selectedStream === 'JAMIATHUL_HIND'}
-                onClick={() => switchLeaderboard({ type: 'STREAM', stream: 'JAMIATHUL_HIND' })}
-                className={`px-3 py-1 rounded-xl text-xs font-bold transition shrink-0 flex items-center space-x-1.5 ${
-                  selectedStream === 'JAMIATHUL_HIND'
-                    ? 'bg-blue-600 text-white shadow-2xs'
-                    : 'bg-white text-slate-700 hover:bg-blue-100/60 border border-blue-200'
-                }`}
-              >
-                <span>🕌 Jamiathul Hind</span>
-              </button>
-              <button
-                data-item-id="MADIN_ACADEMY"
-                data-active={selectedStream === 'MADIN_ACADEMY'}
-                onClick={() => switchLeaderboard({ type: 'STREAM', stream: 'MADIN_ACADEMY' })}
-                className={`px-3 py-1 rounded-xl text-xs font-bold transition shrink-0 flex items-center space-x-1.5 ${
-                  selectedStream === 'MADIN_ACADEMY'
-                    ? 'bg-teal-700 text-white shadow-2xs'
-                    : 'bg-white text-slate-700 hover:bg-teal-100/60 border border-teal-200'
-                }`}
-              >
-                <span>🏛️ Ma'din Academy</span>
-              </button>
-              <button
-                data-item-id="COMBINED"
-                data-active={Boolean(selectedCategory && !selectedStream && currentCategory?.code === 'ISLAMIC')}
-                onClick={() => {
-                  const cat = categories.find((c) => c.code === 'ISLAMIC');
-                  if (cat) switchLeaderboard({ type: 'CATEGORY', categoryId: cat.id });
-                }}
-                className={`px-3 py-1 rounded-xl text-xs font-bold transition shrink-0 flex items-center space-x-1.5 ${
-                  selectedCategory && !selectedStream && currentCategory?.code === 'ISLAMIC'
-                    ? 'bg-slate-800 text-white shadow-2xs'
-                    : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-                }`}
-              >
-                <span>📋 Combined Islamic</span>
-              </button>
-            </HorizontalScrollRibbon>
-          )}
+
         </div>
 
         {/* Dynamic Themed Subcategory Hero Banner (With Scroll-Driven Parallax, Logo at Left Top, Name at Left Top, Tiny White Glow) */}

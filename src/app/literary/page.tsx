@@ -30,8 +30,11 @@ import {
 import VideoLoader from '@/components/ui/VideoLoader';
 import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
 import SearchableStudentSelect from '@/components/ui/SearchableStudentSelect';
+import SearchableProgrammeSelect from '@/components/ui/SearchableProgrammeSelect';
 import { getAcademicMasterData } from '@/lib/academic-client';
 import CustomSelect from '@/components/ui/CustomSelect';
+import MultiStudentRecordModal from '@/components/modals/MultiStudentRecordModal';
+import MultiProgrammeRecordModal from '@/components/modals/MultiProgrammeRecordModal';
 
 const resolveLevelMultiplier = (lvl: any, levelsList: any[]): number => {
   if (!lvl) return 1.0;
@@ -170,6 +173,8 @@ export default function LiteraryProgramsPage() {
     grade: 'A+',
     remarks: '',
   });
+  const [multiStudentModalOpen, setMultiStudentModalOpen] = useState(false);
+  const [multiProgrammeModalOpen, setMultiProgrammeModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -704,20 +709,36 @@ export default function LiteraryProgramsPage() {
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setMultiStudentModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center space-x-1.5 shadow-sm transition hover:scale-105 active:scale-95"
+              title="Add more than one student to the same literary programme"
+            >
+              <Trophy className="w-4 h-4 text-amber-300" />
+              <span>Multi-Student Entry</span>
+            </button>
+            <button
+              onClick={() => setMultiProgrammeModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center space-x-1.5 shadow-sm transition hover:scale-105 active:scale-95"
+              title="Add more than one literary programme for the same student"
+            >
+              <Feather className="w-4 h-4 text-purple-200" />
+              <span>Multi-Programme Entry</span>
+            </button>
+            <button
+              onClick={() => setModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-madin-900 hover:bg-madin-950 text-white text-xs font-semibold flex items-center space-x-1.5 shadow transition-all"
+            >
+              <Plus className="w-4 h-4 text-gold-400" />
+              <span>Single Award</span>
+            </button>
             <button
               onClick={() => setBulkModalOpen(true)}
               className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center space-x-1.5 shadow transition"
             >
               <FileSpreadsheet className="w-4 h-4" />
-              <span>Multi-Event Bulk Upload</span>
-            </button>
-            <button
-              onClick={() => setModalOpen(true)}
-              className="px-4 py-2 rounded-xl bg-madin-900 hover:bg-madin-950 text-white text-xs font-semibold flex items-center space-x-1.5 shadow transition-all"
-            >
-              <Plus className="w-4 h-4 text-gold-400" />
-              <span>Record Single Award</span>
+              <span>Excel Bulk</span>
             </button>
           </div>
         </div>
@@ -1398,14 +1419,36 @@ export default function LiteraryProgramsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Competition / Item *</label>
-                    <input
-                      type="text"
-                      required
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                      <span>Competition / Item *</span>
+                      <span className="text-[10px] text-rose-600 font-normal">(search historical base points)</span>
+                    </label>
+                    <SearchableProgrammeSelect
                       value={formData.competitionName}
-                      onChange={(e) => setFormData({ ...formData, competitionName: e.target.value })}
-                      placeholder="e.g. Malayalam Essay / Urdu Ghazal"
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-rose-600"
+                      onChange={(name, histBase, histLevel, histEvent) => {
+                        setFormData((prev) => {
+                          const updated = {
+                            ...prev,
+                            competitionName: name,
+                            score: histBase ? String(histBase) : prev.score,
+                            levelId: histLevel || prev.levelId,
+                          };
+                          if (histEvent) {
+                            const matchedSub = subcategories.find(
+                              (s) => s.name.toLowerCase() === histEvent.toLowerCase()
+                            );
+                            if (matchedSub) {
+                              updated.subcategoryId = matchedSub.id;
+                              updated.festivalName = matchedSub.name;
+                            }
+                          }
+                          return updated;
+                        });
+                      }}
+                      onBasePointsChange={(pts) => setFormData((prev) => ({ ...prev, score: String(pts) }))}
+                      categoryType="LITERARY"
+                      placeholder="Select or search literary programme..."
+                      required
                     />
                   </div>
                 </div>
@@ -1762,6 +1805,33 @@ export default function LiteraryProgramsPage() {
           </div>
         </div>
       )}
+
+      {/* Mode A: Same Literary Programme -> Multiple Students Modal */}
+      <MultiStudentRecordModal
+        isOpen={multiStudentModalOpen}
+        onClose={() => setMultiStudentModalOpen(false)}
+        categoryType="LITERARY"
+        categoryTitle="Literary Festivals & Competitions"
+        categoryId={litCategoryId}
+        levels={levels}
+        classes={classes}
+        students={students}
+        subcategories={subcategories}
+        onSuccess={() => fetchData(true)}
+      />
+
+      {/* Mode B: Same Student -> Multiple Literary Programmes Modal */}
+      <MultiProgrammeRecordModal
+        isOpen={multiProgrammeModalOpen}
+        onClose={() => setMultiProgrammeModalOpen(false)}
+        categoryType="LITERARY"
+        categoryTitle="Literary Festivals & Competitions"
+        categoryId={litCategoryId}
+        levels={levels}
+        students={students}
+        subcategories={subcategories}
+        onSuccess={() => fetchData(true)}
+      />
     </AdminLayout>
   );
 }
