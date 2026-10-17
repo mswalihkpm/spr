@@ -252,32 +252,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (action === 'BULK_DELETE_AUDIT_LOGS') {
-      const logIds = body.logIds || body.ids;
-      if (!logIds || !Array.isArray(logIds) || logIds.length === 0) {
-        return NextResponse.json({ error: 'No audit log IDs provided for deletion.' }, { status: 400 });
-      }
-
-      const deleteResult = await prisma.auditLog.deleteMany({
-        where: { id: { in: logIds } },
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: `Successfully deleted ${deleteResult.count} audit log entry(ies).`,
-        count: deleteResult.count,
-        deletedCount: deleteResult.count,
-      });
-    }
-
-    if (action === 'CLEAR_AUDIT_LOGS') {
-      const deleteResult = await prisma.auditLog.deleteMany({});
-      return NextResponse.json({
-        success: true,
-        message: `Cleared all ${deleteResult.count} audit log entries.`,
-        count: deleteResult.count,
-      });
-    }
 
     return NextResponse.json({ error: 'Invalid settings action.' }, { status: 400 });
   } catch (error: any) {

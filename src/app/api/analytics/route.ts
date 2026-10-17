@@ -109,18 +109,8 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // Recent audit activities
-    const recentActivities = await prisma.auditLog.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 8,
-      select: {
-        id: true,
-        action: true,
-        entity: true,
-        userName: true,
-        createdAt: true,
-      },
-    });
+    // Recent activities (AuditLog disabled)
+    const recentActivities: any[] = [];
 
     const payload = {
       kpi: {

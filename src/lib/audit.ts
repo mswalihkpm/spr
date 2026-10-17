@@ -1,9 +1,7 @@
-import { prisma } from './prisma';
-
-export async function logAuditAction(params: {
+export async function logAuditAction(_params: {
   userId?: string | null;
   userName?: string | null;
-  action: string; // CREATE, UPDATE, DELETE, IMPORT, LOGIN, PASSWORD_CHANGE, SYNC
+  action: string;
   entity: string;
   entityId?: string | null;
   previousValue?: any;
@@ -11,28 +9,7 @@ export async function logAuditAction(params: {
   ipAddress?: string | null;
   userAgent?: string | null;
 }): Promise<void> {
-  // Fire asynchronously in background to achieve instant (<50ms) API responses
-  const writePromise = (async () => {
-    try {
-      await prisma.auditLog.create({
-        data: {
-          userId: params.userId,
-          userName: params.userName,
-          action: params.action,
-          entity: params.entity,
-          entityId: params.entityId,
-          previousValue: params.previousValue ? JSON.stringify(params.previousValue) : null,
-          newValue: params.newValue ? JSON.stringify(params.newValue) : null,
-          ipAddress: params.ipAddress,
-          userAgent: params.userAgent,
-        },
-      });
-    } catch (err) {
-      console.error('Failed to write audit log:', err);
-    }
-  })();
-
-  // Catch any floating rejection immediately
-  writePromise.catch((err) => console.error('Audit log background task error:', err));
+  // Audit logging has been removed per user preference; no database writes performed.
+  return;
 }
 

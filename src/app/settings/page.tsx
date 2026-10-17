@@ -15,7 +15,6 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
-  History,
   Trophy,
   Sparkles,
   Key,
@@ -38,7 +37,6 @@ export default function SettingsPage() {
   // Master Data
   const [masterData, setMasterData] = useState<any>({});
   const [usersList, setUsersList] = useState<any[]>([]);
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -68,10 +66,7 @@ export default function SettingsPage() {
   const [bulkDeletingUsers, setBulkDeletingUsers] = useState(false);
   const [confirmBulkDeleteUsersOpen, setConfirmBulkDeleteUsersOpen] = useState(false);
 
-  // Audit logs bulk selection & deletion state
-  const [selectedAuditLogIds, setSelectedAuditLogIds] = useState<string[]>([]);
-  const [bulkDeletingAuditLogs, setBulkDeletingAuditLogs] = useState(false);
-  const [confirmBulkDeleteAuditLogsOpen, setConfirmBulkDeleteAuditLogsOpen] = useState(false);
+
 
   // Assessment Exams & Terms bulk selection & deletion state
   const [selectedExamIds, setSelectedExamIds] = useState<string[]>([]);
@@ -135,67 +130,7 @@ export default function SettingsPage() {
     }
   };
 
-  // Audit Logs Handlers
-  const handleToggleSelectAllAuditLogs = () => {
-    const allSelected = auditLogs.length > 0 && auditLogs.every((l) => selectedAuditLogIds.includes(l.id));
-    if (allSelected) {
-      setSelectedAuditLogIds([]);
-    } else {
-      setSelectedAuditLogIds(auditLogs.map((l) => l.id));
-    }
-  };
 
-  const handleToggleSelectAuditLog = (id: string) => {
-    setSelectedAuditLogIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
-
-  const handleBulkDeleteAuditLogs = async () => {
-    if (selectedAuditLogIds.length === 0) return;
-    setBulkDeletingAuditLogs(true);
-    try {
-      const res = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'BULK_DELETE_AUDIT_LOGS', logIds: selectedAuditLogIds }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to bulk delete audit logs.');
-
-      const count = selectedAuditLogIds.length;
-      setSelectedAuditLogIds([]);
-      setConfirmBulkDeleteAuditLogsOpen(false);
-      setStatusMsg({ type: 'success', text: `Successfully deleted ${count} audit log entry(ies).` });
-      fetchSettings(true);
-    } catch (err: any) {
-      setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting audit logs.' });
-    } finally {
-      setBulkDeletingAuditLogs(false);
-    }
-  };
-
-  const handleClearAllAuditLogs = async () => {
-    if (!confirm('Are you sure you want to completely clear ALL audit log entries? This action is irreversible.')) return;
-    setBulkDeletingAuditLogs(true);
-    try {
-      const res = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'CLEAR_AUDIT_LOGS' }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to clear audit logs.');
-
-      setSelectedAuditLogIds([]);
-      setStatusMsg({ type: 'success', text: data.message || 'Audit logs cleared successfully.' });
-      fetchSettings(true);
-    } catch (err: any) {
-      setStatusMsg({ type: 'error', text: err.message || 'Error clearing audit logs.' });
-    } finally {
-      setBulkDeletingAuditLogs(false);
-    }
-  };
 
   // Bulk Exam Handlers
   const handleToggleSelectAllExams = () => {
@@ -449,15 +384,13 @@ export default function SettingsPage() {
       if (!silent) setLoading(true);
       invalidateClientAcademicCache();
       const ts = Date.now();
-      const [resMaster, resSettings, resLogs] = await Promise.all([
+      const [resMaster, resSettings] = await Promise.all([
         fetch(`/api/academic?t=${ts}`, { cache: 'no-store' }),
         fetch(`/api/settings?t=${ts}`, { cache: 'no-store' }),
-        fetch(`/api/audit-logs?limit=40&t=${ts}`, { cache: 'no-store' }),
       ]);
 
       const dataMaster = await resMaster.json();
       const dataSettings = await resSettings.json();
-      const dataLogs = await resLogs.json();
 
       setMasterData(dataMaster);
       if (dataSettings.settings) {
@@ -466,7 +399,6 @@ export default function SettingsPage() {
         if (dataSettings.settings.APP_INTRO_FOOTER) setIntroFooterText(dataSettings.settings.APP_INTRO_FOOTER);
       }
       if (dataSettings.users) setUsersList(dataSettings.users);
-      if (dataLogs.logs) setAuditLogs(dataLogs.logs);
     } catch (err) {
       console.error(err);
     } finally {
@@ -744,7 +676,6 @@ export default function SettingsPage() {
     { id: 'ENTITIES', name: 'Schools & Classes', icon: GraduationCap },
     { id: 'LEVELS', name: 'Levels & Multipliers', icon: Sliders },
     { id: 'USERS', name: 'User Management', icon: Users },
-    { id: 'AUDIT', name: 'Audit Trail', icon: History },
   ];
 
   if (loading) {
@@ -754,7 +685,7 @@ export default function SettingsPage() {
           <VideoLoader
             size="xl"
             text="Loading Institutional Settings & Master Data..."
-            subtext="Accessing academic wings, classes, user permissions, and audit logs"
+            subtext="Accessing academic wings, classes, and user permissions"
             showProgress={true}
           />
         </div>
@@ -1525,105 +1456,7 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* 7. Audit Logs Tab */}
-        {activeTab === 'AUDIT' && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-subtle space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">System Audit Trail</h3>
-                <p className="text-xs text-slate-500">Immutable administrative logs for security and compliance</p>
-              </div>
-              <div className="flex items-center space-x-2">
-                {auditLogs.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleClearAllAuditLogs}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-600 rounded-lg text-xs font-semibold transition flex items-center space-x-1"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Clear All Logs</span>
-                  </button>
-                )}
-              </div>
-            </div>
 
-            {/* Bulk Audit Delete Toolbar */}
-            {selectedAuditLogIds.length > 0 && (
-              <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-2xl flex items-center justify-between shadow-xs animate-fade-in">
-                <div className="flex items-center space-x-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
-                  <span className="text-xs font-bold text-rose-950">
-                    {selectedAuditLogIds.length} audit log entry(ies) selected
-                  </span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedAuditLogIds([])}
-                    className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-rose-100 rounded-xl transition"
-                  >
-                    Deselect
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmBulkDeleteAuditLogsOpen(true)}
-                    className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl flex items-center space-x-1.5 shadow-sm transition hover:scale-105 active:scale-95"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Delete Selected ({selectedAuditLogIds.length})</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="overflow-x-auto max-h-96">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-semibold sticky top-0">
-                  <tr>
-                    <th className="py-2 px-3 w-10 text-center">
-                      <input
-                        type="checkbox"
-                        checked={auditLogs.length > 0 && auditLogs.every((l) => selectedAuditLogIds.includes(l.id))}
-                        onChange={handleToggleSelectAllAuditLogs}
-                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-600 cursor-pointer"
-                        title="Select All Logs"
-                      />
-                    </th>
-                    <th className="py-2 px-3">Timestamp</th>
-                    <th className="py-2 px-3">Administrator</th>
-                    <th className="py-2 px-3">Action</th>
-                    <th className="py-2 px-3">Entity</th>
-                    <th className="py-2 px-3">Details / Value</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
-                  {auditLogs.map((log) => {
-                    const isSelected = selectedAuditLogIds.includes(log.id);
-                    return (
-                      <tr key={log.id} className={`hover:bg-slate-50 ${isSelected ? 'bg-rose-50/50' : ''}`}>
-                        <td className="py-2 px-3 text-center">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => handleToggleSelectAuditLog(log.id)}
-                            className="w-4 h-4 rounded text-blue-600 focus:ring-blue-600 cursor-pointer"
-                          />
-                        </td>
-                        <td className="py-2 px-3 text-slate-500">
-                          {new Date(log.createdAt).toLocaleString()}
-                        </td>
-                        <td className="py-2 px-3 font-sans font-semibold text-slate-900">{log.userName || 'System'}</td>
-                        <td className="py-2 px-3 font-bold text-madin-800">{log.action}</td>
-                        <td className="py-2 px-3 font-sans text-slate-700">{log.entity}</td>
-                        <td className="py-2 px-3 text-slate-500 truncate max-w-xs">{log.newValue || log.previousValue || '—'}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* User Creation Modal */}
@@ -2197,51 +2030,7 @@ export default function SettingsPage() {
         </div>
       )}
       {/* Bulk Delete Audit Logs Confirmation Modal */}
-      {confirmBulkDeleteAuditLogsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-scale-in">
-            <div className="flex items-center space-x-3 text-rose-600 mb-4">
-              <div className="p-3 bg-rose-100 rounded-full">
-                <AlertCircle className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Confirm Bulk Audit Log Deletion</h3>
-                <p className="text-xs text-slate-500">This action cannot be undone.</p>
-              </div>
-            </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed mb-6">
-              Are you sure you want to permanently delete <strong className="text-rose-600">{selectedAuditLogIds.length}</strong> selected audit log entry(ies)?
-            </p>
-
-            <div className="flex items-center justify-end space-x-3">
-              <button
-                type="button"
-                disabled={bulkDeletingAuditLogs}
-                onClick={() => setConfirmBulkDeleteAuditLogsOpen(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={bulkDeletingAuditLogs}
-                onClick={handleBulkDeleteAuditLogs}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md transition hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center space-x-1.5"
-              >
-                {bulkDeletingAuditLogs ? (
-                  <span>Deleting...</span>
-                ) : (
-                  <>
-                    <Trash2 className="w-4 h-4" />
-                    <span>Delete {selectedAuditLogIds.length} Entry(ies)</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Bulk Delete Terms Confirmation Modal */}
       {confirmBulkDeleteTermsOpen && (
