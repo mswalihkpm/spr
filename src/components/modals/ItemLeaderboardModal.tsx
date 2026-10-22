@@ -359,6 +359,11 @@ export default function ItemLeaderboardModal({
 
                         <div className="mt-2.5 flex items-center space-x-1.5">
                           {getPositionBadge(st.position)}
+                          {(st as any).isExam && (st as any).percentage !== undefined && (
+                            <span className="text-[10.5px] font-bold text-slate-600 dark:text-slate-300 font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                              {(st as any).percentage}% ({st.baseScore}/{st.maxScore})
+                            </span>
+                          )}
                         </div>
 
                         <div className="mt-3 w-full pt-2.5 border-t border-slate-200/70 dark:border-slate-800 flex items-center justify-between">
@@ -426,6 +431,11 @@ export default function ItemLeaderboardModal({
                                   {entry.levelName} ({entry.levelMultiplier}x)
                                 </span>
                               )}
+                              {(entry as any).isExam && (entry as any).remarks && (
+                                <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-1.5 py-0.2 rounded text-[9.5px]">
+                                  {(entry as any).remarks}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -435,9 +445,17 @@ export default function ItemLeaderboardModal({
                           <div className="hidden sm:flex flex-col items-end">
                             {getPositionBadge(entry.position)}
                             <div className="text-[10px] text-slate-400 font-mono mt-1">
-                              Base: {entry.baseScore} pts
-                              {entry.levelMultiplier > 1 && ` × ${entry.levelMultiplier}`}
-                              {entry.prizeMultiplier > 1 && ` × ${entry.prizeMultiplier}`}
+                              {(entry as any).isExam ? (
+                                <span>
+                                  {entry.baseScore} / {entry.maxScore} marks ({(entry as any).percentage}%)
+                                </span>
+                              ) : (
+                                <>
+                                  Base: {entry.baseScore} pts
+                                  {entry.levelMultiplier > 1 && ` × ${entry.levelMultiplier}`}
+                                  {entry.prizeMultiplier > 1 && ` × ${entry.prizeMultiplier}`}
+                                </>
+                              )}
                             </div>
                           </div>
 

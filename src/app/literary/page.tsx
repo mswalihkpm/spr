@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import AdminLayout from '@/components/layout/AdminLayout';
@@ -26,6 +26,8 @@ import {
   Upload,
   Loader2,
   Trophy,
+  RotateCcw,
+  SlidersHorizontal,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
@@ -108,6 +110,112 @@ export default function LiteraryProgramsPage() {
   const [recentRecords, setRecentRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Advanced Search & Filter States
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterFest, setFilterFest] = useState('ALL');
+  const [filterClass, setFilterClass] = useState('ALL');
+  const [filterLevel, setFilterLevel] = useState('ALL');
+  const [filterPosition, setFilterPosition] = useState('ALL');
+  const [sortBy, setSortBy] = useState('newest');
+
+  // Extract unique festivals dynamically
+  const uniqueFestivals = useMemo(() => {
+    const set = new Set<string>();
+    recentRecords.forEach((r) => {
+      const fName = r.subcategory?.name || r.literaryCompetition?.event?.name || (r.remarks && r.remarks.includes('-') ? r.remarks.split('-')[0].trim() : null);
+      if (fName) set.add(fName);
+    });
+    return Array.from(set).sort();
+  }, [recentRecords]);
+
+  // Filtered & sorted records
+  const filteredRecords = useMemo(() => {
+    return recentRecords
+      .filter((r) => {
+        const festRawName = r.subcategory?.name || r.literaryCompetition?.event?.name || (r.remarks && r.remarks.includes('-') ? r.remarks.split('-')[0].trim() : '');
+        const compDisplayName = r.literaryCompetition?.name || (r.remarks && r.remarks.includes('-') ? r.remarks.split('-')[1]?.split('.')[0]?.trim() : r.remarks) || '';
+        const studentName = r.student?.fullName || '';
+        const sprId = r.student?.sprStudentId || '';
+        const className = r.student?.class?.name || '';
+        const classId = r.student?.class?.id || r.student?.classId || '';
+        const remarks = r.remarks || '';
+
+        // Text search
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase().trim();
+          const matches =
+            studentName.toLowerCase().includes(q) ||
+            sprId.toLowerCase().includes(q) ||
+            festRawName.toLowerCase().includes(q) ||
+            compDisplayName.toLowerCase().includes(q) ||
+            className.toLowerCase().includes(q) ||
+            remarks.toLowerCase().includes(q);
+          if (!matches) return false;
+        }
+
+        // Festival filter
+        if (filterFest !== 'ALL') {
+          if (festRawName !== filterFest) return false;
+        }
+
+        // Class filter
+        if (filterClass !== 'ALL') {
+          if (classId !== filterClass && className !== filterClass) return false;
+        }
+
+        // Level filter
+        if (filterLevel !== 'ALL') {
+          const lvlId = r.level?.id || r.levelId;
+          if (lvlId !== filterLevel) return false;
+        }
+
+        // Position filter
+        if (filterPosition !== 'ALL') {
+          const pos = (r.position || '').toLowerCase();
+          if (filterPosition === '1st' && !pos.startsWith('1') && !pos.includes('first')) return false;
+          if (filterPosition === '2nd' && !pos.startsWith('2') && !pos.includes('second')) return false;
+          if (filterPosition === '3rd' && !pos.startsWith('3') && !pos.includes('third')) return false;
+          if (filterPosition === 'Participated' && !pos.includes('participat') && !pos.includes('qualif')) return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'highest_pts' || sortBy === 'lowest_pts') {
+          const lvlA = resolveLevelMultiplier(a.level, levels);
+          const prizeA = resolvePrizeMultiplier(a.position);
+          const ptsA = (typeof a.obtainedScore === 'number' ? a.obtainedScore : 0) * prizeA * lvlA;
+
+          const lvlB = resolveLevelMultiplier(b.level, levels);
+          const prizeB = resolvePrizeMultiplier(b.position);
+          const ptsB = (typeof b.obtainedScore === 'number' ? b.obtainedScore : 0) * prizeB * lvlB;
+
+          return sortBy === 'highest_pts' ? ptsB - ptsA : ptsA - ptsB;
+        }
+        if (sortBy === 'name') {
+          return (a.student?.fullName || '').localeCompare(b.student?.fullName || '');
+        }
+        return 0;
+      });
+  }, [recentRecords, searchQuery, filterFest, filterClass, filterLevel, filterPosition, sortBy, levels]);
+
+  const activeFilterCount =
+    (searchQuery.trim() ? 1 : 0) +
+    (filterFest !== 'ALL' ? 1 : 0) +
+    (filterClass !== 'ALL' ? 1 : 0) +
+    (filterLevel !== 'ALL' ? 1 : 0) +
+    (filterPosition !== 'ALL' ? 1 : 0) +
+    (sortBy !== 'newest' ? 1 : 0);
+
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setFilterFest('ALL');
+    setFilterClass('ALL');
+    setFilterLevel('ALL');
+    setFilterPosition('ALL');
+    setSortBy('newest');
+  };
+
   // Bulk selection & deletion state
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -115,12 +223,12 @@ export default function LiteraryProgramsPage() {
   const [modalDeleteError, setModalDeleteError] = useState<string | null>(null);
 
   const handleToggleSelectAll = () => {
-    const allSelected = recentRecords.length > 0 && recentRecords.every((r) => selectedRecordIds.includes(r.id));
+    const allSelected = filteredRecords.length > 0 && filteredRecords.every((r) => selectedRecordIds.includes(r.id));
     if (allSelected) {
-      const recordIdSet = new Set(recentRecords.map((r) => r.id));
+      const recordIdSet = new Set(filteredRecords.map((r) => r.id));
       setSelectedRecordIds((prev) => prev.filter((id) => !recordIdSet.has(id)));
     } else {
-      setSelectedRecordIds((prev) => Array.from(new Set([...prev, ...recentRecords.map((r) => r.id)])));
+      setSelectedRecordIds((prev) => Array.from(new Set([...prev, ...filteredRecords.map((r) => r.id)])));
     }
   };
 
@@ -189,6 +297,8 @@ export default function LiteraryProgramsPage() {
     remarks: '',
     levelId: '',
     subcategoryId: '',
+    festivalName: '',
+    competitionName: '',
   });
   const [savingEdit, setSavingEdit] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -626,6 +736,21 @@ export default function LiteraryProgramsPage() {
 
   const handleOpenEdit = (rec: any) => {
     setEditingRecord(rec);
+    const initialFest =
+      rec.subcategory?.name ||
+      rec.literaryCompetition?.event?.name ||
+      (rec.remarks && rec.remarks.includes('-') ? rec.remarks.split('-')[0].trim() : 'Sahityotsav');
+
+    let initialComp = rec.literaryCompetition?.name || '';
+    if (!initialComp && rec.remarks && rec.remarks.includes('-')) {
+      const afterDash = rec.remarks.split('-').slice(1).join('-').trim();
+      const dotIdx = afterDash.indexOf('.');
+      initialComp = dotIdx !== -1 ? afterDash.slice(0, dotIdx).trim() : afterDash.trim();
+    }
+    if (!initialComp) {
+      initialComp = rec.remarks || 'Competition Event';
+    }
+
     setEditFormData({
       obtainedScore: rec.obtainedScore,
       maxScore: rec.maxScore,
@@ -634,6 +759,8 @@ export default function LiteraryProgramsPage() {
       remarks: rec.remarks || '',
       levelId: rec.levelId || levels[0]?.id || '',
       subcategoryId: rec.subcategoryId || '',
+      festivalName: initialFest,
+      competitionName: initialComp,
     });
     setEditModalOpen(true);
   };
@@ -648,6 +775,7 @@ export default function LiteraryProgramsPage() {
         body: JSON.stringify({
           id: editingRecord.id,
           ...editFormData,
+          programName: editFormData.festivalName,
         }),
       });
       const data = await res.json();
@@ -951,10 +1079,109 @@ export default function LiteraryProgramsPage() {
         )}
 
         {/* Literary Records Table */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden">
-          <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-800">Recorded Festival Results</span>
-            <span className="text-xs text-slate-500">{recentRecords.length} entries</span>
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden space-y-0">
+          {/* Header & Advanced Search Filter Bar */}
+          <div className="p-4 bg-slate-50 border-b border-slate-200 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center space-x-2">
+                <Feather className="w-4 h-4 text-rose-600" />
+                <span className="text-xs font-bold text-slate-800">Recorded Festival Results</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-200 text-slate-700">
+                  {filteredRecords.length} / {recentRecords.length}
+                </span>
+              </div>
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="inline-flex items-center space-x-1 text-[11px] font-bold text-rose-800 hover:text-rose-950 bg-rose-100 hover:bg-rose-200 px-2.5 py-1 rounded-lg transition self-start sm:self-auto cursor-pointer"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Reset Filters ({activeFilterCount})</span>
+                </button>
+              )}
+            </div>
+
+            {/* Controls Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 pt-1">
+              {/* Keyword Search */}
+              <div className="sm:col-span-2 lg:col-span-2 relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search student, ID, festival, event..."
+                  className="w-full pl-8 pr-7 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-madin-900"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Festival Filter */}
+              <div>
+                <select
+                  value={filterFest}
+                  onChange={(e) => setFilterFest(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-madin-900 cursor-pointer"
+                >
+                  <option value="ALL">All Festivals</option>
+                  {uniqueFestivals.map((f) => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Class Filter */}
+              <div>
+                <select
+                  value={filterClass}
+                  onChange={(e) => setFilterClass(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-madin-900 cursor-pointer"
+                >
+                  <option value="ALL">All Classes</option>
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Position Filter */}
+              <div>
+                <select
+                  value={filterPosition}
+                  onChange={(e) => setFilterPosition(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-madin-900 cursor-pointer"
+                >
+                  <option value="ALL">All Positions</option>
+                  <option value="1st">1st Position / Prize (2x)</option>
+                  <option value="2nd">2nd Position / Prize (1.5x)</option>
+                  <option value="3rd">3rd Position / Prize (1x)</option>
+                  <option value="Participated">Participated / Qualified</option>
+                </select>
+              </div>
+
+              {/* Sort By Filter */}
+              <div>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-madin-900 cursor-pointer"
+                >
+                  <option value="newest">Sort: Recent First</option>
+                  <option value="highest_pts">Sort: Highest SPR Pts</option>
+                  <option value="lowest_pts">Sort: Lowest SPR Pts</option>
+                  <option value="name">Sort: Student Name (A-Z)</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           <div className="overflow-x-auto max-h-96">
@@ -964,7 +1191,7 @@ export default function LiteraryProgramsPage() {
                   <th className="py-2.5 px-4 w-10 text-center">
                     <input
                       type="checkbox"
-                      checked={recentRecords.length > 0 && recentRecords.every((r) => selectedRecordIds.includes(r.id))}
+                      checked={filteredRecords.length > 0 && filteredRecords.every((r) => selectedRecordIds.includes(r.id))}
                       onChange={handleToggleSelectAll}
                       className="w-4 h-4 rounded text-blue-600 focus:ring-blue-600 cursor-pointer"
                       title="Select All"
@@ -991,8 +1218,23 @@ export default function LiteraryProgramsPage() {
                       No literary results logged yet.
                     </td>
                   </tr>
+                ) : filteredRecords.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-10 text-center">
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold text-slate-600">No festival results match the active search or filters.</p>
+                        <button
+                          type="button"
+                          onClick={handleResetFilters}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-rose-900 bg-rose-100 hover:bg-rose-200 transition cursor-pointer"
+                        >
+                          Clear Filters
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
                 ) : (
-                  recentRecords.map((r: any) => {
+                  filteredRecords.map((r: any) => {
                     const isSelected = selectedRecordIds.includes(r.id);
                     const lvlMult = resolveLevelMultiplier(r.level, levels);
                     const prizeMult = resolvePrizeMultiplier(r.position);
@@ -1624,6 +1866,54 @@ export default function LiteraryProgramsPage() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Student</label>
                   <div className="text-xs font-bold text-slate-900 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
                     {editingRecord?.student?.fullName}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Programme / Festival Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={editFormData.festivalName}
+                      onChange={(e) => {
+                        const newFest = e.target.value;
+                        setEditFormData((prev) => {
+                          const updated = { ...prev, festivalName: newFest };
+                          if (prev.remarks && prev.remarks.includes('-')) {
+                            const afterDash = prev.remarks.split('-').slice(1).join('-').trim();
+                            updated.remarks = `${newFest} - ${afterDash}`;
+                          }
+                          return updated;
+                        });
+                      }}
+                      placeholder="e.g. Sahityotsav, Jamia Maharjan"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-rose-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Competition / Event Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={editFormData.competitionName}
+                      onChange={(e) => {
+                        const newComp = e.target.value;
+                        setEditFormData((prev) => {
+                          const updated = { ...prev, competitionName: newComp };
+                          if (prev.remarks && prev.remarks.includes('-')) {
+                            const fest = prev.remarks.split('-')[0].trim();
+                            const afterDash = prev.remarks.split('-').slice(1).join('-').trim();
+                            const dotIdx = afterDash.indexOf('.');
+                            const suffix = dotIdx !== -1 ? afterDash.slice(dotIdx) : '';
+                            updated.remarks = `${fest} - ${newComp}${suffix}`;
+                          }
+                          return updated;
+                        });
+                      }}
+                      placeholder="e.g. Arabic Elocution, Essay"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-rose-500"
+                    />
                   </div>
                 </div>
 

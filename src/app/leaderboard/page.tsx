@@ -652,7 +652,25 @@ function deriveCategoryLeaderboard(
         logo: '/m-lit.png',
         isFest: true,
       };
-    } else if (sName.includes('mahrajan') || sName.includes('maharjan') || sName.includes('jamia') || sCode.includes('maharjan') || sCode.includes('jamia')) {
+    } else if (sName.includes('jamiathul') || sCode.includes('jamiathul')) {
+      heroTheme = {
+        bgGradient: 'bg-gradient-to-r from-[#07192f] via-[#0A2540] to-[#1e40af]',
+        glowColor: 'from-white/30 via-blue-300/15 to-transparent',
+        borderColor: 'border-blue-400/40',
+        title: 'Jamiathul Hind Al-Islamiyya Leaderboard',
+        subtitle: 'Islamic Studies curriculum: Quran recitation, Hadith memorization & Fiqh evaluations.',
+        badge: 'Islamic Studies Subcategory',
+        badgeClass: 'bg-blue-500/25 text-blue-100 border-blue-300/40',
+        logo: activeSubcategory.logoUrl || '/jamiathul-hind.png',
+        isFest: false,
+      };
+    } else if (
+      sName.includes('mahrajan') ||
+      sName.includes('maharjan') ||
+      sName.includes('jamia mah') ||
+      sCode.includes('maharjan') ||
+      sCode.includes('mahrajan')
+    ) {
       heroTheme = {
         bgGradient: 'bg-gradient-to-r from-[#451a03] via-[#78350f] to-[#d97706]',
         glowColor: 'from-white/30 via-amber-300/15 to-transparent',
@@ -686,18 +704,6 @@ function deriveCategoryLeaderboard(
         badge: 'Library Subcategory',
         badgeClass: 'bg-amber-500/25 text-amber-100 border-amber-300/40',
         logo: '/library-logo.png',
-        isFest: false,
-      };
-    } else if (sName.includes('jamiathul') || sCode.includes('jamiathul')) {
-      heroTheme = {
-        bgGradient: 'bg-gradient-to-r from-[#07192f] via-[#0A2540] to-[#1e40af]',
-        glowColor: 'from-white/30 via-blue-300/15 to-transparent',
-        borderColor: 'border-blue-400/40',
-        title: 'Jamiathul Hind Al-Islamiyya Leaderboard',
-        subtitle: 'Islamic Studies curriculum: Quran recitation, Hadith memorization & Fiqh evaluations.',
-        badge: 'Islamic Studies Subcategory',
-        badgeClass: 'bg-blue-500/25 text-blue-100 border-blue-300/40',
-        logo: '/jamiathul-hind.png',
         isFest: false,
       };
     } else if (sName.includes('madin') || sCode.includes('madin')) {
@@ -958,7 +964,7 @@ function deriveCategoryLeaderboard(
                 {/* Clean Mobile Branding */}
                 <div className="sm:hidden flex flex-col">
                   <div className="text-[11px] font-black tracking-tight text-slate-900 dark:text-white uppercase leading-none">
-                    MADIN EXCELLENCE
+                    EXCELLENCE
                   </div>
                   <div className="mt-0.5 inline-flex items-center px-1.5 py-0.2 rounded-full bg-blue-600 text-white shadow-2xs">
                     <span className="text-[8.5px] font-black tracking-widest uppercase">SPR STANDINGS</span>
@@ -1187,10 +1193,12 @@ function deriveCategoryLeaderboard(
                 const isSelected = selectedSubcategory === sub.id;
                 const getIcon = (n: string) => {
                   const l = n.toLowerCase();
+                  if (l.includes('jamiathul')) return '🕌';
+                  if (l.includes('madin') || l.includes("ma'din")) return '🏛️';
                   if (l.includes('sahityotsav')) return '🎭';
                   if (l.includes('kalotsav')) return '🎨';
                   if (l.includes('m-lit') || l.includes('mlit')) return '📖';
-                  if (l.includes('mahr') || l.includes('jamia')) return '🏆';
+                  if (l.includes('mahr') || l.includes('jamia mah')) return '🏆';
                   return '';
                 };
                 const icon = getIcon(sub.name);
@@ -1217,20 +1225,20 @@ function deriveCategoryLeaderboard(
 
         </div>
 
-        {/* Dynamic Themed Subcategory Hero Banner (With Scroll-Driven Parallax, Logo at Left Top, Name at Left Top, Tiny White Glow) */}
+        {/* Dynamic Themed Subcategory Hero Banner (Compact & Sleek for Mobile) */}
         <div
-          className={`relative rounded-3xl p-5 sm:p-7 shadow-xl border ${heroTheme.borderColor} ${heroTheme.bgGradient} text-white animate-slide-up z-20 scroll-driven-hero transition-all duration-300`}
+          className={`relative rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 shadow-xl border ${heroTheme.borderColor} ${heroTheme.bgGradient} text-white animate-slide-up z-20 scroll-driven-hero transition-all duration-300`}
         >
           {/* Subtle Ambient Tiny White Glow Effect */}
-          <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+          <div className="absolute inset-0 overflow-hidden rounded-2xl sm:rounded-3xl pointer-events-none">
             <div className="absolute top-0 left-0 w-80 h-80 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.28),transparent_70%)] pointer-events-none" />
             <div className="absolute bottom-0 right-0 w-64 h-64 bg-[radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.15),transparent_70%)] pointer-events-none" />
           </div>
 
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-5">
             {/* Fixed Subcategory Logo at Left Top & Name at Left Top */}
-            <div className="flex items-start sm:items-center space-x-4">
-              <div className="w-14 h-14 sm:w-18 sm:h-18 rounded-2xl bg-white p-1.5 flex items-center justify-center shrink-0 shadow-lg shadow-black/20 border border-white/60 ring-2 ring-white/30 backdrop-blur-sm group-hover:scale-105 transition">
+            <div className="flex items-start sm:items-center space-x-3 sm:space-x-4">
+              <div className="w-11 h-11 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-white p-1 sm:p-1.5 flex items-center justify-center shrink-0 shadow-lg shadow-black/20 border border-white/60 ring-2 ring-white/30 backdrop-blur-sm group-hover:scale-105 transition">
                 <Image
                   src={heroTheme.logo}
                   alt={heroTheme.title}
@@ -1240,39 +1248,39 @@ function deriveCategoryLeaderboard(
                 />
               </div>
 
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider border shadow-xs ${heroTheme.badgeClass}`}>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider border shadow-xs ${heroTheme.badgeClass}`}>
                     {heroTheme.badge}
                   </span>
-                  <span className="text-[11px] text-white/70 font-semibold">• Academic Year 2025–2026</span>
+                  <span className="text-[10px] sm:text-[11px] text-white/70 font-semibold">• 2025–2026</span>
                 </div>
 
-                <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight mt-1.5 drop-shadow-sm">
+                <h2 className="text-base sm:text-2xl lg:text-3xl font-black text-white tracking-tight mt-1 sm:mt-1.5 drop-shadow-sm leading-snug">
                   {heroTheme.title}
                 </h2>
 
-                <p className="text-xs sm:text-sm text-white/90 max-w-2xl font-medium mt-1 leading-relaxed drop-shadow-2xs">
+                <p className="text-[11px] sm:text-sm text-white/90 max-w-2xl font-medium mt-0.5 sm:mt-1 leading-relaxed drop-shadow-2xs line-clamp-2 sm:line-clamp-none">
                   {heroTheme.subtitle}
                 </p>
               </div>
             </div>
 
             {/* Quick Switcher Dropdown & Live Library Sync Button */}
-            <div className="flex items-center space-x-2.5 shrink-0 flex-wrap gap-y-2">
+            <div className="flex items-center space-x-2 shrink-0 flex-wrap gap-y-2 w-full lg:w-auto">
               {isLibraryActive && (
                 <button
                   type="button"
                   onClick={handleSyncLibrary}
                   disabled={syncingLibrary}
-                  className="px-3.5 py-2.5 rounded-2xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition flex items-center space-x-2 border border-white/30 shadow-md active:scale-95 disabled:opacity-50"
+                  className="px-3 py-1.5 sm:px-3.5 sm:py-2.5 rounded-xl sm:rounded-2xl bg-white/20 hover:bg-white/30 text-white text-[11px] sm:text-xs font-bold transition flex items-center space-x-1.5 border border-white/30 shadow-md active:scale-95 disabled:opacity-50"
                   title="Sync points directly from Imthiyaaz Library Leaderboard"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${syncingLibrary ? 'animate-spin' : ''}`} />
-                  <span>{syncingLibrary ? 'Syncing...' : 'Sync Library Points'}</span>
+                  <span>{syncingLibrary ? 'Syncing...' : 'Sync Points'}</span>
                 </button>
               )}
-              <div className="w-56 sm:w-64">
+              <div className="w-full sm:w-64">
                 <CustomSelect
                   value={
                     selectedSubcategory
@@ -1328,7 +1336,7 @@ function deriveCategoryLeaderboard(
                           if (l.includes('sahityotsav')) return '🎭';
                           if (l.includes('kalotsav')) return '🎨';
                           if (l.includes('m-lit') || l.includes('mlit')) return '📖';
-                          if (l.includes('mahr') || l.includes('jamia')) return '🏆';
+                          if (l.includes('mahr') || l.includes('jamia mah')) return '🏆';
                           return '🔹';
                         };
                         return {
@@ -1347,9 +1355,9 @@ function deriveCategoryLeaderboard(
                 />
               </div>
 
-              <div className="px-3.5 py-2 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 text-center shrink-0 shadow-xs">
-                <div className="text-[9px] sm:text-[10px] text-white/80 font-bold uppercase">Ranked</div>
-                <div className="text-xs sm:text-sm font-black text-white">{filteredEntries.length} Students</div>
+              <div className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 text-center shrink-0 shadow-xs">
+                <div className="text-[8.5px] sm:text-[10px] text-white/80 font-bold uppercase">Ranked</div>
+                <div className="text-[11px] sm:text-sm font-black text-white">{filteredEntries.length} Students</div>
               </div>
             </div>
           </div>
@@ -1357,32 +1365,32 @@ function deriveCategoryLeaderboard(
 
         {/* Live Top Podium Cards (Dynamic Rank & Tie-Aware Layout) */}
         {filteredEntries.length > 0 && (
-          <div className="space-y-4 max-w-4xl mx-auto pt-1">
+          <div className="space-y-3 sm:space-y-4 max-w-4xl mx-auto pt-1">
             {filteredEntries.length === 1 ? (
               /* Single Center Card for 1 Ranked Student */
-              <div className="max-w-xs mx-auto">
+              <div className="max-w-[260px] sm:max-w-xs mx-auto">
                 {(() => {
                   const student = filteredEntries[0];
                   const rank = student?.rank ?? 1;
                   return (
                     <div
                       onClick={() => handleStudentRowClick(student.studentId)}
-                      className="bg-gradient-to-b from-amber-50/90 via-white to-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-md border-2 border-amber-400 cursor-pointer hover:shadow-xl transition-all flex flex-col justify-between text-center group animate-zoom-up"
+                      className="bg-gradient-to-b from-amber-50/90 via-white to-white rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-md border-2 border-amber-400 cursor-pointer hover:shadow-xl transition-all flex flex-col justify-between text-center group animate-zoom-up"
                     >
-                      <div className="flex justify-center mb-1.5 sm:mb-2">
-                        <StudentAvatar photoUrl={student.photoUrl} name={student.name || student.studentName} size="xl" className="w-16 h-16 sm:w-22 sm:h-22 ring-3 sm:ring-4 ring-amber-300/60" />
+                      <div className="flex justify-center mb-1 sm:mb-2">
+                        <StudentAvatar photoUrl={student.photoUrl} name={student.name || student.studentName} size="lg" className="w-13 h-13 sm:w-20 sm:h-20 ring-2 sm:ring-4 ring-amber-300/60" />
                       </div>
-                      <div className="text-[9px] sm:text-xs font-black text-amber-700 uppercase tracking-widest bg-amber-100 px-2.5 sm:px-3 py-0.5 rounded-full inline-block shadow-2xs border border-amber-300 mx-auto">
+                      <div className="text-[8.5px] sm:text-xs font-black text-amber-700 uppercase tracking-widest bg-amber-100 px-2 sm:px-3 py-0.5 rounded-full inline-block shadow-2xs border border-amber-300 mx-auto">
                         ★ 1st Rank ★
                       </div>
-                      <div className="text-sm sm:text-lg font-black text-slate-900 group-hover:text-amber-800 mt-1 transition-colors leading-tight break-words">
+                      <div className="text-xs sm:text-base font-black text-slate-900 group-hover:text-amber-800 mt-1 transition-colors leading-tight break-words">
                         {student.name || student.studentName}
                       </div>
-                      <div className="text-[10px] sm:text-xs text-slate-500 mt-0.5">
+                      <div className="text-[9.5px] sm:text-xs text-slate-500 mt-0.5">
                         Std {formatClassNumber(student.className)}
                       </div>
-                      <div className="mt-2 pt-2 border-t border-amber-100 flex items-center justify-center">
-                        <span className="text-sm sm:text-2xl font-black text-amber-800">
+                      <div className="mt-1.5 pt-1.5 border-t border-amber-100 flex items-center justify-center">
+                        <span className="text-xs sm:text-xl font-black text-amber-800">
                           {formatScore(student.spr ?? student.overallScore)} pts
                         </span>
                       </div>

@@ -419,7 +419,23 @@ export async function PUT(req: NextRequest) {
     if (errorResponse) return errorResponse;
 
     const body = await req.json();
-    const { id, obtainedScore, score, maxScore, remarks, levelId, position, grade, date, subjectId, examId, subcategoryId } = body;
+    const {
+      id,
+      obtainedScore,
+      score,
+      maxScore,
+      remarks,
+      levelId,
+      position,
+      grade,
+      date,
+      subjectId,
+      examId,
+      subcategoryId,
+      programName,
+      festivalName,
+      competitionName,
+    } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Score record ID is required.' }, { status: 400 });
@@ -427,6 +443,12 @@ export async function PUT(req: NextRequest) {
 
     const existing = await prisma.performanceRecord.findUnique({
       where: { id },
+      include: {
+        competition: { include: { program: true } },
+        literaryCompetition: { include: { event: true } },
+        category: true,
+        subcategory: true,
+      },
     });
 
     if (!existing) {
@@ -438,17 +460,171 @@ export async function PUT(req: NextRequest) {
     const max = maxScore !== undefined ? Number(maxScore) : existing.maxScore;
     const percentage = normalizeScoreToPercentage(obtained, max);
 
+    const cleanProg = (programName || festivalName || '').trim();
+    const cleanComp = (competitionName || '').trim();
+
+    let newSubcategoryId = subcategoryId !== undefined ? subcategoryId : existing.subcategoryId;
+    let newCompetitionId = existing.competitionId;
+    let newLiteraryCompetitionId = existing.literaryCompetitionId;
+
+    // Handle updates to Competition / Program or LiteraryCompetition / LiteraryEvent
+    if (cleanComp || cleanProg) {
+      const isLiterary =
+        existing.category?.code === 'LITERARY' ||
+        existing.literaryCompetitionId !== null ||
+        (existing.remarks && (existing.remarks.toLowerCase().includes('sahityotsav') || existing.remarks.toLowerCase().includes('fest') || existing.remarks.toLowerCase().includes('kalotsav') || existing.remarks.toLowerCase().includes('mahrajan')));
+
+      if (isLiterary) {
+        if (existing.literaryCompetitionId && existing.literaryCompetition) {
+          if (cleanComp && cleanComp !== existing.literaryCompetition.name) {
+            await prisma.literaryCompetition.update({
+              where: { id: existing.literaryCompetitionId },
+              data: { name: cleanComp },
+            });
+          }
+          if (cleanProg && existing.literaryCompetition.eventId && cleanProg !== existing.literaryCompetition.event?.name) {
+            await prisma.literaryEvent.update({
+              where: { id: existing.literaryCompetition.eventId },
+              data: { name: cleanProg },
+            });
+          }
+        } else if (cleanComp) {
+          const eventTitle = cleanProg || 'Sahityotsav';
+          let litEv = await prisma.literaryEvent.findFirst({
+            where: { name: { equals: eventTitle, mode: 'insensitive' } },
+          });
+          if (!litEv) {
+            litEv = await prisma.literaryEvent.create({
+              data: {
+                name: eventTitle,
+                code: `EVENT_${eventTitle.toUpperCase().replace(/[^A-Z0-9]/g, '_').slice(0, 15)}_${Date.now().toString(36).slice(-4).toUpperCase()}`,
+                academicYearId: existing.academicYearId || (await prisma.academicYear.findFirst())?.id!,
+              },
+            });
+          }
+          let litC = await prisma.literaryCompetition.findFirst({
+            where: {
+              eventId: litEv.id,
+              name: { equals: cleanComp, mode: 'insensitive' },
+            },
+          });
+          if (!litC) {
+            litC = await prisma.literaryCompetition.create({
+              data: {
+                name: cleanComp,
+                eventId: litEv.id,
+                levelId: levelId || existing.levelId,
+                maxScore: max,
+              },
+            });
+          }
+          newLiteraryCompetitionId = litC.id;
+        }
+
+        if (cleanProg) {
+          const matchedSub = await prisma.subcategory.findFirst({
+            where: {
+              categoryId: existing.categoryId,
+              OR: [
+                { name: { equals: cleanProg, mode: 'insensitive' } },
+                { code: { equals: cleanProg, mode: 'insensitive' } },
+              ],
+            },
+          });
+          if (matchedSub) {
+            newSubcategoryId = matchedSub.id;
+          }
+        }
+      } else {
+        // Programs & Competitions
+        if (existing.competitionId && existing.competition) {
+          if (cleanComp && cleanComp !== existing.competition.name) {
+            await prisma.competition.update({
+              where: { id: existing.competitionId },
+              data: { name: cleanComp },
+            });
+          }
+          if (cleanProg && existing.competition.programId && cleanProg !== existing.competition.program?.name) {
+            await prisma.program.update({
+              where: { id: existing.competition.programId },
+              data: { name: cleanProg },
+            });
+          }
+        } else if (cleanComp) {
+          const progTitle = cleanProg || 'Madin Talent Olympiad';
+          let prog = await prisma.program.findFirst({
+            where: { name: { equals: progTitle, mode: 'insensitive' } },
+          });
+          if (!prog) {
+            prog = await prisma.program.create({
+              data: {
+                name: progTitle,
+                academicYearId: existing.academicYearId || (await prisma.academicYear.findFirst())?.id!,
+              },
+            });
+          }
+          let comp = await prisma.competition.findFirst({
+            where: {
+              programId: prog.id,
+              name: { equals: cleanComp, mode: 'insensitive' },
+            },
+          });
+          if (!comp) {
+            comp = await prisma.competition.create({
+              data: {
+                name: cleanComp,
+                programId: prog.id,
+                maxScore: max,
+              },
+            });
+          }
+          newCompetitionId = comp.id;
+        }
+
+        if (cleanProg) {
+          const matchedSub = await prisma.subcategory.findFirst({
+            where: {
+              categoryId: existing.categoryId,
+              OR: [
+                { name: { equals: cleanProg, mode: 'insensitive' } },
+                { code: { equals: cleanProg, mode: 'insensitive' } },
+              ],
+            },
+          });
+          if (matchedSub) {
+            newSubcategoryId = matchedSub.id;
+          }
+        }
+      }
+    }
+
+    // Format remarks if cleanProg and cleanComp are provided
+    let finalRemarks = remarks !== undefined ? remarks : existing.remarks;
+    if (cleanProg && cleanComp) {
+      if (!finalRemarks || !finalRemarks.includes('-')) {
+        finalRemarks = `${cleanProg} - ${cleanComp}${position ? '. ' + position + ' Position' : ''}${grade ? '. ' + grade + ' Grade' : ''}`;
+      } else {
+        const parts = finalRemarks.split('-');
+        const afterDash = parts.slice(1).join('-').trim();
+        const dotIndex = afterDash.indexOf('.');
+        const suffix = dotIndex !== -1 ? afterDash.slice(dotIndex) : '';
+        finalRemarks = `${cleanProg} - ${cleanComp}${suffix}`;
+      }
+    }
+
     const updated = await prisma.performanceRecord.update({
       where: { id },
       data: {
         obtainedScore: obtained,
         maxScore: max,
         percentage,
-        ...(remarks !== undefined ? { remarks } : {}),
+        ...(finalRemarks !== undefined ? { remarks: finalRemarks } : {}),
         ...(position !== undefined ? { position } : {}),
         ...(grade !== undefined ? { grade } : {}),
         ...(levelId !== undefined ? { levelId } : {}),
-        ...(subcategoryId !== undefined ? { subcategoryId } : {}),
+        ...(newSubcategoryId !== undefined ? { subcategoryId: newSubcategoryId } : {}),
+        ...(newCompetitionId !== undefined ? { competitionId: newCompetitionId } : {}),
+        ...(newLiteraryCompetitionId !== undefined ? { literaryCompetitionId: newLiteraryCompetitionId } : {}),
         ...(subjectId !== undefined ? { subjectId } : {}),
         ...(examId !== undefined ? { examId } : {}),
         ...(date ? { date: new Date(date) } : {}),
@@ -457,6 +633,9 @@ export async function PUT(req: NextRequest) {
       include: {
         student: true,
         category: true,
+        subcategory: true,
+        competition: { include: { program: true } },
+        literaryCompetition: { include: { event: true } },
       },
     });
 

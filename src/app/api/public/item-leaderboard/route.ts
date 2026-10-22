@@ -160,56 +160,120 @@ export async function GET(req: NextRequest) {
       parentName = (firstRec as any).exam?.name || 'Subject Assessment';
     }
 
-    // Calculate points and build leaderboard entries
-    const processedEntries = records.map((r) => {
-      const isLitOrProg = categoryCode === 'LITERARY' || categoryCode === 'PROGRAMS' || Boolean(r.literaryCompetition || r.competition);
-      const lvlMult = resolveLevelMultiplier(r.level || r.literaryCompetition?.level, levels);
-      const prizeMult = resolvePrizeMultiplier(r.position);
-      const baseScore = typeof r.obtainedScore === 'number' && !isNaN(r.obtainedScore) ? r.obtainedScore : 0;
+    const isExam = itemType === 'EXAM' || Boolean(firstRec.exam);
 
-      let sprPoints = 0;
-      if (isLitOrProg) {
-        // Points given after multiplying with respect to level, positions
-        sprPoints = Number((baseScore * lvlMult * prizeMult).toFixed(2));
-      } else {
-        // Academic Exam: scaled percentage / marks
-        const maxScoreVal = r.maxScore || r.subject?.maxScore || 100;
-        const examActualMax = r.exam?.maxScore || 100;
-        sprPoints = maxScoreVal > 0 ? Number(((baseScore / maxScoreVal) * examActualMax).toFixed(2)) : baseScore;
+    let processedEntries: any[] = [];
+
+    if (isExam) {
+      // Group all subject records for each student in this exam
+      const studentExamMap = new Map<string, typeof records>();
+      for (const r of records) {
+        if (!studentExamMap.has(r.student.id)) {
+          studentExamMap.set(r.student.id, []);
+        }
+        studentExamMap.get(r.student.id)!.push(r);
       }
 
-      return {
-        recordId: r.id,
-        studentId: r.student.id,
-        sprStudentId: r.student.sprStudentId || r.student.studentId,
-        fullName: r.student.fullName,
-        photoUrl: r.student.photoUrl,
-        className: r.student.class?.name || '',
-        numericGrade: r.student.class?.numericGrade ?? 99,
-        division: r.student.division,
-        schoolName: r.student.school?.name || '',
-        position: r.position,
-        grade: r.grade,
-        baseScore,
-        maxScore: r.maxScore || 100,
-        levelName: r.level?.name || r.literaryCompetition?.level?.name || 'Campus',
-        levelMultiplier: lvlMult,
-        prizeMultiplier: prizeMult,
-        sprPoints,
-        remarks: r.remarks,
-        date: r.date ? r.date.toISOString() : null,
-      };
-    });
+      const examActualMax = firstRec.exam?.maxScore || 100;
 
-    // Deduplicate entries by studentId if a student has multiple records across merged same-name competitions
-    const studentBestMap = new Map<string, (typeof processedEntries)[0]>();
-    for (const entry of processedEntries) {
-      const existing = studentBestMap.get(entry.studentId);
-      if (!existing || entry.sprPoints > existing.sprPoints) {
-        studentBestMap.set(entry.studentId, entry);
-      }
+      processedEntries = Array.from(studentExamMap.entries()).map(([studentId, studentRecs]) => {
+        const student = studentRecs[0].student;
+        const totalObtained = studentRecs.reduce(
+          (sum, r) => sum + (typeof r.obtainedScore === 'number' && !isNaN(r.obtainedScore) ? r.obtainedScore : 0),
+          0
+        );
+        const totalMax = studentRecs.reduce(
+          (sum, r) => sum + (r.maxScore || r.subject?.maxScore || 100),
+          0
+        );
+        const examPercentage = totalMax > 0 ? (totalObtained / totalMax) * 100 : 0;
+        const sprPoints = totalMax > 0 ? Number(((totalObtained / totalMax) * examActualMax).toFixed(2)) : totalObtained;
+
+        return {
+          recordId: studentRecs[0].id,
+          studentId: student.id,
+          sprStudentId: student.sprStudentId || student.studentId,
+          fullName: student.fullName,
+          photoUrl: student.photoUrl,
+          className: student.class?.name || '',
+          numericGrade: student.class?.numericGrade ?? 99,
+          division: student.division,
+          schoolName: student.school?.name || '',
+          position: null,
+          grade: null,
+          baseScore: totalObtained,
+          maxScore: totalMax,
+          percentage: Number(examPercentage.toFixed(2)),
+          levelName: null,
+          levelMultiplier: 1,
+          prizeMultiplier: 1,
+          sprPoints,
+          remarks: `${studentRecs.length} subject(s) evaluated`,
+          date: studentRecs[0].date ? studentRecs[0].date.toISOString() : null,
+          isExam: true,
+        };
+      });
+    } else {
+      // Calculate points and build leaderboard entries for competitions, fests, programmes, or subjects
+      processedEntries = records.map((r) => {
+        const isLitOrProg =
+          categoryCode === 'LITERARY' ||
+          categoryCode === 'PROGRAMS' ||
+          Boolean(r.literaryCompetition || r.competition);
+        const lvlMult = resolveLevelMultiplier(r.level || r.literaryCompetition?.level, levels);
+        const prizeMult = resolvePrizeMultiplier(r.position);
+        const baseScore = typeof r.obtainedScore === 'number' && !isNaN(r.obtainedScore) ? r.obtainedScore : 0;
+
+        let sprPoints = 0;
+        if (isLitOrProg) {
+          // Points given after multiplying with respect to level, positions
+          sprPoints = Number((baseScore * lvlMult * prizeMult).toFixed(2));
+        } else {
+          // Subject assessment
+          const maxScoreVal = r.maxScore || r.subject?.maxScore || 100;
+          sprPoints = maxScoreVal > 0 ? Number(((baseScore / maxScoreVal) * 100).toFixed(2)) : baseScore;
+        }
+
+        return {
+          recordId: r.id,
+          studentId: r.student.id,
+          sprStudentId: r.student.sprStudentId || r.student.studentId,
+          fullName: r.student.fullName,
+          photoUrl: r.student.photoUrl,
+          className: r.student.class?.name || '',
+          numericGrade: r.student.class?.numericGrade ?? 99,
+          division: r.student.division,
+          schoolName: r.student.school?.name || '',
+          position: r.position,
+          grade: r.grade,
+          baseScore,
+          maxScore: r.maxScore || 100,
+          percentage: r.percentage,
+          levelName: r.level?.name || r.literaryCompetition?.level?.name || 'Campus',
+          levelMultiplier: lvlMult,
+          prizeMultiplier: prizeMult,
+          sprPoints,
+          remarks: r.remarks,
+          date: r.date ? r.date.toISOString() : null,
+          isExam: false,
+        };
+      });
     }
-    const uniqueEntries = Array.from(studentBestMap.values());
+
+    // Deduplicate entries by studentId if needed
+    let uniqueEntries: typeof processedEntries = [];
+    if (isExam) {
+      uniqueEntries = processedEntries;
+    } else {
+      const studentBestMap = new Map<string, (typeof processedEntries)[0]>();
+      for (const entry of processedEntries) {
+        const existing = studentBestMap.get(entry.studentId);
+        if (!existing || entry.sprPoints > existing.sprPoints) {
+          studentBestMap.set(entry.studentId, entry);
+        }
+      }
+      uniqueEntries = Array.from(studentBestMap.values());
+    }
 
     // Helper: Position rank priority (1st > 2nd > 3rd)
     const getPosPriority = (pos: string | null | undefined): number => {

@@ -21,7 +21,7 @@ import {
 import VideoLoader from '@/components/ui/VideoLoader';
 import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
 
-import { compressImageClientSide } from '@/lib/image-utils';
+import { formatGoogleDriveDirectUrl, isGoogleDriveUrl } from '@/lib/google-drive';
 
 export default function AdminNewsManagementPage() {
   const [newsList, setNewsList] = useState<any[]>([]);
@@ -45,7 +45,7 @@ export default function AdminNewsManagementPage() {
     publishedAt: new Date().toISOString().slice(0, 10),
     active: true,
   });
-  const [uploadingImage, setUploadingImage] = useState(false);
+  const [driveUrlInput, setDriveUrlInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -136,6 +136,7 @@ export default function AdminNewsManagementPage() {
       publishedAt: new Date().toISOString().slice(0, 10),
       active: true,
     });
+    setDriveUrlInput('');
     setModalOpen(true);
   };
 
@@ -149,50 +150,20 @@ export default function AdminNewsManagementPage() {
       publishedAt: item.publishedAt ? new Date(item.publishedAt).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
       active: item.active !== false,
     });
+    setDriveUrlInput(item.imageUrl || '');
     setModalOpen(true);
   };
 
-  // Upload and compress image from PC
-  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      setStatusMsg({ type: 'error', text: 'Please select a valid image file (JPEG, PNG, WebP).' });
+  // Handle Google Drive Photo URL input and automatic direct CDN conversion
+  const handleDriveUrlChange = (val: string) => {
+    setDriveUrlInput(val);
+    const trimmed = val.trim();
+    if (!trimmed) {
+      setFormData((prev) => ({ ...prev, imageUrl: '' }));
       return;
     }
-
-    setUploadingImage(true);
-    setStatusMsg(null);
-    try {
-      // 1. Instant client-side compression to max 1200px and lightweight payload (<100KB)
-      const compressedDataUrl = await compressImageClientSide(file, 1200, 0.85);
-
-      // Instantly show image preview and set as initial value
-      setFormData((prev) => ({ ...prev, imageUrl: compressedDataUrl }));
-
-      // 2. Upload to storage API as banner
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: compressedDataUrl, type: 'banner' }),
-      });
-
-      if (res.ok) {
-        const text = await res.text();
-        try {
-          const data = JSON.parse(text);
-          if (data.url) {
-            setFormData((prev) => ({ ...prev, imageUrl: data.url }));
-          }
-        } catch {}
-      }
-    } catch (err: any) {
-      console.warn('Image optimization/upload fallback to base64 preview:', err);
-    } finally {
-      setUploadingImage(false);
-      e.target.value = '';
-    }
+    const directUrl = formatGoogleDriveDirectUrl(trimmed);
+    setFormData((prev) => ({ ...prev, imageUrl: directUrl || trimmed }));
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -516,31 +487,64 @@ export default function AdminNewsManagementPage() {
                   />
                 </div>
 
-                {/* Photo Upload from PC */}
+                {/* Photo via Google Drive URL Only */}
                 <div className="space-y-2">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Upload Photo from PC <span className="text-slate-400 font-normal">(Optional)</span>
-                  </label>
-
-                  <div className="p-3 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 text-center hover:bg-slate-100/60 transition">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageFileChange}
-                      className="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-madin-900 file:text-white hover:file:bg-madin-950 cursor-pointer"
-                    />
-                    {uploadingImage && (
-                      <p className="text-[11px] text-amber-600 mt-1 font-semibold">Processing image...</p>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-slate-700 flex items-center space-x-1.5">
+                      <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Google Drive Photo URL <span className="text-slate-400 font-normal">(Optional)</span></span>
+                    </label>
+                    {formData.imageUrl && isGoogleDriveUrl(driveUrlInput || formData.imageUrl) && (
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full inline-flex items-center space-x-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        <span>Drive Link Converted</span>
+                      </span>
                     )}
                   </div>
 
-                  {formData.imageUrl && (
-                    <div className="relative w-full h-36 rounded-xl bg-slate-100 overflow-hidden border border-slate-200">
-                      <Image src={formData.imageUrl} alt="Preview" fill className="object-cover" unoptimized />
+                  <div className="relative">
+                    <input
+                      type="url"
+                      value={driveUrlInput}
+                      onChange={(e) => handleDriveUrlChange(e.target.value)}
+                      placeholder="https://drive.google.com/file/d/... or File ID"
+                      className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
+                    />
+                    {driveUrlInput && (
                       <button
                         type="button"
-                        onClick={() => setFormData({ ...formData, imageUrl: '' })}
-                        className="absolute top-2 right-2 p-1 rounded-full bg-black/60 text-white hover:bg-black/80"
+                        onClick={() => {
+                          setDriveUrlInput('');
+                          setFormData((prev) => ({ ...prev, imageUrl: '' }));
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                        title="Clear URL"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Paste Google Drive sharing link or file ID. Ensure sharing is set to <strong className="text-slate-700">&quot;Anyone with the link can view&quot;</strong>. SPR converts it automatically for fast edge CDN delivery.
+                  </p>
+
+                  {formData.imageUrl && (
+                    <div className="relative w-full h-36 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 shadow-inner group">
+                      <Image src={formData.imageUrl} alt="Preview" fill className="object-cover" unoptimized />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-2.5">
+                        <span className="text-[10.5px] font-semibold text-white drop-shadow">
+                          Google Drive Live Preview
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDriveUrlInput('');
+                          setFormData((prev) => ({ ...prev, imageUrl: '' }));
+                        }}
+                        className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white hover:bg-rose-600 transition cursor-pointer"
+                        title="Remove Photo"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>

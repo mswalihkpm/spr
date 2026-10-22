@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import {
   Library,
@@ -18,6 +18,8 @@ import {
   Loader2,
   Flame,
   X,
+  Search,
+  RotateCcw,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
@@ -42,18 +44,76 @@ export default function LibraryPage() {
     readingPeriod: 'Term 1 2026',
   });
 
+  // Search & Filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterClass, setFilterClass] = useState('ALL');
+  const [sortBy, setSortBy] = useState('rank');
+
+  const uniqueClasses = useMemo(() => {
+    const map = new Map<string, string>();
+    records.forEach((r) => {
+      const c = r.student?.class;
+      if (c?.id && c?.name) map.set(c.id, c.name);
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [records]);
+
+  const filteredRecords = useMemo(() => {
+    return records
+      .filter((r) => {
+        const studentName = r.student?.fullName || '';
+        const sprId = r.student?.sprStudentId || '';
+        const className = r.student?.class?.name || '';
+        const classId = r.student?.class?.id || r.student?.classId || '';
+
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase().trim();
+          if (
+            !studentName.toLowerCase().includes(q) &&
+            !sprId.toLowerCase().includes(q) &&
+            !className.toLowerCase().includes(q)
+          ) {
+            return false;
+          }
+        }
+
+        if (filterClass !== 'ALL') {
+          if (classId !== filterClass && className !== filterClass) return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'books') return (b.booksRead || 0) - (a.booksRead || 0);
+        if (sortBy === 'score') return (b.readingScore || 0) - (a.readingScore || 0);
+        if (sortBy === 'name') return (a.student?.fullName || '').localeCompare(b.student?.fullName || '');
+        return (a.readingRank || 9999) - (b.readingRank || 9999);
+      });
+  }, [records, searchQuery, filterClass, sortBy]);
+
+  const activeFilterCount =
+    (searchQuery.trim() ? 1 : 0) +
+    (filterClass !== 'ALL' ? 1 : 0) +
+    (sortBy !== 'rank' ? 1 : 0);
+
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setFilterClass('ALL');
+    setSortBy('rank');
+  };
+
   // Bulk selection & deletion state
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
 
   const handleToggleSelectAll = () => {
-    const allSelected = records.length > 0 && records.every((r) => selectedRecordIds.includes(r.id));
+    const allSelected = filteredRecords.length > 0 && filteredRecords.every((r) => selectedRecordIds.includes(r.id));
     if (allSelected) {
-      const recordIdSet = new Set(records.map((r) => r.id));
+      const recordIdSet = new Set(filteredRecords.map((r) => r.id));
       setSelectedRecordIds((prev) => prev.filter((id) => !recordIdSet.has(id)));
     } else {
-      setSelectedRecordIds((prev) => Array.from(new Set([...prev, ...records.map((r) => r.id)])));
+      setSelectedRecordIds((prev) => Array.from(new Set([...prev, ...filteredRecords.map((r) => r.id)])));
     }
   };
 
@@ -416,13 +476,76 @@ export default function LibraryPage() {
         )}
 
         {/* Reading Champions Leaderboard Table */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden">
-          <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <BookOpen className="w-4 h-4 text-rose-700" />
-              <span className="text-xs font-bold text-slate-800">Library Leaderboard Standings</span>
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden space-y-0">
+          <div className="p-4 bg-slate-50 border-b border-slate-200 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center space-x-2">
+                <BookOpen className="w-4 h-4 text-rose-700" />
+                <span className="text-xs font-bold text-slate-800">Library Leaderboard Standings</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-200 text-slate-700">
+                  {filteredRecords.length} / {records.length} Scored Readers
+                </span>
+              </div>
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="inline-flex items-center space-x-1 text-[11px] font-bold text-rose-800 hover:text-rose-950 bg-rose-100 hover:bg-rose-200 px-2.5 py-1 rounded-lg transition self-start sm:self-auto cursor-pointer"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Reset Filters ({activeFilterCount})</span>
+                </button>
+              )}
             </div>
-            <span className="text-xs text-slate-500 font-semibold">{records.length} Scored Readers</span>
+
+            {/* Filter controls */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search student or SPR ID..."
+                  className="w-full pl-8 pr-7 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-rose-800"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div>
+                <select
+                  value={filterClass}
+                  onChange={(e) => setFilterClass(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-rose-800 cursor-pointer"
+                >
+                  <option value="ALL">All Classes</option>
+                  {uniqueClasses.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-rose-800 cursor-pointer"
+                >
+                  <option value="rank">Sort: Leaderboard Rank</option>
+                  <option value="books">Sort: Books Read (High to Low)</option>
+                  <option value="score">Sort: Reading Score (High to Low)</option>
+                  <option value="name">Sort: Student Name (A-Z)</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -432,7 +555,7 @@ export default function LibraryPage() {
                   <th className="py-2.5 px-4 w-10 text-center">
                     <input
                       type="checkbox"
-                      checked={records.length > 0 && records.every((r) => selectedRecordIds.includes(r.id))}
+                      checked={filteredRecords.length > 0 && filteredRecords.every((r) => selectedRecordIds.includes(r.id))}
                       onChange={handleToggleSelectAll}
                       className="w-4 h-4 rounded text-blue-600 focus:ring-blue-600 cursor-pointer"
                       title="Select All"
@@ -460,14 +583,29 @@ export default function LibraryPage() {
                       <p className="font-semibold">No leaderboard records found.</p>
                       <button
                         onClick={handleTriggerSync}
-                        className="mt-3 px-4 py-2 bg-madin-900 text-white rounded-xl font-bold text-xs shadow hover:bg-madin-950"
+                        className="mt-3 px-4 py-2 bg-madin-900 text-white rounded-xl font-bold text-xs shadow hover:bg-madin-950 cursor-pointer"
                       >
                         Sync Now from MSOE Library
                       </button>
                     </td>
                   </tr>
+                ) : filteredRecords.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-10 text-center">
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold text-slate-600">No readers match the active search or class filter.</p>
+                        <button
+                          type="button"
+                          onClick={handleResetFilters}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-rose-900 bg-rose-100 hover:bg-rose-200 transition cursor-pointer"
+                        >
+                          Clear Filters
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
                 ) : (
-                  records.map((r: any, idx: number) => {
+                  filteredRecords.map((r: any, idx: number) => {
                     const isSelected = selectedRecordIds.includes(r.id);
                     const rankNum = r.readingRank || idx + 1;
                     return (

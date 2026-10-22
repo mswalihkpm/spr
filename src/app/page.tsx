@@ -23,6 +23,7 @@ import {
   Clock,
   Calendar,
   Lock,
+  Loader2,
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import StudentReportModal from '@/components/modals/StudentReportModal';
@@ -98,10 +99,13 @@ export default function PublicHomePage() {
   const [selectedItemLeaderboard, setSelectedItemLeaderboard] = useState<any | null>(null);
   const [itemLeaderboardModalOpen, setItemLeaderboardModalOpen] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [headerSearchVisible, setHeaderSearchVisible] = useState(false);
   const [showHeaderSearchDropdown, setShowHeaderSearchDropdown] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [mobileHeaderSearchActive, setMobileHeaderSearchActive] = useState(false);
+  const mobileHeaderSearchInputRef = useRef<HTMLInputElement>(null);
   const [tableSearch, setTableSearch] = useState('');
   const [selectedClass, setSelectedClass] = useState<string>('');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -267,31 +271,29 @@ export default function PublicHomePage() {
       setShowSearchDropdown(false);
       setShowHeaderSearchDropdown(false);
       setSearching(false);
+      setHasSearched(false);
       return;
     }
 
     setSearching(true);
+    setHasSearched(false);
     if (headerSearchVisible) {
       setShowHeaderSearchDropdown(true);
     } else {
       setShowSearchDropdown(true);
     }
 
+    let isCurrent = true;
     const controller = new AbortController();
     const timeout = setTimeout(() => {
       fetch(`/api/public/search?q=${encodeURIComponent(trimmed)}`, { signal: controller.signal })
         .then((res) => res.json())
         .then((data) => {
-          if (data.students) {
-            setSearchResults(data.students);
-          } else {
-            setSearchResults([]);
-          }
-          if (data.items) {
-            setSearchItems(data.items);
-          } else {
-            setSearchItems([]);
-          }
+          if (!isCurrent) return;
+          setSearchResults(data.students || []);
+          setSearchItems(data.items || []);
+          setSearching(false);
+          setHasSearched(true);
           if (headerSearchVisible) {
             setShowHeaderSearchDropdown(true);
           } else {
@@ -299,12 +301,15 @@ export default function PublicHomePage() {
           }
         })
         .catch((err) => {
-          if (err.name !== 'AbortError') console.error(err);
-        })
-        .finally(() => setSearching(false));
-    }, 150);
+          if (!isCurrent || err.name === 'AbortError') return;
+          console.error(err);
+          setSearching(false);
+          setHasSearched(true);
+        });
+    }, 180);
 
     return () => {
+      isCurrent = false;
       clearTimeout(timeout);
       controller.abort();
     };
@@ -483,12 +488,18 @@ export default function PublicHomePage() {
     return () => observer.disconnect();
   }, [displayedLeaderboard, loadingLeaderboard]);
 
-  // Shared Search Dropdown content renderer for both Hero and Header search bars
+  // Shared Search Dropdown content renderer for Hero, Header, and Mobile search bars
   const renderSearchDropdownContent = (closeDropdown: () => void) => {
-    if (searching) {
+    if (searching || !hasSearched) {
       return (
-        <div className="py-6 px-4 flex items-center justify-center">
-          <VideoLoader size="sm" text="Searching registry..." subtext="SPR Registry" />
+        <div className="py-7 px-4 flex flex-col items-center justify-center space-y-2 text-center">
+          <Loader2 className="w-6 h-6 text-blue-600 dark:text-blue-400 animate-spin" />
+          <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
+            Searching programmes, exams & students...
+          </div>
+          <div className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium">
+            Accessing SPR Registry
+          </div>
         </div>
       );
     }
@@ -619,143 +630,199 @@ export default function PublicHomePage() {
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-2 sm:gap-4">
-          {/* Logo & Mobile Branding (Fire icon removed) */}
-          <Link href="/" className="flex items-center space-x-3 group shrink-0">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-105">
-              <Image
-                src="/logo.png"
-                alt="Madin School of Excellence"
-                width={48}
-                height={48}
-                className="w-full h-full object-contain drop-shadow-xs"
-                priority
-              />
+          {mobileHeaderSearchActive ? (
+            /* Mobile In-Header Full-Width Search Input Bar (Logo & App Name disappear) */
+            <div className="sm:hidden flex-1 flex items-center space-x-2 animate-fade-in w-full">
+              <div className="flex-1 relative bg-white/95 dark:bg-slate-900/95 rounded-xl border border-blue-500/80 px-2.5 py-1.5 flex items-center shadow-sm">
+                <Search className="w-4 h-4 text-blue-600 dark:text-blue-400 mr-2 shrink-0" />
+                <input
+                  ref={mobileHeaderSearchInputRef}
+                  type="text"
+                  autoFocus
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search student, exam, or programme..."
+                  className="w-full text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 bg-transparent outline-none font-semibold"
+                />
+                {searching && (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 mr-1.5 shrink-0" />
+                )}
+                {searchQuery && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSearchResults([]);
+                      setSearchItems([]);
+                    }}
+                    className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setMobileHeaderSearchActive(false);
+                  setSearchQuery('');
+                  setSearchResults([]);
+                  setSearchItems([]);
+                }}
+                className="px-2 py-1 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 shrink-0"
+              >
+                Cancel
+              </button>
             </div>
-            <div>
-              {/* Desktop Branding */}
-              <div className="hidden sm:block">
-                <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white leading-tight">
-                  MADIN SCHOOL OF EXCELLENCE
-                </h1>
-                <div className="text-[11px] font-bold text-blue-600 dark:text-blue-400 tracking-wider uppercase flex items-center space-x-1.5 mt-0.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>SPR Evaluation Platform</span>
+          ) : (
+            <>
+              {/* Logo & Mobile Branding (EXCELLENCE) */}
+              <Link href="/" className="flex items-center space-x-2.5 sm:space-x-3 group shrink-0">
+                <div className="w-9 h-9 sm:w-12 sm:h-12 flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-105">
+                  <Image
+                    src="/logo.png"
+                    alt="School of Excellence"
+                    width={48}
+                    height={48}
+                    className="w-full h-full object-contain drop-shadow-xs"
+                    priority
+                  />
                 </div>
+                <div>
+                  {/* Desktop Branding */}
+                  <div className="hidden sm:block">
+                    <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white leading-tight">
+                      MADIN SCHOOL OF EXCELLENCE
+                    </h1>
+                    <div className="text-[11px] font-bold text-blue-600 dark:text-blue-400 tracking-wider uppercase flex items-center space-x-1.5 mt-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>SPR Evaluation Platform</span>
+                    </div>
+                  </div>
+
+                  {/* Clean Mobile Branding: EXCELLENCE */}
+                  <div className="sm:hidden flex flex-col">
+                    <div className="text-[11px] font-black tracking-tight text-slate-900 dark:text-white uppercase leading-none">
+                      EXCELLENCE
+                    </div>
+                    <div className="mt-1 inline-flex items-center px-1.5 py-0.2 rounded-full bg-blue-600 text-white shadow-2xs">
+                      <span className="text-[8.5px] font-black tracking-widest uppercase">SPR PLATFORM</span>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+
+              {/* Animated Header Search Bar (Revealed smoothly in header center on scroll) */}
+              <div
+                ref={headerSearchContainerRef}
+                className={`hidden sm:flex flex-1 max-w-sm md:max-w-md lg:max-w-lg mx-2 sm:mx-4 relative z-30 transition-all duration-300 ease-out origin-center ${
+                  headerSearchVisible
+                    ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
+                    : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'
+                }`}
+              >
+                <div className="w-full relative bg-white/95 dark:bg-slate-900/95 rounded-xl shadow-md border border-slate-200/90 dark:border-slate-800 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-600/20 transition-all px-3 py-1.5 flex items-center">
+                  <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
+                  <input
+                    ref={headerSearchInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onFocus={() => {
+                      if (searchQuery.trim()) setShowHeaderSearchDropdown(true);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') setShowHeaderSearchDropdown(false);
+                      if (e.key === 'Enter' && searchResults.length > 0) {
+                        handleStudentClick(searchResults[0].id);
+                      }
+                    }}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search student, programme or exam..."
+                    className="w-full text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 bg-transparent outline-none font-semibold"
+                  />
+                  {searching && (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 mr-2 shrink-0" />
+                  )}
+                  {searchQuery && (
+                    <button
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSearchResults([]);
+                        setSearchItems([]);
+                        setShowHeaderSearchDropdown(false);
+                      }}
+                      className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 mr-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                      title="Clear search"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Completely Opaque Search Dropdown for Header Search */}
+                {showHeaderSearchDropdown && searchQuery.trim().length >= 1 && (
+                  <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-[100] max-h-96 overflow-y-auto animate-slide-up divide-y divide-slate-100 dark:divide-slate-800">
+                    {renderSearchDropdownContent(() => setShowHeaderSearchDropdown(false))}
+                  </div>
+                )}
               </div>
 
-              {/* Clean Mobile Branding without fire icon */}
-              <div className="sm:hidden flex flex-col">
-                <div className="text-[11px] font-black tracking-tight text-slate-900 dark:text-white uppercase leading-none">
-                  MADIN EXCELLENCE
-                </div>
-                <div className="mt-1 inline-flex items-center px-2 py-0.5 rounded-full bg-blue-600 text-white shadow-2xs">
-                  <span className="text-[9px] font-black tracking-widest uppercase">SPR PLATFORM</span>
-                </div>
-              </div>
-            </div>
-          </Link>
-
-          {/* Animated Header Search Bar (Revealed smoothly in header center on scroll) */}
-          <div
-            ref={headerSearchContainerRef}
-            className={`hidden sm:flex flex-1 max-w-sm md:max-w-md lg:max-w-lg mx-2 sm:mx-4 relative z-30 transition-all duration-300 ease-out origin-center ${
-              headerSearchVisible
-                ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
-                : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'
-            }`}
-          >
-            <div className="w-full relative bg-white/95 dark:bg-slate-900/95 rounded-xl shadow-md border border-slate-200/90 dark:border-slate-800 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-600/20 transition-all px-3 py-1.5 flex items-center">
-              <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
-              <input
-                ref={headerSearchInputRef}
-                type="text"
-                value={searchQuery}
-                onFocus={() => {
-                  if (searchQuery.trim()) setShowHeaderSearchDropdown(true);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') setShowHeaderSearchDropdown(false);
-                  if (e.key === 'Enter' && searchResults.length > 0) {
-                    handleStudentClick(searchResults[0].id);
-                  }
-                }}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search student, programme or exam..."
-                className="w-full text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 bg-transparent outline-none font-semibold"
-              />
-              {searching && (
-                <div className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-2 shrink-0" />
-              )}
-              {searchQuery && (
+              {/* Header Action Icons */}
+              <div className="flex items-center space-x-2 shrink-0">
+                <Link
+                  href="/updates"
+                  className="hidden sm:flex w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/90 dark:bg-slate-900/90 hover:bg-amber-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-amber-600 dark:hover:text-amber-400 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs border border-transparent dark:border-slate-800 btn-interactive"
+                  title="Official News & Announcements"
+                  aria-label="Updates"
+                >
+                  <Megaphone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 dark:text-amber-400" />
+                </Link>
+                {/* Search icon triggers in-header search on mobile */}
                 <button
                   onClick={() => {
-                    setSearchQuery('');
-                    setSearchResults([]);
-                    setSearchItems([]);
-                    setShowHeaderSearchDropdown(false);
+                    if (headerSearchVisible && headerSearchInputRef.current && window.innerWidth >= 640) {
+                      headerSearchInputRef.current.focus();
+                    } else {
+                      setMobileHeaderSearchActive(true);
+                      setTimeout(() => mobileHeaderSearchInputRef.current?.focus(), 50);
+                    }
                   }}
-                  className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 mr-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
-                  title="Clear search"
+                  className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/90 dark:bg-slate-900/90 hover:bg-blue-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs border border-transparent dark:border-slate-800 btn-interactive ${
+                    headerSearchVisible ? 'sm:hidden' : ''
+                  }`}
+                  title="Search Students & Programs"
+                  aria-label="Search"
                 >
-                  <X className="w-3 h-3" />
+                  <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
-              )}
-            </div>
-
-            {/* Completely Opaque Search Dropdown for Header Search */}
-            {showHeaderSearchDropdown && searchQuery.trim().length >= 1 && (
-              <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-[100] max-h-96 overflow-y-auto animate-slide-up divide-y divide-slate-100 dark:divide-slate-800">
-                {renderSearchDropdownContent(() => setShowHeaderSearchDropdown(false))}
+                <Link
+                  href="/leaderboard"
+                  className="hidden sm:flex w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/90 dark:bg-slate-900/90 hover:bg-amber-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-amber-600 dark:hover:text-amber-400 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs border border-transparent dark:border-slate-800 btn-interactive"
+                  title="Open Full Standings"
+                  aria-label="Leaderboard"
+                >
+                  <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 dark:text-amber-400" />
+                </Link>
+                <Link
+                  href="/categories"
+                  className="hidden sm:flex w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/90 dark:bg-slate-900/90 hover:bg-indigo-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs border border-transparent dark:border-slate-800 btn-interactive"
+                  title="Evaluation Categories & Wings"
+                  aria-label="Categories"
+                >
+                  <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 dark:text-indigo-400" />
+                </Link>
               </div>
-            )}
-          </div>
-
-          {/* Header Action Icons (Navigate in SAME tab) */}
-          <div className="flex items-center space-x-2 shrink-0">
-            <Link
-              href="/updates"
-              className="hidden sm:flex w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/90 dark:bg-slate-900/90 hover:bg-amber-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-amber-600 dark:hover:text-amber-400 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs border border-transparent dark:border-slate-800 btn-interactive"
-              title="Official News & Announcements"
-              aria-label="Updates"
-            >
-              <Megaphone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 dark:text-amber-400" />
-            </Link>
-            <button
-              onClick={() => {
-                if (headerSearchVisible && headerSearchInputRef.current) {
-                  headerSearchInputRef.current.focus();
-                } else {
-                  setMobileSearchOpen(true);
-                  setTimeout(() => mobileSearchInputRef.current?.focus(), 100);
-                }
-              }}
-              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/90 dark:bg-slate-900/90 hover:bg-blue-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs border border-transparent dark:border-slate-800 btn-interactive ${
-                headerSearchVisible ? 'sm:hidden' : ''
-              }`}
-              title="Search Students"
-              aria-label="Search"
-            >
-              <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
-            <Link
-              href="/leaderboard"
-              className="hidden sm:flex w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/90 dark:bg-slate-900/90 hover:bg-amber-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-amber-600 dark:hover:text-amber-400 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs border border-transparent dark:border-slate-800 btn-interactive"
-              title="Open Full Standings"
-              aria-label="Leaderboard"
-            >
-              <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 dark:text-amber-400" />
-            </Link>
-            <Link
-              href="/categories"
-              className="hidden sm:flex w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/90 dark:bg-slate-900/90 hover:bg-indigo-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs border border-transparent dark:border-slate-800 btn-interactive"
-              title="Evaluation Categories & Wings"
-              aria-label="Categories"
-            >
-              <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 dark:text-indigo-400" />
-            </Link>
-          </div>
+            </>
+          )}
         </div>
       </header>
+
+      {/* Mobile In-Header Search Results Dropdown */}
+      {mobileHeaderSearchActive && searchQuery.trim().length >= 1 && (
+        <div className="sm:hidden fixed left-3 right-3 top-14 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-[120] max-h-[75vh] overflow-y-auto animate-slide-up divide-y divide-slate-100 dark:divide-slate-800">
+          {renderSearchDropdownContent(() => {
+            setMobileHeaderSearchActive(false);
+          })}
+        </div>
+      )}
 
       {/* Mobile Search Modal Overlay */}
       {mobileSearchOpen && (
@@ -913,16 +980,16 @@ export default function PublicHomePage() {
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Hero Content with Smooth Staggered Slide-In & Harmonious Sunset Lighting */}
-          <div id="search-section" className="max-w-4xl mx-auto text-center space-y-4 pb-6 sm:pb-8">
-            <div className="max-w-3xl mx-auto space-y-3">
-              <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight drop-shadow-lg animate-slide-up">
+          <div id="search-section" className="max-w-4xl mx-auto text-center space-y-3 sm:space-y-4 pb-4 sm:pb-8">
+            <div className="max-w-3xl mx-auto space-y-2 sm:space-y-3">
+              <h2 className="text-xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-snug drop-shadow-lg animate-slide-up">
                 Elevating Potential Through <br className="hidden sm:inline" />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-amber-400 to-orange-400 drop-shadow-md">
                   Holistic Performance Analytics
                 </span>
               </h2>
 
-              <p className="text-xs sm:text-base text-white/95 max-w-2xl mx-auto leading-relaxed font-semibold animate-slide-up delay-100 drop-shadow-md">
+              <p className="text-[11px] sm:text-base text-white/95 max-w-xl mx-auto leading-relaxed font-semibold animate-slide-up delay-100 drop-shadow-md">
                 A comprehensive, multi-dimensional evaluation benchmark uniting Islamic education, academic excellence, leadership, creative arts, and literacy.
               </p>
             </div>
@@ -974,23 +1041,23 @@ export default function PublicHomePage() {
             </div>
 
             {/* Quick Counters */}
-            <div className="pt-2 grid grid-cols-2 gap-3 sm:gap-4 max-w-md mx-auto relative z-10">
-              <div className="p-2.5 sm:p-3.5 bg-white/95 dark:bg-slate-900/90 backdrop-blur-sm rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-sm animate-slide-left delay-200 card-interactive flex flex-col items-center justify-center text-center">
-                <div className="text-xl sm:text-2xl font-black text-blue-600 dark:text-blue-400 flex items-center justify-center space-x-1.5 text-center">
+            <div className="pt-1 sm:pt-2 grid grid-cols-2 gap-2 sm:gap-4 max-w-xs sm:max-w-md mx-auto relative z-10">
+              <div className="p-2 sm:p-3.5 bg-white/95 dark:bg-slate-900/90 backdrop-blur-sm rounded-xl sm:rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-sm animate-slide-left delay-200 card-interactive flex flex-col items-center justify-center text-center">
+                <div className="text-base sm:text-2xl font-black text-blue-600 dark:text-blue-400 flex items-center justify-center space-x-1.5 text-center">
                   {loadingLeaderboard ? (
                     <span className="inline-flex items-center space-x-1 text-xs font-bold text-blue-600 dark:text-blue-400 animate-pulse">
-                      <span className="w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400 animate-ping inline-block mr-1"></span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400 animate-ping inline-block mr-1"></span>
                       <span>Calculating...</span>
                     </span>
                   ) : (
                     <span>{leaderboard.length}</span>
                   )}
                 </div>
-                <div className="text-[11px] sm:text-xs font-semibold text-slate-600 dark:text-slate-400 mt-0.5 text-center">Evaluated Students</div>
+                <div className="text-[10px] sm:text-xs font-semibold text-slate-600 dark:text-slate-400 mt-0.5 text-center">Evaluated Students</div>
               </div>
-              <div className="p-2.5 sm:p-3.5 bg-white/95 dark:bg-slate-900/90 backdrop-blur-sm rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-sm animate-slide-right delay-200 card-interactive flex flex-col items-center justify-center text-center">
-                <div className="text-xl sm:text-2xl font-black text-indigo-600 dark:text-indigo-400 text-center">6 Wings</div>
-                <div className="text-[11px] sm:text-xs font-semibold text-slate-600 dark:text-slate-400 mt-0.5 text-center">Curricular & Co-curricular</div>
+              <div className="p-2 sm:p-3.5 bg-white/95 dark:bg-slate-900/90 backdrop-blur-sm rounded-xl sm:rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-sm animate-slide-right delay-200 card-interactive flex flex-col items-center justify-center text-center">
+                <div className="text-base sm:text-2xl font-black text-indigo-600 dark:text-indigo-400 text-center">6 Wings</div>
+                <div className="text-[10px] sm:text-xs font-semibold text-slate-600 dark:text-slate-400 mt-0.5 text-center">Curricular & Co-curricular</div>
               </div>
             </div>
           </div>

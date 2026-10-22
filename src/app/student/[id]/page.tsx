@@ -544,13 +544,24 @@ export default function PublicStudentScorecardPage() {
               </span>
             </div>
 
-            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 print:rounded-lg overflow-hidden shadow-xs">
-              <table className="w-full text-left text-xs print:text-[9.5px]">
-                <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 uppercase tracking-wider font-semibold">
+            <div className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 print:rounded-lg overflow-hidden shadow-xs">
+              <table className="w-full table-fixed text-left text-xs print:text-[9.5px]">
+                <colgroup>
+                  <col className="w-[48%] sm:w-[50%]" />
+                  <col className="w-[26%] sm:w-[25%]" />
+                  <col className="w-[26%] sm:w-[25%]" />
+                </colgroup>
+                <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 uppercase tracking-tight font-bold text-[9px] sm:text-[10px]">
                   <tr>
-                    <th className="py-2.5 px-3 print:py-1 print:px-2">Category</th>
-                    <th className="py-2.5 px-3 print:py-1 print:px-2">Assessment Records</th>
-                    <th className="py-2.5 px-3 text-right print:py-1 print:px-2">Earned SPR Points</th>
+                    <th className="py-2 px-2 sm:py-2.5 sm:px-3 print:py-1 print:px-2">Category</th>
+                    <th className="py-2 px-1.5 sm:py-2.5 sm:px-3 print:py-1 print:px-2">
+                      <span className="sm:hidden">Assessment</span>
+                      <span className="hidden sm:inline">Assessment Records</span>
+                    </th>
+                    <th className="py-2 px-2 sm:py-2.5 sm:px-3 text-right print:py-1 print:px-2">
+                      <span className="sm:hidden">Earned Pts</span>
+                      <span className="hidden sm:inline">Earned SPR Points</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70">
@@ -573,22 +584,24 @@ export default function PublicStudentScorecardPage() {
                         }`}
                         title="Click to view assessment records below"
                       >
-                        <td className="py-2.5 px-3 print:py-0.5 print:px-2">
-                          <div className="flex items-center space-x-2">
+                        <td className="py-2 px-2 sm:py-2.5 sm:px-3 print:py-0.5 print:px-2">
+                          <div className="flex items-center space-x-1.5 sm:space-x-2 min-w-0">
                             <div
-                              className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 print:hidden ${
+                              className={`w-5 h-5 sm:w-6 sm:h-6 rounded-md sm:rounded-lg flex items-center justify-center shrink-0 print:hidden ${
                                 isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
                               }`}
                             >
-                              <IconComp className="w-3.5 h-3.5" />
+                              <IconComp className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                             </div>
-                            <span className="font-bold text-slate-900 dark:text-white">{cat.categoryName}</span>
+                            <span className="font-bold text-[10.5px] sm:text-xs text-slate-900 dark:text-white truncate block leading-tight">
+                              {cat.categoryName}
+                            </span>
                           </div>
                         </td>
-                        <td className="py-2.5 px-3 print:py-0.5 print:px-2 font-medium text-slate-700 dark:text-slate-300 font-mono">
-                          {cat.rawInput || `${cat.recordsCount || 0} record(s)`}
+                        <td className="py-2 px-1.5 sm:py-2.5 sm:px-3 print:py-0.5 print:px-2 font-medium text-slate-700 dark:text-slate-300 font-mono text-[10px] sm:text-xs truncate">
+                          {cat.rawInput || `${cat.recordsCount || 0} rec`}
                         </td>
-                        <td className="py-2.5 px-3 print:py-0.5 print:px-2 text-right font-black text-blue-800 dark:text-blue-300 font-mono text-xs">
+                        <td className="py-2 px-2 sm:py-2.5 sm:px-3 print:py-0.5 print:px-2 text-right font-black text-blue-800 dark:text-blue-300 font-mono text-[10.5px] sm:text-xs whitespace-nowrap">
                           +{formatPoints(earned)} pts
                         </td>
                       </tr>
@@ -597,85 +610,14 @@ export default function PublicStudentScorecardPage() {
                 </tbody>
                 <tfoot className="bg-slate-50 dark:bg-slate-800/70 font-bold border-t-2 border-slate-300 dark:border-slate-700">
                   <tr>
-                    <td colSpan={2} className="py-2.5 px-3 text-slate-900 dark:text-white font-black uppercase text-xs print:text-[9.5px]">
+                    <td colSpan={2} className="py-2 px-2 sm:py-2.5 sm:px-3 text-slate-900 dark:text-white font-black uppercase text-[9.5px] sm:text-xs print:text-[9.5px] truncate">
                       TOTAL CUMULATIVE SPR POINTS
                     </td>
-                    <td className="py-2.5 px-3 text-right font-black text-sm text-blue-900 dark:text-blue-300 font-mono print:text-xs">
+                    <td className="py-2 px-2 sm:py-2.5 sm:px-3 text-right font-black text-xs sm:text-sm text-blue-900 dark:text-blue-300 font-mono print:text-xs whitespace-nowrap">
                       {formatPoints(profile.overallScore ?? profile.overallSPR)} PTS
                     </td>
                   </tr>
                 </tfoot>
-              </table>
-            </div>
-          </div>
-
-          {/* SECTION: DEDICATED LIBRARY & KUTHBKHANA POINTS TABLE */}
-          <div className="print-library-section rounded-2xl border border-teal-200 dark:border-teal-900/60 bg-teal-50/40 dark:bg-teal-950/20 p-4 space-y-2 print:p-2 print:rounded-lg page-break-avoid">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Library className="w-4 h-4 text-teal-700 dark:text-teal-400" />
-                <h4 className="text-xs font-black uppercase tracking-wider text-teal-950 dark:text-teal-200 print:text-[9px]">
-                  Library &amp; Kuthbkhana Milestones (Exact Points &amp; Admin Weightage)
-                </h4>
-              </div>
-              <span className="text-[10.5px] font-bold text-teal-800 dark:text-teal-300 bg-teal-100 dark:bg-teal-900/50 px-2 py-0.5 rounded-md font-mono print:text-[8px]">
-                Direct Evaluated Points
-              </span>
-            </div>
-
-            <div className="overflow-x-auto rounded-xl border border-teal-200 dark:border-teal-900/60 bg-white dark:bg-slate-900">
-              <table className="w-full text-left text-xs print:text-[9px]">
-                <thead className="bg-teal-50/80 dark:bg-teal-950/40 border-b border-teal-200 dark:border-teal-800/60 text-teal-900 dark:text-teal-200 font-semibold">
-                  <tr>
-                    <th className="py-2 px-3">Reading Milestone / Text</th>
-                    <th className="py-2 px-3 text-center">Score / Metric</th>
-                    <th className="py-2 px-3 text-center">Admin Weightage</th>
-                    <th className="py-2 px-3 text-right">Earned Points</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-teal-100 dark:divide-teal-900/40">
-                  {libraryItems.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="py-3 px-3 text-center text-slate-500 dark:text-slate-400 font-medium">
-                        No library or Kuthbkhana reading records logged yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    libraryItems.map((item: any, idx: number) => {
-                      const baseScore = typeof item.basePoints === 'number' ? item.basePoints : (item.obtainedScore || 0);
-                      const mult = typeof item.multiplier === 'number' && item.multiplier > 0 ? item.multiplier : 1.0;
-                      const earned = typeof item.earnedPoints === 'number' ? item.earnedPoints : (baseScore * mult);
-                      const title = item.name || item.title || item.readingPeriod || 'Reading Milestone';
-                      const subLabel = item.subCategoryName || (item.booksRead ? `${item.booksRead} Books Read` : item.type);
-
-                      return (
-                        <tr key={item.id || idx} className="hover:bg-teal-50/30 dark:hover:bg-teal-950/20 transition">
-                          <td className="py-2 px-3">
-                            <div className="font-bold text-slate-900 dark:text-white">{title}</div>
-                            {subLabel && <div className="text-[10px] text-slate-500 dark:text-slate-400">{subLabel}</div>}
-                          </td>
-                          <td className="py-2 px-3 text-center font-mono font-medium text-slate-700 dark:text-slate-300">
-                            {item.booksRead !== undefined ? `${item.booksRead} Books (${baseScore} pts)` : `${baseScore} pts`}
-                          </td>
-                          <td className="py-2 px-3 text-center font-mono font-bold text-teal-800 dark:text-teal-300">
-                            {mult.toFixed(1)}x
-                          </td>
-                          <td className="py-2 px-3 text-right font-mono font-black text-teal-900 dark:text-teal-200">
-                            +{formatPoints(earned)} pts
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                  <tr className="bg-teal-50/80 dark:bg-teal-950/50 font-bold border-t-2 border-teal-300 dark:border-teal-800">
-                    <td colSpan={3} className="py-2 px-3 font-black text-teal-950 dark:text-teal-200 uppercase text-[10px]">
-                      Accumulated Library SPR Points Total
-                    </td>
-                    <td className="py-2 px-3 text-right font-black text-teal-900 dark:text-teal-300 font-mono text-xs">
-                      +{formatPoints(libraryEarnedPoints)} PTS
-                    </td>
-                  </tr>
-                </tbody>
               </table>
             </div>
           </div>
@@ -854,8 +796,6 @@ export default function PublicStudentScorecardPage() {
                                   ) : (
                                     <tr>
                                       <th className="py-1.5 px-3 print:py-1 print:px-2">Item / Activity</th>
-                                      <th className="py-1.5 px-3 text-center print:py-1 print:px-2">Base Score</th>
-                                      <th className="py-1.5 px-3 text-center print:py-1 print:px-2">Weightage</th>
                                       <th className="py-1.5 px-3 text-right print:py-1 print:px-2">Earned Points</th>
                                     </tr>
                                   )}
@@ -924,17 +864,9 @@ export default function PublicStudentScorecardPage() {
                                             </span>
                                           </td>
                                         ) : (
-                                          <>
-                                            <td className="py-2 px-3 text-center font-mono font-medium text-slate-700 dark:text-slate-300 print:py-1 print:px-2">
-                                              {baseScore} pts
-                                            </td>
-                                            <td className="py-2 px-3 text-center font-mono font-bold text-blue-700 dark:text-blue-400 print:py-1 print:px-2">
-                                              {mult.toFixed(2)}x
-                                            </td>
-                                            <td className="py-2 px-3 text-right font-mono font-black text-emerald-700 dark:text-emerald-400 print:py-1 print:px-2">
-                                              +{formatPoints(earnedPts)} pts
-                                            </td>
-                                          </>
+                                          <td className="py-2 px-3 text-right font-mono font-black text-emerald-700 dark:text-emerald-400 print:py-1 print:px-2 whitespace-nowrap">
+                                            +{formatPoints(earnedPts)} pts
+                                          </td>
                                         )}
                                       </tr>
                                     );
@@ -1133,22 +1065,6 @@ export default function PublicStudentScorecardPage() {
                       checked={includeCategorySummary}
                       onChange={(e) => {
                         setIncludeCategorySummary(e.target.checked);
-                        setPrintPreset('CUSTOM');
-                      }}
-                      className="w-4 h-4 text-blue-600 rounded"
-                    />
-                  </label>
-
-                  <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition cursor-pointer">
-                    <div>
-                      <div className="text-xs font-bold text-slate-900 dark:text-white">Library &amp; Kuthbkhana Section</div>
-                      <div className="text-[10.5px] text-slate-500 dark:text-slate-400">Reading milestones &amp; exact points</div>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={includeLibraryCard}
-                      onChange={(e) => {
-                        setIncludeLibraryCard(e.target.checked);
                         setPrintPreset('CUSTOM');
                       }}
                       className="w-4 h-4 text-blue-600 rounded"

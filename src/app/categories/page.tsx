@@ -299,7 +299,7 @@ export default function CategoriesPage() {
               </div>
               <div>
                 <h1 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white tracking-tight leading-none uppercase">
-                  MADIN EXCELLENCE
+                  EXCELLENCE
                 </h1>
                 <div className="text-[10px] font-bold text-blue-600 dark:text-blue-400 tracking-wider uppercase mt-0.5">
                   SPR Assessment Wings
