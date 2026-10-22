@@ -76,6 +76,7 @@ export default function ItemLeaderboardModal({
 
   const [filterClass, setFilterClass] = useState<string>('ALL');
   const [searchStudent, setSearchStudent] = useState<string>('');
+  const [showPodium, setShowPodium] = useState<boolean>(true);
 
   useEffect(() => {
     if (!isOpen || !item) {
@@ -146,7 +147,7 @@ export default function ItemLeaderboardModal({
     const lower = pos.toLowerCase();
     if (lower.startsWith('1') || lower.includes('first')) {
       return (
-        <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-700 dark:text-amber-300 font-bold text-xs shadow-2xs">
+        <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-700 dark:text-amber-300 font-bold text-[11px] shadow-2xs">
           <span>🥇</span>
           <span>1st Position</span>
         </span>
@@ -154,7 +155,7 @@ export default function ItemLeaderboardModal({
     }
     if (lower.startsWith('2') || lower.includes('second')) {
       return (
-        <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-slate-500/15 border border-slate-400 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-2xs">
+        <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-slate-500/15 border border-slate-400 text-slate-700 dark:text-slate-300 font-bold text-[11px] shadow-2xs">
           <span>🥈</span>
           <span>2nd Position</span>
         </span>
@@ -162,102 +163,113 @@ export default function ItemLeaderboardModal({
     }
     if (lower.startsWith('3') || lower.includes('third')) {
       return (
-        <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-orange-500/15 border border-orange-500/40 text-orange-700 dark:text-orange-300 font-bold text-xs shadow-2xs">
+        <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-orange-500/15 border border-orange-500/40 text-orange-700 dark:text-orange-300 font-bold text-[11px] shadow-2xs">
           <span>🥉</span>
           <span>3rd Position</span>
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-semibold text-[11px] border border-blue-200 dark:border-blue-800">
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-semibold text-[10px] border border-blue-200 dark:border-blue-800">
         {pos}
       </span>
     );
   };
 
   return (
-    <div className="fixed inset-0 z-[150] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-fade-in">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-4xl shadow-2xl border border-slate-200/90 dark:border-slate-800 overflow-hidden flex flex-col max-h-[92vh] animate-scale-in">
+    <div className="fixed inset-0 z-[150] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-6 overflow-y-auto animate-fade-in">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl w-full max-w-4xl shadow-2xl border border-slate-200/90 dark:border-slate-800 overflow-hidden flex flex-col h-[94vh] sm:h-[88vh] max-h-[94vh] animate-scale-in">
         {/* Modal Header */}
-        <div className="relative px-5 py-5 sm:px-8 sm:py-6 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white flex items-start justify-between border-b border-indigo-950">
-          <div className="space-y-1.5 min-w-0 pr-4">
-            <div className="inline-flex items-center space-x-2 px-2.5 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-blue-200 text-xs font-bold uppercase tracking-wider">
-              <Trophy className="w-3.5 h-3.5 text-amber-400" />
-              <span>{currentItem.categoryName || 'Item Standings'}</span>
-              {currentItem.parentName && (
-                <>
-                  <span>•</span>
-                  <span>{currentItem.parentName}</span>
-                </>
-              )}
+        <div className="relative px-4 py-2.5 sm:px-6 sm:py-3.5 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white flex items-center justify-between border-b border-indigo-950 shrink-0">
+          <div className="min-w-0 pr-3 flex-1">
+            <div className="flex items-center space-x-2 mb-1">
+              <div className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-blue-200 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
+                <Trophy className="w-3 h-3 text-amber-400 shrink-0" />
+                <span className="truncate max-w-[120px] sm:max-w-none">{currentItem.categoryName || 'Item Standings'}</span>
+                {currentItem.parentName && (
+                  <>
+                    <span>•</span>
+                    <span className="truncate max-w-[120px] sm:max-w-none">{currentItem.parentName}</span>
+                  </>
+                )}
+              </div>
             </div>
 
-            <h2 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-white leading-tight">
+            <h2
+              className="text-sm sm:text-lg lg:text-xl font-black tracking-tight text-white leading-tight truncate"
+              title={currentItem.name}
+            >
               {currentItem.name}
             </h2>
 
-            <p className="text-xs sm:text-sm text-blue-200/90 font-medium">
+            <p className="text-[10px] sm:text-xs text-blue-200/80 font-medium truncate mt-0.5 hidden xs:block">
               Official Student Performance Rate (SPR) Standings & Results
             </p>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 text-white/80 hover:text-white rounded-2xl bg-white/10 hover:bg-white/20 transition-all shrink-0"
+            className="p-1.5 sm:p-2 text-white/80 hover:text-white rounded-xl bg-white/10 hover:bg-white/20 transition-all shrink-0 ml-2"
             title="Close modal"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
 
-        {/* Quick Highlights Summary Cards */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-4 p-4 sm:p-6 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-center">
-          <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
-            <div className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider flex items-center justify-center space-x-1">
-              <Users className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-              <span>Participants</span>
-            </div>
-            <div className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white mt-1">
-              {filteredLeaderboard.length}
-            </div>
-          </div>
-
-          <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
-            <div className="text-xs text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider flex items-center justify-center space-x-1">
-              <Flame className="w-3.5 h-3.5 text-amber-500" />
-              <span>Top SPR Points</span>
-            </div>
-            <div className="text-lg sm:text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">
-              {currentItem.topScore !== undefined ? `${currentItem.topScore} pts` : '—'}
+        {/* Quick Highlights Summary Cards - Compact Ribbon */}
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-3 px-3 py-1.5 sm:px-6 sm:py-2 bg-slate-50/90 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 shrink-0">
+          <div className="py-1 px-2 sm:py-1.5 sm:px-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex items-center justify-center space-x-1.5 sm:space-x-2">
+            <Users className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+            <div className="text-left min-w-0">
+              <div className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider truncate leading-none">
+                Participants
+              </div>
+              <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white leading-tight mt-0.5 truncate">
+                {filteredLeaderboard.length}
+              </div>
             </div>
           </div>
 
-          <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
-            <div className="text-xs text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider flex items-center justify-center space-x-1">
-              <TrendingUp className="w-3.5 h-3.5 text-indigo-500" />
-              <span>Avg Score</span>
+          <div className="py-1 px-2 sm:py-1.5 sm:px-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex items-center justify-center space-x-1.5 sm:space-x-2">
+            <Flame className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            <div className="text-left min-w-0">
+              <div className="text-[9px] sm:text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider truncate leading-none">
+                Top Points
+              </div>
+              <div className="text-xs sm:text-sm font-black text-amber-600 dark:text-amber-400 leading-tight mt-0.5 truncate">
+                {currentItem.topScore !== undefined ? `${currentItem.topScore} pts` : '—'}
+              </div>
             </div>
-            <div className="text-lg sm:text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1">
-              {currentItem.avgScore !== undefined ? `${currentItem.avgScore} pts` : '—'}
+          </div>
+
+          <div className="py-1 px-2 sm:py-1.5 sm:px-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex items-center justify-center space-x-1.5 sm:space-x-2">
+            <TrendingUp className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+            <div className="text-left min-w-0">
+              <div className="text-[9px] sm:text-[10px] text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider truncate leading-none">
+                Avg Score
+              </div>
+              <div className="text-xs sm:text-sm font-black text-indigo-600 dark:text-indigo-400 leading-tight mt-0.5 truncate">
+                {currentItem.avgScore !== undefined ? `${currentItem.avgScore} pts` : '—'}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Filter & Search Bar within Modal */}
-        <div className="px-5 py-3.5 sm:px-6 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="relative w-full sm:w-72">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+        {/* Filter & Search Bar - Single Row */}
+        <div className="px-3 py-1.5 sm:px-6 sm:py-2 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="relative flex-1 min-w-0">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
             <input
               type="text"
               value={searchStudent}
               onChange={(e) => setSearchStudent(e.target.value)}
               placeholder="Search student or ID..."
-              className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="w-full pl-8 pr-7 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 transition"
             />
             {searchStudent && (
               <button
                 onClick={() => setSearchStudent('')}
-                className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="absolute right-2 top-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -265,15 +277,12 @@ export default function ItemLeaderboardModal({
           </div>
 
           {availableClasses.length > 0 && (
-            <div className="flex items-center space-x-2 w-full sm:w-auto">
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0 flex items-center space-x-1">
-                <Filter className="w-3.5 h-3.5" />
-                <span>Class:</span>
-              </span>
+            <div className="flex items-center space-x-1.5 shrink-0">
+              <Filter className="w-3.5 h-3.5 text-slate-400 hidden sm:block shrink-0" />
               <select
                 value={filterClass}
                 onChange={(e) => setFilterClass(e.target.value)}
-                className="w-full sm:w-auto px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-600 max-w-[130px] sm:max-w-[180px] truncate"
               >
                 <option value="ALL">All Classes ({leaderboardData?.leaderboard.length || 0})</option>
                 {availableClasses.map((cls) => (
@@ -287,7 +296,7 @@ export default function ItemLeaderboardModal({
         </div>
 
         {/* Modal Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-3 sm:space-y-4">
           {loading ? (
             <div className="py-16 flex items-center justify-center">
               <VideoLoader size="md" text="Loading leaderboard standings..." subtext={currentItem.name} />
@@ -306,23 +315,21 @@ export default function ItemLeaderboardModal({
             </div>
           ) : (
             <>
-              {/* Podium Highlight (Top 3 ranks) if multiple participants */}
-              {topThree.length >= 2 && !searchStudent && filterClass === 'ALL' && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 pb-4">
+              {/* Podium Highlight (Top 3 ranks) - Compact 3-Column Grid */}
+              {topThree.length >= 2 && !searchStudent && filterClass === 'ALL' && showPodium && (
+                <div className="grid grid-cols-3 gap-1.5 sm:gap-3 pb-1">
                   {topThree.map((st) => {
                     const isRank1 = st.rank === 1;
                     const isRank2 = st.rank === 2;
                     const isRank3 = st.rank === 3;
 
                     const cardBg = isRank1
-                      ? 'bg-gradient-to-b from-amber-500/10 to-amber-500/5 border-amber-300 dark:border-amber-600/40'
+                      ? 'bg-gradient-to-b from-amber-500/15 via-amber-500/5 to-transparent border-amber-300 dark:border-amber-600/50 ring-1 ring-amber-400/30'
                       : isRank2
-                      ? 'bg-gradient-to-b from-slate-200/50 to-slate-200/10 border-slate-300 dark:border-slate-700'
+                      ? 'bg-gradient-to-b from-slate-200/50 via-slate-100/20 to-transparent border-slate-300 dark:border-slate-700'
                       : isRank3
-                      ? 'bg-gradient-to-b from-orange-400/10 to-orange-400/5 border-orange-300 dark:border-orange-600/40'
+                      ? 'bg-gradient-to-b from-orange-400/15 via-orange-400/5 to-transparent border-orange-300 dark:border-orange-600/40'
                       : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700';
-
-                    const rankIcon = isRank1 ? '🥇 1st Rank' : isRank2 ? '🥈 2nd Rank' : isRank3 ? '🥉 3rd Rank' : `🎖️ #${st.rank} Rank`;
 
                     const rankBadgeBg = isRank1
                       ? 'bg-amber-500 text-white'
@@ -336,39 +343,49 @@ export default function ItemLeaderboardModal({
                       <div
                         key={st.recordId}
                         onClick={() => onSelectStudent && onSelectStudent(st.studentId)}
-                        className={`p-4 rounded-2xl border ${cardBg} shadow-sm relative flex flex-col items-center text-center transition-transform hover:scale-[1.02] cursor-pointer group`}
+                        className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl border ${cardBg} shadow-2xs relative flex flex-col items-center text-center transition-all hover:scale-[1.02] cursor-pointer group`}
                       >
-                        <div className="absolute top-2.5 right-2.5 text-[11px] font-black tracking-wide text-slate-600 dark:text-slate-300">
-                          {rankIcon}
-                        </div>
-
-                        <div className="mt-2 mb-2 relative">
-                          <StudentAvatar photoUrl={st.photoUrl} name={st.fullName} size="md" />
-                          <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full ${rankBadgeBg} flex items-center justify-center font-black text-[10px] shadow-sm`}>
+                        {/* Rank Badge */}
+                        <div className="flex items-center space-x-1 mb-1">
+                          <span className="text-xs sm:text-sm">
+                            {isRank1 ? '🥇' : isRank2 ? '🥈' : '🥉'}
+                          </span>
+                          <span
+                            className={`text-[10px] sm:text-xs font-black ${
+                              isRank1
+                                ? 'text-amber-700 dark:text-amber-400'
+                                : isRank2
+                                ? 'text-slate-600 dark:text-slate-300'
+                                : 'text-amber-800 dark:text-amber-500'
+                            }`}
+                          >
                             #{st.rank}
-                          </div>
+                          </span>
                         </div>
 
-                        <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate max-w-[90%] group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                        {/* Student Avatar */}
+                        <div className="relative my-0.5">
+                          <StudentAvatar photoUrl={st.photoUrl} name={st.fullName} size="sm" />
+                        </div>
+
+                        {/* Student Name */}
+                        <div className="text-[11px] sm:text-xs font-black text-slate-900 dark:text-white truncate w-full mt-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                           {st.fullName}
                         </div>
 
-                        <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                        {/* Class */}
+                        <div className="text-[9px] sm:text-[10px] font-medium text-slate-500 dark:text-slate-400 truncate w-full">
                           {st.className} {st.division ? `(${st.division})` : ''}
                         </div>
 
-                        <div className="mt-2.5 flex items-center space-x-1.5">
+                        {/* Position Badge (on larger screens) */}
+                        <div className="hidden sm:block mt-1">
                           {getPositionBadge(st.position)}
-                          {(st as any).isExam && (st as any).percentage !== undefined && (
-                            <span className="text-[10.5px] font-bold text-slate-600 dark:text-slate-300 font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-                              {(st as any).percentage}% ({st.baseScore}/{st.maxScore})
-                            </span>
-                          )}
                         </div>
 
-                        <div className="mt-3 w-full pt-2.5 border-t border-slate-200/70 dark:border-slate-800 flex items-center justify-between">
-                          <span className="text-[10px] font-semibold text-slate-500">SPR Points</span>
-                          <span className="font-mono font-black text-sm text-blue-700 dark:text-blue-300">
+                        {/* SPR Points */}
+                        <div className="mt-1.5 pt-1 w-full border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-center">
+                          <span className="font-mono font-black text-[11px] sm:text-xs text-blue-700 dark:text-blue-300">
                             {st.sprPoints} pts
                           </span>
                         </div>
@@ -379,27 +396,36 @@ export default function ItemLeaderboardModal({
               )}
 
               {/* Full Standings Table / List */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400 px-3 pb-1">
-                  <span>Student Leaderboard Standings ({filteredLeaderboard.length})</span>
-                  <span>Evaluated Points</span>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400 px-2 pb-0.5">
+                  <span className="truncate">Standings ({filteredLeaderboard.length})</span>
+                  <div className="flex items-center space-x-3 shrink-0">
+                    {topThree.length >= 2 && !searchStudent && filterClass === 'ALL' && (
+                      <button
+                        onClick={() => setShowPodium(!showPodium)}
+                        className="text-[10px] sm:text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold"
+                      >
+                        {showPodium ? 'Hide Podium' : 'Show Podium'}
+                      </button>
+                    )}
+                    <span className="text-[10px] sm:text-[11px] text-slate-400">Evaluated Points</span>
+                  </div>
                 </div>
 
-                <div className="divide-y divide-slate-100 dark:divide-slate-800 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-xs">
+                <div className="divide-y divide-slate-100 dark:divide-slate-800 rounded-xl sm:rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-xs">
                   {filteredLeaderboard.map((entry) => {
-                    const isTopThree = entry.rank <= 3;
                     return (
                       <div
                         key={entry.recordId}
                         onClick={() => onSelectStudent && onSelectStudent(entry.studentId)}
-                        className={`p-3 sm:p-4 flex items-center justify-between transition-colors hover:bg-blue-50/70 dark:hover:bg-slate-800/70 cursor-pointer group ${
+                        className={`p-2 sm:p-3 flex items-center justify-between transition-colors hover:bg-blue-50/70 dark:hover:bg-slate-800/70 cursor-pointer group ${
                           entry.rank === 1 ? 'bg-amber-50/30 dark:bg-amber-950/20' : ''
                         }`}
                       >
-                        <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 pr-3">
+                        <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 pr-2">
                           {/* Rank indicator */}
                           <div
-                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
+                            className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg sm:rounded-xl flex items-center justify-center font-black text-[10px] sm:text-xs shrink-0 ${
                               entry.rank === 1
                                 ? 'bg-amber-400 text-amber-950 shadow-2xs font-bold'
                                 : entry.rank === 2
@@ -420,19 +446,19 @@ export default function ItemLeaderboardModal({
                             <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                               {entry.fullName}
                             </div>
-                            <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium truncate flex items-center flex-wrap gap-1.5 mt-0.5">
-                              <span className="font-mono font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/70 px-1.5 py-0.2 rounded border border-blue-200 dark:border-blue-800 text-[9.5px]">
+                            <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium truncate flex items-center flex-wrap gap-1 mt-0.5">
+                              <span className="font-mono font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/70 px-1 py-0.2 rounded border border-blue-200 dark:border-blue-800 text-[9px] sm:text-[9.5px]">
                                 {entry.sprStudentId}
                               </span>
                               <span>• {entry.className}</span>
                               {entry.division && <span>({entry.division})</span>}
                               {entry.levelName && (
-                                <span className="bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 px-1.5 py-0.2 rounded text-[9.5px]">
+                                <span className="bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 px-1 py-0.2 rounded text-[9px] sm:text-[9.5px]">
                                   {entry.levelName} ({entry.levelMultiplier}x)
                                 </span>
                               )}
                               {(entry as any).isExam && (entry as any).remarks && (
-                                <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-1.5 py-0.2 rounded text-[9.5px]">
+                                <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-1 py-0.2 rounded text-[9px] sm:text-[9.5px]">
                                   {(entry as any).remarks}
                                 </span>
                               )}
@@ -441,13 +467,13 @@ export default function ItemLeaderboardModal({
                         </div>
 
                         {/* Point calculation breakdown and final SPR points */}
-                        <div className="flex items-center space-x-3 sm:space-x-5 shrink-0 text-right">
+                        <div className="flex items-center space-x-2 sm:space-x-4 shrink-0 text-right">
                           <div className="hidden sm:flex flex-col items-end">
                             {getPositionBadge(entry.position)}
-                            <div className="text-[10px] text-slate-400 font-mono mt-1">
+                            <div className="text-[10px] text-slate-400 font-mono mt-0.5">
                               {(entry as any).isExam ? (
                                 <span>
-                                  {entry.baseScore} / {entry.maxScore} marks ({(entry as any).percentage}%)
+                                  {entry.baseScore}/{entry.maxScore} ({(entry as any).percentage}%)
                                 </span>
                               ) : (
                                 <>
@@ -460,15 +486,15 @@ export default function ItemLeaderboardModal({
                           </div>
 
                           <div className="flex flex-col items-end">
-                            <span className="font-mono font-black text-sm sm:text-base text-blue-700 dark:text-blue-300">
+                            <span className="font-mono font-black text-xs sm:text-base text-blue-700 dark:text-blue-300">
                               {entry.sprPoints} pts
                             </span>
-                            <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">
+                            <span className="text-[8.5px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider">
                               SPR Score
                             </span>
                           </div>
 
-                          <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all shrink-0" />
+                          <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all shrink-0" />
                         </div>
                       </div>
                     );
@@ -480,11 +506,11 @@ export default function ItemLeaderboardModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-3 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
-          <span>Click any student to view their complete analytical dossier</span>
+        <div className="px-4 py-2 sm:px-6 sm:py-2.5 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium shrink-0">
+          <span className="truncate mr-2">Click any student to view dossier</span>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-xl hover:bg-slate-300 dark:hover:bg-slate-600 transition font-bold"
+            className="px-3.5 py-1 sm:px-4 sm:py-1.5 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-xl hover:bg-slate-300 dark:hover:bg-slate-600 transition font-bold text-xs shrink-0"
           >
             Close
           </button>
