@@ -291,7 +291,7 @@ export default function PublicHomePage() {
         .then((data) => {
           if (!isCurrent) return;
           setSearchResults(data.students || []);
-          setSearchItems(data.items || []);
+          setSearchItems((data.items || []).filter((item: any) => (item.participantCount || 0) > 0));
           setSearching(false);
           setHasSearched(true);
           if (headerSearchVisible) {
@@ -513,7 +513,7 @@ export default function PublicHomePage() {
               <div className="p-2.5 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent dark:from-amber-950/40 dark:to-transparent border-b border-amber-200/60 dark:border-slate-800 flex items-center justify-between text-[11px] text-amber-900 dark:text-amber-300 font-bold">
                 <span className="flex items-center space-x-1.5">
                   <Trophy className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Programmes, Competitions & Exams ({searchItems.length})</span>
+                  <span>Evaluated Leaderboards ({searchItems.length})</span>
                 </span>
                 <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">Click to view leaderboard</span>
               </div>
@@ -880,7 +880,7 @@ export default function PublicHomePage() {
                     <div className="p-2 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-slate-800 dark:to-amber-950/30 text-[10.5px] font-bold text-amber-900 dark:text-amber-300 flex items-center justify-between">
                       <span className="flex items-center space-x-1">
                         <Trophy className="w-3 h-3 text-amber-600" />
-                        <span>Programmes & Exams ({searchItems.length})</span>
+                        <span>Evaluated Leaderboards ({searchItems.length})</span>
                       </span>
                       <span className="text-[9.5px] text-amber-700 dark:text-amber-400">View Rankings</span>
                     </div>
@@ -897,7 +897,7 @@ export default function PublicHomePage() {
                             </div>
                             <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
                               {item.parentName ? `${item.parentName} • ` : ''}{item.categoryName}
-                              {item.participantCount > 0 ? ` • ${item.participantCount} students` : ''}
+                              {item.participantCount > 0 ? ` • ${item.participantCount} evaluated` : ''}
                             </div>
                           </div>
                           <span className="shrink-0 px-2 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold text-[10px] border border-amber-300 dark:border-amber-700">

@@ -305,12 +305,12 @@ export default function ItemLeaderboardModal({
             <div className="py-16 text-center text-slate-400 space-y-2">
               <Trophy className="w-10 h-10 text-slate-300 dark:text-slate-700 mx-auto" />
               <div className="text-sm font-bold text-slate-600 dark:text-slate-300">
-                No participant records found
+                No evaluated records found
               </div>
               <p className="text-xs text-slate-400">
                 {filterClass !== 'ALL'
-                  ? `No students from ${filterClass} scored in this item.`
-                  : 'Scores have not been recorded for this item yet.'}
+                  ? `No evaluated students from ${filterClass} in this item.`
+                  : 'No evaluated scores have been recorded for this item yet.'}
               </p>
             </div>
           ) : (

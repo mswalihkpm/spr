@@ -75,14 +75,19 @@ export async function GET(req: NextRequest) {
       orderBy: [{ class: { numericGrade: 'asc' } }, { fullName: 'asc' }],
     });
 
-    // 2. PROGRAMMES, COMPETITIONS & EXAMS SEARCH (Filtered at database level!)
+    // 2. PROGRAMMES, COMPETITIONS & EXAMS SEARCH (Evaluated only - filtered at database level!)
     const itemOrConditions = rawWords.map((w) => ({
       name: { contains: w, mode: 'insensitive' as const },
     }));
 
-    // Query literary competitions matching keywords
+    // Query literary competitions matching keywords that have evaluated performance records
     const litCompsPromise = prisma.literaryCompetition.findMany({
       where: {
+        performanceRecords: {
+          some: {
+            student: { status: { not: 'INACTIVE' } },
+          },
+        },
         OR: [
           ...itemOrConditions,
           { event: { name: { contains: q, mode: 'insensitive' as const } } },
@@ -93,14 +98,27 @@ export async function GET(req: NextRequest) {
         name: true,
         maxScore: true,
         event: { select: { name: true } },
-        _count: { select: { performanceRecords: true } },
+        _count: {
+          select: {
+            performanceRecords: {
+              where: {
+                student: { status: { not: 'INACTIVE' } },
+              },
+            },
+          },
+        },
       },
       take: 20,
     });
 
-    // Query program competitions matching keywords
+    // Query program competitions matching keywords that have evaluated performance records
     const compsPromise = prisma.competition.findMany({
       where: {
+        performanceRecords: {
+          some: {
+            student: { status: { not: 'INACTIVE' } },
+          },
+        },
         OR: [
           ...itemOrConditions,
           { program: { name: { contains: q, mode: 'insensitive' as const } } },
@@ -111,14 +129,27 @@ export async function GET(req: NextRequest) {
         name: true,
         maxScore: true,
         program: { select: { name: true } },
-        _count: { select: { performanceRecords: true } },
+        _count: {
+          select: {
+            performanceRecords: {
+              where: {
+                student: { status: { not: 'INACTIVE' } },
+              },
+            },
+          },
+        },
       },
       take: 20,
     });
 
-    // Query exams matching keywords
+    // Query exams matching keywords that have evaluated performance records
     const examsPromise = prisma.exam.findMany({
       where: {
+        performanceRecords: {
+          some: {
+            student: { status: { not: 'INACTIVE' } },
+          },
+        },
         OR: [
           ...itemOrConditions,
           { category: { name: { contains: q, mode: 'insensitive' as const } } },
@@ -128,7 +159,15 @@ export async function GET(req: NextRequest) {
         id: true,
         name: true,
         category: { select: { name: true, code: true } },
-        _count: { select: { performanceRecords: true } },
+        _count: {
+          select: {
+            performanceRecords: {
+              where: {
+                student: { status: { not: 'INACTIVE' } },
+              },
+            },
+          },
+        },
       },
       take: 15,
     });
@@ -192,6 +231,9 @@ export async function GET(req: NextRequest) {
       participantCount: number;
       maxScore?: number;
     }) => {
+      // Strictly enforce: only evaluated leaderboards with at least 1 participant
+      if (!item.participantCount || item.participantCount <= 0) return;
+
       const cleanName = item.name.trim();
       const groupKey = `${item.type}_${cleanName.toLowerCase()}`;
       const existing = itemsMap.get(groupKey);
@@ -262,7 +304,7 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    const items = Array.from(itemsMap.values());
+    const items = Array.from(itemsMap.values()).filter((item) => item.participantCount > 0);
 
     // Sort items: items with more participants and closer name match first
     items.sort((a, b) => {
