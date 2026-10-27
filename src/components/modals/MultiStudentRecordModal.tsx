@@ -76,6 +76,9 @@ export default function MultiStudentRecordModal({
   const [basePoint, setBasePoint] = useState<number>(
     categoryType === 'LITERARY' ? 3.5 : 50
   );
+  const [recordDate, setRecordDate] = useState<string>(
+    new Date().toISOString().slice(0, 10)
+  );
 
   const [studentRows, setStudentRows] = useState<StudentRow[]>([
     { id: '1', studentId: '', position: '1st', grade: 'A+', remarks: '' },
@@ -186,6 +189,7 @@ export default function MultiStudentRecordModal({
           grade: r.grade || null,
           levelId: levelId || null,
           subcategoryId: subcategoryId || null,
+          date: recordDate ? new Date(recordDate).toISOString() : new Date().toISOString(),
           remarks: remarksText,
         };
       });
@@ -197,6 +201,7 @@ export default function MultiStudentRecordModal({
           categoryId,
           subcategoryId: subcategoryId || null,
           levelId: levelId || null,
+          date: recordDate ? new Date(recordDate).toISOString() : new Date().toISOString(),
           competitionName: programmeName.trim(),
           festivalName: festivalName.trim(),
           records: recordsToUpload,
@@ -367,6 +372,18 @@ export default function MultiStudentRecordModal({
                 <span className="text-[11px] text-slate-500 font-medium">
                   pts
                 </span>
+
+                <div className="flex items-center space-x-2 pl-3 border-l border-slate-200 dark:border-slate-700">
+                  <label className="text-xs font-black text-slate-800 dark:text-slate-200 shrink-0">
+                    Date:
+                  </label>
+                  <input
+                    type="date"
+                    value={recordDate}
+                    onChange={(e) => setRecordDate(e.target.value)}
+                    className="px-2.5 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white"
+                  />
+                </div>
               </div>
 
               <div className="flex items-center space-x-2 text-[11px] text-slate-600 dark:text-slate-400 font-semibold">

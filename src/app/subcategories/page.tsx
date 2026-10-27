@@ -127,6 +127,7 @@ export default function OtherSubcategoriesPage() {
     maxScore: '100',
     position: '1st',
     grade: 'A+',
+    date: new Date().toISOString().slice(0, 10),
     remarks: '',
   });
   const [savingScore, setSavingScore] = useState(false);
@@ -300,9 +301,11 @@ export default function OtherSubcategoriesPage() {
               percentage: Math.min(percentage, 100),
               position: recordForm.position || null,
               grade: recordForm.grade || null,
+              date: recordForm.date ? new Date(recordForm.date).toISOString() : new Date().toISOString(),
               remarks: recordForm.remarks ? `${activeSubcategory.name} - ${recordForm.remarks}` : activeSubcategory.name,
             },
           ],
+          date: recordForm.date ? new Date(recordForm.date).toISOString() : new Date().toISOString(),
         }),
       });
 
@@ -962,17 +965,31 @@ export default function OtherSubcategoriesPage() {
                   )}
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Remarks / Details <span className="text-slate-400 font-normal">(Optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={recordForm.remarks}
-                    onChange={(e) => setRecordForm({ ...recordForm, remarks: e.target.value })}
-                    placeholder="e.g. State championship award, special certificate..."
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-indigo-600"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Date (Auto-Selected)
+                    </label>
+                    <input
+                      type="date"
+                      value={recordForm.date}
+                      onChange={(e) => setRecordForm({ ...recordForm, date: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Remarks / Details <span className="text-slate-400 font-normal">(Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={recordForm.remarks}
+                      onChange={(e) => setRecordForm({ ...recordForm, remarks: e.target.value })}
+                      placeholder="e.g. State championship award..."
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-indigo-600"
+                    />
+                  </div>
                 </div>
 
                 <ModalLoadingBar loading={savingScore} text="Recording score to database..." color="indigo" />

@@ -72,10 +72,19 @@ export async function GET(req: NextRequest) {
       orderBy: { date: 'desc' },
     });
 
+    const enrichedRecords = records.map((r) => {
+      const pageMatch = (r.remarks || '').match(/\((?:Pages?|Page\s*No|pp?\.?)\s*:?\s*(\d+)\)/i);
+      const pagesRead = pageMatch ? parseInt(pageMatch[1], 10) : null;
+      return {
+        ...r,
+        pagesRead,
+      };
+    });
+
     return NextResponse.json({
-      records,
+      records: enrichedRecords,
       subcategoryId: kuthbkhanaSub?.id,
-      totalCount: records.length,
+      totalCount: enrichedRecords.length,
     });
   } catch (error: any) {
     console.error('Kuthbkhana GET error:', error);
@@ -89,7 +98,7 @@ export async function POST(req: NextRequest) {
     if (errorResponse || !user) return errorResponse || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
-    const { studentId, type = 'Muthala', kithabName, points, date, notes } = body;
+    const { studentId, type = 'Muthala', kithabName, pagesRead, points, date, notes } = body;
 
     if (!studentId) {
       return NextResponse.json({ error: 'Please select a student.' }, { status: 400 });
@@ -154,7 +163,9 @@ export async function POST(req: NextRequest) {
     // Optional date: if not provided or empty, default to current date
     const recordDate = date && String(date).trim() !== '' ? new Date(date) : new Date();
     const selectedType = type === 'Point picking' ? 'Point picking' : 'Muthala';
-    const formattedRemarks = `[${selectedType}] ${kithabName.trim()}${notes ? ' - ' + notes.trim() : ''}`;
+    const parsedPages = pagesRead !== undefined && pagesRead !== null && String(pagesRead).trim() !== '' ? Number(pagesRead) : null;
+    const pagesTag = parsedPages && !isNaN(parsedPages) && parsedPages > 0 ? ` (Pages: ${parsedPages})` : '';
+    const formattedRemarks = `[${selectedType}] ${kithabName.trim()}${pagesTag}${notes ? ' - ' + notes.trim() : ''}`;
 
     const record = await prisma.performanceRecord.create({
       data: {
@@ -211,7 +222,7 @@ export async function PUT(req: NextRequest) {
     if (errorResponse || !user) return errorResponse || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
-    const { id, studentId, type = 'Muthala', kithabName, points, date, notes } = body;
+    const { id, studentId, type = 'Muthala', kithabName, pagesRead, points, date, notes } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Record ID is required.' }, { status: 400 });
@@ -228,8 +239,10 @@ export async function PUT(req: NextRequest) {
     const selectedType = type === 'Point picking' ? 'Point picking' : 'Muthala';
 
     let updatedRemarks = existing.remarks;
-    if (kithabName) {
-      updatedRemarks = `[${selectedType}] ${kithabName.trim()}${notes ? ' - ' + notes.trim() : ''}`;
+    if (kithabName !== undefined) {
+      const parsedPages = pagesRead !== undefined && pagesRead !== null && String(pagesRead).trim() !== '' ? Number(pagesRead) : null;
+      const pagesTag = parsedPages && !isNaN(parsedPages) && parsedPages > 0 ? ` (Pages: ${parsedPages})` : '';
+      updatedRemarks = `[${selectedType}] ${kithabName.trim()}${pagesTag}${notes ? ' - ' + notes.trim() : ''}`;
     }
 
     const updatedDate = date && String(date).trim() !== '' ? new Date(date) : existing.date;

@@ -76,6 +76,9 @@ export default function MultiProgrammeRecordModal({
   );
 
   const defaultBasePoint = categoryType === 'LITERARY' ? 3.5 : 50;
+  const [recordDate, setRecordDate] = useState<string>(
+    new Date().toISOString().slice(0, 10)
+  );
 
   const [programmeRows, setProgrammeRows] = useState<ProgrammeRow[]>([
     {
@@ -212,6 +215,7 @@ export default function MultiProgrammeRecordModal({
           subcategoryId: r.subcategoryId || null,
           competitionName: r.programmeName.trim(),
           festivalName: fest.trim(),
+          date: recordDate ? new Date(recordDate).toISOString() : new Date().toISOString(),
           remarks: remarksText,
         };
       });
@@ -221,6 +225,7 @@ export default function MultiProgrammeRecordModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           categoryId,
+          date: recordDate ? new Date(recordDate).toISOString() : new Date().toISOString(),
           records: recordsToUpload,
         }),
       });
@@ -294,13 +299,24 @@ export default function MultiProgrammeRecordModal({
             <div className="flex items-center justify-between border-b border-purple-200/60 dark:border-slate-700 pb-2">
               <span className="text-xs font-black text-purple-900 dark:text-purple-300 uppercase tracking-wider flex items-center space-x-1.5">
                 <User className="w-3.5 h-3.5 text-purple-600" />
-                <span>1. Select Student</span>
+                <span>1. Select Student & Date</span>
               </span>
-              {selectedStudent && (
-                <span className="text-[11px] text-purple-700 dark:text-purple-300 font-bold">
-                  {selectedStudent.class?.name || 'Class'} {selectedStudent.division ? `(${selectedStudent.division})` : ''}
-                </span>
-              )}
+              <div className="flex items-center space-x-2">
+                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                  Date:
+                </label>
+                <input
+                  type="date"
+                  value={recordDate}
+                  onChange={(e) => setRecordDate(e.target.value)}
+                  className="px-2 py-0.5 bg-white dark:bg-slate-900 border border-purple-200 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white"
+                />
+                {selectedStudent && (
+                  <span className="text-[11px] text-purple-700 dark:text-purple-300 font-bold ml-2">
+                    {selectedStudent.class?.name || 'Class'} {selectedStudent.division ? `(${selectedStudent.division})` : ''}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">

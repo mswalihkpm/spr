@@ -27,6 +27,7 @@ import {
 import CustomSelect from '@/components/ui/CustomSelect';
 import VideoLoader from '@/components/ui/VideoLoader';
 import { invalidateClientAcademicCache } from '@/lib/academic-client';
+import StudentAccountManagement from '@/components/admin/StudentAccountManagement';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<string>('INSTITUTION');
@@ -672,8 +673,9 @@ export default function SettingsPage() {
 
   const tabs = [
     { id: 'INSTITUTION', name: 'Institution', icon: Building },
+    { id: 'STUDENT_ACCOUNTS', name: 'Student Accounts', icon: GraduationCap },
     { id: 'ASSESSMENTS', name: 'Assessment Terms & Exams', icon: Calendar },
-    { id: 'ENTITIES', name: 'Schools & Classes', icon: GraduationCap },
+    { id: 'ENTITIES', name: 'Schools & Classes', icon: Building },
     { id: 'LEVELS', name: 'Levels & Multipliers', icon: Sliders },
     { id: 'USERS', name: 'User Management', icon: Users },
   ];
@@ -1456,6 +1458,10 @@ export default function SettingsPage() {
           </div>
         )}
 
+        {/* 6. Student Account Management Tab */}
+        {activeTab === 'STUDENT_ACCOUNTS' && (
+          <StudentAccountManagement />
+        )}
 
       </div>
 

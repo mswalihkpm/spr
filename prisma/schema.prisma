@@ -24,6 +24,8 @@ model User {
   updatedRecords     PerformanceRecord[] @relation("UpdatedRecords")
   auditLogs          AuditLog[]
   importHistories    ImportHistory[]
+  createdTasks       Task[]              @relation("CreatedTasks")
+  approvedTaskRecords StudentTaskRecord[] @relation("ApprovedTaskRecords")
 }
 
 model Session {
@@ -65,6 +67,7 @@ model AcademicClass {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   students     Student[]
+  tasks        Task[]
 }
 
 model AcademicYear {
@@ -104,6 +107,18 @@ model Student {
   performanceRecords PerformanceRecord[]
   creativeWorks      CreativeHubSubmission[]
   libraryRecords     LibraryRecord[]
+  account            StudentAccount?
+  wallet             StudentWallet?
+  storeFund          StoreFundRecord?
+  earningLedgers     EarningLedger[]
+  transactions       WalletTransaction[]     @relation("StudentTransactions")
+  sentTransfers      WalletTransaction[]     @relation("SentTransfers")
+  receivedTransfers  WalletTransaction[]     @relation("ReceivedTransfers")
+  storeFundUsages    StoreFundUsage[]
+  taskAssignments    TaskAssignment[]
+  taskRecords        StudentTaskRecord[]
+  taskRewardLedgers  TaskRewardLedger[]
+  taskPointsLedgers  TaskPointsLedger[]
 
   @@index([classId])
   @@index([schoolId])
@@ -130,6 +145,7 @@ model Category {
   subjects           Subject[]
   performanceRecords PerformanceRecord[]
   categoryWeights    CategoryWeight[]
+  earningLedgers     EarningLedger[]
 }
 
 model Subcategory {
@@ -523,3 +539,221 @@ model StudentReport {
   @@index([status])
   @@index([createdAt])
 }
+
+model StudentAccount {
+  id                 String              @id @default(cuid())
+  studentId          String              @unique
+  student            Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  passwordHash       String
+  status             String              @default("ACTIVE") // ACTIVE, DISABLED, LOCKED
+  activationCode     String?
+  isActivated        Boolean             @default(false)
+  mustChangePassword Boolean             @default(false)
+  activatedAt        DateTime?
+  lastLoginAt        DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([studentId])
+  @@index([status])
+}
+
+model StudentWallet {
+  id                      String        @id @default(cuid())
+  studentId               String        @unique
+  student                 Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  balance                 Decimal       @default(0.00) @db.Decimal(12, 2)
+  totalEarnings           Decimal       @default(0.00) @db.Decimal(12, 2)
+  totalTransferred        Decimal       @default(0.00) @db.Decimal(12, 2)
+  totalReceived           Decimal       @default(0.00) @db.Decimal(12, 2)
+  totalContributedToStore Decimal       @default(0.00) @db.Decimal(12, 2)
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+
+  @@index([studentId])
+}
+
+model EarningLedger {
+  id                 String      @id @default(cuid())
+  studentId          String
+  student            Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  categoryId         String
+  category           Category    @relation(fields: [categoryId], references: [id])
+  sourceRecordId     String?
+  sourceType         String      @default("PERFORMANCE_RECORD") // PERFORMANCE_RECORD, CREATIVE_WORK, LIBRARY, MANUAL
+  activityDate       DateTime
+  eligiblePoints     Decimal     @db.Decimal(10, 2)
+  categoryMultiplier Decimal     @db.Decimal(6, 3)
+  calculatedAmount   Decimal     @db.Decimal(10, 2)
+  recognizedAmount   Decimal     @db.Decimal(10, 2)
+  status             String      @default("CREDITED") // CREDITED, ADJUSTED, VOIDED
+  reference          String      @unique
+  metadata           String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  @@index([studentId])
+  @@index([categoryId])
+  @@index([activityDate])
+  @@index([sourceRecordId])
+}
+
+model WalletTransaction {
+  id                 String      @id @default(cuid())
+  reference          String      @unique
+  studentId          String
+  student            Student     @relation("StudentTransactions", fields: [studentId], references: [id], onDelete: Cascade)
+  type               String      // EARNING, TRANSFER_SENT, TRANSFER_RECEIVED, STORE_CONTRIBUTION, ADJUSTMENT
+  amount             Decimal     @db.Decimal(10, 2)
+  balanceBefore      Decimal     @db.Decimal(12, 2)
+  balanceAfter       Decimal     @db.Decimal(12, 2)
+  senderStudentId    String?
+  senderStudent      Student?    @relation("SentTransfers", fields: [senderStudentId], references: [id])
+  recipientStudentId String?
+  recipientStudent   Student?    @relation("ReceivedTransfers", fields: [recipientStudentId], references: [id])
+  description        String
+  status             String      @default("COMPLETED") // COMPLETED, REVERSED
+  createdAt          DateTime    @default(now())
+
+  @@index([studentId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model StoreFundRecord {
+  id               String      @id @default(cuid())
+  studentId        String      @unique
+  student          Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  totalContributed Decimal     @default(0.00) @db.Decimal(12, 2)
+  totalUsed        Decimal     @default(0.00) @db.Decimal(12, 2)
+  availableFund    Decimal     @default(0.00) @db.Decimal(12, 2)
+  lastUsedAt       DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@index([studentId])
+}
+
+model StoreFundUsage {
+  id               String      @id @default(cuid())
+  reference        String      @unique
+  studentId        String
+  student          Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  amount           Decimal     @db.Decimal(10, 2)
+  actingAdminId    String
+  actingAdminEmail String
+  remarks          String?
+  createdAt        DateTime    @default(now())
+
+  @@index([studentId])
+  @@index([actingAdminId])
+  @@index([createdAt])
+}
+
+model Task {
+  id              String              @id @default(cuid())
+  taskId          String              @unique // Human-readable e.g. TSK-2026-001
+  title           String
+  description     String              @db.Text
+  maxPoints       Decimal             @db.Decimal(10, 2)
+  maxFund         Decimal             @db.Decimal(10, 2)
+  startDate       DateTime
+  endDate         DateTime
+  status          String              @default("PUBLISHED") // DRAFT, PUBLISHED, ARCHIVED
+  targetAudience  String              @default("ALL") // ALL, SPECIFIC_CLASS, SPECIFIC_STUDENTS
+  targetClassId   String?
+  targetClass     AcademicClass?      @relation(fields: [targetClassId], references: [id])
+  createdById     String
+  createdBy       User                @relation("CreatedTasks", fields: [createdById], references: [id])
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  assignments     TaskAssignment[]
+  studentRecords  StudentTaskRecord[]
+  rewardLedgers   TaskRewardLedger[]
+  pointsLedgers   TaskPointsLedger[]
+
+  @@index([status])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([createdById])
+  @@index([targetClassId])
+}
+
+model TaskAssignment {
+  id         String   @id @default(cuid())
+  taskId     String
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  assignedAt DateTime @default(now())
+
+  @@unique([taskId, studentId])
+  @@index([taskId])
+  @@index([studentId])
+}
+
+model StudentTaskRecord {
+  id                 String              @id @default(cuid())
+  taskId             String
+  task               Task                @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  studentId          String
+  student            Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  status             String              @default("NOT_STARTED") // NOT_STARTED, SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED
+  submissionNotes    String?             @db.Text
+  submittedAt        DateTime?
+  approvedPercentage Decimal?            @db.Decimal(5, 2)
+  awardedPoints      Decimal             @default(0.00) @db.Decimal(10, 2)
+  awardedAmount      Decimal             @default(0.00) @db.Decimal(10, 2)
+  approvedById       String?
+  approvedBy         User?               @relation("ApprovedTaskRecords", fields: [approvedById], references: [id])
+  approvedAt         DateTime?
+  adminRemarks       String?             @db.Text
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  rewardLedgers      TaskRewardLedger[]
+  pointsLedgers      TaskPointsLedger[]
+
+  @@unique([taskId, studentId])
+  @@index([taskId])
+  @@index([studentId])
+  @@index([status])
+}
+
+model TaskRewardLedger {
+  id                   String            @id @default(cuid())
+  studentId            String
+  student              Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  taskId               String
+  task                 Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  studentTaskId        String
+  studentTask          StudentTaskRecord @relation(fields: [studentTaskId], references: [id], onDelete: Cascade)
+  amount               Decimal           @db.Decimal(10, 2)
+  transactionReference String            @unique
+  approvedById         String
+  approvedAt           DateTime          @default(now())
+  createdAt            DateTime          @default(now())
+
+  @@index([studentId])
+  @@index([taskId])
+  @@index([studentTaskId])
+}
+
+model TaskPointsLedger {
+  id            String            @id @default(cuid())
+  studentId     String
+  student       Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  taskId        String
+  task          Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  studentTaskId String
+  studentTask   StudentTaskRecord @relation(fields: [studentTaskId], references: [id], onDelete: Cascade)
+  points        Decimal           @db.Decimal(10, 2)
+  reference     String            @unique
+  approvedById  String
+  approvedAt    DateTime          @default(now())
+  createdAt     DateTime          @default(now())
+
+  @@index([studentId])
+  @@index([taskId])
+  @@index([studentTaskId])
+}
+

@@ -3,10 +3,11 @@ import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from './prisma';
-import { UserRole, UserSession } from '@/types';
+import { UserRole, UserSession, StudentSession } from '@/types';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'madin_school_of_excellence_spr_super_secure_jwt_secret_key_2026';
 const AUTH_COOKIE_NAME = 'spr_auth_token';
+const STUDENT_COOKIE_NAME = 'spr_student_token';
 
 export async function hashPassword(password: string): Promise<string> {
   const salt = await bcrypt.genSalt(10);
@@ -86,6 +87,9 @@ export function hasPermission(userRole: UserRole, requiredRole: UserRole): boole
   if (userRole === 'ADMIN') {
     return requiredRole !== 'SUPER_ADMIN';
   }
+  if (userRole === 'STORE_ADMIN') {
+    return requiredRole === 'STORE_ADMIN' || requiredRole === 'VIEWER';
+  }
   if (userRole === 'CREATIVE_HUB_ADMIN') {
     return requiredRole === 'CREATIVE_HUB_ADMIN' || requiredRole === 'VIEWER';
   }
@@ -155,3 +159,135 @@ export async function authenticateApiRequest(req: NextRequest, minRole: UserRole
 
   return { user: session };
 }
+
+// ---------------------------------------------------------------------------
+// Student Authentication Functions
+// ---------------------------------------------------------------------------
+
+export function signStudentToken(payload: StudentSession): string {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+}
+
+export function verifyStudentToken(token: string): StudentSession | null {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    if (decoded && decoded.role === 'STUDENT' && decoded.studentId) {
+      return decoded as StudentSession;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function setStudentCookie(response: NextResponse, token: string) {
+  response.cookies.set(STUDENT_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+    path: '/',
+  });
+}
+
+export function clearStudentCookie(response: NextResponse) {
+  response.cookies.set(STUDENT_COOKIE_NAME, '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 0,
+    path: '/',
+  });
+}
+
+export async function getCurrentStudent(): Promise<StudentSession | null> {
+  try {
+    const cookieStore = cookies();
+    const token = cookieStore.get(STUDENT_COOKIE_NAME)?.value;
+    if (!token) return null;
+
+    const payload = verifyStudentToken(token);
+    if (!payload) return null;
+
+    // Verify student account is active in database
+    const account = await prisma.studentAccount.findUnique({
+      where: { id: payload.studentAccountId },
+      include: {
+        student: {
+          include: {
+            class: true,
+          },
+        },
+      },
+    });
+
+    if (!account || account.status !== 'ACTIVE' || !account.isActivated) {
+      return null;
+    }
+
+    return {
+      studentAccountId: account.id,
+      studentId: account.student.id,
+      sprStudentId: account.student.sprStudentId || '',
+      fullName: account.student.fullName,
+      className: account.student.class?.name || '',
+      division: account.student.division,
+      photoUrl: account.student.photoUrl,
+      role: 'STUDENT',
+      mustChangePassword: account.mustChangePassword,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function authenticateStudentRequest(req: NextRequest): Promise<{ student: StudentSession | null; errorResponse?: NextResponse }> {
+  const token = req.cookies.get(STUDENT_COOKIE_NAME)?.value || req.headers.get('Authorization')?.replace('Bearer ', '');
+  if (!token) {
+    return {
+      student: null,
+      errorResponse: NextResponse.json({ error: 'Student authentication required. Please sign in.' }, { status: 401 }),
+    };
+  }
+
+  const payload = verifyStudentToken(token);
+  if (!payload) {
+    return {
+      student: null,
+      errorResponse: NextResponse.json({ error: 'Student session expired or invalid token.' }, { status: 401 }),
+    };
+  }
+
+  const account = await prisma.studentAccount.findUnique({
+    where: { id: payload.studentAccountId },
+    include: {
+      student: {
+        include: {
+          class: true,
+        },
+      },
+    },
+  });
+
+  if (!account || account.status !== 'ACTIVE' || !account.isActivated) {
+    return {
+      student: null,
+      errorResponse: NextResponse.json({ error: 'Student account is disabled or unactivated.' }, { status: 403 }),
+    };
+  }
+
+  const session: StudentSession = {
+    studentAccountId: account.id,
+    studentId: account.student.id,
+    sprStudentId: account.student.sprStudentId || '',
+    fullName: account.student.fullName,
+    className: account.student.class?.name || '',
+    division: account.student.division,
+    photoUrl: account.student.photoUrl,
+    role: 'STUDENT',
+    mustChangePassword: account.mustChangePassword,
+  };
+
+  return { student: session };
+}
+

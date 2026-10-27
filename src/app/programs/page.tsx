@@ -83,6 +83,7 @@ export default function ProgramsPage() {
     levelId: '',
     grade: '',
     score: '90',
+    date: new Date().toISOString().slice(0, 10),
     remarks: '',
   });
   const [multiStudentModalOpen, setMultiStudentModalOpen] = useState(false);
@@ -647,6 +648,7 @@ export default function ProgramsPage() {
               position: formData.position || null,
               levelId: formData.levelId || bulkLevelId || (levels[0]?.id),
               grade: formData.grade || null,
+              date: formData.date ? new Date(formData.date).toISOString() : new Date().toISOString(),
               remarks: remarksText,
             },
           ],
@@ -1208,19 +1210,31 @@ export default function ProgramsPage() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Score Awarded (0-100) *</label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    max="1000"
-                    required
-                    value={formData.score}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, score: e.target.value }))}
-                    placeholder="e.g. 3"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Score Awarded (0-100) *</label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      max="1000"
+                      required
+                      value={formData.score}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, score: e.target.value }))}
+                      placeholder="e.g. 3"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Date (Auto-Selected)</label>
+                    <input
+                      type="date"
+                      value={formData.date}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, date: e.target.value }))}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-madin-900"
+                    />
+                  </div>
                 </div>
 
                 {/* Dynamic Live Points Calculation Preview Card */}

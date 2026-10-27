@@ -48,8 +48,12 @@ export default function ChangePasswordPage() {
 
       setSuccess(true);
       setTimeout(() => {
-        if (data.user?.role === 'CREATIVE_HUB_ADMIN') {
+        if (data.user?.role === 'STORE_ADMIN') {
+          router.push('/store');
+        } else if (data.user?.role === 'CREATIVE_HUB_ADMIN') {
           router.push('/creative-hub');
+        } else if (data.user?.role === 'KUTHBKHANA_ADMIN') {
+          router.push('/kuthbkhana');
         } else {
           router.push('/dashboard');
         }

@@ -809,6 +809,14 @@ export default function PublicHomePage() {
                 >
                   <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 dark:text-indigo-400" />
                 </Link>
+                <Link
+                  href="/student/login"
+                  className="hidden sm:flex w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/90 dark:bg-slate-900/90 hover:bg-emerald-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs border border-transparent dark:border-slate-800 btn-interactive"
+                  title="Student Portal (Earnings & Wallet)"
+                  aria-label="Student Portal"
+                >
+                  <GraduationCap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400" />
+                </Link>
               </div>
             </>
           )}
@@ -1394,7 +1402,7 @@ export default function PublicHomePage() {
                         key={row.studentId}
                         onClick={() => handleStudentClick(row.studentId)}
                         style={{ animationDelay: `${Math.min(idx * 20, 350)}ms` }}
-                        className={`scroll-driven-row scroll-reveal-target scroll-reveal-hidden animate-row hover:bg-blue-50/50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200 group ${
+                        className={`scroll-driven-row animate-row hover:bg-blue-50/50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200 group ${
                           isTop1 ? 'bg-amber-50/20 dark:bg-amber-950/10' : ''
                         }`}
                         title="Click to view full student profile and score origin breakdown"

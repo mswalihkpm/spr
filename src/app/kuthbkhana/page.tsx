@@ -26,6 +26,8 @@ import {
   Layers,
   Filter,
   Loader2,
+  RotateCcw,
+  Calculator,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
@@ -66,6 +68,13 @@ function parseRemarks(remarks: string = '') {
     clean = clean.replace(/^\[Muthala\]\s*/i, '');
   }
 
+  let pagesRead: number | null = null;
+  const pageMatch = clean.match(/\((?:Pages?|Page\s*No|pp?\.?)\s*:?\s*(\d+)\)/i);
+  if (pageMatch) {
+    pagesRead = parseInt(pageMatch[1], 10);
+    clean = clean.replace(/\((?:Pages?|Page\s*No|pp?\.?)\s*:?\s*\d+\)/i, '').trim();
+  }
+
   let kithabName = clean;
   let notes = '';
 
@@ -79,6 +88,7 @@ function parseRemarks(remarks: string = '') {
     type,
     title: kithabName || clean,
     notes,
+    pagesRead,
     raw: clean,
   };
 }
@@ -100,6 +110,12 @@ export default function KuthbkhanaPage() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Base Mark per 10 Pages Engine State
+  const [baseMarkPer10Pages, setBaseMarkPer10Pages] = useState<number>(1.0);
+  const [savingBaseMark, setSavingBaseMark] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
+  const [recalcConfirmOpen, setRecalcConfirmOpen] = useState(false);
+
   // Form State
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<any | null>(null);
@@ -107,8 +123,9 @@ export default function KuthbkhanaPage() {
     studentId: '',
     type: 'Muthala' as 'Muthala' | 'Point picking',
     kithabName: '',
+    pagesRead: '',
     points: '10',
-    date: '',
+    date: new Date().toISOString().slice(0, 10),
     notes: '',
   });
   const [saving, setSaving] = useState(false);
@@ -137,13 +154,20 @@ export default function KuthbkhanaPage() {
   const fetchData = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
-      const [recRes, studRes] = await Promise.all([
+      const [recRes, studRes, setRes] = await Promise.all([
         fetch('/api/kuthbkhana'),
         fetch('/api/students?all=true&minimal=true'),
+        fetch('/api/kuthbkhana/settings').catch(() => null),
       ]);
 
       const recData = await recRes.json();
       const studData = await studRes.json();
+      if (setRes) {
+        const setData = await setRes.json().catch(() => ({}));
+        if (typeof setData.baseMarkPer10Pages === 'number') {
+          setBaseMarkPer10Pages(setData.baseMarkPer10Pages);
+        }
+      }
 
       if (recData.records) setRecords(recData.records);
       if (recData.subcategoryId) setSubcategoryId(recData.subcategoryId);
@@ -164,14 +188,28 @@ export default function KuthbkhanaPage() {
     fetchData();
   }, []);
 
+  const handlePagesReadChange = (pagesVal: string) => {
+    const pNum = Number(pagesVal);
+    let calculatedPoints = formData.points;
+    if (pagesVal.trim() !== '' && !isNaN(pNum) && pNum > 0) {
+      calculatedPoints = String(Math.round(((pNum / 10) * baseMarkPer10Pages) * 100) / 100);
+    }
+    setFormData((prev) => ({
+      ...prev,
+      pagesRead: pagesVal,
+      points: calculatedPoints,
+    }));
+  };
+
   const handleOpenAdd = () => {
     setEditingRecord(null);
     setFormData({
       studentId: students[0]?.id || '',
       type: 'Muthala',
       kithabName: '',
+      pagesRead: '',
       points: '10',
-      date: '',
+      date: new Date().toISOString().slice(0, 10), // Automatic date selection!
       notes: '',
     });
     setModalOpen(true);
@@ -180,15 +218,59 @@ export default function KuthbkhanaPage() {
   const handleOpenEdit = (rec: any) => {
     setEditingRecord(rec);
     const parsed = parseRemarks(rec.remarks);
+    const pVal = rec.pagesRead ?? parsed.pagesRead ?? '';
+    const pointsVal = String(rec.scoreAwarded ?? rec.obtainedScore ?? '10');
+
     setFormData({
       studentId: rec.studentId || rec.student?.id || '',
       type: parsed.type,
       kithabName: parsed.title,
-      points: String(rec.scoreAwarded || rec.obtainedScore || '10'),
-      date: rec.createdAt || rec.date ? new Date(rec.createdAt || rec.date).toISOString().slice(0, 10) : '',
+      pagesRead: pVal ? String(pVal) : '',
+      points: pointsVal,
+      date: rec.date ? new Date(rec.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
       notes: parsed.notes || '',
     });
     setModalOpen(true);
+  };
+
+  const handleSaveBaseMark = async () => {
+    setSavingBaseMark(true);
+    setStatusMsg(null);
+    try {
+      const res = await fetch('/api/kuthbkhana/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ baseMarkPer10Pages }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save base mark.');
+      setStatusMsg({ type: 'success', text: `Saved: ${baseMarkPer10Pages} pts per 10 pages.` });
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: err.message || 'Error saving base mark.' });
+    } finally {
+      setSavingBaseMark(false);
+    }
+  };
+
+  const handleRecalculateAllPoints = async () => {
+    setRecalculating(true);
+    setStatusMsg(null);
+    try {
+      const res = await fetch('/api/kuthbkhana/recalculate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ baseMarkPer10Pages }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to recalculate points.');
+      setStatusMsg({ type: 'success', text: data.message || 'Recalculation complete!' });
+      setRecalcConfirmOpen(false);
+      await fetchData(true);
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: err.message || 'Error recalculating points.' });
+    } finally {
+      setRecalculating(false);
+    }
   };
 
   const handleSaveRecord = async (e: React.FormEvent) => {
@@ -214,8 +296,9 @@ export default function KuthbkhanaPage() {
         studentId: formData.studentId,
         type: formData.type,
         kithabName: formData.kithabName.trim(),
+        pagesRead: formData.pagesRead.trim() !== '' ? Number(formData.pagesRead) : null,
         points: Number(formData.points) || 10,
-        date: formData.date ? new Date(formData.date).toISOString() : undefined,
+        date: formData.date ? new Date(formData.date).toISOString() : new Date().toISOString(),
         notes: formData.notes.trim(),
       };
 
@@ -513,6 +596,65 @@ export default function KuthbkhanaPage() {
           </div>
         )}
 
+        {/* Base Mark per 10 Pages Configuration & Recalculate Engine Card */}
+        <div className="bg-gradient-to-r from-blue-50/80 via-indigo-50/60 to-amber-50/60 p-4 sm:p-5 rounded-3xl border border-blue-200/80 shadow-xs">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center space-x-2">
+                <span className="p-1.5 rounded-xl bg-blue-600 text-white">
+                  <Calculator className="w-4 h-4" />
+                </span>
+                <h3 className="text-sm font-black text-slate-900 tracking-tight">
+                  Kuthbkhana Valuation Engine (Base Mark per 10 Pages)
+                </h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                  Weightage: 1.5x in Wallet
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed max-w-2xl">
+                Base formula: <span className="font-mono font-bold text-blue-900">(Pages Read ÷ 10) × Base Mark</span>. For example, reading 50 pages at {baseMarkPer10Pages} pt/10-pages awards <span className="font-bold text-emerald-700 font-mono">{(50 / 10) * baseMarkPer10Pages} pts</span>.
+              </p>
+            </div>
+
+            <div className="flex items-center space-x-3 shrink-0 flex-wrap gap-y-2">
+              <div className="flex items-center space-x-2 bg-white px-3 py-1.5 rounded-2xl border border-slate-200 shadow-xs">
+                <label className="text-xs font-bold text-slate-700 whitespace-nowrap">
+                  Base Mark / 10 Pgs:
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  max="100"
+                  value={baseMarkPer10Pages}
+                  onChange={(e) => setBaseMarkPer10Pages(Number(e.target.value) || 1)}
+                  className="w-16 px-2 py-1 bg-slate-50 border border-slate-300 rounded-xl text-xs font-black text-blue-700 text-center outline-none focus:ring-2 focus:ring-blue-600"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveBaseMark}
+                  disabled={savingBaseMark}
+                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center space-x-1 disabled:opacity-50 cursor-pointer"
+                >
+                  {savingBaseMark ? <Loader2 className="w-3 h-3 animate-spin text-white" /> : <Save className="w-3 h-3" />}
+                  <span>Save</span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setRecalcConfirmOpen(true)}
+                disabled={recalculating}
+                className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black rounded-2xl transition shadow-xs flex items-center space-x-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
+                title="Recalculate points for all existing records based on pages read"
+              >
+                <RotateCcw className={`w-3.5 h-3.5 ${recalculating ? 'animate-spin' : ''}`} />
+                <span>Recalculate All Points</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Search & Filter Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
           <div className="relative flex-1 max-w-md">
@@ -603,6 +745,7 @@ export default function KuthbkhanaPage() {
                     <th className="py-3 px-4">Student</th>
                     <th className="py-3 px-4">Class</th>
                     <th className="py-3 px-4">Category & Details</th>
+                    <th className="py-3 px-4 text-center">Pages Read</th>
                     <th className="py-3 px-4 text-right">Awarded Points</th>
                     <th className="py-3 px-4">Date</th>
                     <th className="py-3 px-4 text-center">Actions</th>
@@ -660,6 +803,15 @@ export default function KuthbkhanaPage() {
                               <span className="text-[11px] text-slate-500 font-medium">({parsed.notes})</span>
                             )}
                           </div>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          {parsed.pagesRead ? (
+                            <span className="px-2 py-0.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 font-bold text-xs font-mono">
+                              {parsed.pagesRead} pgs
+                            </span>
+                          ) : (
+                            <span className="text-slate-300 text-xs">—</span>
+                          )}
                         </td>
                         <td className="py-3 px-4 text-right">
                           <span className="px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-black text-xs font-mono">
@@ -833,27 +985,48 @@ export default function KuthbkhanaPage() {
                 />
               </div>
 
-              {/* Points (Numerical) & Date (Optional) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Pages Read, Awarded Points & Date */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Pages Read <span className="text-[10px] font-normal text-slate-400">(Auto-calc)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    placeholder="e.g. 50"
+                    value={formData.pagesRead}
+                    onChange={(e) => handlePagesReadChange(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                  <span className="text-[9px] text-slate-400 mt-0.5 block truncate">
+                    {formData.pagesRead ? `(${formData.pagesRead}÷10)×${baseMarkPer10Pages}` : `${baseMarkPer10Pages} pt/10pg`}
+                  </span>
+                </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Awarded Points *
                   </label>
                   <input
                     type="number"
-                    step="1"
-                    min="1"
+                    step="0.1"
+                    min="0.1"
                     max="500"
                     required
                     value={formData.points}
                     onChange={(e) => setFormData({ ...formData, points: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-600"
                   />
+                  <span className="text-[9px] text-slate-400 mt-0.5 block">
+                    SPR Points
+                  </span>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Date <span className="text-[10px] font-normal text-slate-400">(Optional)</span>
+                    Date <span className="text-[10px] font-normal text-slate-400">(Auto Today)</span>
                   </label>
                   <input
                     type="date"
@@ -862,7 +1035,7 @@ export default function KuthbkhanaPage() {
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-blue-600"
                   />
                   <span className="text-[9px] text-slate-400 mt-0.5 block">
-                    Defaults to today if left blank
+                    Automatic date
                   </span>
                 </div>
               </div>
@@ -936,6 +1109,56 @@ export default function KuthbkhanaPage() {
                   <>
                     <Trash2 className="w-4 h-4 text-rose-200" />
                     <span>Confirm Delete ({selectedIds.length})</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Recalculate Points Confirmation Modal */}
+      {recalcConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 text-center space-y-4 animate-scale-in">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto">
+              <RotateCcw className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-black text-slate-900">Recalculate All Kuthbkhana Points?</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                This will recalculate awarded points for all historical records containing a recorded page count using the formula:
+                <br />
+                <span className="font-mono font-bold text-blue-900 mt-1 inline-block bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200">
+                  (Pages Read ÷ 10) × {baseMarkPer10Pages} Base Mark
+                </span>
+                <br />
+                All student SPR leaderboard totals will be refreshed immediately.
+              </p>
+            </div>
+            <div className="flex items-center justify-center space-x-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setRecalcConfirmOpen(false)}
+                disabled={recalculating}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRecalculateAllPoints}
+                disabled={recalculating}
+                className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-xs font-black shadow-md flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer active:scale-95"
+              >
+                {recalculating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+                    <span>Recalculating Points...</span>
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Confirm Recalculate</span>
                   </>
                 )}
               </button>

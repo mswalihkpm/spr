@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
       academicYearId,
       stream,
       institutionId,
+      date,
       records, // Array of student rows (supports single score, multi-subject array, or key-value map)
     } = body;
 
@@ -426,6 +427,7 @@ export async function POST(req: NextRequest) {
                 obtainedScore,
                 maxScore,
                 percentage,
+                date: subEntry.date ? new Date(subEntry.date) : (row.date ? new Date(row.date) : (date ? new Date(date) : new Date())),
                 remarks: subEntry.remarks || row.remarks || null,
                 createdById: user?.id,
               },
@@ -469,6 +471,7 @@ export async function POST(req: NextRequest) {
               obtainedScore,
               maxScore,
               percentage,
+              date: progEntry.date ? new Date(progEntry.date) : (row.date ? new Date(row.date) : (date ? new Date(date) : new Date())),
               remarks: progEntry.remarks || row.remarks || `${festTitle} - ${eventName}`,
               createdById: user?.id,
             },
@@ -558,7 +561,7 @@ export async function POST(req: NextRequest) {
               obtainedScore,
               maxScore,
               percentage,
-              date: row.date ? new Date(row.date) : new Date(),
+              date: row.date ? new Date(row.date) : (date ? new Date(date) : new Date()),
               remarks: row.remarks || null,
               createdById: user?.id,
             },
@@ -583,7 +586,7 @@ export async function POST(req: NextRequest) {
             obtainedScore,
             maxScore,
             percentage,
-            date: row.date ? new Date(row.date) : new Date(),
+            date: row.date ? new Date(row.date) : (date ? new Date(date) : new Date()),
             remarks: row.remarks || (targetFestName && targetCompName ? `${targetFestName} - ${targetCompName}` : null),
             createdById: user?.id,
           },

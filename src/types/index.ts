@@ -1,4 +1,4 @@
-export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'CREATIVE_HUB_ADMIN' | 'KUTHBKHANA_ADMIN' | 'TEACHER' | 'VIEWER';
+export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'CREATIVE_HUB_ADMIN' | 'KUTHBKHANA_ADMIN' | 'STORE_ADMIN' | 'TEACHER' | 'VIEWER';
 
 export interface UserSession {
   id: string;
@@ -6,6 +6,43 @@ export interface UserSession {
   name: string;
   role: UserRole;
   mustChangePassword: boolean;
+}
+
+export interface StudentSession {
+  studentAccountId: string;
+  studentId: string;
+  sprStudentId: string;
+  fullName: string;
+  className: string;
+  division: string;
+  photoUrl?: string | null;
+  role: 'STUDENT';
+  mustChangePassword?: boolean;
+}
+
+export interface WalletSummary {
+  balance: number;
+  totalEarnings: number;
+  totalTransferred: number;
+  totalReceived: number;
+  totalContributedToStore: number;
+}
+
+export interface CategoryEarningItem {
+  categoryId: string;
+  categoryCode: string;
+  categoryName: string;
+  icon?: string | null;
+  eligiblePoints: number;
+  multiplier: number;
+  earnings: number;
+}
+
+export interface StoreFundSummary {
+  totalContributed: number;
+  totalUsed: number;
+  availableFund: number;
+  lastUsedAt?: string | null;
 }
 
 export type MissingDataRule = 'IGNORE_NORMALIZE' | 'TREAT_AS_ZERO' | 'REQUIRE_COMPLETE';

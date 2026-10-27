@@ -62,6 +62,9 @@ export default function SchoolStudiesPage() {
   const [selectedExam, setSelectedExam] = useState<string>('');
   const [customExamName, setCustomExamName] = useState<string>('');
   const [maxScore, setMaxScore] = useState<number>(100);
+  const [selectedDate, setSelectedDate] = useState<string>(
+    new Date().toISOString().slice(0, 10)
+  );
 
   const [students, setStudents] = useState<any[]>([]);
   const [scores, setScores] = useState<Record<string, { obtained: string; remarks: string }>>({});
@@ -569,10 +572,12 @@ export default function SchoolStudiesPage() {
           categoryId: schoolCat?.id,
           subjectName: activeSubjectName,
           examName: activeExamName,
+          date: selectedDate ? new Date(selectedDate).toISOString() : new Date().toISOString(),
           records: validEntries.map((v) => ({
             studentId: v.studentId,
             score: v.obtainedScore,
             maxScore: v.maxScore,
+            date: selectedDate ? new Date(selectedDate).toISOString() : new Date().toISOString(),
             remarks: v.remarks,
           })),
         }),
@@ -832,7 +837,7 @@ export default function SchoolStudiesPage() {
             </div>
 
             <form onSubmit={handleSaveManualScores} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
                 {/* Class Selection */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Select Class / Standard</label>
@@ -914,13 +919,24 @@ export default function SchoolStudiesPage() {
 
                 {/* Max Score */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Max Marks (Cut off Marks)</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Max Marks</label>
                   <input
                     type="number"
                     min="1"
                     max="1000"
                     value={maxScore}
                     onChange={(e) => setMaxScore(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-600 transition"
+                  />
+                </div>
+
+                {/* Date Selection */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Date (Auto-Selected)</label>
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-600 transition"
                   />
                 </div>

@@ -580,6 +580,7 @@ function deriveCategoryLeaderboard(
   };
 
   const qualCat = categories.find((c) => c.code === 'QUALIFICATION' || c.name?.toLowerCase().includes('qualif'));
+  const islamicCat = categories.find((c) => c.code === 'ISLAMIC' || c.name?.toLowerCase().includes('islamic'));
   const currentCategory = categories.find(
     (c) => c.id === selectedCategory || c.code === selectedCategory || (selectedCategory === 'QUALIFICATION' && c.code === 'QUALIFICATION')
   );
@@ -590,13 +591,23 @@ function deriveCategoryLeaderboard(
       currentCategory?.code === 'QUALIFICATION' ||
       (activeSubcategory && (activeSubcategory.category?.code === 'QUALIFICATION' || activeSubcategory.categoryId === qualCat?.id))
   );
+  const isIslamicActive = Boolean(
+    selectedStream ||
+      (islamicCat && selectedCategory === islamicCat.id) ||
+      selectedCategory === 'ISLAMIC' ||
+      currentCategory?.code === 'ISLAMIC' ||
+      (activeSubcategory && (activeSubcategory.category?.code === 'ISLAMIC' || activeSubcategory.categoryId === islamicCat?.id))
+  );
 
-  const activeCategoryId = currentCategory?.id || (isQualActive && qualCat ? qualCat.id : selectedCategory);
+  const activeCategoryId = currentCategory?.id || (isQualActive && qualCat ? qualCat.id : isIslamicActive && islamicCat ? islamicCat.id : selectedCategory);
   const activeCategorySubcategories =
     currentCategory?.code === 'CREATIVE_HUB' || selectedCategory === 'CREATIVE_HUB'
       ? []
       : subcategories.filter(
-          (s) => s.categoryId === activeCategoryId || (qualCat && isQualActive && s.categoryId === qualCat.id)
+          (s) =>
+            s.categoryId === activeCategoryId ||
+            (qualCat && isQualActive && s.categoryId === qualCat.id) ||
+            (islamicCat && isIslamicActive && s.categoryId === islamicCat.id)
         );
 
   // Configuration for Themed Hero Header with Logo matching colors and tiny white glow
@@ -857,7 +868,6 @@ function deriveCategoryLeaderboard(
 
   // Determine active primary wing tab
   const isOverallActive = !selectedCategory && !selectedStream && !selectedFest && !selectedSubcategory;
-  const isIslamicActive = Boolean(selectedStream || currentCategory?.code === 'ISLAMIC');
   const isFestActive = Boolean(selectedFest || currentCategory?.code === 'LITERARY');
   const isSchoolActive = currentCategory?.code === 'SCHOOL';
   const isCreativeActive = currentCategory?.code === 'CREATIVE_HUB';
@@ -1179,18 +1189,28 @@ function deriveCategoryLeaderboard(
               </span>
               <button
                 data-item-id="ALL"
-                data-active={!selectedSubcategory}
-                onClick={() => switchLeaderboard({ type: 'CATEGORY', categoryId: selectedCategory || activeCategoryId || qualCat?.id || 'QUALIFICATION' })}
+                data-active={!selectedSubcategory && !selectedStream}
+                onClick={() => {
+                  if (isIslamicActive && islamicCat) {
+                    switchLeaderboard({ type: 'CATEGORY', categoryId: islamicCat.id });
+                  } else {
+                    switchLeaderboard({ type: 'CATEGORY', categoryId: selectedCategory || activeCategoryId || qualCat?.id || 'QUALIFICATION' });
+                  }
+                }}
                 className={`px-2.5 sm:px-3 py-1 rounded-xl text-[11px] sm:text-xs font-bold transition shrink-0 flex items-center space-x-1 ${
-                  !selectedSubcategory
+                  !selectedSubcategory && !selectedStream
                     ? currentCategory?.code === 'LITERARY' ? 'bg-rose-700 text-white shadow-2xs' : 'bg-blue-700 text-white shadow-2xs'
                     : currentCategory?.code === 'LITERARY' ? 'bg-white text-slate-700 hover:bg-rose-100/60 border border-rose-200' : 'bg-white text-slate-700 hover:bg-blue-100/60 border border-blue-200'
                 }`}
               >
-                <span>⭐ All {currentCategory?.name || qualCat?.name || 'Category'}</span>
+                <span>⭐ All {currentCategory?.name || (isIslamicActive ? 'Islamic Studies' : qualCat?.name) || 'Category'}</span>
               </button>
               {activeCategorySubcategories.map((sub) => {
-                const isSelected = selectedSubcategory === sub.id;
+                const isSelected =
+                  selectedSubcategory === sub.id ||
+                  (sub.code === 'JAMIATHUL_HIND' && selectedStream === 'JAMIATHUL_HIND') ||
+                  (sub.code === 'MADIN_ACADEMY' && selectedStream === 'MADIN_ACADEMY');
+
                 const getIcon = (n: string) => {
                   const l = n.toLowerCase();
                   if (l.includes('jamiathul')) return '🕌';
@@ -1207,7 +1227,15 @@ function deriveCategoryLeaderboard(
                     key={sub.id}
                     data-item-id={sub.id}
                     data-active={isSelected}
-                    onClick={() => switchLeaderboard({ type: 'SUBCATEGORY', categoryId: selectedCategory || activeCategoryId || qualCat?.id || 'QUALIFICATION', subcategoryId: sub.id })}
+                    onClick={() => {
+                      if (sub.code === 'JAMIATHUL_HIND') {
+                        switchLeaderboard({ type: 'STREAM', stream: 'JAMIATHUL_HIND' });
+                      } else if (sub.code === 'MADIN_ACADEMY') {
+                        switchLeaderboard({ type: 'STREAM', stream: 'MADIN_ACADEMY' });
+                      } else {
+                        switchLeaderboard({ type: 'SUBCATEGORY', categoryId: selectedCategory || activeCategoryId || qualCat?.id || 'QUALIFICATION', subcategoryId: sub.id });
+                      }
+                    }}
                     className={`px-2.5 sm:px-3 py-1 rounded-xl text-[11px] sm:text-xs font-bold transition shrink-0 flex items-center space-x-1.5 ${
                       isSelected
                         ? currentCategory?.code === 'LITERARY' ? 'bg-rose-700 text-white shadow-2xs' : 'bg-blue-700 text-white shadow-2xs'
@@ -1654,7 +1682,7 @@ function deriveCategoryLeaderboard(
                         key={st.studentId}
                         onClick={() => handleStudentRowClick(st.studentId)}
                         style={{ animationDelay: `${Math.min(idx * 20, 350)}ms` }}
-                        className={`scroll-driven-row scroll-reveal-target scroll-reveal-hidden animate-row hover:bg-blue-50/50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200 group ${
+                        className={`scroll-driven-row animate-row hover:bg-blue-50/50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200 group ${
                           isTop1 ? 'bg-amber-50/20 dark:bg-amber-950/10' : ''
                         }`}
                         title={

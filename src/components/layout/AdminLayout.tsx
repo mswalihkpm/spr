@@ -30,6 +30,8 @@ import {
   FileSpreadsheet,
   Megaphone,
   Home,
+  Store,
+  CheckSquare,
 } from 'lucide-react';
 import GlobalSearchModal from '../search/GlobalSearchModal';
 import PWAInstallPrompt from '../ui/PWAInstallPrompt';
@@ -86,12 +88,17 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
   // Enforce role-based route protection
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
+  const isStoreAdmin = user?.role === 'STORE_ADMIN';
   const isCreativeHubAdmin = user?.role === 'CREATIVE_HUB_ADMIN';
   const isKuthbkhanaAdmin = user?.role === 'KUTHBKHANA_ADMIN';
 
   useEffect(() => {
     if (user) {
-      if (isCreativeHubAdmin) {
+      if (isStoreAdmin) {
+        if (pathname !== '/store' && pathname !== '/auth/change-password') {
+          router.push('/store');
+        }
+      } else if (isCreativeHubAdmin) {
         if (pathname !== '/creative-hub' && pathname !== '/auth/change-password' && !pathname.startsWith('/leaderboard')) {
           router.push('/creative-hub');
         }
@@ -100,12 +107,12 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
           router.push('/kuthbkhana');
         }
       } else if (!isAdmin) {
-        if (pathname.startsWith('/settings') || pathname.startsWith('/weights') || pathname.startsWith('/categories') || pathname.startsWith('/updates/manage')) {
+        if (pathname.startsWith('/settings') || pathname.startsWith('/weights') || pathname.startsWith('/categories') || pathname.startsWith('/updates/manage') || pathname.startsWith('/store')) {
           router.push('/dashboard');
         }
       }
     }
-  }, [user, isAdmin, isCreativeHubAdmin, isKuthbkhanaAdmin, pathname, router]);
+  }, [user, isAdmin, isStoreAdmin, isCreativeHubAdmin, isKuthbkhanaAdmin, pathname, router]);
 
   const allNavItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -122,9 +129,11 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
     { name: 'Programs & Competitions', href: '/programs', icon: Trophy },
     { name: 'Creative Hub', href: '/creative-hub', icon: Sparkles },
     { name: 'Literary Programs', href: '/literary', icon: Feather },
-    { name: 'Library / Reading', href: '/library', icon: Library },
     { name: 'Kuthbkhana', href: '/kuthbkhana', icon: BookOpen },
+    { name: 'Library / Reading', href: '/library', icon: Library },
+    { name: 'Task Management', href: '/tasks', icon: CheckSquare, adminOnly: true },
     { name: 'Other Subcategories', href: '/subcategories', icon: Layers },
+    { name: 'Store Management', href: '/store', icon: Store, adminOnly: true },
     { name: 'News & Updates', href: '/updates/manage', icon: Megaphone, adminOnly: true },
     { name: 'Weight Management', href: '/weights', icon: Sliders, adminOnly: true },
     { name: 'Leaderboards', href: '/leaderboard', icon: Award },
@@ -132,7 +141,11 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
     { name: 'Settings', href: '/settings', icon: Settings, adminOnly: true },
   ];
 
-  const navItems = isCreativeHubAdmin
+  const navItems = isStoreAdmin
+    ? [
+        { name: 'Store Management', href: '/store', icon: Store },
+      ]
+    : isCreativeHubAdmin
     ? [
         { name: 'Creative Hub', href: '/creative-hub', icon: Sparkles },
         { name: 'Leaderboards', href: '/leaderboard', icon: Award },

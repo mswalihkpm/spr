@@ -40,6 +40,8 @@ export default function LoginPage() {
 
       if (data.mustChangePassword) {
         router.push('/auth/change-password');
+      } else if (data.user?.role === 'STORE_ADMIN') {
+        router.push('/store');
       } else if (data.user?.role === 'CREATIVE_HUB_ADMIN') {
         router.push('/creative-hub');
       } else if (data.user?.role === 'KUTHBKHANA_ADMIN') {
@@ -144,8 +146,21 @@ export default function LoginPage() {
             </button>
           </form>
 
+          {/* Student Portal Switch */}
+          <div className="mt-5 pt-4 border-t border-slate-100 text-center">
+            <p className="text-xs text-slate-500 mb-2">Student accessing earnings, wallet, or store funds?</p>
+            <button
+              type="button"
+              onClick={() => router.push('/student/login')}
+              className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-gold-50 border border-gold-300 text-gold-950 text-xs font-bold hover:bg-gold-100 hover:shadow-xs transition-all"
+            >
+              <span>Go to Student Portal / Student Login</span>
+              <ArrowRight className="w-3.5 h-3.5 text-gold-700" />
+            </button>
+          </div>
+
           {/* Quick Notice */}
-          <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-center space-x-2 text-xs text-slate-500">
+          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-center space-x-2 text-xs text-slate-500">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
             <span>Authorized Accounts Only</span>
           </div>
