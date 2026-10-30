@@ -74,11 +74,6 @@ export default function CategoriesPage() {
   const [saving, setSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Bulk selection & deletion state
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
-  const [bulkDeleting, setBulkDeleting] = useState(false);
-  const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
-
   // Check auth silently
   useEffect(() => {
     fetch('/api/auth/me')
@@ -108,8 +103,6 @@ export default function CategoriesPage() {
     fetchCategories(categories.length > 0);
   }, []);
 
-  const deletableCategories = categories.filter((c) => !c.isSystem);
-
   const filteredCategories = useMemo(() => {
     if (!searchQuery.trim()) return categories;
     const q = searchQuery.toLowerCase().trim();
@@ -120,51 +113,6 @@ export default function CategoriesPage() {
         (c.description && c.description.toLowerCase().includes(q))
     );
   }, [categories, searchQuery]);
-
-  const handleToggleSelectAll = () => {
-    const allSelected =
-      deletableCategories.length > 0 &&
-      deletableCategories.every((c) => selectedCategoryIds.includes(c.id));
-    if (allSelected) {
-      const catIdSet = new Set(deletableCategories.map((c) => c.id));
-      setSelectedCategoryIds((prev) => prev.filter((id) => !catIdSet.has(id)));
-    } else {
-      setSelectedCategoryIds((prev) =>
-        Array.from(new Set([...prev, ...deletableCategories.map((c) => c.id)]))
-      );
-    }
-  };
-
-  const handleToggleSelectCategory = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSelectedCategoryIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
-
-  const handleBulkDelete = async () => {
-    if (selectedCategoryIds.length === 0) return;
-    setBulkDeleting(true);
-    try {
-      const res = await fetch('/api/categories', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ categoryIds: selectedCategoryIds }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to bulk delete categories.');
-
-      const count = selectedCategoryIds.length;
-      setSelectedCategoryIds([]);
-      setConfirmBulkDeleteOpen(false);
-      setStatusMsg({ type: 'success', text: `Successfully deleted ${count} custom category(s).` });
-      fetchCategories(true);
-    } catch (err: any) {
-      setStatusMsg({ type: 'error', text: err.message || 'Error bulk deleting categories.' });
-    } finally {
-      setBulkDeleting(false);
-    }
-  };
 
   const handleOpenCreate = () => {
     setEditingCategory(null);
@@ -240,27 +188,6 @@ export default function CategoriesPage() {
       setStatusMsg({ type: 'error', text: err.message });
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleDeleteCategory = async (cat: any, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (cat.isSystem) {
-      alert('Core system categories cannot be deleted.');
-      return;
-    }
-
-    if (!confirm(`Are you sure you want to delete custom category "${cat.name}"?`)) return;
-
-    try {
-      const res = await fetch(`/api/categories?id=${cat.id}`, { method: 'DELETE' });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Failed to delete category');
-
-      setStatusMsg({ type: 'success', text: `Category "${cat.name}" deleted.` });
-      fetchCategories(true);
-    } catch (err: any) {
-      setStatusMsg({ type: 'error', text: err.message });
     }
   };
 
@@ -381,49 +308,9 @@ export default function CategoriesPage() {
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl">
               {filteredCategories.length} Categories
             </span>
-
-            {isAdmin && deletableCategories.length > 0 && (
-              <button
-                type="button"
-                onClick={handleToggleSelectAll}
-                className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition"
-              >
-                {deletableCategories.every((c) => selectedCategoryIds.includes(c.id))
-                  ? 'Deselect All Custom'
-                  : 'Select All Custom'}
-              </button>
-            )}
           </div>
         </div>
 
-        {/* Bulk Action Toolbar (Admin Only) */}
-        {isAdmin && selectedCategoryIds.length > 0 && (
-          <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 p-3.5 rounded-2xl flex items-center justify-between shadow-xs animate-fade-in">
-            <div className="flex items-center space-x-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
-              <span className="text-xs font-bold text-rose-950 dark:text-rose-200">
-                {selectedCategoryIds.length} custom category(s) selected
-              </span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <button
-                type="button"
-                onClick={() => setSelectedCategoryIds([])}
-                className="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-rose-100 dark:hover:bg-rose-900/40 rounded-xl transition"
-              >
-                Deselect All
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmBulkDeleteOpen(true)}
-                className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl flex items-center space-x-1.5 shadow-sm transition hover:scale-105 active:scale-95"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete Selected ({selectedCategoryIds.length})</span>
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* CATEGORIES GRID: 2 IN ONE ROW ON MOBILE */}
         {loading ? (
@@ -442,18 +329,13 @@ export default function CategoriesPage() {
               const IconComponent = getCategoryIcon(cat.code, cat.icon);
               const catLogo = getCategoryLogo(cat.code, cat.logoUrl);
               const theme = getCategoryColor(cat.code);
-              const isSelected = selectedCategoryIds.includes(cat.id);
               const subCount = cat.subcategories?.length || cat._count?.subcategories || 0;
 
               return (
                 <div
                   key={cat.id}
                   onClick={() => handleCategoryCardClick(cat)}
-                  className={`bg-white dark:bg-slate-900 rounded-3xl p-5 border shadow-subtle hover:shadow-lg transition-all cursor-pointer group relative flex flex-col justify-between overflow-hidden active:scale-98 ${
-                    isSelected
-                      ? 'border-rose-400 bg-rose-50/40 dark:bg-rose-950/40 ring-2 ring-rose-300'
-                      : `border-slate-200/90 dark:border-slate-800 ${theme.border}`
-                  }`}
+                  className={`bg-white dark:bg-slate-900 rounded-3xl p-5 border shadow-subtle hover:shadow-lg transition-all cursor-pointer group relative flex flex-col justify-between overflow-hidden active:scale-98 border-slate-200/90 dark:border-slate-800 ${theme.border}`}
                 >
                   {/* Decorative Background Glow */}
                   <div
@@ -501,18 +383,8 @@ export default function CategoriesPage() {
                         </div>
                       )}
 
-                      {/* Top Badges / Selection */}
+                      {/* Top Badges */}
                       <div className="flex items-center space-x-1.5">
-                        {isAdmin && !cat.isSystem && (
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={(e) => handleToggleSelectCategory(cat.id, e as any)}
-                            onClick={(e) => e.stopPropagation()}
-                            className="w-4 h-4 text-rose-600 rounded border-slate-300 dark:border-slate-700 focus:ring-rose-500 cursor-pointer"
-                          />
-                        )}
-
                         <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700">
                           {cat.defaultWeight}%
                         </span>
@@ -765,40 +637,6 @@ export default function CategoriesPage() {
         </div>
       )}
 
-      {/* Confirm Bulk Delete Modal (Admin Only) */}
-      {isAdmin && confirmBulkDeleteOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl border border-slate-200 animate-scale-up">
-            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
-              <ShieldAlert className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="text-base font-black text-slate-900">Confirm Bulk Deletion</h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Are you sure you want to permanently delete <strong className="text-rose-600">{selectedCategoryIds.length}</strong> custom categories and their subcategories?
-              </p>
-            </div>
-            <div className="flex items-center space-x-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setConfirmBulkDeleteOpen(false)}
-                disabled={bulkDeleting}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleBulkDelete}
-                disabled={bulkDeleting}
-                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition shadow-sm"
-              >
-                {bulkDeleting ? 'Deleting...' : 'Delete Now'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

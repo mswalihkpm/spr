@@ -79,13 +79,22 @@ export default function CustomSelect({
   // Determine if searchable
   const isSearchable = searchable !== undefined ? searchable : normalizedOptions.length > 7;
 
-  // Filtered options based on search
+  // Filtered options based on search (smart match with accent & apostrophe tolerance)
   const filteredOptions = React.useMemo(() => {
     if (!searchTerm.trim()) return normalizedOptions;
-    const term = searchTerm.toLowerCase().trim();
+    const rawTerm = searchTerm.toLowerCase().trim();
+    const cleanTerm = rawTerm.replace(/['`’\-_]/g, '');
     return normalizedOptions.filter((opt) => {
-      const txt = opt.textLabel || (typeof opt.label === 'string' ? opt.label : String(opt.value));
-      return txt.toLowerCase().includes(term);
+      const txt = (opt.textLabel || (typeof opt.label === 'string' ? opt.label : String(opt.value))).toLowerCase();
+      const cleanTxt = txt.replace(/['`’\-_]/g, '');
+      const groupTxt = (opt.group || '').toLowerCase();
+      const cleanGroupTxt = groupTxt.replace(/['`’\-_]/g, '');
+      return (
+        txt.includes(rawTerm) ||
+        cleanTxt.includes(cleanTerm) ||
+        groupTxt.includes(rawTerm) ||
+        cleanGroupTxt.includes(cleanTerm)
+      );
     });
   }, [normalizedOptions, searchTerm]);
 

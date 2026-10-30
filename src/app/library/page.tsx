@@ -412,7 +412,7 @@ export default function LibraryPage() {
             {/* Rank 1 */}
             <div className="bg-gradient-to-b from-amber-100 via-amber-50 to-white border-2 border-amber-300 p-6 rounded-2xl shadow-md flex flex-col items-center text-center relative -translate-y-2 hover:scale-[1.02] transition">
               <div className="absolute -top-3 px-3 py-0.5 bg-amber-500 text-white text-[10px] font-black uppercase rounded-full tracking-wider shadow">
-                👑 Top Reader
+                🏆 Top Reader
               </div>
               <div className="w-12 h-12 rounded-full bg-amber-400 text-amber-950 flex items-center justify-center font-black text-base mb-2 shadow-md">
                 #1
