@@ -29,7 +29,6 @@ import StudentAvatar from '@/components/ui/StudentAvatar';
 import StudentReportModal from '@/components/modals/StudentReportModal';
 import NewsDetailModal from '@/components/modals/NewsDetailModal';
 import ItemLeaderboardModal from '@/components/modals/ItemLeaderboardModal';
-import PwaFooterInstall from '@/components/pwa/PwaFooterInstall';
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
 import { getAcademicMasterData } from '@/lib/academic-client';
@@ -983,8 +982,8 @@ export default function PublicHomePage() {
           style={{ height: '90%' }}
         />
         {/* Soft, Transparent Gradient blending seamlessly into light and dark page backgrounds */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-white/30 via-65% to-[#f8fafc] dark:from-transparent dark:via-[#080e1e]/40 dark:to-[#080e1e] pointer-events-none transition-colors duration-500" />
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#f8fafc] via-[#f8fafc]/80 to-transparent dark:from-[#080e1e] dark:via-[#080e1e]/90 dark:to-transparent pointer-events-none transition-colors duration-500" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/10 via-75% to-[#f8fafc] dark:from-transparent dark:via-[#080e1e]/40 dark:to-[#080e1e] pointer-events-none transition-colors duration-500" />
+        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#f8fafc] to-transparent dark:from-[#080e1e] dark:to-transparent pointer-events-none transition-colors duration-500" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Hero Content with Smooth Staggered Slide-In & Harmonious Sunset Lighting */}
@@ -1115,7 +1114,9 @@ export default function PublicHomePage() {
                   return (
                     <div
                       onClick={() => handleStudentClick(student?.studentId)}
-                      className={`w-full sm:w-auto cursor-pointer rounded-2xl sm:rounded-3xl p-3 sm:p-6 border-2 transition-all duration-300 flex flex-row sm:flex-col items-center sm:items-center justify-between sm:justify-between text-left sm:text-center relative order-2 sm:order-1 group animate-slide-left delay-200 hover:-translate-y-1 ${
+                      className={`w-full sm:w-auto cursor-pointer rounded-2xl sm:rounded-3xl p-3 sm:p-6 border-2 transition-all duration-300 flex flex-row sm:flex-col items-center sm:items-center justify-between sm:justify-between text-left sm:text-center relative order-2 sm:order-1 group hover:-translate-y-1 ${
+                        isGold ? 'animate-podium-1 animate-gold-glow' : isSilver ? 'animate-podium-2' : 'animate-podium-3'
+                      } ${
                         isGold
                           ? 'bg-gradient-to-r sm:bg-gradient-to-b from-amber-50/95 via-white to-white dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 border-amber-400 dark:border-amber-500/70 shadow-md hover:shadow-xl hover:border-amber-500 sm:-translate-y-2 lg:-translate-y-3'
                           : isSilver
@@ -1201,7 +1202,7 @@ export default function PublicHomePage() {
                   return (
                     <div
                       onClick={() => handleStudentClick(student?.studentId)}
-                      className="w-full sm:w-auto cursor-pointer bg-gradient-to-r sm:bg-gradient-to-b from-amber-50/95 via-white to-white dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 rounded-2xl sm:rounded-3xl p-3 sm:p-7 border-2 border-amber-400 dark:border-amber-500/70 shadow-md hover:shadow-xl hover:border-amber-500 transition-all duration-300 flex flex-row sm:flex-col items-center sm:items-center justify-between sm:justify-between text-left sm:text-center relative order-1 sm:order-2 sm:-translate-y-2 lg:-translate-y-4 group animate-zoom-up animate-gold-glow delay-100"
+                      className="w-full sm:w-auto cursor-pointer bg-gradient-to-r sm:bg-gradient-to-b from-amber-50/95 via-white to-white dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 rounded-2xl sm:rounded-3xl p-3 sm:p-7 border-2 border-amber-400 dark:border-amber-500/70 shadow-md hover:shadow-xl hover:border-amber-500 transition-all duration-300 flex flex-row sm:flex-col items-center sm:items-center justify-between sm:justify-between text-left sm:text-center relative order-1 sm:order-2 sm:-translate-y-2 lg:-translate-y-4 group animate-podium-1 animate-gold-glow"
                     >
                       <div className="flex items-center space-x-3 sm:space-x-0 sm:flex-col sm:mb-2 shrink-0">
                         <div className="relative">
@@ -1259,7 +1260,9 @@ export default function PublicHomePage() {
                   return (
                     <div
                       onClick={() => handleStudentClick(student?.studentId)}
-                      className={`w-full sm:w-auto cursor-pointer rounded-2xl sm:rounded-3xl p-3 sm:p-6 border-2 transition-all duration-300 flex flex-row sm:flex-col items-center sm:items-center justify-between sm:justify-between text-left sm:text-center relative order-3 sm:order-3 group animate-slide-right delay-200 hover:-translate-y-1 ${
+                      className={`w-full sm:w-auto cursor-pointer rounded-2xl sm:rounded-3xl p-3 sm:p-6 border-2 transition-all duration-300 flex flex-row sm:flex-col items-center sm:items-center justify-between sm:justify-between text-left sm:text-center relative order-3 sm:order-3 group hover:-translate-y-1 ${
+                        isGold ? 'animate-podium-1 animate-gold-glow' : isSilver ? 'animate-podium-2' : 'animate-podium-3'
+                      } ${
                         isGold
                           ? 'bg-gradient-to-r sm:bg-gradient-to-b from-amber-50/95 via-white to-white dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 border-amber-400 dark:border-amber-500/70 shadow-md hover:shadow-xl hover:border-amber-500 sm:-translate-y-2 lg:-translate-y-3'
                           : isSilver
@@ -1459,8 +1462,7 @@ export default function PublicHomePage() {
                       <tr
                         key={row.studentId}
                         onClick={() => handleStudentClick(row.studentId)}
-                        style={{ animationDelay: `${Math.min(idx * 20, 350)}ms` }}
-                        className={`scroll-driven-row animate-row hover:bg-blue-50/50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200 group ${
+                        className={`hover:bg-blue-50/50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors duration-150 group ${
                           isTop1 ? 'bg-amber-50/20 dark:bg-amber-950/10' : ''
                         }`}
                         title="Click to view full student profile and score origin breakdown"

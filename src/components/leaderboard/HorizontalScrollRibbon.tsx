@@ -150,7 +150,7 @@ export default function HorizontalScrollRibbon({
       {maskEdges && canScrollLeft && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 sm:w-12 z-10 bg-gradient-to-r from-white via-white/80 dark:from-slate-900 dark:via-slate-900/80 to-transparent transition-opacity duration-300 rounded-l-2xl"
+          className="pointer-events-none absolute left-0 top-0 bottom-0 w-6 sm:w-10 z-10 bg-gradient-to-r from-slate-200/40 dark:from-slate-900/40 to-transparent transition-opacity duration-300 rounded-l-2xl"
         />
       )}
 
@@ -158,7 +158,7 @@ export default function HorizontalScrollRibbon({
       {maskEdges && canScrollRight && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 sm:w-12 z-10 bg-gradient-to-l from-white via-white/80 dark:from-slate-900 dark:via-slate-900/80 to-transparent transition-opacity duration-300 rounded-r-2xl"
+          className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 sm:w-10 z-10 bg-gradient-to-l from-slate-200/40 dark:from-slate-900/40 to-transparent transition-opacity duration-300 rounded-r-2xl"
         />
       )}
 

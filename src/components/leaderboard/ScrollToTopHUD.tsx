@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ArrowUp, Trophy } from 'lucide-react';
+import { ArrowUp } from 'lucide-react';
 
 interface ScrollToTopHUDProps {
   threshold?: number;
@@ -9,25 +9,15 @@ interface ScrollToTopHUDProps {
 }
 
 export default function ScrollToTopHUD({
-  threshold = 300,
-  totalStudents,
+  threshold = 280,
 }: ScrollToTopHUDProps) {
   const [visible, setVisible] = useState(false);
-  const [scrollPercent, setScrollPercent] = useState(0);
 
   useEffect(() => {
     let ticking = false;
 
     const handleScroll = () => {
       const scrollY = window.scrollY;
-      const docHeight =
-        document.documentElement.scrollHeight - window.innerHeight;
-
-      if (docHeight > 0) {
-        const percent = Math.min(100, Math.max(0, (scrollY / docHeight) * 100));
-        setScrollPercent(percent);
-      }
-
       setVisible(scrollY > threshold);
       ticking = false;
     };
@@ -52,61 +42,22 @@ export default function ScrollToTopHUD({
     });
   };
 
-  if (!visible) return null;
-
-  // SVG Circular progress math
-  const radius = 18;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset =
-    circumference - (scrollPercent / 100) * circumference;
-
   return (
-    <div className="fixed bottom-6 right-6 z-40 flex items-center gap-2 animate-zoom-up print:hidden">
+    <div
+      className={`fixed z-30 transition-all duration-300 print:hidden ${
+        visible
+          ? 'opacity-100 scale-100 pointer-events-auto'
+          : 'opacity-0 scale-75 pointer-events-none'
+      } bottom-[calc(max(env(safe-area-inset-bottom,0px),0.6rem)+4.25rem)] sm:bottom-6 right-3.5 sm:right-6`}
+    >
       <button
         onClick={scrollToTop}
         type="button"
-        title="Scroll to top podium"
-        aria-label="Scroll back to top of leaderboard"
-        className="group relative flex items-center justify-center w-12 h-12 rounded-full bg-white dark:bg-slate-900 shadow-xl border border-slate-200/90 dark:border-slate-700 hover:border-blue-500 hover:shadow-blue-500/20 active:scale-95 transition-all duration-300"
+        title="Scroll to top"
+        aria-label="Scroll back to top"
+        className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-900/90 hover:bg-blue-600 dark:bg-slate-800 dark:hover:bg-blue-600 text-white shadow-lg border border-white/20 flex items-center justify-center transition-all duration-200 active:scale-90 hover:scale-110 cursor-pointer backdrop-blur-xs"
       >
-        {/* SVG Progress Ring */}
-        <svg
-          className="w-12 h-12 -rotate-90 pointer-events-none absolute inset-0"
-          viewBox="0 0 44 44"
-        >
-          <circle
-            cx="22"
-            cy="22"
-            r={radius}
-            className="text-slate-100 dark:text-slate-800"
-            strokeWidth="3"
-            stroke="currentColor"
-            fill="transparent"
-          />
-          <circle
-            cx="22"
-            cy="22"
-            r={radius}
-            className="text-blue-600 dark:text-blue-400 transition-all duration-100"
-            strokeWidth="3.2"
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            strokeLinecap="round"
-            stroke="currentColor"
-            fill="transparent"
-          />
-        </svg>
-
-        {/* Center Icon: Arrow or Trophy on hover */}
-        <div className="relative z-10 text-slate-700 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-transform duration-200 group-hover:-translate-y-0.5">
-          <ArrowUp className="w-5 h-5 block group-hover:hidden" />
-          <Trophy className="w-5 h-5 hidden group-hover:block text-amber-500" />
-        </div>
-
-        {/* Tooltip on Hover */}
-        <span className="absolute right-14 bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-[11px] font-bold py-1 px-2.5 rounded-xl whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-md">
-          Back to Top ({Math.round(scrollPercent)}%)
-        </span>
+        <ArrowUp className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
       </button>
     </div>
   );

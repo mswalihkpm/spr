@@ -355,12 +355,12 @@ h1, h2, h3, h4, h5, h6 {
 /* CSS View-Timeline Scroll-Driven Reveal for Cards / Rows */
 @keyframes scrollDrivenReveal {
   from {
-    opacity: 0.2;
-    transform: translateY(16px) scale(0.985);
+    opacity: 1;
+    transform: translateY(0);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
@@ -376,12 +376,6 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 @supports (animation-timeline: view()) {
-  .scroll-driven-row {
-    animation: scrollDrivenReveal ease-out both;
-    animation-timeline: view();
-    animation-range: entry 0% cover 25%;
-  }
-
   .scroll-driven-hero {
     animation: scrollDrivenParallax linear both;
     animation-timeline: view();
@@ -393,13 +387,11 @@ h1, h2, h3, h4, h5, h6 {
 .scroll-reveal-visible {
   opacity: 1 !important;
   transform: translateY(0) scale(1) !important;
-  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 .scroll-reveal-hidden {
-  opacity: 0;
-  transform: translateY(16px) scale(0.985);
-  will-change: transform, opacity;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* Horizontal Scroll Ribbon Styling */
@@ -436,15 +428,76 @@ h1, h2, h3, h4, h5, h6 {
 /* Glow Shimmer Animation for Top Ranks */
 @keyframes rankGlowShimmer {
   0%, 100% {
-    box-shadow: 0 0 0 rgba(212, 175, 55, 0);
+    box-shadow: 0 4px 18px -2px rgba(245, 158, 11, 0.25);
   }
   50% {
-    box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+    box-shadow: 0 8px 28px 4px rgba(245, 158, 11, 0.45);
   }
 }
 
 .animate-gold-glow {
   animation: rankGlowShimmer 2.5s ease-in-out infinite;
+}
+
+/* Opening Celebratory Animations for Top 3 Places */
+@keyframes podiumBounceGold {
+  0% {
+    opacity: 0;
+    transform: translateY(32px) scale(0.92);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(-8px) scale(1.03);
+  }
+  75% {
+    transform: translateY(3px) scale(0.99);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes podiumRiseSilver {
+  0% {
+    opacity: 0;
+    transform: translateY(36px) scale(0.94);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.015);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes podiumRiseBronze {
+  0% {
+    opacity: 0;
+    transform: translateY(40px) scale(0.94);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(-3px) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-podium-1 {
+  animation: podiumBounceGold 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.animate-podium-2 {
+  animation: podiumRiseSilver 0.75s cubic-bezier(0.2, 0.8, 0.2, 1) 0.12s both;
+}
+
+.animate-podium-3 {
+  animation: podiumRiseBronze 0.75s cubic-bezier(0.2, 0.8, 0.2, 1) 0.24s both;
 }
 
 /* Smooth gradient edge mask utilities */

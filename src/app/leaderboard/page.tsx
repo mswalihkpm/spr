@@ -30,7 +30,6 @@ import {
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import StudentReportModal from '@/components/modals/StudentReportModal';
-import PwaFooterInstall from '@/components/pwa/PwaFooterInstall';
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
 import { getAcademicMasterData } from '@/lib/academic-client';
@@ -937,7 +936,7 @@ function deriveCategoryLeaderboard(
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-[#080e1e] text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white transition-colors duration-300">
       {/* Scroll-Driven Top Progress Bar */}
-      <ScrollProgressBar showPercentage={true} />
+      <ScrollProgressBar showPercentage={false} />
 
       {/* Top Header with Scroll-Driven Contraction, Low Opacity Blur & Clean Navigation */}
       <header
@@ -1403,7 +1402,7 @@ function deriveCategoryLeaderboard(
                   return (
                     <div
                       onClick={() => handleStudentRowClick(student.studentId)}
-                      className="bg-gradient-to-b from-amber-50/90 via-white to-white rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-md border-2 border-amber-400 cursor-pointer hover:shadow-xl transition-all flex flex-col justify-between text-center group animate-zoom-up"
+                      className="bg-gradient-to-b from-amber-50/90 via-white to-white rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-md border-2 border-amber-400 cursor-pointer hover:shadow-xl transition-all flex flex-col justify-between text-center group animate-podium-1 animate-gold-glow"
                     >
                       <div className="flex justify-center mb-1 sm:mb-2">
                         <StudentAvatar photoUrl={student.photoUrl} name={student.name || student.studentName} size="lg" className="w-13 h-13 sm:w-20 sm:h-20 ring-2 sm:ring-4 ring-amber-300/60" />
@@ -1456,7 +1455,9 @@ function deriveCategoryLeaderboard(
                     return (
                       <div
                         onClick={() => handleStudentRowClick(student.studentId)}
-                        className={`w-full sm:w-auto rounded-2xl sm:rounded-3xl p-3 sm:p-5 border-2 shadow-xs cursor-pointer hover:shadow-md transition-all flex flex-row sm:flex-col items-center sm:items-center justify-between sm:justify-between text-left sm:text-center order-2 sm:order-1 group animate-slide-left ${
+                        className={`w-full sm:w-auto rounded-2xl sm:rounded-3xl p-3 sm:p-5 border-2 shadow-xs cursor-pointer hover:shadow-md transition-all flex flex-row sm:flex-col items-center sm:items-center justify-between sm:justify-between text-left sm:text-center order-2 sm:order-1 group ${
+                          isGold ? 'animate-podium-1 animate-gold-glow' : isSilver ? 'animate-podium-2' : 'animate-podium-3'
+                        } ${
                           isGold
                             ? 'bg-gradient-to-r sm:bg-gradient-to-b from-amber-50/90 via-white to-white border-amber-400 sm:-translate-y-2 lg:-translate-y-3'
                             : isSilver
@@ -1529,7 +1530,7 @@ function deriveCategoryLeaderboard(
                     return (
                       <div
                         onClick={() => handleStudentRowClick(student.studentId)}
-                        className="w-full sm:w-auto bg-gradient-to-r sm:bg-gradient-to-b from-amber-50/95 via-white to-white rounded-2xl sm:rounded-3xl p-3 sm:p-6 shadow-md border-2 border-amber-400 cursor-pointer hover:shadow-xl transition-all flex flex-row sm:flex-col items-center sm:items-center justify-between sm:justify-between text-left sm:text-center order-1 sm:order-2 sm:-translate-y-2 lg:-translate-y-3 group animate-zoom-up animate-gold-glow"
+                        className="w-full sm:w-auto bg-gradient-to-r sm:bg-gradient-to-b from-amber-50/95 via-white to-white rounded-2xl sm:rounded-3xl p-3 sm:p-6 shadow-md border-2 border-amber-400 cursor-pointer hover:shadow-xl transition-all flex flex-row sm:flex-col items-center sm:items-center justify-between sm:justify-between text-left sm:text-center order-1 sm:order-2 sm:-translate-y-2 lg:-translate-y-3 group animate-podium-1 animate-gold-glow"
                       >
                         <div className="flex items-center space-x-3 sm:space-x-0 sm:flex-col sm:mb-2 shrink-0">
                           <div className="relative">
@@ -1581,7 +1582,9 @@ function deriveCategoryLeaderboard(
                     return (
                       <div
                         onClick={() => handleStudentRowClick(student.studentId)}
-                        className={`w-full sm:w-auto rounded-2xl sm:rounded-3xl p-3 sm:p-5 border-2 shadow-xs cursor-pointer hover:shadow-md transition-all flex flex-row sm:flex-col items-center sm:items-center justify-between sm:justify-between text-left sm:text-center order-3 sm:order-3 group animate-slide-right ${
+                        className={`w-full sm:w-auto rounded-2xl sm:rounded-3xl p-3 sm:p-5 border-2 shadow-xs cursor-pointer hover:shadow-md transition-all flex flex-row sm:flex-col items-center sm:items-center justify-between sm:justify-between text-left sm:text-center order-3 sm:order-3 group ${
+                          isGold ? 'animate-podium-1 animate-gold-glow' : isSilver ? 'animate-podium-2' : 'animate-podium-3'
+                        } ${
                           isGold
                             ? 'bg-gradient-to-r sm:bg-gradient-to-b from-amber-50/90 via-white to-white border-amber-400 sm:-translate-y-2 lg:-translate-y-3'
                             : isSilver
@@ -1746,8 +1749,7 @@ function deriveCategoryLeaderboard(
                       <tr
                         key={st.studentId}
                         onClick={() => handleStudentRowClick(st.studentId)}
-                        style={{ animationDelay: `${Math.min(idx * 20, 350)}ms` }}
-                        className={`scroll-driven-row animate-row hover:bg-blue-50/50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200 group ${
+                        className={`hover:bg-blue-50/50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors duration-150 group ${
                           isTop1 ? 'bg-amber-50/20 dark:bg-amber-950/10' : ''
                         }`}
                         title={

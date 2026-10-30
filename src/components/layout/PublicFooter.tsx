@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Lock } from 'lucide-react';
-import PwaFooterInstall from '@/components/pwa/PwaFooterInstall';
 import PublicMobileNav from './PublicMobileNav';
 
 export default function PublicFooter() {
@@ -41,10 +40,8 @@ export default function PublicFooter() {
           </div>
         </div>
 
-        {/* Right: PWA Install & Staff Login Icon */}
+        {/* Right: Staff Login Icon */}
         <div className="flex items-center space-x-3">
-          <PwaFooterInstall />
-
           <Link
             href="/login"
             className="p-2.5 min-h-touch min-w-touch rounded-xl bg-slate-800/90 hover:bg-blue-600 text-slate-300 hover:text-white transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs border border-slate-700/80 flex items-center justify-center cursor-pointer"

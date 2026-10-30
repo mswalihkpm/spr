@@ -3,7 +3,7 @@
 import React, { Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Home, Trophy, Layers, Megaphone } from 'lucide-react';
+import { Home, Trophy, Layers, Megaphone, GraduationCap } from 'lucide-react';
 
 function PublicMobileNavContent() {
   const pathname = usePathname();
@@ -44,6 +44,7 @@ function PublicMobileNavContent() {
     pathname.startsWith('/subcategories') ||
     (pathname.startsWith('/leaderboard') && hasCategoryParam);
   const isUpdates = pathname.startsWith('/updates');
+  const isStudent = pathname.startsWith('/student');
 
   return (
     <nav
@@ -96,6 +97,19 @@ function PublicMobileNavContent() {
         {isUpdates && <span className="absolute -top-1.5 w-6 h-0.5 bg-amber-600 dark:bg-amber-400 rounded-full" />}
         <Megaphone className={`w-5 h-5 mb-0.5 ${isUpdates ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}`} />
         <span className="text-[10px]">Updates</span>
+      </Link>
+
+      {/* 5. Student Login (Bottom Right Corner) */}
+      <Link
+        href="/student/login"
+        className={`flex flex-col items-center justify-center flex-1 min-h-[44px] py-1 transition-colors relative ${
+          isStudent ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'
+        }`}
+        aria-label="Student Login"
+      >
+        {isStudent && <span className="absolute -top-1.5 w-6 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full" />}
+        <GraduationCap className={`w-5 h-5 mb-0.5 ${isStudent ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`} />
+        <span className="text-[10px]">Student</span>
       </Link>
     </nav>
   );

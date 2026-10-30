@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import AppIntro from '@/components/ui/AppIntro';
-import PWAInstallPrompt from '@/components/ui/PWAInstallPrompt';
 import AppUpdateNotification from '@/components/ui/AppUpdateNotification';
 import { AppBootstrapProvider } from '@/context/AppBootstrapContext';
 import { ThemeProvider } from '@/context/ThemeContext';
@@ -150,7 +149,6 @@ export default function RootLayout({
           <AppBootstrapProvider>
             <AppIntro />
             {children}
-            <PWAInstallPrompt />
             <AppUpdateNotification />
           </AppBootstrapProvider>
         </ThemeProvider>

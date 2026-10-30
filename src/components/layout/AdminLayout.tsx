@@ -34,7 +34,6 @@ import {
   CheckSquare,
 } from 'lucide-react';
 import GlobalSearchModal from '../search/GlobalSearchModal';
-import PWAInstallPrompt from '../ui/PWAInstallPrompt';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -156,9 +155,6 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row text-slate-900 selection:bg-madin-900 selection:text-white">
       {/* Global Search Modal */}
       <GlobalSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
-
-      {/* PWA Install Notification Prompt */}
-      <PWAInstallPrompt />
 
       {/* Mobile Top Header */}
       <header className="md:hidden sticky top-0 z-40 bg-madin-900 text-white px-3 sm:px-4 py-2.5 sm:py-3 pt-[max(0.75rem,env(safe-area-inset-top))] flex items-center justify-between shadow-md">
