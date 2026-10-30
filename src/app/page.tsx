@@ -1090,20 +1090,19 @@ export default function PublicHomePage() {
                 <p className="text-[11px] sm:text-sm text-slate-600 dark:text-slate-400 font-medium mt-0.5">Leading institutional benchmarks across all evaluation wings</p>
               </div>
 
-              {/* Mobile horizontal swipe cue */}
-              <div className="sm:hidden flex items-center justify-between px-2 pb-1.5 text-[11px] text-slate-500 font-bold">
-                <span className="flex items-center space-x-1 text-slate-700 dark:text-slate-300">
-                  <span>🏆</span>
-                  <span>Top Honors</span>
+              {/* Mobile Top Honors Indicator */}
+              <div className="sm:hidden flex items-center justify-between px-2 pb-2 text-[11px] text-slate-500 font-bold">
+                <span className="flex items-center space-x-1.5 text-slate-800 dark:text-slate-200">
+                  <span className="text-sm">🏆</span>
+                  <span className="font-extrabold tracking-wide uppercase text-xs">Top Honors</span>
                 </span>
-                <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold flex items-center space-x-0.5">
-                  <span>Swipe ranks</span>
-                  <span>➔</span>
+                <span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold bg-amber-100/70 dark:bg-amber-950/60 px-2.5 py-0.5 rounded-full border border-amber-300/80 dark:border-amber-800">
+                  Podium
                 </span>
               </div>
 
-              {/* Responsive Horizontal Snap Podium (swipe on mobile, 3-card elevated grid on desktop) */}
-              <div className="flex sm:grid sm:grid-cols-3 gap-3 sm:gap-5 max-w-4xl mx-auto items-end overflow-x-auto sm:overflow-visible horizontal-snap-carousel no-scrollbar pb-3 sm:pb-0 px-1 sm:px-0">
+              {/* Responsive Downward Stacked on Mobile & 3-Column Podium on Desktop */}
+              <div className="flex flex-col space-y-2.5 sm:space-y-0 sm:grid sm:grid-cols-3 gap-0 sm:gap-5 max-w-4xl mx-auto items-stretch sm:items-end px-1 sm:px-0">
                 {/* Left Card (Position 2 in array: top3[1]) */}
                 {(() => {
                   const student = top3[1];
@@ -1116,55 +1115,76 @@ export default function PublicHomePage() {
                   return (
                     <div
                       onClick={() => handleStudentClick(student?.studentId)}
-                      className={`w-[78vw] max-w-[280px] shrink-0 sm:w-auto sm:max-w-none sm:shrink horizontal-snap-item cursor-pointer rounded-2xl sm:rounded-3xl p-3 sm:p-6 border-2 transition-all duration-300 text-center relative order-2 sm:order-1 group animate-slide-left delay-200 hover:-translate-y-1 ${
+                      className={`w-full sm:w-auto cursor-pointer rounded-2xl sm:rounded-3xl p-3 sm:p-6 border-2 transition-all duration-300 flex flex-row sm:flex-col items-center sm:items-center justify-between sm:justify-between text-left sm:text-center relative order-2 sm:order-1 group animate-slide-left delay-200 hover:-translate-y-1 ${
                         isGold
-                          ? 'bg-gradient-to-b from-amber-50/95 via-white to-white dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 border-amber-400 dark:border-amber-500/70 shadow-xl hover:shadow-2xl hover:border-amber-500'
+                          ? 'bg-gradient-to-r sm:bg-gradient-to-b from-amber-50/95 via-white to-white dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 border-amber-400 dark:border-amber-500/70 shadow-md hover:shadow-xl hover:border-amber-500 sm:-translate-y-2 lg:-translate-y-3'
                           : isSilver
-                          ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-lg hover:shadow-xl hover:border-slate-400 dark:hover:border-slate-700'
-                          : 'bg-white dark:bg-slate-900 border-amber-200 dark:border-amber-900/60 shadow-lg hover:shadow-xl hover:border-amber-300 dark:hover:border-amber-800'
+                          ? 'bg-gradient-to-r sm:bg-none from-slate-100/90 via-slate-50/50 to-white bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xs hover:shadow-md hover:border-slate-400 dark:hover:border-slate-700'
+                          : 'bg-gradient-to-r sm:bg-none from-amber-100/70 via-amber-50/40 to-white bg-white dark:bg-slate-900 border-amber-200 dark:border-amber-900/60 shadow-xs hover:shadow-md hover:border-amber-300 dark:hover:border-amber-800'
                       }`}
                     >
-                      <div className="flex justify-center mb-1.5 sm:mb-2">
-                        <StudentAvatar
-                          photoUrl={student?.photoUrl}
-                          name={student?.studentName || student?.name || 'Student'}
-                          size="lg"
-                          className={`w-12 h-12 sm:w-20 sm:h-20 ${isGold ? 'ring-3 sm:ring-4 ring-amber-300/60 dark:ring-amber-500/40' : ''}`}
-                        />
+                      <div className="flex items-center space-x-3 sm:space-x-0 sm:flex-col sm:mb-2 shrink-0">
+                        <div className="relative">
+                          <StudentAvatar
+                            photoUrl={student?.photoUrl}
+                            name={student?.studentName || student?.name || 'Student'}
+                            size="lg"
+                            className={`w-12 h-12 sm:w-20 sm:h-20 ${isGold ? 'ring-3 sm:ring-4 ring-amber-300/60 dark:ring-amber-500/40' : ''}`}
+                          />
+                          <span className="sm:hidden absolute -bottom-1 -right-1 text-xs px-1.5 py-0.5 rounded-full font-black bg-white dark:bg-slate-800 shadow-2xs border border-slate-200 dark:border-slate-700">
+                            {rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉'}
+                          </span>
+                        </div>
+                        <div
+                          className={`hidden sm:inline-block text-[8.5px] sm:text-xs font-black uppercase tracking-widest px-2.5 sm:px-3 py-0.5 rounded-full shadow-2xs border mt-1 ${
+                            isGold
+                              ? 'bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+                              : isSilver
+                              ? 'bg-slate-100/90 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                              : 'bg-amber-100/90 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                          }`}
+                        >
+                          ★ {rank === 1 ? '1st' : rank === 2 ? '2nd' : rank === 3 ? '3rd' : `${rank}th`} Rank {isTied ? '(Joint)' : ''} ★
+                        </div>
                       </div>
+
+                      <div className="flex-1 min-w-0 px-3 sm:px-0 sm:w-full">
+                        <div className="sm:hidden flex items-center space-x-1 mb-0.5">
+                          <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border shadow-2xs ${
+                            isGold
+                              ? 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+                              : isSilver
+                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                              : 'bg-amber-100/80 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                          }`}>
+                            {rank === 1 ? '🥇 1st Rank' : rank === 2 ? '🥈 2nd Rank' : '🥉 3rd Rank'} {isTied ? '(Joint)' : ''}
+                          </span>
+                        </div>
+                        <h4
+                          className={`text-xs sm:text-base font-extrabold transition-colors leading-tight truncate sm:overflow-visible sm:whitespace-normal sm:break-words ${
+                            isGold
+                              ? 'text-slate-900 dark:text-white group-hover:text-amber-800 dark:group-hover:text-amber-400'
+                              : 'text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400'
+                          }`}
+                        >
+                          {student?.studentName || student?.name}
+                        </h4>
+                        <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                          Std {formatClassNumber(student?.className)}
+                        </div>
+                      </div>
+
                       <div
-                        className={`text-[8.5px] sm:text-xs font-black uppercase tracking-widest px-2.5 sm:px-3 py-0.5 rounded-full inline-block shadow-2xs border ${
-                          isGold
-                            ? 'bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
-                            : isSilver
-                            ? 'bg-slate-100/90 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                            : 'bg-amber-100/90 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                        className={`shrink-0 text-right sm:text-center sm:w-full sm:mt-4 sm:pt-3 sm:border-t flex flex-col sm:flex-row items-end sm:items-center justify-center ${
+                          isGold ? 'sm:border-amber-100 dark:sm:border-amber-950/60' : 'sm:border-slate-100 dark:sm:border-slate-800'
                         }`}
                       >
-                        ★ {rank === 1 ? '1st' : rank === 2 ? '2nd' : rank === 3 ? '3rd' : `${rank}th`} Rank {isTied ? '(Joint)' : ''} ★
-                      </div>
-                      <h4
-                        className={`text-xs sm:text-base font-extrabold mt-1 transition-colors leading-tight break-words ${
-                          isGold
-                            ? 'text-slate-900 dark:text-white group-hover:text-amber-800 dark:group-hover:text-amber-400'
-                            : 'text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400'
-                        }`}
-                      >
-                        {student?.studentName || student?.name}
-                      </h4>
-                      <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-                        Std {formatClassNumber(student?.className)}
-                      </div>
-                      <div
-                        className={`mt-1.5 sm:mt-4 pt-1.5 sm:pt-3 border-t flex items-center justify-center sm:justify-between ${
-                          isGold ? 'border-amber-100 dark:border-amber-950/60' : 'border-slate-100 dark:border-slate-800'
-                        }`}
-                      >
-                        <span className={`hidden sm:inline text-xs ${isGold ? 'text-amber-900 dark:text-amber-300 font-bold' : 'text-slate-400 dark:text-slate-500 font-medium'}`}>
-                          {isGold ? 'Cumulative' : 'Overall'}
-                        </span>
                         <span className={`text-[11px] sm:text-lg font-black ${isGold ? 'text-amber-800 dark:text-amber-300' : 'text-slate-800 dark:text-slate-100'}`}>
-                          {formatScore(student?.overallScore ?? student?.spr)} pts
+                          {formatScore(student?.overallScore ?? student?.spr)} <span className="text-[10px] sm:text-xs font-semibold text-slate-500">pts</span>
+                        </span>
+                        <span className="sm:hidden text-[9px] text-blue-600 dark:text-blue-400 font-bold flex items-center space-x-0.5 mt-0.5">
+                          <span>View</span>
+                          <span>›</span>
                         </span>
                       </div>
                     </div>
@@ -1181,29 +1201,46 @@ export default function PublicHomePage() {
                   return (
                     <div
                       onClick={() => handleStudentClick(student?.studentId)}
-                      className={`w-[82vw] max-w-[290px] shrink-0 sm:w-auto sm:max-w-none sm:shrink horizontal-snap-item cursor-pointer bg-gradient-to-b from-amber-50/95 via-white to-white dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 rounded-2xl sm:rounded-3xl p-3.5 sm:p-7 border-2 border-amber-400 dark:border-amber-500/70 shadow-xl hover:shadow-2xl hover:border-amber-500 transition-all duration-300 text-center relative order-1 sm:order-2 sm:-translate-y-2 lg:-translate-y-4 group animate-zoom-up animate-gold-glow delay-100 hover:-translate-y-5`}
+                      className="w-full sm:w-auto cursor-pointer bg-gradient-to-r sm:bg-gradient-to-b from-amber-50/95 via-white to-white dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 rounded-2xl sm:rounded-3xl p-3 sm:p-7 border-2 border-amber-400 dark:border-amber-500/70 shadow-md hover:shadow-xl hover:border-amber-500 transition-all duration-300 flex flex-row sm:flex-col items-center sm:items-center justify-between sm:justify-between text-left sm:text-center relative order-1 sm:order-2 sm:-translate-y-2 lg:-translate-y-4 group animate-zoom-up animate-gold-glow delay-100"
                     >
-                      <div className="flex justify-center mb-1.5 sm:mb-2">
-                        <StudentAvatar
-                          photoUrl={student?.photoUrl}
-                          name={student?.studentName || student?.name || 'Student'}
-                          size="xl"
-                          className="w-14 h-14 sm:w-24 sm:h-24 ring-3 sm:ring-4 ring-amber-300/60 dark:ring-amber-500/40"
-                        />
+                      <div className="flex items-center space-x-3 sm:space-x-0 sm:flex-col sm:mb-2 shrink-0">
+                        <div className="relative">
+                          <StudentAvatar
+                            photoUrl={student?.photoUrl}
+                            name={student?.studentName || student?.name || 'Student'}
+                            size="xl"
+                            className="w-13 h-13 sm:w-24 sm:h-24 ring-3 sm:ring-4 ring-amber-300/60 dark:ring-amber-500/40"
+                          />
+                          <span className="sm:hidden absolute -bottom-1 -right-1 text-xs px-1.5 py-0.5 rounded-full font-black bg-amber-100 dark:bg-amber-950 shadow-2xs border border-amber-300 dark:border-amber-800">
+                            👑
+                          </span>
+                        </div>
+                        <div className="hidden sm:inline-block text-[8.5px] sm:text-xs font-black text-amber-700 dark:text-amber-300 uppercase tracking-widest bg-amber-100 dark:bg-amber-950/70 px-2.5 sm:px-3 py-0.5 rounded-full shadow-2xs border border-amber-300 dark:border-amber-800 mt-1">
+                          ★ {rank === 1 ? '1st' : `${rank}th`} Rank {isTied ? '(Joint)' : ''} ★
+                        </div>
                       </div>
-                      <div className="text-[8.5px] sm:text-xs font-black text-amber-700 dark:text-amber-300 uppercase tracking-widest bg-amber-100 dark:bg-amber-950/70 px-2.5 sm:px-3 py-0.5 rounded-full inline-block shadow-2xs border border-amber-300 dark:border-amber-800">
-                        ★ {rank === 1 ? '1st' : `${rank}th`} Rank {isTied ? '(Joint)' : ''} ★
+
+                      <div className="flex-1 min-w-0 px-3 sm:px-0 sm:w-full">
+                        <div className="sm:hidden flex items-center space-x-1 mb-0.5">
+                          <span className="text-[9px] font-black uppercase tracking-wider bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 px-2 py-0.5 rounded-full shadow-2xs">
+                            👑 1st Rank Champion {isTied ? '(Joint)' : ''}
+                          </span>
+                        </div>
+                        <h4 className="text-xs sm:text-lg font-black text-slate-900 dark:text-white group-hover:text-amber-800 dark:group-hover:text-amber-400 transition-colors leading-tight truncate sm:overflow-visible sm:whitespace-normal sm:break-words">
+                          {student?.studentName || student?.name}
+                        </h4>
+                        <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                          Std {formatClassNumber(student?.className)}
+                        </div>
                       </div>
-                      <h4 className="text-xs sm:text-lg font-black text-slate-900 dark:text-white group-hover:text-amber-800 dark:group-hover:text-amber-400 mt-1 transition-colors leading-tight break-words">
-                        {student?.studentName || student?.name}
-                      </h4>
-                      <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-                        Std {formatClassNumber(student?.className)}
-                      </div>
-                      <div className="mt-1.5 sm:mt-4 pt-1.5 sm:pt-3 border-t border-amber-100 dark:border-amber-950/60 flex items-center justify-center sm:justify-between">
-                        <span className="hidden sm:inline text-xs text-amber-900 dark:text-amber-300 font-bold">Cumulative</span>
+
+                      <div className="shrink-0 text-right sm:text-center sm:w-full sm:mt-4 sm:pt-3 sm:border-t sm:border-amber-100 dark:sm:border-amber-950/60 flex flex-col sm:flex-row items-end sm:items-center justify-center">
                         <span className="text-xs sm:text-2xl font-black text-amber-800 dark:text-amber-300">
-                          {formatScore(student?.overallScore ?? student?.spr)} pts
+                          {formatScore(student?.overallScore ?? student?.spr)} <span className="text-[10px] sm:text-xs font-semibold text-amber-700/80 dark:text-amber-400">pts</span>
+                        </span>
+                        <span className="sm:hidden text-[9px] text-amber-700 dark:text-amber-400 font-bold flex items-center space-x-0.5 mt-0.5">
+                          <span>View</span>
+                          <span>›</span>
                         </span>
                       </div>
                     </div>
@@ -1222,55 +1259,76 @@ export default function PublicHomePage() {
                   return (
                     <div
                       onClick={() => handleStudentClick(student?.studentId)}
-                      className={`w-[78vw] max-w-[280px] shrink-0 sm:w-auto sm:max-w-none sm:shrink horizontal-snap-item cursor-pointer rounded-2xl sm:rounded-3xl p-3 sm:p-6 border-2 transition-all duration-300 text-center relative order-3 sm:order-3 group animate-slide-right delay-200 hover:-translate-y-1 ${
+                      className={`w-full sm:w-auto cursor-pointer rounded-2xl sm:rounded-3xl p-3 sm:p-6 border-2 transition-all duration-300 flex flex-row sm:flex-col items-center sm:items-center justify-between sm:justify-between text-left sm:text-center relative order-3 sm:order-3 group animate-slide-right delay-200 hover:-translate-y-1 ${
                         isGold
-                          ? 'bg-gradient-to-b from-amber-50/95 via-white to-white dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 border-amber-400 dark:border-amber-500/70 shadow-xl hover:shadow-2xl hover:border-amber-500'
+                          ? 'bg-gradient-to-r sm:bg-gradient-to-b from-amber-50/95 via-white to-white dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 border-amber-400 dark:border-amber-500/70 shadow-md hover:shadow-xl hover:border-amber-500 sm:-translate-y-2 lg:-translate-y-3'
                           : isSilver
-                          ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-lg hover:shadow-xl hover:border-slate-400 dark:hover:border-slate-700'
-                          : 'bg-white dark:bg-slate-900 border-amber-200 dark:border-amber-900/60 shadow-lg hover:shadow-xl hover:border-amber-300 dark:hover:border-amber-800'
+                          ? 'bg-gradient-to-r sm:bg-none from-slate-100/90 via-slate-50/50 to-white bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xs hover:shadow-md hover:border-slate-400 dark:hover:border-slate-700'
+                          : 'bg-gradient-to-r sm:bg-none from-amber-100/70 via-amber-50/40 to-white bg-white dark:bg-slate-900 border-amber-200 dark:border-amber-900/60 shadow-xs hover:shadow-md hover:border-amber-300 dark:hover:border-amber-800'
                       }`}
                     >
-                      <div className="flex justify-center mb-1.5 sm:mb-2">
-                        <StudentAvatar
-                          photoUrl={student?.photoUrl}
-                          name={student?.studentName || student?.name || 'Student'}
-                          size="lg"
-                          className={`w-11 h-11 sm:w-20 sm:h-20 ${isGold ? 'ring-3 sm:ring-4 ring-amber-300/60 dark:ring-amber-500/40' : ''}`}
-                        />
+                      <div className="flex items-center space-x-3 sm:space-x-0 sm:flex-col sm:mb-2 shrink-0">
+                        <div className="relative">
+                          <StudentAvatar
+                            photoUrl={student?.photoUrl}
+                            name={student?.studentName || student?.name || 'Student'}
+                            size="lg"
+                            className={`w-12 h-12 sm:w-20 sm:h-20 ${isGold ? 'ring-3 sm:ring-4 ring-amber-300/60 dark:ring-amber-500/40' : ''}`}
+                          />
+                          <span className="sm:hidden absolute -bottom-1 -right-1 text-xs px-1.5 py-0.5 rounded-full font-black bg-white dark:bg-slate-800 shadow-2xs border border-amber-200 dark:border-amber-800">
+                            {rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉'}
+                          </span>
+                        </div>
+                        <div
+                          className={`hidden sm:inline-block text-[8.5px] sm:text-xs font-black uppercase tracking-widest px-2.5 sm:px-3 py-0.5 rounded-full shadow-2xs border mt-1 ${
+                            isGold
+                              ? 'bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+                              : isSilver
+                              ? 'bg-slate-100/90 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                              : 'bg-amber-100/90 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                          }`}
+                        >
+                          ★ {rank === 1 ? '1st' : rank === 2 ? '2nd' : rank === 3 ? '3rd' : `${rank}th`} Rank {isTied ? '(Joint)' : ''} ★
+                        </div>
                       </div>
+
+                      <div className="flex-1 min-w-0 px-3 sm:px-0 sm:w-full">
+                        <div className="sm:hidden flex items-center space-x-1 mb-0.5">
+                          <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border shadow-2xs ${
+                            isGold
+                              ? 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+                              : isSilver
+                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                              : 'bg-amber-100/80 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                          }`}>
+                            {rank === 1 ? '🥇 1st Rank' : rank === 2 ? '🥈 2nd Rank' : '🥉 3rd Rank'} {isTied ? '(Joint)' : ''}
+                          </span>
+                        </div>
+                        <h4
+                          className={`text-xs sm:text-base font-extrabold transition-colors leading-tight truncate sm:overflow-visible sm:whitespace-normal sm:break-words ${
+                            isGold
+                              ? 'text-slate-900 dark:text-white group-hover:text-amber-800 dark:group-hover:text-amber-400'
+                              : 'text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400'
+                          }`}
+                        >
+                          {student?.studentName || student?.name}
+                        </h4>
+                        <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                          Std {formatClassNumber(student?.className)}
+                        </div>
+                      </div>
+
                       <div
-                        className={`text-[8px] sm:text-xs font-black uppercase tracking-widest px-2 sm:px-3 py-0.5 rounded-full inline-block shadow-2xs border ${
-                          isGold
-                            ? 'bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
-                            : isSilver
-                            ? 'bg-slate-100/90 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                            : 'bg-amber-100/90 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                        className={`shrink-0 text-right sm:text-center sm:w-full sm:mt-4 sm:pt-3 sm:border-t flex flex-col sm:flex-row items-end sm:items-center justify-center ${
+                          isGold ? 'sm:border-amber-100 dark:sm:border-amber-950/60' : 'sm:border-slate-100 dark:sm:border-slate-800'
                         }`}
                       >
-                        ★ {rank === 1 ? '1st' : rank === 2 ? '2nd' : rank === 3 ? '3rd' : `${rank}th`} Rank {isTied ? '(Joint)' : ''} ★
-                      </div>
-                      <h4
-                        className={`text-[10px] sm:text-base font-extrabold mt-1 transition-colors leading-tight break-words ${
-                          isGold
-                            ? 'text-slate-900 dark:text-white group-hover:text-amber-800 dark:group-hover:text-amber-400'
-                            : 'text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400'
-                        }`}
-                      >
-                        {student?.studentName || student?.name}
-                      </h4>
-                      <div className="text-[9px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-                        Std {formatClassNumber(student?.className)}
-                      </div>
-                      <div
-                        className={`mt-1.5 sm:mt-4 pt-1.5 sm:pt-3 border-t flex items-center justify-center sm:justify-between ${
-                          isGold ? 'border-amber-100 dark:border-amber-950/60' : 'border-slate-100 dark:border-slate-800'
-                        }`}
-                      >
-                        <span className={`hidden sm:inline text-xs ${isGold ? 'text-amber-900 dark:text-amber-300 font-bold' : 'text-slate-400 dark:text-slate-500 font-medium'}`}>
-                          {isGold ? 'Cumulative' : 'Overall'}
-                        </span>
                         <span className={`text-[11px] sm:text-lg font-black ${isGold ? 'text-amber-800 dark:text-amber-300' : 'text-slate-800 dark:text-slate-100'}`}>
-                          {formatScore(student?.overallScore ?? student?.spr)} pts
+                          {formatScore(student?.overallScore ?? student?.spr)} <span className="text-[10px] sm:text-xs font-semibold text-slate-500">pts</span>
+                        </span>
+                        <span className="sm:hidden text-[9px] text-blue-600 dark:text-blue-400 font-bold flex items-center space-x-0.5 mt-0.5">
+                          <span>View</span>
+                          <span>›</span>
                         </span>
                       </div>
                     </div>
