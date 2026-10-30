@@ -1,0 +1,15 @@
+
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "in.madin.spr",
+      "sha256_cert_fingerprints": [
+        "10:8A:68:60:64:7A:E9:DD:36:78:EB:7D:3C:33:D8:26:64:0A:B5:74:AD:9C:B8:DF:BB:37:D1:59:47:B3:F9:5A"
+      ]
+    }
+  }
+]
