@@ -28,6 +28,7 @@ import {
   Info,
   X,
   ChevronRight,
+  CheckSquare,
 } from 'lucide-react';
 import { StudentAvatar } from '@/components/ui/StudentAvatar';
 import VideoLoader from '@/components/ui/VideoLoader';
@@ -174,6 +175,7 @@ export default function StudentProfilePage() {
     { id: 'CREATIVE', name: 'Creative Hub', icon: Sparkles },
     { id: 'LITERARY', name: 'Literary Fest', icon: Feather },
     { id: 'LIBRARY', name: 'Library & Reading', icon: Library },
+    { id: 'TASKS', name: 'Tasks', icon: CheckSquare },
   ];
 
   return (
@@ -325,7 +327,7 @@ export default function StudentProfilePage() {
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
+              <div className="table-responsive-wrapper">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
                     <tr>
@@ -413,7 +415,7 @@ export default function StudentProfilePage() {
                     </span>
                   </div>
 
-                  <div className="overflow-x-auto">
+                  <div className="table-responsive-wrapper">
                     <table className="w-full text-left text-xs border border-slate-200 rounded-xl overflow-hidden">
                       <thead className="bg-slate-50 text-slate-700 font-bold uppercase tracking-wider text-[11px]">
                         <tr>
@@ -667,6 +669,59 @@ export default function StudentProfilePage() {
           </div>
         )}
 
+        {activeTab === 'TASKS' && (
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-subtle space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Student Tasks &amp; Micro-Challenges</h3>
+                <p className="text-xs text-slate-500">Rewarded task points and institutional micro-incentives</p>
+              </div>
+              <CheckSquare className="w-5 h-5 text-amber-600" />
+            </div>
+
+            {(() => {
+              const taskCat = categoryScores.find(
+                (c: any) => c.categoryCode === 'TASKS' || c.categoryName?.toLowerCase().includes('task')
+              );
+              const taskRecords = taskCat?.records || [];
+
+              if (taskRecords.length === 0) {
+                return (
+                  <div className="py-8 text-center text-slate-400 text-xs">
+                    No approved tasks recorded for this student yet.
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-3">
+                  {taskRecords.map((rec: any, idx: number) => (
+                    <div
+                      key={rec.id || idx}
+                      className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between"
+                    >
+                      <div>
+                        <div className="text-xs font-bold text-slate-900">{rec.name || rec.title || 'Task'}</div>
+                        <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-2">
+                          {rec.taskId && <span className="font-mono text-amber-700 font-semibold">{rec.taskId}</span>}
+                          {rec.awardedAmount !== undefined && rec.awardedAmount > 0 && (
+                            <span className="text-emerald-700 font-semibold">Cash Reward: ₹{Number(rec.awardedAmount).toFixed(2)}</span>
+                          )}
+                          {rec.remarks && <span>• {rec.remarks}</span>}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-black text-amber-700">+{rec.earnedPoints} pts</div>
+                        <div className="text-[10px] text-slate-400">Rewarded SPR Points</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
         {/* Calculation Details Modal (Section 22) */}
         {selectedCatDetails && (
           <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -718,7 +773,11 @@ export default function StudentProfilePage() {
                             <div className="font-bold text-slate-900 truncate">
                               {r.name || r.title || r.subjectName || 'Entry'}
                             </div>
-                            <div className="text-[10px] text-slate-500 flex items-center space-x-2">
+                            <div className="text-[10px] text-slate-500 flex flex-wrap items-center gap-x-2">
+                              {r.taskId && <span className="font-mono text-gold-700 font-semibold">{r.taskId}</span>}
+                              {r.awardedAmount !== undefined && r.awardedAmount > 0 && (
+                                <span className="text-emerald-700 font-semibold">Reward: ₹{Number(r.awardedAmount).toFixed(2)}</span>
+                              )}
                               {r.levelName && <span>Level: {r.levelName}</span>}
                               {r.multiplier && <span>Mult: {r.multiplier}×</span>}
                               {r.position && <span>Prize: {r.position}</span>}

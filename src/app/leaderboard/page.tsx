@@ -941,7 +941,7 @@ function deriveCategoryLeaderboard(
 
       {/* Top Header with Scroll-Driven Contraction, Low Opacity Blur & Clean Navigation */}
       <header
-        className={`sticky top-0 z-40 backdrop-blur-md border-b shadow-xs px-4 sm:px-6 lg:px-8 print:hidden transition-all duration-300 ${
+        className={`sticky top-0 z-40 backdrop-blur-md border-b shadow-xs px-3 sm:px-6 lg:px-8 print:hidden transition-all duration-300 pt-[max(0.6rem,env(safe-area-inset-top))] ${
           isScrolled
             ? 'bg-white/95 dark:bg-slate-950/95 border-slate-300/80 dark:border-slate-800/80 py-2 sm:py-2.5 shadow-sm'
             : 'bg-white/40 dark:bg-slate-950/45 border-white/30 dark:border-slate-800/40 py-2.5 sm:py-3'
@@ -1011,7 +1011,7 @@ function deriveCategoryLeaderboard(
           <div className="flex items-center space-x-2 shrink-0">
             <Link
               href="/"
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition btn-interactive"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 min-h-touch rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition btn-interactive"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Overview</span>
@@ -1021,7 +1021,7 @@ function deriveCategoryLeaderboard(
       </header>
 
       {/* Main Standings Container */}
-      <main className="max-w-7xl mx-auto w-full px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-5 flex-1 print:hidden">
+      <main className="max-w-7xl mx-auto w-full px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-5 flex-1 pb-safe-nav sm:pb-8 print:hidden">
         {/* Dedicated Separate Leaderboards Switcher Navigation Bar */}
         <div className="space-y-2 animate-slide-up">
           {/* Level 1: Primary Category / Wing Tabs with Horizontal Scroll Ribbon & Fade Masks */}
@@ -1648,11 +1648,11 @@ function deriveCategoryLeaderboard(
             <table className="w-full table-fixed text-left text-xs">
               <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">
                 <tr>
-                  <th className="py-2.5 sm:py-3.5 px-2 sm:px-4 w-9 sm:w-16 text-center">Rank</th>
-                  <th className="py-2.5 sm:py-3.5 px-2 sm:px-4">Student</th>
-                  <th className="py-2.5 sm:py-3.5 px-1 sm:px-4 w-10 sm:w-20 text-center">Class</th>
-                  <th className="py-2.5 sm:py-3.5 px-2 sm:px-4 w-24 sm:w-32 text-right">SPR Points</th>
-                  <th className="py-2.5 sm:py-3.5 px-1 sm:px-3 w-8 sm:w-12 text-center" title="Report inaccuracy"></th>
+                  <th className="py-2.5 sm:py-3.5 px-1 sm:px-4 w-7 sm:w-16 text-center">Rank</th>
+                  <th className="py-2.5 sm:py-3.5 px-1.5 sm:px-4">Student</th>
+                  <th className="py-2.5 sm:py-3.5 px-1 sm:px-4 w-8 sm:w-20 text-center">Class</th>
+                  <th className="py-2.5 sm:py-3.5 px-1.5 sm:px-4 w-20 sm:w-32 text-right">SPR Points</th>
+                  <th className="py-2.5 sm:py-3.5 px-1 sm:px-3 w-7 sm:w-12 text-center" title="Report inaccuracy"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70 font-sans">
@@ -1691,7 +1691,7 @@ function deriveCategoryLeaderboard(
                             : 'Click to view calculation breakdown for this category'
                         }
                       >
-                        <td className="py-2 sm:py-3.5 px-1.5 sm:px-4 text-center">
+                        <td className="py-2 sm:py-3.5 px-1 sm:px-4 text-center">
                           {isTop1 ? (
                             <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-400 text-amber-950 font-black text-[10px] sm:text-xs shadow-xs animate-gold-glow">
                               1
@@ -1705,13 +1705,13 @@ function deriveCategoryLeaderboard(
                               3
                             </span>
                           ) : (
-                            <span className="text-slate-500 dark:text-slate-400 font-semibold text-[11px] sm:text-xs">{st.rank}</span>
+                            <span className="text-slate-500 dark:text-slate-400 font-semibold text-[10.5px] sm:text-xs">{st.rank}</span>
                           )}
                         </td>
 
                         <td className="py-2 sm:py-3.5 px-1.5 sm:px-4">
-                          <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
-                            <StudentAvatar photoUrl={st.photoUrl} name={studentDisplayName} size="sm" className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
+                          <div className="flex items-center space-x-1.5 sm:space-x-3 min-w-0">
+                            <StudentAvatar photoUrl={st.photoUrl} name={studentDisplayName} size="sm" className="w-6 h-6 sm:w-8 sm:h-8 shrink-0" />
                             <span className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors text-[11px] sm:text-xs leading-tight line-clamp-2">
                               {studentDisplayName}
                             </span>
@@ -1719,18 +1719,18 @@ function deriveCategoryLeaderboard(
                         </td>
 
                         {/* Class column showing Number Only (e.g. "8", "9", "10") */}
-                        <td className="py-2 sm:py-3.5 px-1 sm:px-4 text-center font-bold text-slate-800 dark:text-slate-200">
-                          <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-[10px] sm:text-xs font-black">
+                        <td className="py-2 sm:py-3.5 px-0.5 sm:px-4 text-center font-bold text-slate-800 dark:text-slate-200">
+                          <span className="inline-flex items-center justify-center px-1 sm:px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-[9.5px] sm:text-xs font-black">
                             {classNum}
                           </span>
                         </td>
 
-                        <td className="py-2 sm:py-3.5 px-2 sm:px-4 text-right whitespace-nowrap">
-                          <div className="inline-flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl font-mono text-xs font-black shadow-2xs border transition-all group-hover:scale-105 bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700">
+                        <td className="py-2 sm:py-3.5 px-1 sm:px-4 text-right whitespace-nowrap">
+                          <div className="inline-flex items-center space-x-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl font-mono text-[11px] sm:text-xs font-black shadow-2xs border transition-all group-hover:scale-105 bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700">
                             <span className={isTop1 ? 'text-amber-800 dark:text-amber-300 font-black' : isTop2 ? 'text-slate-800 dark:text-slate-200 font-black' : isTop3 ? 'text-amber-900 dark:text-amber-300 font-black' : 'text-blue-900 dark:text-blue-300 font-extrabold'}>
                               {sprScore}
                             </span>
-                            <span className={`text-[8.5px] sm:text-[9.5px] font-black uppercase px-1 py-0.2 rounded ${
+                            <span className={`text-[8px] sm:text-[9.5px] font-black uppercase px-1 py-0.2 rounded ${
                               isTop1 ? 'bg-amber-400 dark:bg-amber-500 text-amber-950' : isTop2 ? 'bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-200' : isTop3 ? 'bg-amber-300 dark:bg-amber-600 text-amber-950' : 'bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300'
                             }`}>
                               PTS
@@ -1739,10 +1739,10 @@ function deriveCategoryLeaderboard(
                         </td>
 
                         {/* Report Discrepancy Icon */}
-                        <td className="py-2 sm:py-3.5 px-1 sm:px-3 text-center">
+                        <td className="py-2 sm:py-3.5 px-0.5 sm:px-3 text-center">
                           <button
                             onClick={(e) => openReportModal(e, st)}
-                            className="p-1 text-slate-300 dark:text-slate-600 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition"
+                            className="p-1 min-h-[36px] min-w-[36px] inline-flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition"
                             title="Report inaccuracy to administration"
                           >
                             <Flag className="w-3 h-3 sm:w-3.5 sm:h-3.5" />

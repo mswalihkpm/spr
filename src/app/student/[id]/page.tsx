@@ -33,6 +33,7 @@ import {
   ShieldCheck,
   Download,
   Settings2,
+  CheckSquare,
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import VideoLoader from '@/components/ui/VideoLoader';
@@ -187,6 +188,8 @@ export default function PublicStudentScorecardPage() {
 
   const getCategoryIcon = (code?: string) => {
     switch (code) {
+      case 'TASKS':
+        return CheckSquare;
       case 'ISLAMIC':
         return BookOpen;
       case 'SCHOOL':
@@ -323,7 +326,7 @@ export default function PublicStudentScorecardPage() {
   const isExamCategory = (code?: string) => code === 'ISLAMIC' || code === 'SCHOOL';
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#080e1e] text-slate-900 dark:text-slate-100 font-sans py-6 px-4 sm:px-6 lg:px-8 print:p-0 print:bg-white transition-colors duration-300">
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#080e1e] text-slate-900 dark:text-slate-100 font-sans py-4 sm:py-6 px-3 sm:px-6 lg:px-8 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[calc(max(env(safe-area-inset-bottom,0px),0.75rem)+4rem)] sm:pb-8 print:p-0 print:bg-white transition-colors duration-300">
       {/* Global CSS for Strict A4 Print Studio Styling */}
       <style jsx global>{`
         @media print {
@@ -385,7 +388,7 @@ export default function PublicStudentScorecardPage() {
         <div className="flex items-center justify-between print:hidden animate-slide-down">
           <Link
             href="/"
-            className="inline-flex items-center space-x-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 bg-white dark:bg-slate-900 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs transition hover:scale-105 active:scale-95 btn-interactive"
+            className="inline-flex items-center space-x-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 bg-white dark:bg-slate-900 px-3.5 py-2 min-h-touch rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs transition hover:scale-105 active:scale-95 btn-interactive cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Standings</span>
@@ -404,7 +407,7 @@ export default function PublicStudentScorecardPage() {
                   alert('Scorecard URL copied to clipboard!');
                 }
               }}
-              className="inline-flex items-center space-x-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition hover:scale-105 active:scale-95 btn-interactive cursor-pointer"
+              className="inline-flex items-center space-x-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 px-3.5 py-2 min-h-touch rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition hover:scale-105 active:scale-95 btn-interactive cursor-pointer"
             >
               <Share2 className="w-3.5 h-3.5" />
               <span>Share</span>
@@ -415,7 +418,7 @@ export default function PublicStudentScorecardPage() {
               onClick={() => setPrintModalOpen(true)}
               title="Print Official Scorecard"
               aria-label="Print Official Scorecard"
-              className="inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 text-white bg-blue-600 rounded-xl shadow-md hover:bg-blue-700 transition hover:scale-105 active:scale-95 btn-interactive cursor-pointer"
+              className="inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 min-h-touch min-w-touch text-white bg-blue-600 rounded-xl shadow-md hover:bg-blue-700 transition hover:scale-105 active:scale-95 btn-interactive cursor-pointer"
             >
               <Printer className="w-4 h-4 text-amber-300" />
             </button>
@@ -786,7 +789,8 @@ export default function PublicStudentScorecardPage() {
                             </button>
 
                             <div className={`${isCollapsed ? 'hidden' : 'block'}`}>
-                              <table className="w-full text-left text-xs print:text-[9px]">
+                              <div className="table-responsive-wrapper">
+                                <table className="w-full text-left text-xs print:text-[9px]">
                                 <thead className="bg-slate-50/70 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold text-[9.5px] print:text-[8px]">
                                   {isExam ? (
                                     <tr>
@@ -814,6 +818,8 @@ export default function PublicStudentScorecardPage() {
                                       'Assessment Record';
 
                                     const detailParts: string[] = [];
+                                    if (r.taskId) detailParts.push(`Task ID: ${r.taskId}`);
+                                    if (r.awardedAmount) detailParts.push(`Cash Reward: ₹${Number(r.awardedAmount).toFixed(2)}`);
                                     if (r.institutionName) detailParts.push(r.institutionName);
                                     if (r.boardName) detailParts.push(r.boardName);
                                     if (r.levelName) detailParts.push(`Level: ${r.levelName}`);
@@ -873,6 +879,7 @@ export default function PublicStudentScorecardPage() {
                                   })}
                                 </tbody>
                               </table>
+                              </div>
                             </div>
                           </div>
                         );

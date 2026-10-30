@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/auth';
-import { adminAddStudentToTask } from '@/lib/tasks';
+import { adminAddStudentToTask, adminRemoveStudentFromTask } from '@/lib/tasks';
 import { prisma } from '@/lib/prisma';
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -91,5 +91,44 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   } catch (error: any) {
     console.error('Add student to task error:', error);
     return NextResponse.json({ error: error.message || 'Failed to add student to task.' }, { status: 400 });
+  }
+}
+
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const { user, errorResponse } = await authenticateApiRequest(req, 'ADMIN');
+    if (errorResponse) return errorResponse;
+    if (!user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+
+    const { searchParams } = new URL(req.url);
+    let studentId = searchParams.get('studentId');
+
+    if (!studentId) {
+      try {
+        const body = await req.json();
+        studentId = body.studentId;
+      } catch {}
+    }
+
+    if (!studentId) {
+      return NextResponse.json({ error: 'Student ID is required.' }, { status: 400 });
+    }
+
+    await adminRemoveStudentFromTask({
+      taskId: params.id,
+      studentId,
+      adminId: user.id,
+      adminEmail: user.email,
+      ipAddress: req.headers.get('x-forwarded-for') || req.ip,
+      userAgent: req.headers.get('user-agent'),
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Student record removed from task successfully.',
+    });
+  } catch (error: any) {
+    console.error('Remove student from task error:', error);
+    return NextResponse.json({ error: error.message || 'Failed to remove student from task.' }, { status: 400 });
   }
 }

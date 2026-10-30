@@ -162,6 +162,36 @@ export async function syncStudentEarnings(studentId: string): Promise<{
         multiplier = 1.5; // permanent weightage for Kuthbkhana
       }
 
+      if (cat.code === 'TASKS' || cat.code.startsWith('TASK')) {
+        const studentTasks = await tx.studentTaskRecord.findMany({
+          where: {
+            studentId,
+            status: 'APPROVED',
+          },
+          include: {
+            task: true,
+          },
+        });
+
+        let taskPointsSum = 0;
+        let taskEarningsSum = 0;
+        for (const st of studentTasks) {
+          taskPointsSum += Number(st.awardedPoints) || 0;
+          taskEarningsSum += Number(st.awardedAmount) || 0;
+        }
+
+        categoryBreakdown.push({
+          categoryId: cat.id,
+          categoryCode: 'TASKS',
+          categoryName: cat.name || 'Tasks',
+          icon: 'CheckSquare',
+          eligiblePoints: Math.round(taskPointsSum * 100) / 100,
+          multiplier: 1.0,
+          earnings: Math.round(taskEarningsSum * 100) / 100,
+        });
+        continue;
+      }
+
       let catRecords = performanceRecords.filter((r) => r.categoryId === cat.id);
       if (isLibraryCat) {
         // In student wallet, value Kuthbkhana records (subcategoryId cmtx_sub_kuthbkhana or remarks)

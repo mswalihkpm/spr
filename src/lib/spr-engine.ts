@@ -358,6 +358,12 @@ export async function calculateStudentSPR(
       },
     },
     libraryRecords: true,
+    taskRecords: {
+      where: { status: 'APPROVED' },
+      include: {
+        task: true,
+      },
+    },
   };
 
   let student = await prisma.student.findFirst({
@@ -782,6 +788,83 @@ export async function calculateStudentSPR(
       }
     }
 
+    // 8. TASKS (Student Tasks & Challenges)
+    else if (cat.code === 'TASKS' || cat.code.startsWith('TASK')) {
+      const approvedTasks = ((student as any).taskRecords || []).filter((tr: any) => tr.status === 'APPROVED');
+      const directRecords = categoryRecords || [];
+      const totalCount = approvedTasks.length + directRecords.length;
+
+      if (totalCount > 0) {
+        hasData = true;
+        let sumPoints = 0;
+        itemizedRecords = [];
+        const seenTaskIds = new Set<string>();
+
+        // Add approved StudentTaskRecords
+        approvedTasks.forEach((tr: any) => {
+          const tId = tr.taskId || tr.task?.id;
+          if (tId) seenTaskIds.add(tId);
+          const pts = Number(tr.awardedPoints) || 0;
+          const amount = Number(tr.awardedAmount) || 0;
+          sumPoints += pts;
+
+          itemizedRecords.push({
+            id: tr.id,
+            taskId: tr.task?.taskId || tr.taskId,
+            name: tr.task?.title || 'Student Task',
+            title: tr.task?.title || 'Student Task',
+            taskTitle: tr.task?.title || 'Student Task',
+            categoryName: cat.name,
+            categoryCode: 'TASKS',
+            subCategoryName: 'Student Task',
+            type: 'TASK',
+            earnedPoints: pts,
+            obtainedScore: pts,
+            basePoints: pts,
+            maxScore: Number(tr.task?.maxPoints) || pts,
+            percentage: Number(tr.approvedPercentage) || 100,
+            awardedAmount: amount,
+            multiplier: 1.0,
+            remarks: tr.adminRemarks || (amount > 0 ? `Approved (${tr.approvedPercentage || 100}%) • Cash: ₹${amount.toFixed(2)}` : `Approved (${tr.approvedPercentage || 100}%)`),
+            date: tr.approvedAt ? tr.approvedAt.toISOString() : tr.updatedAt ? tr.updatedAt.toISOString() : null,
+          });
+        });
+
+        // Add direct PerformanceRecords if any (without duplicating)
+        directRecords.forEach((r: any) => {
+          const isDup = Array.from(seenTaskIds).some((tId) => r.remarks?.includes(tId));
+          if (!isDup) {
+            const pts = Number(r.obtainedScore) || 0;
+            sumPoints += pts;
+            itemizedRecords.push({
+              id: r.id,
+              name: r.remarks || r.subcategory?.name || 'Task Entry',
+              title: r.remarks || r.subcategory?.name || 'Task Entry',
+              taskTitle: r.remarks || 'Task Entry',
+              categoryName: cat.name,
+              categoryCode: 'TASKS',
+              subCategoryName: r.subcategory?.name || 'Task Record',
+              type: 'TASK',
+              earnedPoints: pts,
+              obtainedScore: pts,
+              basePoints: pts,
+              maxScore: r.maxScore || pts,
+              multiplier: 1.0,
+              remarks: r.remarks,
+              date: r.date ? r.date.toISOString() : null,
+            });
+          }
+        });
+
+        recordsCount = itemizedRecords.length;
+        earnedPoints = Number(sumPoints.toFixed(2));
+        rawInput = `${formatPoints(earnedPoints)} pts`;
+        formula = `${recordsCount} task(s) approved = +${formatPoints(earnedPoints)} SPR Points`;
+      } else {
+        formula = `No approved tasks logged (+0 SPR Points)`;
+      }
+    }
+
     // CUSTOM / OTHER EXTENSION CATEGORIES
     else {
       if (categoryRecords.length > 0) {
@@ -1027,6 +1110,13 @@ async function getActiveStudentsSnapshot(): Promise<any[]> {
               readingPeriod: true,
             },
           },
+          taskRecords: {
+            where: { status: 'APPROVED' },
+            select: {
+              id: true,
+              awardedPoints: true,
+            },
+          },
         },
       });
 
@@ -1179,7 +1269,7 @@ export async function calculateAllLeaderboards(filters?: {
   for (const student of students) {
     const categoryPoints: Record<string, number> = {};
     let totalPoints = 0;
-    let totalRecords = student.performanceRecords.length + student.creativeWorks.length + student.libraryRecords.length;
+    let totalRecords = student.performanceRecords.length + student.creativeWorks.length + student.libraryRecords.length + ((student as any).taskRecords?.length || 0);
 
     // Subcategory-specific calculation if requested
     let subcategoryScore = 0;
@@ -1413,6 +1503,14 @@ export async function calculateAllLeaderboards(filters?: {
           });
           catEarned = Number(catSum.toFixed(2));
         }
+      } else if (cat.code === 'TASKS' || cat.code.startsWith('TASK')) {
+        ((student as any).taskRecords || []).forEach((tr: any) => {
+          catEarned += Number(tr.awardedPoints) || 0;
+        });
+        const records = student.performanceRecords.filter((r: any) => r.categoryId === cat.id);
+        records.forEach((r: any) => {
+          catEarned += (r.obtainedScore || 0);
+        });
       } else {
         const records = student.performanceRecords.filter((r: any) => r.categoryId === cat.id);
         records.forEach((r: any) => {

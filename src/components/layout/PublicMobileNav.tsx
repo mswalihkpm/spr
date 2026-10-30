@@ -48,12 +48,12 @@ function PublicMobileNavContent() {
   return (
     <nav
       id="public-mobile-nav"
-      className="sm:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 shadow-2xl flex items-center justify-around py-1.5 px-1 print:hidden"
+      className="sm:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 shadow-2xl flex items-center justify-around pt-1.5 pb-[max(0.6rem,env(safe-area-inset-bottom))] px-1 print:hidden"
     >
       {/* 1. Home */}
       <Link
         href="/"
-        className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors relative ${
+        className={`flex flex-col items-center justify-center flex-1 min-h-[44px] py-1 transition-colors relative ${
           isHome ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
         }`}
       >
@@ -65,7 +65,7 @@ function PublicMobileNavContent() {
       {/* 2. Overall Leaderboard */}
       <Link
         href="/leaderboard"
-        className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors relative ${
+        className={`flex flex-col items-center justify-center flex-1 min-h-[44px] py-1 transition-colors relative ${
           isLeaderboard ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
         }`}
       >
@@ -77,7 +77,7 @@ function PublicMobileNavContent() {
       {/* 3. Categories & Wings */}
       <Link
         href="/categories"
-        className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors relative ${
+        className={`flex flex-col items-center justify-center flex-1 min-h-[44px] py-1 transition-colors relative ${
           isCategories ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
         }`}
       >
@@ -89,7 +89,7 @@ function PublicMobileNavContent() {
       {/* 4. Updates */}
       <Link
         href="/updates"
-        className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors relative ${
+        className={`flex flex-col items-center justify-center flex-1 min-h-[44px] py-1 transition-colors relative ${
           isUpdates ? 'text-amber-600 dark:text-amber-400 font-bold' : 'text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400'
         }`}
       >

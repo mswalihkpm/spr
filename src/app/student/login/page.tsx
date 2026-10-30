@@ -140,18 +140,27 @@ export default function StudentLoginPage() {
   const selectedStudent = unregisteredStudents.find((s) => s.id === selectedStudentId);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-madin-950 to-slate-900 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-madin-950 to-slate-900 flex flex-col justify-center py-8 sm:py-12 px-3.5 sm:px-6 lg:px-8 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] relative overflow-hidden">
       {/* Decorative Orbs */}
       <div className="absolute -top-40 -right-40 w-96 h-96 bg-gold-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Top back button */}
-      <div className="absolute top-6 left-6 z-20">
+      {/* Top navigation buttons */}
+      <div className="relative sm:absolute sm:top-6 sm:left-6 z-20 mb-4 sm:mb-0 flex flex-wrap items-center gap-2">
         <button
-          onClick={() => router.push('/login')}
-          className="inline-flex items-center space-x-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-xl border border-white/10 backdrop-blur-sm"
+          type="button"
+          onClick={() => router.push('/')}
+          className="inline-flex items-center space-x-1.5 text-xs font-bold text-slate-200 hover:text-white transition-all bg-white/10 hover:bg-white/20 px-3.5 py-2 min-h-touch rounded-xl border border-white/20 backdrop-blur-md shadow-md hover:scale-105 active:scale-95 cursor-pointer"
+          title="Return to Public Homepage"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-4 h-4 text-gold-400" />
+          <span>Return to Home</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => router.push('/login')}
+          className="inline-flex items-center space-x-1.5 text-xs font-semibold text-slate-400 hover:text-white transition-colors bg-white/5 hover:bg-white/10 px-3.5 py-2 min-h-touch rounded-xl border border-white/10 backdrop-blur-sm cursor-pointer"
+        >
           <span>Staff / Admin Portal</span>
         </button>
       </div>

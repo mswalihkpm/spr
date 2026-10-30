@@ -6,6 +6,8 @@ import {
   Lock,
   Mail,
   ArrowRight,
+  ArrowLeft,
+  Home,
   ShieldCheck,
   AlertCircle,
   Eye,
@@ -57,10 +59,23 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-madin-950 via-madin-900 to-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-madin-950 via-madin-900 to-slate-900 flex flex-col justify-center py-8 sm:py-12 px-3.5 sm:px-6 lg:px-8 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] relative overflow-hidden">
       {/* Background Decorative Rings */}
       <div className="absolute -top-40 -right-40 w-96 h-96 bg-gold-500/10 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-madin-700/20 rounded-full blur-3xl pointer-events-none"></div>
+
+      {/* Top Return to Home Button */}
+      <div className="relative sm:absolute sm:top-6 sm:left-6 z-20 mb-4 sm:mb-0 flex items-center">
+        <button
+          type="button"
+          onClick={() => router.push('/')}
+          className="inline-flex items-center space-x-2 text-xs font-bold text-slate-300 hover:text-white transition-all bg-white/10 hover:bg-white/20 px-3.5 py-2 min-h-touch rounded-xl border border-white/20 backdrop-blur-md shadow-md hover:scale-105 active:scale-95 cursor-pointer"
+          title="Return to Public Homepage"
+        >
+          <ArrowLeft className="w-4 h-4 text-gold-400" />
+          <span>Return to Home</span>
+        </button>
+      </div>
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center z-10 px-4">
         {/* Brand Logo */}

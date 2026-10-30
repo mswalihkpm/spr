@@ -448,6 +448,31 @@ export default function AdminTasksPage() {
     }
   };
 
+  const handleRemoveStudentRecord = async (record: StudentTaskRecordView) => {
+    if (!selectedTaskDetail) return;
+    const displayName = record.fullName || record.studentName || record.sprStudentId;
+    const confirmRemove = confirm(
+      `Are you sure you want to remove ${displayName} from this task? This will permanently delete the task record and deduct any awarded SPR points.`
+    );
+    if (!confirmRemove) return;
+    setActionLoading(true);
+    setStatusMsg(null);
+    try {
+      const res = await fetch(`/api/tasks/${selectedTaskDetail.id}/students?studentId=${record.studentId}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to remove student from task.');
+      setStatusMsg({ type: 'success', text: `Removed ${displayName} from task. SPR points updated.` });
+      await loadTaskDetail(selectedTaskDetail.id);
+      await fetchTasks();
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: err.message || 'Failed to remove student from task.' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleBulkApprove = async (percentage: number) => {
     if (!selectedTaskDetail || selectedRecordIds.length === 0) return;
     setActionLoading(true);
@@ -735,10 +760,27 @@ export default function AdminTasksPage() {
 
                     {/* Title & Description */}
                     <div>
-                      <h3 className="text-lg font-bold text-slate-900 tracking-tight">{t.title}</h3>
-                      <p className="text-xs text-slate-600 mt-1 line-clamp-3 leading-relaxed whitespace-pre-line">
+                      <h3
+                        onClick={() => loadTaskDetail(t.id)}
+                        className="text-lg font-bold text-slate-900 tracking-tight hover:text-emerald-700 cursor-pointer transition-colors"
+                        title="Click to view full task details"
+                      >
+                        {t.title}
+                      </h3>
+                      <p
+                        onClick={() => loadTaskDetail(t.id)}
+                        className="text-xs text-slate-600 mt-1 line-clamp-3 leading-relaxed whitespace-pre-line cursor-pointer hover:text-slate-900 transition-colors"
+                        title="Click to view full task details"
+                      >
                         {t.description}
                       </p>
+                      <button
+                        type="button"
+                        onClick={() => loadTaskDetail(t.id)}
+                        className="text-[11px] font-bold text-emerald-700 hover:text-emerald-850 mt-1.5 inline-flex items-center space-x-1 cursor-pointer hover:underline"
+                      >
+                        <span>Open &amp; View Full Body →</span>
+                      </button>
                     </div>
 
                     {/* Metrics Grid */}
@@ -887,6 +929,27 @@ export default function AdminTasksPage() {
 
               {/* Modal Body */}
               <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
+                {/* Full Task Description Box */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-50/70 via-slate-50 to-white border border-amber-200/80 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-amber-900 flex items-center space-x-1.5">
+                      <FileText className="w-4 h-4 text-amber-600" />
+                      <span>Full Task Body &amp; Instructions</span>
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(selectedTaskDetail as any)}
+                      className="text-xs font-bold text-amber-800 hover:text-amber-950 flex items-center space-x-1 bg-amber-100/70 hover:bg-amber-200/80 px-2.5 py-1 rounded-lg border border-amber-300 transition-colors cursor-pointer"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                      <span>Edit Content</span>
+                    </button>
+                  </div>
+                  <div className="text-xs sm:text-sm text-slate-850 whitespace-pre-line leading-relaxed bg-white p-4 rounded-xl border border-slate-200 shadow-2xs font-sans">
+                    {selectedTaskDetail.description}
+                  </div>
+                </div>
+
                 {/* Add Student Record Manually Section */}
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
                   <div className="flex items-center justify-between">
@@ -1059,7 +1122,7 @@ export default function AdminTasksPage() {
                     </div>
                   ) : (
                     <div className="rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                      <div className="overflow-x-auto">
+                      <div className="table-responsive-wrapper">
                         <table className="w-full text-left text-xs">
                           <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
                             <tr>
@@ -1176,12 +1239,20 @@ export default function AdminTasksPage() {
                                       <button
                                         onClick={() => handleRejectSingle(r)}
                                         disabled={actionLoading}
-                                        className="px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-[11px] border border-rose-200 transition-all"
+                                        className="px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-[11px] border border-rose-200 transition-all cursor-pointer"
                                         title="Reject report"
                                       >
                                         Reject
                                       </button>
                                     )}
+                                    <button
+                                      onClick={() => handleRemoveStudentRecord(r)}
+                                      disabled={actionLoading}
+                                      className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all inline-flex items-center cursor-pointer"
+                                      title="Remove student record and deduct any awarded SPR points"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
                                   </td>
                                 </tr>
                               );

@@ -161,17 +161,17 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
       <PWAInstallPrompt />
 
       {/* Mobile Top Header */}
-      <header className="md:hidden sticky top-0 z-40 bg-madin-900 text-white px-4 py-3 flex items-center justify-between shadow-md">
-        <div className="flex items-center space-x-2.5">
+      <header className="md:hidden sticky top-0 z-40 bg-madin-900 text-white px-3 sm:px-4 py-2.5 sm:py-3 pt-[max(0.75rem,env(safe-area-inset-top))] flex items-center justify-between shadow-md">
+        <div className="flex items-center space-x-2">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-1.5 rounded-lg hover:bg-white/10 text-white focus:outline-none"
+            className="p-2 min-h-touch min-w-touch rounded-xl hover:bg-white/10 text-white focus:outline-none flex items-center justify-center cursor-pointer"
             aria-label="Open menu"
           >
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex items-center space-x-2">
-            <div className="w-7 h-7 rounded-md bg-white p-0.5 overflow-hidden">
+            <div className="w-8 h-8 rounded-lg bg-white p-0.5 overflow-hidden shrink-0 shadow-sm">
               <img src="/logo.png" alt="SPR Logo" className="w-full h-full object-contain" />
             </div>
             <div>
@@ -181,17 +181,17 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
           </div>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1.5">
           <button
             onClick={() => setSearchOpen(true)}
-            className="p-2 rounded-lg bg-white/10 text-slate-200 hover:text-white"
+            className="p-2 min-h-touch min-w-touch rounded-xl bg-white/10 text-slate-200 hover:text-white flex items-center justify-center cursor-pointer"
             aria-label="Search"
           >
             <Search className="w-4 h-4" />
           </button>
           <button
             onClick={() => setSidebarOpen(true)}
-            className="flex items-center space-x-1.5 p-1 rounded-full bg-gold-500/20 border border-gold-500/40 text-gold-300 hover:scale-105 transition"
+            className="flex items-center justify-center min-h-touch min-w-touch p-1 rounded-full bg-gold-500/20 border border-gold-500/40 text-gold-300 hover:scale-105 transition cursor-pointer"
             title={user?.name || 'Admin Menu & Profile'}
           >
             <div className="w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs bg-gold-500/30 text-gold-200">
@@ -208,7 +208,7 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
         } md:static md:w-64 lg:w-72 shrink-0 border-r border-madin-800 shadow-xl`}
       >
         {/* Brand Header */}
-        <div className="p-4 border-b border-madin-800 flex items-center justify-between">
+        <div className="p-4 pt-[max(1rem,env(safe-area-inset-top))] border-b border-madin-800 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-xl bg-white p-1 shadow-md overflow-hidden shrink-0">
               <img src="/logo.png" alt="Madin SPR" className="w-full h-full object-contain" />
@@ -227,7 +227,7 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="md:hidden p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white"
+            className="md:hidden p-2 min-h-touch min-w-touch rounded-lg hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -330,7 +330,7 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
         </nav>
 
         {/* Footer User Profile & Logout */}
-        <div className="p-3 border-t border-madin-800 bg-madin-950/40">
+        <div className="p-3 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-madin-800 bg-madin-950/40">
           <div className="flex items-center justify-between p-2 rounded-xl hover:bg-madin-800/50 transition-colors">
             <div className="flex items-center space-x-2.5 min-w-0">
               <div className="w-8 h-8 rounded-full bg-gold-500/20 border border-gold-500/30 text-gold-300 font-bold text-xs flex items-center justify-center shrink-0">
@@ -349,7 +349,7 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
             </div>
             <button
               onClick={handleLogout}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+              className="p-2 min-h-touch min-w-touch rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors flex items-center justify-center cursor-pointer"
               title="Logout session"
             >
               <LogOut className="w-4 h-4" />
@@ -497,7 +497,7 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
         </header>
 
         {/* Page Content Container */}
-        <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-24 md:pb-8">
+        <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-24 md:pb-8">
           {children}
         </main>
       </div>

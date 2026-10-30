@@ -7,11 +7,13 @@ import {
   Sparkles,
   Feather,
   Library,
+  CheckSquare,
 } from 'lucide-react';
 
 // Helper icon resolver for categories
 export function getCategoryIcon(code: string, iconName?: string) {
   const c = code?.toUpperCase() || '';
+  if (c === 'TASKS' || c.includes('TASK')) return CheckSquare;
   if (c === 'ISLAMIC' || c.includes('ISLAM')) return BookOpen;
   if (c === 'SCHOOL' || c.includes('ACADEMIC')) return GraduationCap;
   if (c === 'PROGRAMS' || c.includes('COMPETITION') || c.includes('SPORT')) return Trophy;
@@ -20,6 +22,7 @@ export function getCategoryIcon(code: string, iconName?: string) {
   if (c === 'LIBRARY' || c.includes('READ')) return Library;
   if (c === 'QUALIFICATION' || c.includes('HIFZ') || c.includes('CERT')) return Award;
 
+  if (iconName === 'CheckSquare') return CheckSquare;
   if (iconName === 'BookOpen') return BookOpen;
   if (iconName === 'GraduationCap') return GraduationCap;
   if (iconName === 'Trophy') return Trophy;
@@ -33,6 +36,7 @@ export function getCategoryIcon(code: string, iconName?: string) {
 // Category theme colors
 export function getCategoryColor(code: string) {
   const c = code?.toUpperCase() || '';
+  if (c === 'TASKS' || c.includes('TASK')) return { bg: 'bg-gold-500', light: 'bg-gold-50 text-gold-950 border-gold-200', text: 'text-gold-700', border: 'hover:border-gold-500' };
   if (c === 'ISLAMIC') return { bg: 'bg-emerald-500', light: 'bg-emerald-50 text-emerald-900 border-emerald-200', text: 'text-emerald-700', border: 'hover:border-emerald-500' };
   if (c === 'SCHOOL') return { bg: 'bg-indigo-600', light: 'bg-indigo-50 text-indigo-900 border-indigo-200', text: 'text-indigo-700', border: 'hover:border-indigo-500' };
   if (c === 'PROGRAMS') return { bg: 'bg-amber-500', light: 'bg-amber-50 text-amber-900 border-amber-200', text: 'text-amber-700', border: 'hover:border-amber-500' };
@@ -87,6 +91,7 @@ export function getCategoryDualLogos(code?: string): string[] | null {
 // Category direct module link resolver (if applicable)
 export function getCategoryModulePath(code: string) {
   const c = code?.toUpperCase() || '';
+  if (c === 'TASKS' || c.includes('TASK')) return '/tasks';
   if (c === 'ISLAMIC') return '/academics/islamic';
   if (c === 'SCHOOL') return '/academics/school';
   if (c === 'PROGRAMS') return '/programs';

@@ -21,7 +21,7 @@ export default function PublicFooter() {
 
   return (
     <>
-      <footer id="footer-portal" className="mt-auto bg-slate-950 text-slate-300 border-t border-slate-800 py-8 px-4 sm:px-6 lg:px-8 print:hidden pb-24 sm:pb-8 relative z-20">
+      <footer id="footer-portal" className="mt-auto bg-slate-950 text-slate-300 border-t border-slate-800 py-8 px-4 sm:px-6 lg:px-8 print:hidden pb-[calc(max(env(safe-area-inset-bottom,0px),0.75rem)+4.5rem)] sm:pb-8 relative z-20">
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-5">
         {/* Left: Branding & Verification */}
         <div className="flex items-center space-x-3.5 text-center sm:text-left">
@@ -41,15 +41,13 @@ export default function PublicFooter() {
           </div>
         </div>
 
-
-
         {/* Right: PWA Install & Staff Login Icon */}
         <div className="flex items-center space-x-3">
           <PwaFooterInstall />
 
           <Link
             href="/login"
-            className="p-2.5 rounded-xl bg-slate-800/90 hover:bg-blue-600 text-slate-300 hover:text-white transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs border border-slate-700/80 flex items-center justify-center"
+            className="p-2.5 min-h-touch min-w-touch rounded-xl bg-slate-800/90 hover:bg-blue-600 text-slate-300 hover:text-white transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs border border-slate-700/80 flex items-center justify-center cursor-pointer"
             title="Staff & Admin Portal Login"
             aria-label="Staff Login"
           >

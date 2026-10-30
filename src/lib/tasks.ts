@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 import { logAuditAction } from './audit';
+import { invalidateEngineCache } from './spr-engine';
 
 export const TIMEZONE = 'Asia/Kolkata';
 
@@ -770,6 +771,8 @@ export async function adminApproveTaskCompletion(params: {
     userAgent,
   }).catch(() => {});
 
+  invalidateEngineCache();
+
   return {
     success: true,
     record: {
@@ -841,5 +844,41 @@ export async function adminRejectTaskRecord(params: {
     userAgent,
   }).catch(() => {});
 
+  invalidateEngineCache();
+
   return record;
+}
+
+/**
+ * Admin: Remove a student record from a task.
+ */
+export async function adminRemoveStudentFromTask(params: {
+  taskId: string;
+  studentId: string;
+  adminId: string;
+  adminEmail: string;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+}) {
+  const { taskId, studentId, adminId, adminEmail, ipAddress, userAgent } = params;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.taskPointsLedger.deleteMany({ where: { taskId, studentId } });
+    await tx.taskRewardLedger.deleteMany({ where: { taskId, studentId } });
+    await tx.studentTaskRecord.deleteMany({ where: { taskId, studentId } });
+    await tx.taskAssignment.deleteMany({ where: { taskId, studentId } });
+  });
+
+  logAuditAction({
+    userId: adminId,
+    userName: adminEmail,
+    action: 'TASK_STUDENT_REMOVED',
+    entity: 'StudentTaskRecord',
+    newValue: { taskId, studentId },
+    ipAddress,
+    userAgent,
+  }).catch(() => {});
+
+  invalidateEngineCache();
+  return { success: true };
 }

@@ -5,6 +5,7 @@ import { authenticateApiRequest } from '@/lib/auth';
 import { getAdminTaskDetail, validateTaskPayload } from '@/lib/tasks';
 import { prisma } from '@/lib/prisma';
 import { logAuditAction } from '@/lib/audit';
+import { invalidateEngineCache } from '@/lib/spr-engine';
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -80,6 +81,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       userAgent: req.headers.get('user-agent'),
     }).catch(() => {});
 
+    invalidateEngineCache();
+
     return NextResponse.json({ success: true, task: updated });
   } catch (error: any) {
     console.error('Update task error:', error);
@@ -124,6 +127,8 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       ipAddress: req.headers.get('x-forwarded-for') || req.ip,
       userAgent: req.headers.get('user-agent'),
     }).catch(() => {});
+
+    invalidateEngineCache();
 
     return NextResponse.json({ success: true, message: 'Task deleted successfully.' });
   } catch (error: any) {

@@ -625,11 +625,11 @@ export default function PublicHomePage() {
 
       {/* Header with Very Low Opacity & Backdrop Blur */}
       <header
-        className={`sticky top-0 z-40 transition-all duration-300 animate-slide-down bg-white/20 dark:bg-slate-950/45 backdrop-blur-md border-b border-white/30 dark:border-slate-800/40 shadow-xs print:hidden ${
-          scrolled ? 'py-2.5 sm:py-3 bg-white/25 dark:bg-slate-950/60' : 'py-3 sm:py-4 bg-white/15 dark:bg-slate-950/35'
+        className={`sticky top-0 z-40 transition-all duration-300 animate-slide-down bg-white/20 dark:bg-slate-950/45 backdrop-blur-md border-b border-white/30 dark:border-slate-800/40 shadow-xs print:hidden pt-[max(0.6rem,env(safe-area-inset-top))] ${
+          scrolled ? 'py-2 sm:py-3 bg-white/25 dark:bg-slate-950/60' : 'py-2.5 sm:py-4 bg-white/15 dark:bg-slate-950/35'
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-2 sm:gap-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 flex items-center justify-between gap-2 sm:gap-4">
           {mobileHeaderSearchActive ? (
             /* Mobile In-Header Full-Width Search Input Bar (Logo & App Name disappear) */
             <div className="sm:hidden flex-1 flex items-center space-x-2 animate-fade-in w-full">
