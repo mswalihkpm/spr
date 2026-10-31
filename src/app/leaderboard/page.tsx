@@ -493,7 +493,13 @@ function deriveCategoryLeaderboard(
     return val.replace(/^(class|std|standard|grade)\s*/i, '').trim();
   };
 
+  const isOverallLeaderboard = !selectedCategory && !selectedSubcategory && !selectedStream && !selectedFest;
+
   const filteredEntries = leaderboard.filter((entry) => {
+    // Do not show students with 0 or no points in any leaderboard except overall
+    if (!isOverallLeaderboard && (entry.spr === 0 || !entry.spr || entry.spr <= 0)) {
+      return false;
+    }
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
     const terms = q.split(/\s+/).filter(Boolean);

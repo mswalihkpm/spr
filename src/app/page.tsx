@@ -1556,7 +1556,7 @@ export default function PublicHomePage() {
         )}
 
         {/* More Updates Button */}
-        <div className="text-center pt-1">
+        <div className="text-center pt-2 pb-6">
           <Link
             href="/updates"
             className="inline-flex items-center justify-center space-x-2 px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md transition-all duration-200 hover:scale-105 active:scale-95 btn-interactive"

@@ -1587,18 +1587,7 @@ export async function calculateAllLeaderboards(filters?: {
   }
 
   const isOverall = !filters?.categoryId && !filters?.subcategoryId && !filters?.fest && !filters?.stream;
-  const isZeroAllowedStream =
-    filters?.stream === 'MADIN_ACADEMY' ||
-    filters?.stream === 'JAMIATHUL_HIND' ||
-    Boolean(filters?.stream?.toUpperCase().includes('MADIN')) ||
-    Boolean(filters?.stream?.toUpperCase().includes('JAMIATHUL'));
-  const isZeroAllowedSub =
-    filters?.subcategoryId === 'cmtx_sub_islamic_madin' ||
-    filters?.subcategoryId === 'cmtx_sub_islamic_jamiathul';
-
-  let rankedEntries = (isOverall || isZeroAllowedStream || isZeroAllowedSub)
-    ? entries
-    : entries.filter((e) => (e.spr || 0) > 0);
+  let rankedEntries = isOverall ? entries : entries.filter((e) => (e.spr || 0) > 0);
 
   rankedEntries.sort((a, b) => {
     if (b.spr !== a.spr) return b.spr - a.spr;
