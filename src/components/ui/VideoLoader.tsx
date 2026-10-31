@@ -14,7 +14,7 @@ interface VideoLoaderProps {
 }
 
 export function VideoLoaderComponent({
-  src = '/ploo.mp4',
+  src = '/maaax.webm',
   size = 'md',
   text,
   subtext,
