@@ -20,7 +20,7 @@ export default function PublicFooter() {
 
   return (
     <>
-      <footer id="footer-portal" className="mt-auto bg-slate-950 text-slate-300 border-t border-slate-800 py-8 px-4 sm:px-6 lg:px-8 print:hidden pb-[calc(max(env(safe-area-inset-bottom,0px),0.75rem)+4.5rem)] sm:pb-8 relative z-20">
+      <footer id="footer-portal" className="hidden sm:block mt-auto bg-slate-950 text-slate-300 border-t border-slate-800 py-8 px-4 sm:px-6 lg:px-8 print:hidden relative z-20">
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-5">
         {/* Left: Branding & Verification */}
         <div className="flex items-center space-x-3.5 text-center sm:text-left">
@@ -68,6 +68,8 @@ export default function PublicFooter() {
         </div>
       </div>
     </footer>
+    {/* Safe-area bottom padding spacer on mobile ensuring page buttons and content are never cut off by PublicMobileNav */}
+    <div className="sm:hidden w-full h-[calc(max(env(safe-area-inset-bottom,0px),0.75rem)+4.5rem)] pointer-events-none" aria-hidden="true" />
     <PublicMobileNav />
   </>
   );
