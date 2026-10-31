@@ -1332,7 +1332,17 @@ export async function calculateAllLeaderboards(filters?: {
           return false;
         });
 
-        if (subRecords.length > 0) {
+        if (
+          targetSubCode.includes('madin') ||
+          targetSubCode.includes('jamiathul') ||
+          targetSubName.includes('madin') ||
+          targetSubName.includes('jamiathul') ||
+          targetSubId === 'cmtx_sub_islamic_madin' ||
+          targetSubId === 'cmtx_sub_islamic_jamiathul'
+        ) {
+          subcategoryScore = 0;
+          subcategoryRecordsCount = 0;
+        } else if (subRecords.length > 0) {
           let subSum = 0;
           subRecords.forEach((r) => {
             const lvlMult = resolveLevelMultiplier(r.level, levelsList);
@@ -1368,27 +1378,20 @@ export async function calculateAllLeaderboards(filters?: {
 
     if (filters?.stream) {
       const streamTarget = filters.stream.toUpperCase();
-      const streamRecords = (student.performanceRecords as any[]).filter((r) => {
-        const instCode = r.subject?.institution?.code?.toUpperCase() || '';
-        const instName = r.subject?.institution?.name?.toUpperCase() || '';
-        if (streamTarget === 'JAMIATHUL_HIND') {
-          return instCode.includes('JAMIATHUL') || instName.includes('JAMIATHUL');
-        }
-        if (streamTarget === 'MADIN_ACADEMY') {
-          return instCode.includes('MADIN') || instName.includes('MADIN');
-        }
-        return false;
-      });
-
-      if (streamRecords.length > 0) {
-        let streamSum = 0;
-        streamRecords.forEach((r) => {
-          const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
-          const base = r.obtainedScore || 0;
-          streamSum += (base * mult);
+      if (streamTarget.includes('MADIN') || streamTarget.includes('JAMIATHUL')) {
+        // Madin Academy & Jamiathul Hind leaderboards: pending evaluation (0 points)
+        streamIslamicScore = 0;
+        streamIslamicRecordsCount = 0;
+      } else {
+        const streamRecords = (student.performanceRecords as any[]).filter((r) => {
+          const instCode = r.subject?.institution?.code?.toUpperCase() || '';
+          const instName = r.subject?.institution?.name?.toUpperCase() || '';
+          return false;
         });
-        streamIslamicScore = Number(streamSum.toFixed(2));
-        streamIslamicRecordsCount = streamRecords.length;
+        if (streamRecords.length > 0) {
+          streamIslamicScore = 0;
+          streamIslamicRecordsCount = streamRecords.length;
+        }
       }
     }
 
@@ -1584,7 +1587,18 @@ export async function calculateAllLeaderboards(filters?: {
   }
 
   const isOverall = !filters?.categoryId && !filters?.subcategoryId && !filters?.fest && !filters?.stream;
-  let rankedEntries = isOverall ? entries : entries.filter((e) => (e.spr || 0) > 0);
+  const isZeroAllowedStream =
+    filters?.stream === 'MADIN_ACADEMY' ||
+    filters?.stream === 'JAMIATHUL_HIND' ||
+    Boolean(filters?.stream?.toUpperCase().includes('MADIN')) ||
+    Boolean(filters?.stream?.toUpperCase().includes('JAMIATHUL'));
+  const isZeroAllowedSub =
+    filters?.subcategoryId === 'cmtx_sub_islamic_madin' ||
+    filters?.subcategoryId === 'cmtx_sub_islamic_jamiathul';
+
+  let rankedEntries = (isOverall || isZeroAllowedStream || isZeroAllowedSub)
+    ? entries
+    : entries.filter((e) => (e.spr || 0) > 0);
 
   rankedEntries.sort((a, b) => {
     if (b.spr !== a.spr) return b.spr - a.spr;
