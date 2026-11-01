@@ -100,7 +100,7 @@ export default function NewsDetailModal({ news, isOpen, onClose }: NewsDetailMod
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-3xl max-w-2xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-200 relative my-6 animate-zoom-up flex flex-col"
+        className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 relative my-6 animate-zoom-up flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* News Hero Image */}
@@ -160,10 +160,10 @@ export default function NewsDetailModal({ news, isOpen, onClose }: NewsDetailMod
         )}
 
         {/* Content Body */}
-        <div className="p-6 sm:p-8 space-y-5 flex-1">
+        <div className="p-4 sm:p-8 space-y-5 flex-1">
           {/* Header Title & Subtitle */}
           <div className="space-y-2">
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-snug">
+            <h2 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white font-display tracking-tight leading-snug">
               {news.title}
             </h2>
 

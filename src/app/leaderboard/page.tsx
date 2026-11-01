@@ -1796,7 +1796,7 @@ function deriveCategoryLeaderboard(
       {/* Transparent % Calculation Breakdown Modal */}
       {selectedStudentId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-sm overflow-y-auto animate-fade-in print:hidden">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative my-8 max-h-[90vh] overflow-y-auto animate-zoom-up">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-4 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 relative my-8 max-h-[90vh] overflow-y-auto animate-zoom-up">
             <button
               onClick={closeStudentDossier}
               className="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-full transition"

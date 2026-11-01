@@ -1495,11 +1495,11 @@ export default function PublicHomePage() {
 
         {newsUpdates.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {newsUpdates.map((item) => (
+            {newsUpdates.map((item, idx) => (
               <div
                 key={item.id}
                 onClick={() => setSelectedNews(item)}
-                className="group cursor-pointer bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200/90 dark:border-slate-800 hover:border-amber-400 dark:hover:border-amber-500/80 p-3 sm:p-5 shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col justify-between space-y-3 relative overflow-hidden"
+                className={`group cursor-pointer bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200/90 dark:border-slate-800 hover:border-amber-400 dark:hover:border-amber-500/80 p-3 sm:p-5 shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col justify-between space-y-3 relative overflow-hidden ${idx > 0 ? "hidden sm:flex" : "flex"}`}
               >
                 <div className="space-y-2.5">
                   {item.imageUrl ? (
@@ -1570,7 +1570,7 @@ export default function PublicHomePage() {
       {/* Individual Student Status Dossier Modal */}
       {selectedStudentId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-sm overflow-y-auto animate-fade-in print:hidden">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 relative my-8 max-h-[90vh] overflow-y-auto animate-zoom-up">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-4 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 relative my-8 max-h-[90vh] overflow-y-auto animate-zoom-up">
             <button
               onClick={closeStudentDossier}
               className="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition"

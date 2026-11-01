@@ -14,6 +14,8 @@
   --foreground: #0F172A;
   --card-bg: #FFFFFF;
   --border-color: #E2E8F0;
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-display: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
 }
 
 .dark {
@@ -35,6 +37,10 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+}
+
+input, textarea, select, button {
+  font-family: inherit;
 }
 
 body {

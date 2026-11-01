@@ -37,7 +37,9 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['var(--font-sans)', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        sans: ['var(--font-sans)', "'Plus Jakarta Sans'", "'Outfit'", 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        display: ['var(--font-display)', "'Outfit'", "'Plus Jakarta Sans'", 'system-ui', 'sans-serif'],
+        heading: ['var(--font-display)', "'Outfit'", "'Plus Jakarta Sans'", 'system-ui', 'sans-serif'],
       },
       boxShadow: {
         'subtle': '0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03)',
