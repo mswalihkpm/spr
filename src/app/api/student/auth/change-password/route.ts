@@ -22,7 +22,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (newPassword !== confirmPassword) {
+    const effectiveConfirm = confirmPassword !== undefined ? confirmPassword : newPassword;
+    if (newPassword !== effectiveConfirm) {
       return NextResponse.json({ error: 'New passwords do not match.' }, { status: 400 });
     }
 
@@ -34,9 +35,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Student account not found.' }, { status: 404 });
     }
 
-    // If account doesn't require immediate change, verify current password
+    // If account doesn't require immediate change and currentPassword is provided, verify it
     if (!account.mustChangePassword && currentPassword) {
-      const isValid = await verifyPassword(currentPassword, account.passwordHash);
+      const isActivationCode =
+        Boolean(account.activationCode) &&
+        account.activationCode!.trim().toUpperCase() === currentPassword.trim().toUpperCase();
+      const isValid = isActivationCode || (await verifyPassword(currentPassword, account.passwordHash));
       if (!isValid) {
         return NextResponse.json({ error: 'Incorrect current password.' }, { status: 400 });
       }
@@ -49,6 +53,8 @@ export async function POST(req: NextRequest) {
       data: {
         passwordHash: newHash,
         mustChangePassword: false,
+        activationCode: null,
+        isActivated: true,
         updatedAt: new Date(),
       },
     });

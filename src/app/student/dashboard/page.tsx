@@ -189,6 +189,7 @@ export default function StudentDashboardPage() {
         body: JSON.stringify({
           currentPassword: student?.mustChangePassword ? undefined : currentPassword,
           newPassword,
+          confirmPassword,
         }),
       });
 
@@ -1011,7 +1012,7 @@ export default function StudentDashboardPage() {
 
             {student?.mustChangePassword && (
               <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs">
-                Your account password was reset by the administrator. Please establish your own new private password to continue.
+                Your account was accessed via an activation code or administrative reset. Please establish your own new private password to continue.
               </div>
             )}
 

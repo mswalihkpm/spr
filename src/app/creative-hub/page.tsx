@@ -39,7 +39,15 @@ export default function CreativeHubPage() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedMedia, setSelectedMedia] = useState('');
 
-  // Submit modal (simplified: Student, Creative Wing / Form, Published Media, Month, Link)
+  const getTodayDateString = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Submit modal (simplified: Student, Creative Wing / Form, Published Media, Date, Link)
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSubmission, setEditingSubmission] = useState<any | null>(null);
   const [formData, setFormData] = useState({
@@ -47,7 +55,7 @@ export default function CreativeHubPage() {
     categoryId: '',
     publishedMediaId: '',
     publicationLink: '',
-    month: new Date().toISOString().slice(0, 7),
+    date: getTodayDateString(),
   });
   const [saving, setSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -159,7 +167,7 @@ export default function CreativeHubPage() {
       categoryId: categories[0]?.id || '',
       publishedMediaId: publishedMediaList[0]?.id || '',
       publicationLink: '',
-      month: new Date().toISOString().slice(0, 7),
+      date: getTodayDateString(),
     });
     setModalOpen(true);
   };
@@ -171,7 +179,7 @@ export default function CreativeHubPage() {
       categoryId: sub.categoryId || '',
       publishedMediaId: sub.publishedMediaId || '',
       publicationLink: sub.publicationLink || '',
-      month: sub.date ? new Date(sub.date).toISOString().slice(0, 7) : new Date().toISOString().slice(0, 7),
+      date: sub.date ? new Date(sub.date).toISOString().slice(0, 10) : getTodayDateString(),
     });
     setModalOpen(true);
   };
@@ -193,7 +201,7 @@ export default function CreativeHubPage() {
           categoryId: formData.categoryId,
           publishedMediaId: formData.publishedMediaId,
           publicationLink: formData.publicationLink,
-          date: formData.month ? `${formData.month}-01` : new Date().toISOString(),
+          date: formData.date || getTodayDateString(),
         }),
       });
 
@@ -527,7 +535,7 @@ export default function CreativeHubPage() {
 
                       <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                         <span className="text-[10px] font-medium text-slate-400">
-                          {new Date(sub.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                          {new Date(sub.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </span>
                         <div className="flex items-center space-x-1.5">
                           <span className="text-xs font-black text-purple-900 bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-200">
@@ -762,12 +770,14 @@ export default function CreativeHubPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Publication Month *</label>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Publication Date <span className="text-purple-600 font-bold">*</span>
+                      </label>
                       <input
-                        type="month"
+                        type="date"
                         required
-                        value={formData.month}
-                        onChange={(e) => setFormData({ ...formData, month: e.target.value })}
+                        value={formData.date}
+                        onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                         className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium outline-none focus:ring-2 focus:ring-purple-600"
                       />
                     </div>
