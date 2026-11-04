@@ -32,6 +32,7 @@ import ItemLeaderboardModal from '@/components/modals/ItemLeaderboardModal';
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
 import { getAcademicMasterData } from '@/lib/academic-client';
+import { fetchWithDedupe } from '@/lib/client-cache';
 import CustomSelect from '@/components/ui/CustomSelect';
 import { useAppBootstrap } from '@/context/AppBootstrapContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -190,16 +191,20 @@ export default function PublicHomePage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [searchQuery]);
 
-  // Fetch Latest 3 Updates if not yet available in bootstrap
+  // Fetch Latest Updates: prioritize bootstrap, avoid duplicate network calls
   useEffect(() => {
-    if (bootstrapNews.length > 0) return;
-    fetch('/api/news?limit=3')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.news) setNewsUpdates(data.news);
-      })
-      .catch((err) => console.error('Error fetching homepage news:', err));
-  }, [bootstrapNews]);
+    if (bootstrapNews.length > 0) {
+      setNewsUpdates(bootstrapNews.slice(0, 3));
+      return;
+    }
+    if (isBootstrapped) {
+      fetchWithDedupe('/api/news')
+        .then((data) => {
+          if (data && data.news) setNewsUpdates(data.news.slice(0, 3));
+        })
+        .catch((err) => console.error('Error fetching homepage news:', err));
+    }
+  }, [bootstrapNews, isBootstrapped]);
 
   // Click outside to close search dropdowns (both hero and header)
   useEffect(() => {
@@ -241,6 +246,12 @@ export default function PublicHomePage() {
       return;
     }
 
+    // If overview and bootstrap is still running, wait for bootstrap instead of issuing duplicate network request
+    if (!selectedClass && !isBootstrapped) {
+      setLoadingLeaderboard(true);
+      return;
+    }
+
     const cached = homeLeaderboardMemory.get(cacheKey);
     if (cached) {
       setLeaderboard(cached);
@@ -249,17 +260,18 @@ export default function PublicHomePage() {
       setLoadingLeaderboard(true);
     }
 
-    fetch(`/api/leaderboard?${params.toString()}`)
-      .then((res) => res.json())
+    fetchWithDedupe(`/api/leaderboard${params.toString() ? '?' + params.toString() : ''}`, {
+      ttl: 5 * 60 * 1000,
+    })
       .then((data) => {
-        if (data.leaderboard) {
+        if (data && data.leaderboard) {
           homeLeaderboardMemory.set(cacheKey, data.leaderboard);
           setLeaderboard(data.leaderboard);
         }
       })
       .catch((err) => console.error('Error fetching leaderboard:', err))
       .finally(() => setLoadingLeaderboard(false));
-  }, [selectedClass, bootstrapLeaderboard]);
+  }, [selectedClass, bootstrapLeaderboard, isBootstrapped]);
 
   // Global search debouncing (search by Name, ID, Class, School, Programmes, Competitions, Exams)
   useEffect(() => {

@@ -9,6 +9,7 @@ import {
   Library,
   CheckSquare,
 } from 'lucide-react';
+import { getSubcategoryFallbackLogo } from './logo-utils';
 
 // Helper icon resolver for categories
 export function getCategoryIcon(code: string, iconName?: string) {
@@ -53,20 +54,18 @@ export function getCategoryLogo(code?: string, logoUrl?: string | null): string 
     logoUrl &&
     (logoUrl.startsWith('/') ||
       logoUrl.startsWith('http://') ||
-      logoUrl.startsWith('https://') ||
-      logoUrl.startsWith('data:'))
+      logoUrl.startsWith('https://')) &&
+    !logoUrl.startsWith('data:') &&
+    logoUrl.length <= 1024
   ) {
     return logoUrl;
   }
+
+  // Use centralized fallback resolver
+  const fallback = getSubcategoryFallbackLogo(code);
+  if (fallback) return fallback;
+
   const c = code?.toUpperCase() || '';
-  if (c === 'KUTHBKHANA' || c.includes('KUTHB') || c.includes('KITHAB')) return '/kuthbkhana-logo.png';
-  if (c === 'LIBRARY_IMTHIYAAZ' || c === 'IMTHIYAAZ_LIBRARY' || c === 'LIBRARY' || c.includes('READ') || c.includes('LIBRA')) return '/library-logo.png';
-  if (c === 'MADIN_ACADEMY' || c.includes('MADIN')) return '/madin-academy-dark.png';
-  if (c === 'JAMIATHUL_HIND' || c.includes('JAMIATHUL')) return '/jamiathul-hind-calligraphy.png';
-  if (c === 'SAHITYOTSAV' || c.includes('SAHITY')) return '/sahityotsav.png';
-  if (c === 'KALOTSAV' || c.includes('KALOT')) return '/kalotsav.png';
-  if (c === 'M_LIT_FEST' || c === 'M_LIT' || c.includes('M_LIT') || c.includes('MLIT')) return '/m-lit.png';
-  if (c === 'JAMIA_MAHARJAN' || c.includes('MAHARJAN')) return '/jamia-mahrajan.png';
   if (c === 'ISLAMIC' || c.includes('ISLAM')) return '/jamiathul-hind-calligraphy.png';
   if (c === 'SCHOOL' || c.includes('ACADEMIC') || c.includes('SCHO')) return '/school-studies-logo.png';
   if (c === 'CREATIVE_HUB' || c.includes('CREATIVE') || c.includes('ART') || c.includes('CREA')) return '/creative-hub-logo.png';
@@ -101,4 +100,3 @@ export function getCategoryModulePath(code: string) {
   if (c === 'KUTHBKHANA') return '/kuthbkhana';
   return null;
 }
-

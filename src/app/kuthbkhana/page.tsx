@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { clearClientCache } from '@/lib/client-cache';
 import {
   BookOpen,
   Plus,
@@ -390,7 +391,10 @@ export default function KuthbkhanaPage() {
   };
 
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {}
+    clearClientCache();
     router.push('/login');
   };
 

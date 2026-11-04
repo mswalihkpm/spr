@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import AdminLayout from '@/components/layout/AdminLayout';
 import {
   Settings,
@@ -19,14 +20,18 @@ import {
   Sparkles,
   Key,
   Shield,
+  ShieldCheck,
   Lock,
   RefreshCw,
   Calendar,
   Sliders,
+  FileText,
+  ExternalLink,
 } from 'lucide-react';
 import CustomSelect from '@/components/ui/CustomSelect';
 import VideoLoader from '@/components/ui/VideoLoader';
 import { invalidateClientAcademicCache } from '@/lib/academic-client';
+import { invalidateClientCache } from '@/lib/client-cache';
 import StudentAccountManagement from '@/components/admin/StudentAccountManagement';
 
 export default function SettingsPage() {
@@ -384,6 +389,8 @@ export default function SettingsPage() {
     try {
       if (!silent) setLoading(true);
       invalidateClientAcademicCache();
+      invalidateClientCache('/api/settings');
+      invalidateClientCache('/api/display');
       const ts = Date.now();
       const [resMaster, resSettings] = await Promise.all([
         fetch(`/api/academic?t=${ts}`, { cache: 'no-store' }),
@@ -435,6 +442,8 @@ export default function SettingsPage() {
         localStorage.setItem('spr_intro_footer', introFooterText);
       }
 
+      invalidateClientCache('/api/settings');
+      invalidateClientCache('/api/display');
       setStatusMsg({ type: 'success', text: 'System and intro footer settings saved successfully.' });
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
@@ -799,6 +808,45 @@ export default function SettingsPage() {
                 Save Institution Settings
               </button>
             </form>
+
+            {/* Institutional Compliance & Google Play Privacy Notice */}
+            <div className="pt-6 border-t border-slate-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center space-x-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <span>Privacy Policy & Student Data Protection Notice</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Official privacy policy published for web and Google Play Store application (<code className="font-mono text-slate-700 bg-slate-100 px-1 py-0.5 rounded">in.madin.spr</code>).
+                  </p>
+                </div>
+                <Link
+                  href="/privacy-policy"
+                  target="_blank"
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors shrink-0"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>View Policy</span>
+                  <ExternalLink className="w-3 h-3 text-slate-400" />
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Privacy Contact</div>
+                  <div className="text-xs font-semibold text-slate-800 mt-0.5 font-mono">excellence@madin.edu.in</div>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Package ID</div>
+                  <div className="text-xs font-semibold text-slate-800 mt-0.5 font-mono">in.madin.spr</div>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Account Deletion Path</div>
+                  <div className="text-xs font-semibold text-slate-800 mt-0.5">Student / Guardian Email Request</div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

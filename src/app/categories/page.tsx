@@ -38,6 +38,7 @@ import CustomSelect from '@/components/ui/CustomSelect';
 import PublicFooter from '@/components/layout/PublicFooter';
 import { getCategoryIcon, getCategoryColor, getCategoryLogo, getCategoryDualLogos, getCategoryModulePath } from '@/lib/category-utils';
 import { useAppBootstrap } from '@/context/AppBootstrapContext';
+import { fetchWithDedupe, invalidateClientCache } from '@/lib/client-cache';
 
 export default function CategoriesPage() {
   const router = useRouter();
@@ -86,12 +87,11 @@ export default function CategoriesPage() {
 
   const isAdmin = currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN';
 
-  const fetchCategories = async (silent = false) => {
+  const fetchCategories = async (silent = false, force = false) => {
     try {
       if (!silent && categories.length === 0) setLoading(true);
-      const res = await fetch('/api/categories');
-      const data = await res.json();
-      if (data.categories) setCategories(data.categories);
+      const data = await fetchWithDedupe<any>('/api/categories', { forceRefresh: force });
+      if (data && data.categories) setCategories(data.categories);
     } catch (err) {
       console.error(err);
     } finally {
@@ -100,7 +100,10 @@ export default function CategoriesPage() {
   };
 
   useEffect(() => {
-    fetchCategories(categories.length > 0);
+    // Only fetch if categories not yet available from bootstrap
+    if (!categories || categories.length === 0) {
+      fetchCategories(false, false);
+    }
   }, []);
 
   const filteredCategories = useMemo(() => {
@@ -183,7 +186,9 @@ export default function CategoriesPage() {
         text: `Category "${formData.name}" ${editingCategory ? 'updated' : 'created'} successfully!`,
       });
       setModalOpen(false);
-      fetchCategories(true);
+      invalidateClientCache('/api/categories');
+      invalidateClientCache('/api/academic');
+      fetchCategories(true, true);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
     } finally {

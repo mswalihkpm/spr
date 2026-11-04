@@ -35,7 +35,14 @@ export async function GET(req: NextRequest) {
       createdAt: t.createdAt.toISOString(),
     }));
 
-    return NextResponse.json({ transactions: formatted });
+    return NextResponse.json(
+      { transactions: formatted },
+      {
+        headers: {
+          'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Fetch transactions error:', error);
     return NextResponse.json({ error: 'Failed to load transaction history.' }, { status: 500 });

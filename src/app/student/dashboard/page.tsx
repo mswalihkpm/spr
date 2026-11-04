@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { clearClientCache } from '@/lib/client-cache';
 import {
   Wallet,
   TrendingUp,
@@ -106,7 +108,10 @@ export default function StudentDashboardPage() {
   }, [transferModalOpen, transferType, recipientSearch]);
 
   const handleLogout = async () => {
-    await fetch('/api/student/auth/logout', { method: 'POST' });
+    try {
+      await fetch('/api/student/auth/logout', { method: 'POST' });
+    } catch {}
+    clearClientCache();
     router.push('/student/login');
   };
 
@@ -696,6 +701,26 @@ export default function StudentDashboardPage() {
           )}
         </div>
       </main>
+
+      {/* Student Portal Legal & Privacy Footer */}
+      <footer className="max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-28 sm:pb-8 text-center text-xs text-slate-500 border-t border-slate-200 mt-8">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center space-x-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span>Madin School of Excellence — SPR Verified Student Portal</span>
+          </div>
+          <div className="flex items-center space-x-4">
+            <Link
+              href="/privacy-policy"
+              className="text-slate-500 hover:text-madin-900 underline transition font-medium"
+            >
+              Privacy Policy & Data Rights
+            </Link>
+            <span className="text-slate-300">•</span>
+            <span className="text-slate-400">Support: excellence@madin.edu.in</span>
+          </div>
+        </div>
+      </footer>
 
       {/* ================= MODALS ================= */}
 

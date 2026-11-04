@@ -4,9 +4,83 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest, hashPassword } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
+import { triggerSettingsRevalidation } from '@/lib/cache-invalidation';
+
+// Non-sensitive public system settings that can be safely served to unauthenticated visitors
+const PUBLIC_SETTING_KEYS = [
+  'INSTITUTION_NAME',
+  'DISPLAY_AUTOSCROLL_INTERVAL',
+  'APP_INTRO_FOOTER',
+  'MISSING_DATA_RULE',
+  'LEADERBOARD_BANNER_TEXT',
+  'APP_MAINTENANCE_MODE',
+];
+
+let cachedPublicSettings: { timestamp: number; data: Record<string, string> } | null = null;
+const PUBLIC_SETTINGS_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+
+function invalidateSettingsMemoryCache() {
+  cachedPublicSettings = null;
+  triggerSettingsRevalidation();
+}
 
 export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const isPublicOnly = searchParams.get('public') === 'true';
+    const freshRequested = searchParams.get('fresh') === 'true' || searchParams.has('t') || req.headers.get('cache-control') === 'no-cache';
+
+    // If requesting public settings only, serve without admin auth and enable public Edge CDN caching
+    if (isPublicOnly) {
+      let isAuthorizedAdminFresh = false;
+
+      // CRIT-03: ?fresh=true allows authorized administrators (ADMIN or SUPER_ADMIN) to bypass CDN & memory cache
+      if (freshRequested) {
+        const { user } = await authenticateApiRequest(req, 'ADMIN');
+        if (user) {
+          isAuthorizedAdminFresh = true;
+        }
+      }
+
+      // Serve from shared in-memory cache if not an authorized fresh bypass request
+      if (!isAuthorizedAdminFresh && cachedPublicSettings && (Date.now() - cachedPublicSettings.timestamp < PUBLIC_SETTINGS_CACHE_TTL)) {
+        return NextResponse.json(
+          { settings: cachedPublicSettings.data },
+          {
+            headers: {
+              'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800',
+            },
+          }
+        );
+      }
+
+      // Strictly select public non-sensitive keys only (Never expose private settings)
+      const publicSettings = await prisma.systemSetting.findMany({
+        where: { key: { in: PUBLIC_SETTING_KEYS } },
+      });
+      const settingsMap: Record<string, string> = {};
+      publicSettings.forEach((s) => {
+        settingsMap[s.key] = s.value;
+      });
+
+      // Update in-memory cache for standard public requests
+      if (!isAuthorizedAdminFresh) {
+        cachedPublicSettings = { timestamp: Date.now(), data: settingsMap };
+      }
+
+      return NextResponse.json(
+        { settings: settingsMap },
+        {
+          headers: {
+            'Cache-Control': isAuthorizedAdminFresh
+              ? 'private, no-cache, no-store, must-revalidate'
+              : 'public, s-maxage=86400, stale-while-revalidate=604800',
+          },
+        }
+      );
+    }
+
+    // Full settings with user accounts requires SUPER_ADMIN auth
     const { user, errorResponse } = await authenticateApiRequest(req, 'SUPER_ADMIN');
     if (errorResponse) return errorResponse;
 
@@ -32,7 +106,15 @@ export async function GET(req: NextRequest) {
       settingsMap[s.key] = s.value;
     });
 
-    return NextResponse.json({ settings: settingsMap, users });
+    // Strictly enforce private no-store so user accounts are never cached on CDN
+    return NextResponse.json(
+      { settings: settingsMap, users },
+      {
+        headers: {
+          'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Settings fetch error:', error);
     return NextResponse.json({ error: 'Failed to fetch settings.' }, { status: 500 });
@@ -65,6 +147,8 @@ export async function POST(req: NextRequest) {
         entity: 'SystemSetting',
         newValue: settings,
       });
+
+      invalidateSettingsMemoryCache();
 
       return NextResponse.json({ success: true, message: 'Settings saved successfully.' });
     }

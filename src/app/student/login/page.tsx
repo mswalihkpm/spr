@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Lock,
@@ -526,10 +527,18 @@ export default function StudentLoginPage() {
             </form>
           )}
 
-          {/* Institutional Security Notice */}
-          <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-center space-x-2 text-xs text-slate-500">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>Madin School of Excellence — SPR Verified</span>
+          {/* Institutional Security Notice & Privacy Link */}
+          <div className="mt-5 pt-4 border-t border-slate-100 flex flex-col items-center space-y-2 text-xs text-slate-500">
+            <div className="flex items-center space-x-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <span>Madin School of Excellence — SPR Verified</span>
+            </div>
+            <Link
+              href="/privacy-policy"
+              className="text-[11px] text-slate-400 hover:text-madin-900 underline transition"
+            >
+              Privacy Policy & Student Data Rights
+            </Link>
           </div>
         </div>
       </div>

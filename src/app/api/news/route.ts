@@ -4,12 +4,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
+import { triggerNewsRevalidation } from '@/lib/cache-invalidation';
 
 const newsCache = new Map<string, { timestamp: number; data: any }>();
 const NEWS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes cache
 
 function invalidateNewsCache() {
   newsCache.clear();
+  triggerNewsRevalidation();
 }
 
 // GET all news/updates (Public with edge cache)
@@ -18,13 +20,16 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : undefined;
     const includeInactive = searchParams.get('all') === 'true';
+    const isFresh = searchParams.get('fresh') === 'true' || searchParams.has('t') || req.headers.get('cache-control') === 'no-cache';
 
     const cacheKey = `${limit || 'all'}_${includeInactive ? '1' : '0'}`;
     const cached = newsCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < NEWS_CACHE_TTL) {
+    if (!isFresh && cached && Date.now() - cached.timestamp < NEWS_CACHE_TTL) {
       return NextResponse.json(cached.data, {
         headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+          'Cache-Control': includeInactive
+            ? 'private, no-cache, no-store, must-revalidate'
+            : 'public, s-maxage=3600, stale-while-revalidate=86400',
         },
       });
     }
@@ -41,13 +46,17 @@ export async function GET(req: NextRequest) {
     });
 
     const payload = { news };
-    newsCache.set(cacheKey, { timestamp: Date.now(), data: payload });
+    if (!isFresh) {
+      newsCache.set(cacheKey, { timestamp: Date.now(), data: payload });
+    }
 
     return NextResponse.json(
       payload,
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+          'Cache-Control': includeInactive || isFresh
+            ? 'private, no-cache, no-store, must-revalidate'
+            : 'public, s-maxage=3600, stale-while-revalidate=86400',
         },
       }
     );

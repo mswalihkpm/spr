@@ -54,7 +54,14 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return NextResponse.json({ students: formatted });
+    return NextResponse.json(
+      { students: formatted },
+      {
+        headers: {
+          'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Super Admin fetch student accounts error:', error);
     return NextResponse.json({ error: 'Failed to retrieve student accounts.' }, { status: 500 });

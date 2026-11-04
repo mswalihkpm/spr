@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { fetchWithDedupe, invalidateClientCache } from './client-cache';
 
 export interface AcademicMasterData {
   schools: any[];
@@ -19,42 +20,16 @@ export interface AcademicMasterData {
 }
 
 let cachedMasterData: AcademicMasterData | null = null;
-let inFlightMasterDataPromise: Promise<AcademicMasterData> | null = null;
-let lastFetchTimestamp = 0;
-const CACHE_MAX_AGE_MS = 3 * 60 * 1000; // 3 minutes fresh cache
 
 export async function getAcademicMasterData(forceRefresh = false): Promise<AcademicMasterData> {
-  const now = Date.now();
-
-  // Return in-memory cached data immediately if still fresh and not forcing refresh
-  if (!forceRefresh && cachedMasterData && now - lastFetchTimestamp < CACHE_MAX_AGE_MS) {
-    return cachedMasterData;
-  }
-
-  // Deduplicate concurrent in-flight requests
-  if (inFlightMasterDataPromise && !forceRefresh) {
-    return inFlightMasterDataPromise;
-  }
-
-  inFlightMasterDataPromise = (async () => {
-    try {
-      const res = await fetch('/api/academic');
-      if (!res.ok) throw new Error('Failed to fetch academic masters');
-      const data: AcademicMasterData = await res.json();
-      cachedMasterData = data;
-      lastFetchTimestamp = Date.now();
-      return data;
-    } finally {
-      inFlightMasterDataPromise = null;
-    }
-  })();
-
-  return inFlightMasterDataPromise;
+  const data = await fetchWithDedupe<AcademicMasterData>('/api/academic', { forceRefresh });
+  cachedMasterData = data;
+  return data;
 }
 
 export function invalidateClientAcademicCache() {
   cachedMasterData = null;
-  lastFetchTimestamp = 0;
+  invalidateClientCache('/api/academic');
 }
 
 export function useAcademicMasters() {

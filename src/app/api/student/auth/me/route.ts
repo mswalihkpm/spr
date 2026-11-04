@@ -35,13 +35,20 @@ export async function GET(req: NextRequest) {
       createdAt: t.createdAt.toISOString(),
     }));
 
-    return NextResponse.json({
-      student,
-      wallet: earningsData.wallet,
-      categoryEarnings: earningsData.categoryEarnings,
-      storeFund: earningsData.storeFund,
-      recentTransactions: formattedTransactions,
-    });
+    return NextResponse.json(
+      {
+        student,
+        wallet: earningsData.wallet,
+        categoryEarnings: earningsData.categoryEarnings,
+        storeFund: earningsData.storeFund,
+        recentTransactions: formattedTransactions,
+      },
+      {
+        headers: {
+          'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Student me error:', error);
     return NextResponse.json(

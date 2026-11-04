@@ -5,6 +5,8 @@ import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
 import { invalidateEngineCache, getCachedSettings } from '@/lib/spr-engine';
+import { sanitizeSubcategoryLogo } from '@/lib/logo-utils';
+import { triggerWeightsRevalidation } from '@/lib/cache-invalidation';
 
 let cachedWeightsResponse: { timestamp: number; data: any } | null = null;
 const WEIGHTS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
@@ -12,6 +14,7 @@ const WEIGHTS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 function invalidateWeightsCache() {
   cachedWeightsResponse = null;
   invalidateEngineCache();
+  triggerWeightsRevalidation();
 }
 
 export async function GET(req: NextRequest) {
@@ -20,10 +23,12 @@ export async function GET(req: NextRequest) {
     if (errorResponse) return errorResponse;
 
     const now = Date.now();
-    if (cachedWeightsResponse && now - cachedWeightsResponse.timestamp < WEIGHTS_CACHE_TTL) {
+    const isFresh = req.nextUrl.searchParams.get('fresh') === 'true' || req.nextUrl.searchParams.has('t') || req.headers.get('cache-control') === 'no-cache';
+
+    if (!isFresh && cachedWeightsResponse && now - cachedWeightsResponse.timestamp < WEIGHTS_CACHE_TTL) {
       return NextResponse.json(cachedWeightsResponse.data, {
         headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+          'Cache-Control': 'private, no-cache, no-store, must-revalidate',
         },
       });
     }
@@ -46,7 +51,22 @@ export async function GET(req: NextRequest) {
       }),
       prisma.subcategory.findMany({
         where: { active: true },
-        include: { category: { select: { id: true, code: true, name: true } } },
+        select: {
+          id: true,
+          categoryId: true,
+          name: true,
+          code: true,
+          logoUrl: true,
+          hasLevels: true,
+          levelGroup: true,
+          allowedLevelIds: true,
+          hasMaxScore: true,
+          maxScore: true,
+          weight: true,
+          displayOrder: true,
+          active: true,
+          category: { select: { id: true, code: true, name: true } },
+        },
         orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
       }),
       prisma.creativeHubCategory.findMany({
@@ -56,6 +76,11 @@ export async function GET(req: NextRequest) {
         orderBy: { name: 'asc' },
       }),
     ]);
+
+    const sanitizedSubcategories = subcategories.map((sub) => ({
+      ...sub,
+      logoUrl: sanitizeSubcategoryLogo(sub.code, sub.logoUrl),
+    }));
 
     const weights = categories.map((cat) => ({
       categoryId: cat.id,
@@ -72,7 +97,7 @@ export async function GET(req: NextRequest) {
     const payload = {
       weights,
       levels,
-      subcategories,
+      subcategories: sanitizedSubcategories,
       creativeForms,
       publishedMedia,
       settings: {
@@ -93,11 +118,13 @@ export async function GET(req: NextRequest) {
       academicYear: currentYear,
     };
 
-    cachedWeightsResponse = { timestamp: Date.now(), data: payload };
+    if (!isFresh) {
+      cachedWeightsResponse = { timestamp: Date.now(), data: payload };
+    }
 
     return NextResponse.json(payload, {
       headers: {
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+        'Cache-Control': 'private, no-cache, no-store, must-revalidate',
       },
     });
   } catch (error: any) {

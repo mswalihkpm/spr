@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/navigation';
+import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { clearClientCache } from '@/lib/client-cache';
 import {
   LayoutDashboard,
   Users,
@@ -80,7 +81,10 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
   }, []);
 
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {}
+    clearClientCache();
     router.push('/login');
   };
 
@@ -326,7 +330,16 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
         </nav>
 
         {/* Footer User Profile & Logout */}
-        <div className="p-3 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-madin-800 bg-madin-950/40">
+        <div className="p-3 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-madin-800 bg-madin-950/40 space-y-1.5">
+          <div className="flex items-center justify-between px-2 text-[10px] text-slate-400">
+            <span>SPR System</span>
+            <Link
+              href="/privacy-policy"
+              className="text-slate-400 hover:text-gold-400 underline transition"
+            >
+              Privacy Policy
+            </Link>
+          </div>
           <div className="flex items-center justify-between p-2 rounded-xl hover:bg-madin-800/50 transition-colors">
             <div className="flex items-center space-x-2.5 min-w-0">
               <div className="w-8 h-8 rounded-full bg-gold-500/20 border border-gold-500/30 text-gold-300 font-bold text-xs flex items-center justify-center shrink-0">

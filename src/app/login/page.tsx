@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Lock,
@@ -174,10 +175,18 @@ export default function LoginPage() {
             </button>
           </div>
 
-          {/* Quick Notice */}
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-center space-x-2 text-xs text-slate-500">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>Authorized Accounts Only</span>
+          {/* Quick Notice & Privacy Policy */}
+          <div className="mt-4 pt-3 border-t border-slate-100 flex flex-col items-center space-y-1.5 text-xs text-slate-500">
+            <div className="flex items-center space-x-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <span>Authorized Accounts Only</span>
+            </div>
+            <Link
+              href="/privacy-policy"
+              className="text-[11px] text-slate-400 hover:text-madin-900 underline transition"
+            >
+              Privacy Policy & Data Protection
+            </Link>
           </div>
         </div>
       </div>

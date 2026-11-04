@@ -38,6 +38,8 @@ export async function GET(req: NextRequest) {
       getCachedCategories(),
     ]);
 
+    const isFresh = searchParams.get('fresh') === 'true' || searchParams.has('t') || req.headers.get('cache-control') === 'no-cache';
+
     return NextResponse.json(
       {
         leaderboard: entries,
@@ -46,7 +48,9 @@ export async function GET(req: NextRequest) {
       },
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+          'Cache-Control': isFresh
+            ? 'private, no-cache, no-store, must-revalidate'
+            : 'public, s-maxage=300, stale-while-revalidate=600',
         },
       }
     );

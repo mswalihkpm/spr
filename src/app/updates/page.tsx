@@ -20,6 +20,7 @@ import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
 import NewsDetailModal from '@/components/modals/NewsDetailModal';
 import { useAppBootstrap } from '@/context/AppBootstrapContext';
+import { fetchWithDedupe } from '@/lib/client-cache';
 
 export default function UpdatesPublicPage() {
   const { news: bootstrapNews, isBootstrapped } = useAppBootstrap();
@@ -36,13 +37,9 @@ export default function UpdatesPublicPage() {
       return;
     }
 
-    fetch('/api/news')
-      .then(async (res) => {
-        if (!res.ok) return { news: [] };
-        return res.json().catch(() => ({ news: [] }));
-      })
+    fetchWithDedupe<any>('/api/news', { ttl: 60 * 60 * 1000 })
       .then((data) => {
-        if (data?.news) setNewsList(data.news);
+        if (data && data.news) setNewsList(data.news);
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));

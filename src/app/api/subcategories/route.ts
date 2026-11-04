@@ -5,6 +5,9 @@ import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
 import { invalidateEngineCache } from '@/lib/spr-engine';
+import { sanitizeSubcategoryLogo } from '@/lib/logo-utils';
+import { triggerSubcategoriesRevalidation } from '@/lib/cache-invalidation';
+import { validateImageUrl } from '@/lib/url-validator';
 
 let cachedSubcategoriesMap = new Map<string, { timestamp: number; data: any }>();
 const SUBCATEGORIES_CACHE_TTL = 15 * 60 * 1000; // 15 minutes cache (actively invalidated on mutation)
@@ -12,6 +15,37 @@ const SUBCATEGORIES_CACHE_TTL = 15 * 60 * 1000; // 15 minutes cache (actively in
 function invalidateSubcategoriesCache() {
   cachedSubcategoriesMap.clear();
   invalidateEngineCache();
+  triggerSubcategoriesRevalidation();
+}
+
+// Explicit select projection for subcategories
+const subcategorySelectProjection = {
+  id: true,
+  categoryId: true,
+  name: true,
+  code: true,
+  logoUrl: true,
+  hasLevels: true,
+  levelGroup: true,
+  allowedLevelIds: true,
+  hasMaxScore: true,
+  maxScore: true,
+  weight: true,
+  displayOrder: true,
+  active: true,
+  createdAt: true,
+  updatedAt: true,
+  category: {
+    select: { id: true, name: true, code: true },
+  },
+};
+
+function sanitizeSubcategoryResult(sub: any) {
+  if (!sub) return null;
+  return {
+    ...sub,
+    logoUrl: sanitizeSubcategoryLogo(sub.code, sub.logoUrl),
+  };
 }
 
 // GET all subcategories
@@ -19,14 +53,19 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const categoryId = searchParams.get('categoryId') || 'all';
+    const isFresh = searchParams.get('fresh') === 'true' || searchParams.has('t') || req.headers.get('cache-control') === 'no-cache';
 
-    const cached = cachedSubcategoriesMap.get(categoryId);
-    if (cached && Date.now() - cached.timestamp < SUBCATEGORIES_CACHE_TTL) {
-      return NextResponse.json(cached.data, {
-        headers: {
-          'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1200',
-        },
-      });
+    // Shared in-memory cache is used for lightweight, public responses
+    const cacheKey = categoryId;
+    if (!isFresh) {
+      const cached = cachedSubcategoriesMap.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < SUBCATEGORIES_CACHE_TTL) {
+        return NextResponse.json(cached.data, {
+          headers: {
+            'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800',
+          },
+        });
+      }
     }
 
     const whereClause: any = {};
@@ -40,21 +79,26 @@ export async function GET(req: NextRequest) {
 
     const subcategories = await prisma.subcategory.findMany({
       where: whereClause,
-      include: {
-        category: { select: { id: true, name: true, code: true } },
-      },
+      select: subcategorySelectProjection,
       orderBy: [
         { displayOrder: 'asc' },
         { createdAt: 'asc' },
       ],
     });
 
-    const payload = { subcategories };
-    cachedSubcategoriesMap.set(categoryId, { timestamp: Date.now(), data: payload });
+    const sanitizedSubcategories = subcategories.map(sanitizeSubcategoryResult);
+    const payload = { subcategories: sanitizedSubcategories };
+
+    // Cache lightweight responses in shared memory
+    if (!isFresh) {
+      cachedSubcategoriesMap.set(cacheKey, { timestamp: Date.now(), data: payload });
+    }
 
     return NextResponse.json(payload, {
       headers: {
-        'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1200',
+        'Cache-Control': isFresh
+          ? 'private, no-cache, no-store, must-revalidate'
+          : 'public, s-maxage=86400, stale-while-revalidate=604800',
       },
     });
   } catch (error: any) {
@@ -105,12 +149,21 @@ export async function POST(req: NextRequest) {
       (code || name).toUpperCase().replace(/[^A-Z0-9]/g, '_').slice(0, 20) +
       `_${Date.now().toString(36).slice(-4).toUpperCase()}`;
 
+    let validatedLogoUrl: string | null = null;
+    if (logoUrl) {
+      const validation = validateImageUrl(logoUrl);
+      if (!validation.valid || !validation.sanitizedUrl) {
+        return NextResponse.json({ error: validation.error || 'Invalid logo image URL.' }, { status: 400 });
+      }
+      validatedLogoUrl = validation.sanitizedUrl;
+    }
+
     const subcategory = await prisma.subcategory.create({
       data: {
         categoryId: targetCategoryId,
         name: name.trim(),
         code: subCode,
-        logoUrl: logoUrl || null,
+        logoUrl: validatedLogoUrl,
         hasLevels: Boolean(hasLevels),
         levelGroup: levelGroup || 'ALL',
         allowedLevelIds: allowedLevelIds ? (typeof allowedLevelIds === 'string' ? allowedLevelIds : JSON.stringify(allowedLevelIds)) : null,
@@ -120,7 +173,7 @@ export async function POST(req: NextRequest) {
         displayOrder: Number(displayOrder) || 0,
         active: active !== undefined ? Boolean(active) : true,
       },
-      include: { category: true },
+      select: subcategorySelectProjection,
     });
 
     logAuditAction({
@@ -134,7 +187,7 @@ export async function POST(req: NextRequest) {
 
     invalidateSubcategoriesCache();
 
-    return NextResponse.json({ success: true, subcategory });
+    return NextResponse.json({ success: true, subcategory: sanitizeSubcategoryResult(subcategory) });
   } catch (error: any) {
     console.error('Create subcategory error:', error);
     return NextResponse.json({ error: error.message || 'Failed to create subcategory.' }, { status: 500 });
@@ -188,20 +241,33 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Subcategory not found.' }, { status: 404 });
     }
 
+    let validatedLogoUrl: string | null | undefined = undefined;
+    if (logoUrl !== undefined) {
+      if (logoUrl === null || logoUrl === '') {
+        validatedLogoUrl = null;
+      } else {
+        const validation = validateImageUrl(logoUrl);
+        if (!validation.valid || !validation.sanitizedUrl) {
+          return NextResponse.json({ error: validation.error || 'Invalid logo image URL.' }, { status: 400 });
+        }
+        validatedLogoUrl = validation.sanitizedUrl;
+      }
+    }
+
     const updated = await prisma.subcategory.update({
       where: { id },
       data: {
         ...(categoryId ? { categoryId } : {}),
         ...(name ? { name: name.trim() } : {}),
-        logoUrl: logoUrl !== undefined ? logoUrl : undefined,
+        ...(logoUrl !== undefined ? { logoUrl: validatedLogoUrl } : {}),
         ...(hasLevels !== undefined ? { hasLevels: Boolean(hasLevels) } : {}),
         ...(levelGroup !== undefined ? { levelGroup: levelGroup || 'ALL' } : {}),
         ...(allowedLevelIds !== undefined
           ? {
               allowedLevelIds: allowedLevelIds
                 ? typeof allowedLevelIds === 'string'
-                  ? allowedLevelIds
-                  : JSON.stringify(allowedLevelIds)
+                ? allowedLevelIds
+                : JSON.stringify(allowedLevelIds)
                 : null,
             }
           : {}),
@@ -211,7 +277,7 @@ export async function PUT(req: NextRequest) {
         ...(displayOrder !== undefined ? { displayOrder: Number(displayOrder) } : {}),
         ...(active !== undefined ? { active: Boolean(active) } : {}),
       },
-      include: { category: true },
+      select: subcategorySelectProjection,
     });
 
     logAuditAction({
@@ -226,7 +292,7 @@ export async function PUT(req: NextRequest) {
 
     invalidateSubcategoriesCache();
 
-    return NextResponse.json({ success: true, subcategory: updated });
+    return NextResponse.json({ success: true, subcategory: sanitizeSubcategoryResult(updated) });
   } catch (error: any) {
     console.error('Update subcategory error:', error);
     return NextResponse.json({ error: error.message || 'Failed to update subcategory.' }, { status: 500 });
@@ -296,4 +362,3 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: error.message || 'Failed to delete subcategory.' }, { status: 500 });
   }
 }
-

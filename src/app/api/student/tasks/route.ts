@@ -22,11 +22,18 @@ export async function GET(req: NextRequest) {
 
     const { availableTasks, history } = await getStudentTasks(student.studentId, studentRecord.classId);
 
-    return NextResponse.json({
-      student,
-      availableTasks,
-      history,
-    });
+    return NextResponse.json(
+      {
+        student,
+        availableTasks,
+        history,
+      },
+      {
+        headers: {
+          'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Fetch student tasks error:', error);
     return NextResponse.json({ error: error.message || 'Failed to load student tasks.' }, { status: 500 });

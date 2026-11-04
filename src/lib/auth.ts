@@ -5,9 +5,28 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from './prisma';
 import { UserRole, UserSession, StudentSession } from '@/types';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'madin_school_of_excellence_spr_super_secure_jwt_secret_key_2026';
+const MIN_JWT_SECRET_LENGTH = 32;
+
+export function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || typeof secret !== 'string') {
+    throw new Error('Server configuration error: JWT_SECRET environment variable is missing.');
+  }
+  const trimmedSecret = secret.trim();
+  if (trimmedSecret.length < MIN_JWT_SECRET_LENGTH) {
+    throw new Error(
+      `Server configuration error: JWT_SECRET environment variable must be at least ${MIN_JWT_SECRET_LENGTH} characters long.`
+    );
+  }
+  return trimmedSecret;
+}
+
 const AUTH_COOKIE_NAME = 'spr_auth_token';
 const STUDENT_COOKIE_NAME = 'spr_student_token';
+
+export const AUTH_NO_CACHE_HEADERS = {
+  'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+};
 
 export async function hashPassword(password: string): Promise<string> {
   const salt = await bcrypt.genSalt(10);
@@ -19,12 +38,12 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 }
 
 export function signToken(payload: UserSession): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: '7d' });
 }
 
 export function verifyToken(token: string): UserSession | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as UserSession;
+    return jwt.verify(token, getJwtSecret()) as UserSession;
   } catch {
     return null;
   }
@@ -110,7 +129,10 @@ export async function authenticateApiRequest(req: NextRequest, minRole: UserRole
   if (!token) {
     return {
       user: null,
-      errorResponse: NextResponse.json({ error: 'Authentication required. Please log in.' }, { status: 401 }),
+      errorResponse: NextResponse.json(
+        { error: 'Authentication required. Please log in.' },
+        { status: 401, headers: AUTH_NO_CACHE_HEADERS }
+      ),
     };
   }
 
@@ -118,15 +140,21 @@ export async function authenticateApiRequest(req: NextRequest, minRole: UserRole
   if (!payload) {
     return {
       user: null,
-      errorResponse: NextResponse.json({ error: 'Session expired or invalid token.' }, { status: 401 }),
+      errorResponse: NextResponse.json(
+        { error: 'Session expired or invalid token.' },
+        { status: 401, headers: AUTH_NO_CACHE_HEADERS }
+      ),
     };
   }
 
   const userId = payload.id || (payload as any).userId;
-  if (!userId) {
+  if (!userId || typeof userId !== 'string' || !userId.trim()) {
     return {
       user: null,
-      errorResponse: NextResponse.json({ error: 'Session token missing valid user identifier.' }, { status: 401 }),
+      errorResponse: NextResponse.json(
+        { error: 'Session token missing valid user identifier.' },
+        { status: 401, headers: AUTH_NO_CACHE_HEADERS }
+      ),
     };
   }
 
@@ -138,7 +166,10 @@ export async function authenticateApiRequest(req: NextRequest, minRole: UserRole
   if (!user || user.status !== 'ACTIVE') {
     return {
       user: null,
-      errorResponse: NextResponse.json({ error: 'Account inactive or unauthorized.' }, { status: 403 }),
+      errorResponse: NextResponse.json(
+        { error: 'Account inactive or unauthorized.' },
+        { status: 403, headers: AUTH_NO_CACHE_HEADERS }
+      ),
     };
   }
 
@@ -153,7 +184,10 @@ export async function authenticateApiRequest(req: NextRequest, minRole: UserRole
   if (!hasPermission(session.role, minRole)) {
     return {
       user: null,
-      errorResponse: NextResponse.json({ error: 'Insufficient permissions for this operation.' }, { status: 403 }),
+      errorResponse: NextResponse.json(
+        { error: 'Insufficient permissions for this operation.' },
+        { status: 403, headers: AUTH_NO_CACHE_HEADERS }
+      ),
     };
   }
 
@@ -165,13 +199,20 @@ export async function authenticateApiRequest(req: NextRequest, minRole: UserRole
 // ---------------------------------------------------------------------------
 
 export function signStudentToken(payload: StudentSession): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: '7d' });
 }
 
 export function verifyStudentToken(token: string): StudentSession | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
-    if (decoded && decoded.role === 'STUDENT' && decoded.studentId) {
+    const decoded = jwt.verify(token, getJwtSecret()) as any;
+    if (
+      decoded &&
+      decoded.role === 'STUDENT' &&
+      decoded.studentId &&
+      decoded.studentAccountId &&
+      typeof decoded.studentAccountId === 'string' &&
+      decoded.studentAccountId.trim() !== ''
+    ) {
       return decoded as StudentSession;
     }
     return null;
@@ -207,7 +248,9 @@ export async function getCurrentStudent(): Promise<StudentSession | null> {
     if (!token) return null;
 
     const payload = verifyStudentToken(token);
-    if (!payload) return null;
+    if (!payload || !payload.studentAccountId || typeof payload.studentAccountId !== 'string' || !payload.studentAccountId.trim()) {
+      return null;
+    }
 
     // Verify student account is active in database
     const account = await prisma.studentAccount.findUnique({
@@ -246,15 +289,22 @@ export async function authenticateStudentRequest(req: NextRequest): Promise<{ st
   if (!token) {
     return {
       student: null,
-      errorResponse: NextResponse.json({ error: 'Student authentication required. Please sign in.' }, { status: 401 }),
+      errorResponse: NextResponse.json(
+        { error: 'Student authentication required. Please sign in.' },
+        { status: 401, headers: AUTH_NO_CACHE_HEADERS }
+      ),
     };
   }
 
   const payload = verifyStudentToken(token);
-  if (!payload) {
+  // CRIT-02: Strictly validate payload and non-empty studentAccountId before querying Prisma
+  if (!payload || !payload.studentAccountId || typeof payload.studentAccountId !== 'string' || !payload.studentAccountId.trim()) {
     return {
       student: null,
-      errorResponse: NextResponse.json({ error: 'Student session expired or invalid token.' }, { status: 401 }),
+      errorResponse: NextResponse.json(
+        { error: 'Student session expired or invalid token.' },
+        { status: 401, headers: AUTH_NO_CACHE_HEADERS }
+      ),
     };
   }
 
@@ -272,7 +322,10 @@ export async function authenticateStudentRequest(req: NextRequest): Promise<{ st
   if (!account || account.status !== 'ACTIVE' || !account.isActivated) {
     return {
       student: null,
-      errorResponse: NextResponse.json({ error: 'Student account is disabled or unactivated.' }, { status: 403 }),
+      errorResponse: NextResponse.json(
+        { error: 'Student account is disabled or unactivated.' },
+        { status: 403, headers: AUTH_NO_CACHE_HEADERS }
+      ),
     };
   }
 

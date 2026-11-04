@@ -5,12 +5,14 @@ import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
 import { normalizeScoreToPercentage, invalidateEngineCache, onInvalidateEngine } from '@/lib/spr-engine';
+import { triggerLeaderboardRevalidation } from '@/lib/cache-invalidation';
 
 const scoresMemoryCache = new Map<string, { timestamp: number; data: any }>();
 const SCORES_MEMORY_TTL = 90 * 1000; // 90 seconds (invalidated on any score mutation)
 
 function clearScoresMemoryCache() {
   scoresMemoryCache.clear();
+  triggerLeaderboardRevalidation();
 }
 
 onInvalidateEngine(() => {
@@ -30,19 +32,37 @@ export async function GET(req: NextRequest) {
     const termId = searchParams.get('termId');
     const academicYearId = searchParams.get('academicYearId');
     const studentId = searchParams.get('studentId');
-    const limit = parseInt(searchParams.get('limit') || '500', 10);
+    const isAll = searchParams.get('all') === 'true' || searchParams.get('export') === 'true' || searchParams.get('limit') === 'all';
+    const isMinimal = searchParams.get('minimal') === 'true';
+    const isFresh = searchParams.get('fresh') === 'true' || searchParams.has('t') || req.headers.get('cache-control') === 'no-cache';
 
-    const cacheKey = searchParams.toString() || 'all';
-    const cached = scoresMemoryCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < SCORES_MEMORY_TTL) {
-      return NextResponse.json(
-        { records: cached.data },
-        {
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+
+    // Configurable limit: default 50 for rapid response, up to 5000 for exports/all
+    let limit = 50;
+    if (isAll) {
+      limit = 5000;
+    } else if (searchParams.has('limit')) {
+      const parsedLimit = parseInt(searchParams.get('limit')!, 10);
+      if (!isNaN(parsedLimit) && parsedLimit > 0) {
+        limit = Math.min(parsedLimit, 5000); // Preserve requested limit without silent truncation
+      }
+    }
+    const skip = isAll ? 0 : (page - 1) * limit;
+
+    const sortedParams = new URLSearchParams(searchParams);
+    sortedParams.sort();
+    const cacheKey = sortedParams.toString() || 'all';
+
+    if (!isFresh) {
+      const cached = scoresMemoryCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < SCORES_MEMORY_TTL) {
+        return NextResponse.json(cached.data, {
           headers: {
-            'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+            'Cache-Control': 'private, no-cache, no-store, must-revalidate',
           },
-        }
-      );
+        });
+      }
     }
 
     const where: any = {};
@@ -59,91 +79,148 @@ export async function GET(req: NextRequest) {
       where.student = { classId };
     }
 
-    const records = await prisma.performanceRecord.findMany({
-      where,
-      select: {
-        id: true,
-        studentId: true,
-        categoryId: true,
-        subcategoryId: true,
-        subjectId: true,
-        examId: true,
-        competitionId: true,
-        literaryCompetitionId: true,
-        levelId: true,
-        termId: true,
-        academicYearId: true,
-        obtainedScore: true,
-        maxScore: true,
-        percentage: true,
-        position: true,
-        grade: true,
-        remarks: true,
-        date: true,
-        createdAt: true,
-        student: {
-          select: {
-            id: true,
-            studentId: true,
-            sprStudentId: true,
-            fullName: true,
-            division: true,
-            status: true,
-            classId: true,
-            schoolId: true,
-            class: {
-              select: { id: true, name: true },
-            },
-            school: {
-              select: { id: true, name: true },
+    // Explicit projection: selective relational fetching based on query context
+    const selectProjection = isMinimal
+      ? {
+          id: true,
+          studentId: true,
+          categoryId: true,
+          subcategoryId: true,
+          subjectId: true,
+          examId: true,
+          competitionId: true,
+          literaryCompetitionId: true,
+          levelId: true,
+          termId: true,
+          academicYearId: true,
+          obtainedScore: true,
+          maxScore: true,
+          percentage: true,
+          position: true,
+          grade: true,
+          remarks: true,
+          date: true,
+          createdAt: true,
+          student: {
+            select: {
+              id: true,
+              studentId: true,
+              sprStudentId: true,
+              fullName: true,
+              division: true,
+              classId: true,
+              schoolId: true,
+              class: { select: { id: true, name: true } },
             },
           },
-        },
-        category: {
-          select: { id: true, name: true, code: true, defaultWeight: true },
-        },
-        subcategory: {
-          select: { id: true, name: true, code: true, weight: true, maxScore: true, categoryId: true },
-        },
-        subject: {
-          select: { id: true, name: true, code: true, maxScore: true },
-        },
-        exam: {
-          select: { id: true, name: true, maxScore: true, targetScore: true, categoryId: true, termId: true },
-        },
-        competition: {
-          select: {
-            id: true,
-            name: true,
-            program: { select: { id: true, name: true } },
+          category: {
+            select: { id: true, name: true, code: true },
           },
-        },
-        literaryCompetition: {
-          select: {
-            id: true,
-            name: true,
-            event: { select: { id: true, name: true } },
-            level: { select: { id: true, name: true, weightMultiplier: true } },
+          subcategory: {
+            select: { id: true, name: true, code: true },
           },
-        },
-        level: {
-          select: { id: true, name: true, weightMultiplier: true },
-        },
+        }
+      : {
+          id: true,
+          studentId: true,
+          categoryId: true,
+          subcategoryId: true,
+          subjectId: true,
+          examId: true,
+          competitionId: true,
+          literaryCompetitionId: true,
+          levelId: true,
+          termId: true,
+          academicYearId: true,
+          obtainedScore: true,
+          maxScore: true,
+          percentage: true,
+          position: true,
+          grade: true,
+          remarks: true,
+          date: true,
+          createdAt: true,
+          student: {
+            select: {
+              id: true,
+              studentId: true,
+              sprStudentId: true,
+              fullName: true,
+              division: true,
+              status: true,
+              classId: true,
+              schoolId: true,
+              class: {
+                select: { id: true, name: true },
+              },
+              school: {
+                select: { id: true, name: true },
+              },
+            },
+          },
+          category: {
+            select: { id: true, name: true, code: true, defaultWeight: true },
+          },
+          subcategory: {
+            select: { id: true, name: true, code: true, weight: true, maxScore: true, categoryId: true },
+          },
+          subject: {
+            select: { id: true, name: true, code: true, maxScore: true },
+          },
+          exam: {
+            select: { id: true, name: true, maxScore: true, targetScore: true, categoryId: true, termId: true },
+          },
+          competition: {
+            select: {
+              id: true,
+              name: true,
+              program: { select: { id: true, name: true } },
+            },
+          },
+          literaryCompetition: {
+            select: {
+              id: true,
+              name: true,
+              event: { select: { id: true, name: true } },
+              level: { select: { id: true, name: true, weightMultiplier: true } },
+            },
+          },
+          level: {
+            select: { id: true, name: true, weightMultiplier: true },
+          },
+        };
+
+    const [total, records] = await Promise.all([
+      prisma.performanceRecord.count({ where }),
+      prisma.performanceRecord.findMany({
+        where,
+        select: selectProjection,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    const payload = {
+      records,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+        hasMore: page * limit < total,
       },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
+    };
+
+    if (!isFresh) {
+      scoresMemoryCache.set(cacheKey, { timestamp: Date.now(), data: payload });
+    }
+
+    return NextResponse.json(payload, {
+      headers: {
+        'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+      },
     });
-
-    scoresMemoryCache.set(cacheKey, { timestamp: Date.now(), data: records });
-
-    return NextResponse.json(
-      { records },
-      {
-        headers: {
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
-        },
-      }
-    );
   } catch (error: any) {
     console.error('Fetch scores error:', error);
     return NextResponse.json({ error: 'Failed to fetch score records.' }, { status: 500 });

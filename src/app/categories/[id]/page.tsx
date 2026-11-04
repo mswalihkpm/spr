@@ -18,6 +18,7 @@ import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
 import { getCategoryIcon, getCategoryColor, getCategoryLogo, getCategoryDualLogos } from '@/lib/category-utils';
 import { useAppBootstrap } from '@/context/AppBootstrapContext';
+import { fetchWithDedupe } from '@/lib/client-cache';
 
 export default function PublicCategorySubcategoriesPage() {
   const router = useRouter();
@@ -55,24 +56,22 @@ export default function PublicCategorySubcategoriesPage() {
     }
   }, [preloadedCategory, preloadedSubs]);
 
-  // Load category details and subcategories
-  const loadData = async () => {
+  // Load category details and subcategories with deduplication
+  const loadData = async (force = false) => {
     if (!categoryId) return;
     try {
-      if (!category) setLoading(true);
+      if (!category && !preloadedCategory) setLoading(true);
 
-      const [catRes, subRes] = await Promise.all([
-        fetch(`/api/categories?id=${categoryId}`),
-        fetch(`/api/subcategories?categoryId=${categoryId}`),
-      ]);
-
-      const catData = await catRes.json();
-      const subData = await subRes.json();
+      // /api/categories?id= already projects and returns subcategories within the category payload
+      const catData = await fetchWithDedupe<any>(`/api/categories?id=${categoryId}`, {
+        ttl: 24 * 60 * 60 * 1000,
+        forceRefresh: force,
+      });
 
       let resolvedCategory = null;
-      if (catData.category) {
+      if (catData?.category) {
         resolvedCategory = catData.category;
-      } else if (catData.categories && catData.categories.length > 0) {
+      } else if (catData?.categories && catData.categories.length > 0) {
         resolvedCategory = catData.categories.find(
           (c: any) => c.id === categoryId || c.code === categoryId.toUpperCase()
         );
@@ -86,10 +85,17 @@ export default function PublicCategorySubcategoriesPage() {
       }
 
       let subsList: any[] = [];
-      if (subData.subcategories && subData.subcategories.length > 0) {
-        subsList = subData.subcategories;
-      } else if (resolvedCategory?.subcategories && resolvedCategory.subcategories.length > 0) {
+      if (resolvedCategory?.subcategories && resolvedCategory.subcategories.length > 0) {
         subsList = resolvedCategory.subcategories;
+      } else {
+        // Fallback only if category does not have embedded subcategories
+        const subData = await fetchWithDedupe<any>(`/api/subcategories?categoryId=${categoryId}`, {
+          ttl: 24 * 60 * 60 * 1000,
+          forceRefresh: force,
+        });
+        if (subData?.subcategories && subData.subcategories.length > 0) {
+          subsList = subData.subcategories;
+        }
       }
 
       setSubcategories(subsList);

@@ -34,6 +34,7 @@ import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
 import SearchableStudentSelect from '@/components/ui/SearchableStudentSelect';
 import SearchableProgrammeSelect from '@/components/ui/SearchableProgrammeSelect';
 import { getAcademicMasterData } from '@/lib/academic-client';
+import { fetchWithDedupe, invalidateClientCache } from '@/lib/client-cache';
 import CustomSelect from '@/components/ui/CustomSelect';
 import MultiStudentRecordModal from '@/components/modals/MultiStudentRecordModal';
 import MultiProgrammeRecordModal from '@/components/modals/MultiProgrammeRecordModal';
@@ -330,15 +331,14 @@ export default function LiteraryProgramsPage() {
       if (litCat) setLitCategoryId(litCat.id);
       const scoreQuery = litCat ? `/api/scores?categoryId=${litCat.id}&limit=500` : '/api/scores?limit=500';
 
-      const [resStudents, resScores, resSubs] = await Promise.all([
+      const [resStudents, resScores, dataSubs] = await Promise.all([
         fetch('/api/students?all=true&minimal=true'),
         fetch(scoreQuery),
-        fetch('/api/subcategories'),
+        fetchWithDedupe<any>('/api/subcategories'),
       ]);
 
       const dataStudents = await resStudents.json();
       const dataScores = await resScores.json();
-      const dataSubs = await resSubs.json();
 
       if (dataSubs.subcategories) {
         const litSubs = dataSubs.subcategories.filter((s: any) => s.categoryId === litCat?.id);

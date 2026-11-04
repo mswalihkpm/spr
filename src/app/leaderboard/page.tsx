@@ -35,6 +35,7 @@ import PublicFooter from '@/components/layout/PublicFooter';
 import { getAcademicMasterData } from '@/lib/academic-client';
 import CustomSelect from '@/components/ui/CustomSelect';
 import { useAppBootstrap } from '@/context/AppBootstrapContext';
+import { fetchWithDedupe, invalidateClientCache } from '@/lib/client-cache';
 import HorizontalScrollRibbon from '@/components/leaderboard/HorizontalScrollRibbon';
 import ScrollProgressBar from '@/components/leaderboard/ScrollProgressBar';
 import ScrollToTopHUD from '@/components/leaderboard/ScrollToTopHUD';
@@ -177,10 +178,9 @@ function LeaderboardContent() {
     }
 
     if (subcategories.length === 0) {
-      fetch('/api/subcategories')
-        .then((res) => res.json())
+      fetchWithDedupe<any>('/api/subcategories')
         .then((data) => {
-          if (data.subcategories) setSubcategories(data.subcategories);
+          if (data && data.subcategories) setSubcategories(data.subcategories);
         })
         .catch((err) => console.error('Error fetching subcategories:', err));
     }
@@ -290,13 +290,14 @@ function deriveCategoryLeaderboard(
     }
 
     try {
-      const res = await fetch(`/api/leaderboard?${params.toString()}`);
-      const data = await res.json();
-      if (data.leaderboard) {
+      const data = await fetchWithDedupe<any>(`/api/leaderboard?${params.toString()}`, {
+        ttl: 5 * 60 * 1000,
+      });
+      if (data && data.leaderboard) {
         clientLeaderboardMemory.set(cacheKey, data.leaderboard);
         setLeaderboard(data.leaderboard);
       }
-      if (data.categories && categories.length === 0) setCategories(data.categories);
+      if (data && data.categories && categories.length === 0) setCategories(data.categories);
     } catch (err) {
       console.error(err);
     } finally {

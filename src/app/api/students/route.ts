@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     if (errorResponse) return errorResponse;
 
     const { searchParams } = new URL(req.url);
-    const search = searchParams.get('search') || '';
+    const search = searchParams.get('search') || searchParams.get('q') || '';
     const classId = searchParams.get('classId') || '';
     const schoolId = searchParams.get('schoolId') || '';
     const academicYearId = searchParams.get('academicYearId') || '';
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
       if (cached && Date.now() - cached.timestamp < MINIMAL_CACHE_TTL) {
         return NextResponse.json(cached.payload, {
           headers: {
-            'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
+            'Cache-Control': 'private, no-cache, no-store, must-revalidate',
           },
         });
       }
@@ -92,6 +92,8 @@ export async function GET(req: NextRequest) {
               fullName: true,
               division: true,
               status: true,
+              classId: true,
+              schoolId: true,
               class: {
                 select: { id: true, name: true },
               },
@@ -130,6 +132,7 @@ export async function GET(req: NextRequest) {
         page,
         limit,
         totalPages: Math.ceil(total / limit) || 1,
+        hasMore: page * limit < total,
       },
     };
 
@@ -139,9 +142,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(payload, {
       headers: {
-        'Cache-Control': isCacheable
-          ? 'public, s-maxage=120, stale-while-revalidate=300'
-          : 'private, no-cache',
+        'Cache-Control': 'private, no-cache, no-store, must-revalidate',
       },
     });
   } catch (error: any) {

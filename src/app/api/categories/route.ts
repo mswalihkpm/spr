@@ -5,19 +5,83 @@ import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
 import { invalidateEngineCache } from '@/lib/spr-engine';
+import { sanitizeSubcategoryLogo } from '@/lib/logo-utils';
+import { triggerCategoriesRevalidation } from '@/lib/cache-invalidation';
 
 let cachedCategoriesResponse: { timestamp: number; data: any } | null = null;
-const CATEGORIES_CACHE_TTL = 15 * 60 * 1000; // 15 minutes cache (actively invalidated on mutation)
+const CATEGORIES_CACHE_TTL = 15 * 60 * 1000; // 15 minutes in-memory cache
 
 function invalidateLocalCategoriesCache() {
   cachedCategoriesResponse = null;
   invalidateEngineCache();
+  triggerCategoriesRevalidation();
+}
+
+// Reusable explicit select projection for categories and their child subcategories
+const categorySelectProjection = {
+  id: true,
+  code: true,
+  name: true,
+  description: true,
+  icon: true,
+  isSystem: true,
+  active: true,
+  displayOrder: true,
+  defaultWeight: true,
+  includeInSPR: true,
+  createdAt: true,
+  updatedAt: true,
+  subcategories: {
+    select: {
+      id: true,
+      categoryId: true,
+      name: true,
+      code: true,
+      logoUrl: true,
+      hasLevels: true,
+      levelGroup: true,
+      allowedLevelIds: true,
+      hasMaxScore: true,
+      maxScore: true,
+      weight: true,
+      displayOrder: true,
+      active: true,
+      createdAt: true,
+      updatedAt: true,
+      _count: { select: { performanceRecords: true } },
+    },
+    orderBy: [
+      { displayOrder: 'asc' as const },
+      { createdAt: 'asc' as const },
+    ],
+  },
+  categoryWeights: true,
+  _count: {
+    select: {
+      subcategories: true,
+      performanceRecords: true,
+      subjects: true,
+      exams: true,
+    },
+  },
+};
+
+function sanitizeCategoryResult(category: any) {
+  if (!category) return null;
+  return {
+    ...category,
+    subcategories: (category.subcategories || []).map((sub: any) => ({
+      ...sub,
+      logoUrl: sanitizeSubcategoryLogo(sub.code, sub.logoUrl),
+    })),
+  };
 }
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
+    const isFresh = searchParams.get('fresh') === 'true' || searchParams.has('t') || req.headers.get('cache-control') === 'no-cache';
 
     if (id) {
       const category = await prisma.category.findFirst({
@@ -27,71 +91,49 @@ export async function GET(req: NextRequest) {
             { code: id.toUpperCase() },
           ],
         },
-        include: {
-          subcategories: {
-            include: {
-              _count: { select: { performanceRecords: true } },
-            },
-            orderBy: [
-              { displayOrder: 'asc' },
-              { createdAt: 'asc' },
-            ],
-          },
-          categoryWeights: true,
-          _count: {
-            select: {
-              subcategories: true,
-              performanceRecords: true,
-              subjects: true,
-              exams: true,
-            },
-          },
-        },
+        select: categorySelectProjection,
       });
 
       if (!category) {
         return NextResponse.json({ error: 'Category not found.' }, { status: 404 });
       }
 
-      return NextResponse.json({ category });
+      return NextResponse.json(
+        { category: sanitizeCategoryResult(category) },
+        {
+          headers: {
+            'Cache-Control': isFresh
+              ? 'private, no-cache, no-store, must-revalidate'
+              : 'public, s-maxage=86400, stale-while-revalidate=604800',
+          },
+        }
+      );
     }
 
-    if (!id && cachedCategoriesResponse && Date.now() - cachedCategoriesResponse.timestamp < CATEGORIES_CACHE_TTL) {
+    if (!id && !isFresh && cachedCategoriesResponse && Date.now() - cachedCategoriesResponse.timestamp < CATEGORIES_CACHE_TTL) {
       return NextResponse.json(cachedCategoriesResponse.data, {
         headers: {
-          'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1200',
+          'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800',
         },
       });
     }
 
     const categories = await prisma.category.findMany({
-      include: {
-        subcategories: {
-          include: {
-            _count: { select: { performanceRecords: true } },
-          },
-        },
-        categoryWeights: true,
-        _count: {
-          select: {
-            subcategories: true,
-            performanceRecords: true,
-            subjects: true,
-            exams: true,
-          },
-        },
-      },
+      select: categorySelectProjection,
       orderBy: { displayOrder: 'asc' },
     });
 
-    const payload = { categories };
-    if (!id) {
+    const sanitizedCategories = categories.map(sanitizeCategoryResult);
+    const payload = { categories: sanitizedCategories };
+    if (!id && !isFresh) {
       cachedCategoriesResponse = { timestamp: Date.now(), data: payload };
     }
 
     return NextResponse.json(payload, {
       headers: {
-        'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1200',
+        'Cache-Control': isFresh
+          ? 'private, no-cache, no-store, must-revalidate'
+          : 'public, s-maxage=86400, stale-while-revalidate=604800',
       },
     });
   } catch (error: any) {
@@ -210,7 +252,7 @@ export async function PUT(req: NextRequest) {
         ...(defaultWeight !== undefined ? { defaultWeight: Number(defaultWeight) } : {}),
         ...(includeInSPR !== undefined ? { includeInSPR: !!includeInSPR } : {}),
       },
-      include: { subcategories: true },
+      select: categorySelectProjection,
     });
 
     // Update weight in categoryWeight for active academic year
@@ -277,7 +319,7 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      category: updatedCategory,
+      category: sanitizeCategoryResult(updatedCategory),
       message: 'Category updated successfully.',
     });
   } catch (error: any) {
@@ -302,7 +344,6 @@ export async function DELETE(req: NextRequest) {
 
     const subcategoryIds: string[] = bodyData.subcategoryIds || (subcategoryId ? [subcategoryId] : []);
     const categoryIds: string[] = bodyData.categoryIds || bodyData.ids || (id ? [id] : []);
-
 
     if (subcategoryIds.length > 0) {
       await prisma.$transaction([
@@ -363,4 +404,3 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: error.message || 'Failed to delete category.' }, { status: 500 });
   }
 }
-

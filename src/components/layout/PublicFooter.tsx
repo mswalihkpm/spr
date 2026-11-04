@@ -5,22 +5,22 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Lock } from 'lucide-react';
 import PublicMobileNav from './PublicMobileNav';
+import { fetchWithDedupe } from '@/lib/client-cache';
 
 export default function PublicFooter() {
   const [introFooter, setIntroFooter] = useState('2026 version 0.1');
 
   useEffect(() => {
-    fetch('/api/display')
-      .then((res) => res.json())
+    fetchWithDedupe<any>('/api/display')
       .then((data) => {
-        if (data.introFooter) setIntroFooter(data.introFooter);
+        if (data && data.introFooter) setIntroFooter(data.introFooter);
       })
       .catch(() => {});
   }, []);
 
   return (
     <>
-      <footer id="footer-portal" className="hidden sm:block mt-auto bg-slate-950 text-slate-300 border-t border-slate-800 py-8 px-4 sm:px-6 lg:px-8 print:hidden relative z-20">
+      <footer id="footer-portal" className="mt-auto bg-slate-950 text-slate-300 border-t border-slate-800 py-8 pb-24 sm:pb-8 px-4 sm:px-6 lg:px-8 print:hidden relative z-20">
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-5">
         {/* Left: Branding & Verification */}
         <div className="flex items-center space-x-3.5 text-center sm:text-left">
@@ -54,6 +54,13 @@ export default function PublicFooter() {
             className="text-xs font-semibold text-slate-400 hover:text-white transition"
           >
             Student Portal
+          </Link>
+          <span className="text-slate-700">•</span>
+          <Link
+            href="/privacy-policy"
+            className="text-xs font-semibold text-slate-400 hover:text-white transition"
+          >
+            Privacy Policy
           </Link>
           <span className="text-slate-700">•</span>
           <Link

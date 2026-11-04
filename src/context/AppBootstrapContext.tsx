@@ -1,7 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { getAcademicMasterData, AcademicMasterData } from '@/lib/academic-client';
+import { fetchWithDedupe, invalidateClientCache } from '@/lib/client-cache';
 
 export interface BootstrapState {
   isBootstrapped: boolean;
@@ -14,7 +15,7 @@ export interface BootstrapState {
   news: any[];
   displayConfig: any | null;
   isDataReady: boolean;
-  refreshBootstrap: () => Promise<void>;
+  refreshBootstrap: (force?: boolean) => Promise<void>;
 }
 
 // Module-level global caches to ensure instant 0ms access across route navigations
@@ -66,21 +67,23 @@ export function AppBootstrapProvider({ children }: { children: React.ReactNode }
     }
   };
 
-  const runBootstrap = async () => {
-    if (globalBootstrapped) {
+  const runBootstrap = async (force = false) => {
+    if (!force && globalBootstrapped) {
       setIsBootstrapped(true);
       setBootstrapProgress(100);
       setBootstrapStatus('Ready');
       return;
     }
 
-    if (globalBootstrapPromise) {
+    if (!force && globalBootstrapPromise) {
       await globalBootstrapPromise;
       return;
     }
 
     globalBootstrapPromise = (async () => {
-      setBootstrapStatus('Connecting to SPR services...');
+      if (!globalBootstrapped) {
+        setBootstrapStatus('Connecting to SPR services...');
+      }
 
       const weights = {
         academic: 40,
@@ -101,7 +104,7 @@ export function AppBootstrapProvider({ children }: { children: React.ReactNode }
       };
 
       // 1. Parallel fetch: Academic Master Data (categories, classes, schools, etc.)
-      const academicPromise = getAcademicMasterData()
+      const academicPromise = getAcademicMasterData(force)
         .then((data) => {
           if (data) {
             globalAcademicCache = data;
@@ -120,8 +123,7 @@ export function AppBootstrapProvider({ children }: { children: React.ReactNode }
         });
 
       // 2. Parallel fetch: Overall Leaderboard Standings
-      const leaderboardPromise = fetch('/api/leaderboard')
-        .then((res) => (res.ok ? res.json() : null))
+      const leaderboardPromise = fetchWithDedupe<any>('/api/leaderboard', { forceRefresh: force })
         .then((data) => {
           if (data?.leaderboard) {
             globalLeaderboardCache = data.leaderboard;
@@ -140,8 +142,7 @@ export function AppBootstrapProvider({ children }: { children: React.ReactNode }
         });
 
       // 3. Parallel fetch: News / Broadcasts
-      const newsPromise = fetch('/api/news')
-        .then((res) => (res.ok ? res.json() : null))
+      const newsPromise = fetchWithDedupe<any>('/api/news', { forceRefresh: force })
         .then((data) => {
           if (data?.news) {
             globalNewsCache = data.news;
@@ -156,8 +157,7 @@ export function AppBootstrapProvider({ children }: { children: React.ReactNode }
         });
 
       // 4. Parallel fetch: Subcategories
-      const subcategoriesPromise = fetch('/api/subcategories')
-        .then((res) => (res.ok ? res.json() : null))
+      const subcategoriesPromise = fetchWithDedupe<any>('/api/subcategories', { forceRefresh: force })
         .then((data) => {
           if (data?.subcategories) {
             globalSubcategoriesCache = data.subcategories;
@@ -200,6 +200,40 @@ export function AppBootstrapProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     runBootstrap();
+
+    const handleInvalidation = (e: any) => {
+      const pattern = e?.detail?.pattern;
+      // If relevant master data was invalidated, refresh in the background silently
+      if (
+        !pattern ||
+        pattern.includes('academic') ||
+        pattern.includes('categories') ||
+        pattern.includes('subcategories') ||
+        pattern.includes('leaderboard') ||
+        pattern.includes('news')
+      ) {
+        runBootstrap(true).catch(() => {});
+      }
+    };
+
+    const handleClear = () => {
+      globalAcademicCache = null;
+      globalLeaderboardCache = [];
+      globalCategoriesCache = [];
+      globalSubcategoriesCache = [];
+      globalNewsCache = [];
+      globalDisplayConfigCache = null;
+      globalBootstrapped = false;
+      globalBootstrapPromise = null;
+    };
+
+    window.addEventListener('spr-client-cache-invalidated', handleInvalidation);
+    window.addEventListener('spr-client-cache-cleared', handleClear);
+
+    return () => {
+      window.removeEventListener('spr-client-cache-invalidated', handleInvalidation);
+      window.removeEventListener('spr-client-cache-cleared', handleClear);
+    };
   }, []);
 
   const value = useMemo<BootstrapState>(
@@ -214,10 +248,12 @@ export function AppBootstrapProvider({ children }: { children: React.ReactNode }
       news,
       displayConfig,
       isDataReady: isBootstrapped || overviewLeaderboard.length > 0,
-      refreshBootstrap: async () => {
-        globalBootstrapped = false;
+      refreshBootstrap: async (force = true) => {
+        if (force) {
+          invalidateClientCache();
+        }
         globalBootstrapPromise = null;
-        await runBootstrap();
+        await runBootstrap(force);
       },
     }),
     [

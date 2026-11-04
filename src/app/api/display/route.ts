@@ -12,13 +12,14 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const categoryId = searchParams.get('categoryId') || undefined;
     const classId = searchParams.get('classId') || undefined;
+    const isFresh = searchParams.get('fresh') === 'true' || searchParams.has('t') || req.headers.get('cache-control') === 'no-cache';
 
     const cacheKey = `${categoryId || 'all'}_${classId || 'all'}`;
     const cached = displayCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < DISPLAY_CACHE_TTL) {
+    if (!isFresh && cached && Date.now() - cached.timestamp < DISPLAY_CACHE_TTL) {
       return NextResponse.json(cached.data, {
         headers: {
-          'Cache-Control': 'public, s-maxage=180, stale-while-revalidate=300',
+          'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=3600',
         },
       });
     }
@@ -56,11 +57,15 @@ export async function GET(req: NextRequest) {
       topThree: sanitizedLeaderboard.slice(0, 3),
     };
 
-    displayCache.set(cacheKey, { timestamp: Date.now(), data: responsePayload });
+    if (!isFresh) {
+      displayCache.set(cacheKey, { timestamp: Date.now(), data: responsePayload });
+    }
 
     return NextResponse.json(responsePayload, {
       headers: {
-        'Cache-Control': 'public, s-maxage=180, stale-while-revalidate=300',
+        'Cache-Control': isFresh
+          ? 'private, no-cache, no-store, must-revalidate'
+          : 'public, s-maxage=1800, stale-while-revalidate=3600',
       },
     });
   } catch (error: any) {

@@ -14,10 +14,12 @@ export async function GET(req: NextRequest) {
     if (errorResponse) return errorResponse;
 
     const now = Date.now();
-    if (cachedAnalytics && now - cachedAnalytics.timestamp < ANALYTICS_CACHE_TTL) {
+    const isFresh = req.nextUrl.searchParams.get('fresh') === 'true' || req.nextUrl.searchParams.has('t') || req.headers.get('cache-control') === 'no-cache';
+
+    if (!isFresh && cachedAnalytics && now - cachedAnalytics.timestamp < ANALYTICS_CACHE_TTL) {
       return NextResponse.json(cachedAnalytics.data, {
         headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+          'Cache-Control': 'private, no-cache, no-store, must-revalidate',
         },
       });
     }
@@ -141,11 +143,13 @@ export async function GET(req: NextRequest) {
       recentActivities,
     };
 
-    cachedAnalytics = { timestamp: Date.now(), data: payload };
+    if (!isFresh) {
+      cachedAnalytics = { timestamp: Date.now(), data: payload };
+    }
 
     return NextResponse.json(payload, {
       headers: {
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+        'Cache-Control': 'private, no-cache, no-store, must-revalidate',
       },
     });
   } catch (error: any) {

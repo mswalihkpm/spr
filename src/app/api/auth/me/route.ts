@@ -7,5 +7,12 @@ export async function GET(req: NextRequest) {
   const { user, errorResponse } = await authenticateApiRequest(req);
   if (errorResponse) return errorResponse;
 
-  return NextResponse.json({ user });
+  return NextResponse.json(
+    { user },
+    {
+      headers: {
+        'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+      },
+    }
+  );
 }

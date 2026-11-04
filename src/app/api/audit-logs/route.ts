@@ -9,7 +9,14 @@ export async function GET(req: NextRequest) {
     const { user, errorResponse } = await authenticateApiRequest(req, 'SUPER_ADMIN');
     if (errorResponse) return errorResponse;
 
-    return NextResponse.json({ logs: [] });
+    return NextResponse.json(
+      { logs: [] },
+      {
+        headers: {
+          'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Audit logs fetch error:', error);
     return NextResponse.json({ error: 'Failed to fetch audit logs.' }, { status: 500 });

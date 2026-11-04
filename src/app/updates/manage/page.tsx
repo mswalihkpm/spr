@@ -22,6 +22,7 @@ import VideoLoader from '@/components/ui/VideoLoader';
 import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
 
 import { formatGoogleDriveDirectUrl, isGoogleDriveUrl } from '@/lib/google-drive';
+import { invalidateClientCache } from '@/lib/client-cache';
 
 export default function AdminNewsManagementPage() {
   const [newsList, setNewsList] = useState<any[]>([]);
@@ -116,6 +117,7 @@ export default function AdminNewsManagementPage() {
       setConfirmBulkDeleteOpen(false);
       setModalDeleteError(null);
       setStatusMsg({ type: 'success', text: `Successfully deleted ${count} news announcement(s).` });
+      invalidateClientCache('/api/news');
       fetchNews();
     } catch (err: any) {
       const errMsg = err.message || 'Error bulk deleting news announcements.';
@@ -201,6 +203,7 @@ export default function AdminNewsManagementPage() {
         text: `News update ${editingId ? 'updated' : 'published'} successfully!`,
       });
       setModalOpen(false);
+      invalidateClientCache('/api/news');
       fetchNews();
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Failed to save news announcement.' });
@@ -225,6 +228,7 @@ export default function AdminNewsManagementPage() {
 
       setSelectedNewsIds((prev) => prev.filter((id) => id !== item.id));
       setStatusMsg({ type: 'success', text: 'Announcement deleted.' });
+      invalidateClientCache('/api/news');
       fetchNews();
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Error deleting announcement.' });

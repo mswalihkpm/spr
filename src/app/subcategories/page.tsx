@@ -33,12 +33,19 @@ import {
   Eye,
   EyeOff,
   Loader2,
+  ExternalLink,
+  Copy,
+  RotateCcw,
+  Image as ImageIcon,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
 import SearchableStudentSelect from '@/components/ui/SearchableStudentSelect';
 import { getAcademicMasterData } from '@/lib/academic-client';
 import CustomSelect from '@/components/ui/CustomSelect';
+import { invalidateClientCache } from '@/lib/client-cache';
+import { getSubcategoryFallbackLogo } from '@/lib/logo-utils';
+import { validateImageUrl } from '@/lib/url-validator';
 
 const LEVEL_PRESETS = [
   {
@@ -95,7 +102,7 @@ const PRESET_LOGOS = [
 ];
 
 export default function OtherSubcategoriesPage() {
-  const [activeTab, setActiveTab] = useState<'RECORD' | 'BUILDER'>('RECORD');
+  const [activeTab, setActiveTab] = useState<'RECORD' | 'BUILDER' | 'LOGOS'>('RECORD');
   const [subcategories, setSubcategories] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [levels, setLevels] = useState<any[]>([]);
@@ -150,7 +157,17 @@ export default function OtherSubcategoriesPage() {
     active: true,
   });
   const [savingBuilder, setSavingBuilder] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // URL-Only Logo Management State
+  const [logoModalOpen, setLogoModalOpen] = useState(false);
+  const [confirmRemoveLogoOpen, setConfirmRemoveLogoOpen] = useState(false);
+  const [selectedLogoSub, setSelectedLogoSub] = useState<any | null>(null);
+  const [logoInputUrl, setLogoInputUrl] = useState('');
+  const [logoInputError, setLogoInputError] = useState<string | null>(null);
+  const [confirmReplaceStep, setConfirmReplaceStep] = useState(false);
+  const [savingLogo, setSavingLogo] = useState(false);
+  const [logoSearchQuery, setLogoSearchQuery] = useState('');
+  const [logoCopiedId, setLogoCopiedId] = useState<string | null>(null);
 
   const fetchData = async (silent = false) => {
     try {
@@ -367,22 +384,122 @@ export default function OtherSubcategoriesPage() {
     setBuilderModalOpen(true);
   };
 
-  // Handle Logo Upload from Local Device
-  const handleLogoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Open Edit/Replace Logo Modal
+  const openEditLogo = (sub: any) => {
+    setSelectedLogoSub(sub);
+    setLogoInputUrl(sub.logoUrl || '');
+    setLogoInputError(null);
+    setConfirmReplaceStep(false);
+    setLogoModalOpen(true);
+  };
 
-    if (file.size > 2 * 1024 * 1024) {
-      alert('File size exceeds 2MB limit. Please choose a smaller image.');
+  // Open Remove Logo Confirmation Modal
+  const openRemoveLogo = (sub: any) => {
+    setSelectedLogoSub(sub);
+    setConfirmRemoveLogoOpen(true);
+  };
+
+  // Copy Logo URL to Clipboard
+  const copyLogoUrl = async (id: string, url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setLogoCopiedId(id);
+      setTimeout(() => setLogoCopiedId(null), 2000);
+    } catch {
+      // Fallback
+    }
+  };
+
+  // Save Logo URL (Enter new or Replace existing)
+  const handleSaveLogoUrl = async () => {
+    if (!selectedLogoSub) return;
+    setLogoInputError(null);
+
+    const validation = validateImageUrl(logoInputUrl);
+    if (!validation.valid || !validation.sanitizedUrl) {
+      setLogoInputError(validation.error || 'Please enter a valid secure HTTPS image URL.');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      setBuilderForm((prev) => ({ ...prev, logoUrl: dataUrl }));
-    };
-    reader.readAsDataURL(file);
+    // Require explicit confirmation if replacing an existing custom logo
+    if (selectedLogoSub.logoUrl && selectedLogoSub.logoUrl !== validation.sanitizedUrl && !confirmReplaceStep) {
+      setConfirmReplaceStep(true);
+      return;
+    }
+
+    try {
+      setSavingLogo(true);
+      const res = await fetch('/api/admin/logos', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subcategoryId: selectedLogoSub.id,
+          logoUrl: validation.sanitizedUrl,
+          action: 'UPDATE',
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update logo URL.');
+      }
+
+      // Update in local state
+      setSubcategories((prev) =>
+        prev.map((s) => (s.id === selectedLogoSub.id ? { ...s, logoUrl: validation.sanitizedUrl } : s))
+      );
+
+      invalidateClientCache('/api/subcategories');
+      invalidateClientCache('/api/categories');
+
+      setStatusMsg({ type: 'success', text: data.message || `Logo URL updated for ${selectedLogoSub.name}.` });
+      setLogoModalOpen(false);
+      setSelectedLogoSub(null);
+      setConfirmReplaceStep(false);
+    } catch (err: any) {
+      setLogoInputError(err.message || 'An error occurred while saving logo URL.');
+    } finally {
+      setSavingLogo(false);
+    }
+  };
+
+  // Confirm Remove Logo
+  const handleConfirmRemoveLogo = async () => {
+    if (!selectedLogoSub) return;
+
+    try {
+      setSavingLogo(true);
+      const res = await fetch('/api/admin/logos', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subcategoryId: selectedLogoSub.id,
+          logoUrl: null,
+          action: 'REMOVE',
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to remove logo.');
+      }
+
+      // Update in local state
+      setSubcategories((prev) =>
+        prev.map((s) => (s.id === selectedLogoSub.id ? { ...s, logoUrl: null } : s))
+      );
+
+      invalidateClientCache('/api/subcategories');
+      invalidateClientCache('/api/categories');
+
+      setStatusMsg({ type: 'success', text: data.message || `Logo removed for ${selectedLogoSub.name}. Reverted to fallback icon.` });
+      setConfirmRemoveLogoOpen(false);
+      setSelectedLogoSub(null);
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: err.message || 'Failed to remove logo.' });
+    } finally {
+      setSavingLogo(false);
+    }
   };
 
   // Toggle Custom Level Selection
@@ -641,6 +758,16 @@ export default function OtherSubcategoriesPage() {
     setTimeout(() => setSessionLoading(false), 200);
   };
 
+  const filteredLogoSubs = subcategories.filter((s) => {
+    if (!logoSearchQuery.trim()) return true;
+    const q = logoSearchQuery.toLowerCase();
+    return (
+      s.name?.toLowerCase().includes(q) ||
+      s.code?.toLowerCase().includes(q) ||
+      s.category?.name?.toLowerCase().includes(q)
+    );
+  });
+
   if (loading) {
     return (
       <AdminLayout>
@@ -676,7 +803,7 @@ export default function OtherSubcategoriesPage() {
             </p>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setActiveTab('RECORD')}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition ${
@@ -696,6 +823,17 @@ export default function OtherSubcategoriesPage() {
               }`}
             >
               Subcategory Builder ({subcategories.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('LOGOS')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 ${
+                activeTab === 'LOGOS'
+                  ? 'bg-indigo-700 text-white shadow'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              <Palette className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Logo Management ({subcategories.filter(s => s.logoUrl).length}/{subcategories.length})</span>
             </button>
           </div>
         </div>
@@ -1339,6 +1477,192 @@ export default function OtherSubcategoriesPage() {
           </div>
         )}
 
+        {/* TAB 3: URL-ONLY LOGO MANAGEMENT */}
+        {activeTab === 'LOGOS' && (
+          <div className="space-y-6">
+            {/* Header & Stats Banner */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center space-x-2">
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    URL-Only Logo Governance
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Supabase Storage Verified
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
+                  <Palette className="w-5 h-5 text-indigo-600" />
+                  <span>Subcategory Logo & Visual Identity Directory</span>
+                </h3>
+                <p className="text-xs text-slate-500 max-w-2xl">
+                  Manage subcategory logos and badges using secure HTTPS URLs. Device uploads, file pickers, and Base64 payloads are strictly prohibited.
+                </p>
+              </div>
+
+              {/* Quick Stats */}
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-center">
+                  <div className="text-lg font-black text-indigo-600">
+                    {subcategories.filter((s) => s.logoUrl).length}
+                  </div>
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Custom URLs
+                  </div>
+                </div>
+                <div className="bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-center">
+                  <div className="text-lg font-black text-slate-700">
+                    {subcategories.filter((s) => !s.logoUrl).length}
+                  </div>
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    System Fallbacks
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter & Search Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-subtle">
+              <div className="relative flex-1 max-w-md">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <Palette className="w-4 h-4 text-indigo-500" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Filter by subcategory name, code or category..."
+                  value={logoSearchQuery}
+                  onChange={(e) => setLogoSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition"
+                />
+              </div>
+              <div className="text-xs font-semibold text-slate-500">
+                Showing <span className="font-bold text-slate-800">{filteredLogoSubs.length}</span> of {subcategories.length} subcategories
+              </div>
+            </div>
+
+            {/* Logo Directory List */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden">
+              <div className="p-4 bg-slate-50/60 border-b border-slate-100 flex items-center justify-between text-xs font-bold text-slate-600 uppercase tracking-wider">
+                <span>Subcategory & Visual Identity</span>
+                <span>Actions</span>
+              </div>
+
+              <div className="divide-y divide-slate-100">
+                {filteredLogoSubs.map((sub) => {
+                  const hasCustomLogo = Boolean(sub.logoUrl);
+                  const fallback = getSubcategoryFallbackLogo(sub.code);
+                  const displayLogo = sub.logoUrl || fallback;
+                  const isCopied = logoCopiedId === sub.id;
+
+                  return (
+                    <div
+                      key={sub.id}
+                      className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/80 transition"
+                    >
+                      {/* Left: Logo Preview + Details */}
+                      <div className="flex items-start sm:items-center space-x-3.5 min-w-0">
+                        {/* Logo Preview Container */}
+                        <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 p-1 shrink-0 flex items-center justify-center shadow-xs overflow-hidden">
+                          {displayLogo ? (
+                            <Image
+                              src={displayLogo}
+                              alt={sub.name}
+                              width={44}
+                              height={44}
+                              className="w-full h-full object-contain"
+                              unoptimized
+                            />
+                          ) : (
+                            <Award className="w-6 h-6 text-slate-300" />
+                          )}
+                        </div>
+
+                        {/* Text Metadata */}
+                        <div className="min-w-0">
+                          <div className="flex items-center space-x-2 flex-wrap">
+                            <span className="font-bold text-slate-900 text-sm">{sub.name}</span>
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                              {sub.code}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                              {sub.category?.name || 'General'}
+                            </span>
+                          </div>
+
+                          {/* URL Status */}
+                          <div className="flex items-center space-x-2 mt-1 text-xs">
+                            {hasCustomLogo ? (
+                              <div className="flex items-center space-x-1.5 text-slate-600 truncate max-w-md">
+                                <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                                <span className="font-mono text-[11px] truncate text-slate-600" title={sub.logoUrl}>
+                                  {sub.logoUrl}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center space-x-1.5 text-slate-500">
+                                <span className="inline-block w-2 h-2 rounded-full bg-slate-400 shrink-0"></span>
+                                <span className="text-[11px] font-medium text-slate-500">
+                                  Default Fallback: {fallback || 'System Award Icon'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: Actions */}
+                      <div className="flex items-center space-x-2 shrink-0 self-end sm:self-center">
+                        {hasCustomLogo && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => copyLogoUrl(sub.id, sub.logoUrl)}
+                              className="p-2 text-slate-500 hover:text-indigo-600 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-semibold flex items-center space-x-1 transition"
+                              title="Copy Logo URL"
+                            >
+                              {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                              <span className="hidden sm:inline">{isCopied ? 'Copied' : 'Copy'}</span>
+                            </button>
+
+                            <a
+                              href={sub.logoUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-2 text-slate-500 hover:text-indigo-600 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-semibold flex items-center space-x-1 transition"
+                              title="Open image in new tab"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          </>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => openEditLogo(sub)}
+                          className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition shadow-2xs"
+                        >
+                          <Edit2 className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>{hasCustomLogo ? 'Replace URL' : 'Enter URL'}</span>
+                        </button>
+
+                        {hasCustomLogo && (
+                          <button
+                            type="button"
+                            onClick={() => openRemoveLogo(sub)}
+                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-semibold transition"
+                            title="Remove custom logo (revert to fallback)"
+                          >
+                            <Trash2 className="w-4 h-4 text-rose-500" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Builder Modal with Advanced Feature Management */}
         {builderModalOpen && (
@@ -1583,7 +1907,7 @@ export default function OtherSubcategoriesPage() {
                         Feature: Subcategory Logo & Visual Badging
                       </div>
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        Pick a preset icon, upload a logo image from your PC, or paste an image URL.
+                        Select a preset icon or enter a secure HTTPS image URL. Device uploads and Base64 strings are strictly prohibited.
                       </p>
                     </div>
 
@@ -1618,35 +1942,26 @@ export default function OtherSubcategoriesPage() {
                     </div>
                   </div>
 
-                  {/* URL Input & File Upload */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
-                    <div className="sm:col-span-2">
+                  {/* URL-Only Input */}
+                  <div className="flex items-center space-x-2 pt-1">
+                    <div className="flex-1">
                       <input
-                        type="text"
+                        type="url"
                         value={builderForm.logoUrl}
                         onChange={(e) => setBuilderForm({ ...builderForm, logoUrl: e.target.value })}
-                        placeholder="Image URL or choose preset above..."
+                        placeholder="https://example.com/logo.png or select preset above..."
                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-indigo-600"
                       />
                     </div>
-
-                    <div>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleLogoFileUpload}
-                        className="hidden"
-                      />
+                    {builderForm.logoUrl && (
                       <button
                         type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-full px-3 py-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 flex items-center justify-center space-x-1 transition"
+                        onClick={() => setBuilderForm({ ...builderForm, logoUrl: '' })}
+                        className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold transition"
                       >
-                        <Upload className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>Upload PC Logo</span>
+                        Clear
                       </button>
-                    </div>
+                    )}
                   </div>
                 </div>
 
@@ -1784,6 +2099,241 @@ export default function OtherSubcategoriesPage() {
                       <span>Delete {selectedSubcategoryIds.length} Subcategory(ies)</span>
                     </>
                   )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL 1: ENTER / REPLACE LOGO URL */}
+        {logoModalOpen && selectedLogoSub && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-madin-950/70 backdrop-blur-sm animate-fade-in overflow-y-auto">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 animate-zoom-up space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
+                    <Palette className="w-5 h-5 text-indigo-600" />
+                    <span>
+                      {selectedLogoSub.logoUrl ? 'Replace Existing Logo URL' : 'Enter Image URL'}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Subcategory: <span className="font-bold text-slate-800">{selectedLogoSub.name}</span> ({selectedLogoSub.code})
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLogoModalOpen(false);
+                    setSelectedLogoSub(null);
+                    setConfirmReplaceStep(false);
+                  }}
+                  className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Comparison Preview Box */}
+              <div className="grid grid-cols-2 gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                <div className="text-center space-y-1.5">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Current Display
+                  </div>
+                  <div className="w-14 h-14 mx-auto rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shadow-xs">
+                    {selectedLogoSub.logoUrl || getSubcategoryFallbackLogo(selectedLogoSub.code) ? (
+                      <Image
+                        src={selectedLogoSub.logoUrl || getSubcategoryFallbackLogo(selectedLogoSub.code)!}
+                        alt="Current"
+                        width={48}
+                        height={48}
+                        className="w-full h-full object-contain"
+                        unoptimized
+                      />
+                    ) : (
+                      <Award className="w-6 h-6 text-slate-300" />
+                    )}
+                  </div>
+                  <div className="text-[10px] font-medium text-slate-600 truncate">
+                    {selectedLogoSub.logoUrl ? 'Custom URL' : 'Default Fallback'}
+                  </div>
+                </div>
+
+                <div className="text-center space-y-1.5">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">
+                    New Preview
+                  </div>
+                  <div className="w-14 h-14 mx-auto rounded-xl bg-white border border-indigo-200 p-1 flex items-center justify-center shadow-xs">
+                    {logoInputUrl.trim() ? (
+                      <img
+                        src={logoInputUrl.trim()}
+                        alt="New Preview"
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <ImageIcon className="w-6 h-6 text-slate-300" />
+                    )}
+                  </div>
+                  <div className="text-[10px] font-medium text-slate-600 truncate">
+                    {logoInputUrl.trim() ? 'Live URL Preview' : 'Enter URL below'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Presets */}
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-bold text-slate-600">
+                  Quick System Presets:
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {PRESET_LOGOS.slice(0, 4).map((p) => (
+                    <button
+                      type="button"
+                      key={p.label}
+                      onClick={() => {
+                        setLogoInputUrl(p.url);
+                        setLogoInputError(null);
+                        setConfirmReplaceStep(false);
+                      }}
+                      className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium rounded-lg border border-slate-200 transition"
+                    >
+                      {p.icon} {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* URL Input */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-800">
+                  Secure Image URL (HTTPS Only):
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://... (e.g. Supabase Storage or CDN URL)"
+                  value={logoInputUrl}
+                  onChange={(e) => {
+                    setLogoInputUrl(e.target.value);
+                    setLogoInputError(null);
+                    setConfirmReplaceStep(false);
+                  }}
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:ring-2 focus:ring-indigo-600 font-mono"
+                />
+                {logoInputError && (
+                  <p className="text-xs text-rose-600 font-medium flex items-center space-x-1 mt-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{logoInputError}</span>
+                  </p>
+                )}
+                <p className="text-[11px] text-slate-400">
+                  Must be a valid HTTPS image URL. Device uploads, file pickers, and Base64 strings are strictly prohibited.
+                </p>
+              </div>
+
+              {/* Confirmation Step if replacing */}
+              {confirmReplaceStep && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start space-x-2 text-xs text-amber-900 animate-fade-in">
+                  <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Confirmation required:</span> You are replacing the existing logo for{' '}
+                    <span className="font-semibold">{selectedLogoSub.name}</span>. Click &quot;Confirm & Save Logo&quot; below to proceed.
+                  </div>
+                </div>
+              )}
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLogoModalOpen(false);
+                    setSelectedLogoSub(null);
+                    setConfirmReplaceStep(false);
+                  }}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={savingLogo || !logoInputUrl.trim()}
+                  onClick={handleSaveLogoUrl}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow disabled:opacity-50 flex items-center space-x-1.5"
+                >
+                  {savingLogo && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>
+                    {confirmReplaceStep
+                      ? 'Confirm & Save Logo'
+                      : selectedLogoSub.logoUrl
+                      ? 'Replace Logo URL'
+                      : 'Save Logo URL'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL 2: CONFIRM REMOVE LOGO */}
+        {confirmRemoveLogoOpen && selectedLogoSub && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-madin-950/70 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-zoom-up space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 mx-auto">
+                <Trash2 className="w-6 h-6" />
+              </div>
+
+              <div className="text-center space-y-1">
+                <h3 className="text-base font-bold text-slate-900">Remove Subcategory Logo</h3>
+                <p className="text-xs text-slate-500">
+                  Are you sure you want to remove the custom logo URL for{' '}
+                  <span className="font-bold text-slate-800">{selectedLogoSub.name}</span>?
+                </p>
+              </div>
+
+              {/* Display what fallback will be used */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-center space-y-2">
+                <div className="text-[11px] font-bold text-slate-600">Reverting to Default Fallback Icon:</div>
+                <div className="w-12 h-12 mx-auto rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shadow-xs">
+                  {getSubcategoryFallbackLogo(selectedLogoSub.code) ? (
+                    <Image
+                      src={getSubcategoryFallbackLogo(selectedLogoSub.code)!}
+                      alt="Fallback"
+                      width={40}
+                      height={40}
+                      className="w-full h-full object-contain"
+                      unoptimized
+                    />
+                  ) : (
+                    <Award className="w-6 h-6 text-slate-400" />
+                  )}
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono">
+                  {getSubcategoryFallbackLogo(selectedLogoSub.code) || 'Default System Emblem'}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-center space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmRemoveLogoOpen(false);
+                    setSelectedLogoSub(null);
+                  }}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={savingLogo}
+                  onClick={handleConfirmRemoveLogo}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition shadow flex-1 flex items-center justify-center space-x-1.5 disabled:opacity-50"
+                >
+                  {savingLogo && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Yes, Remove Logo</span>
                 </button>
               </div>
             </div>
