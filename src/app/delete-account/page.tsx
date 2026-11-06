@@ -23,6 +23,7 @@ import {
   Info,
 } from 'lucide-react';
 import PublicFooter from '@/components/layout/PublicFooter';
+import MobileHeaderMenu from '@/components/layout/MobileHeaderMenu';
 
 export default function DeleteAccountPage() {
   const [formData, setFormData] = useState({
@@ -140,13 +141,16 @@ export default function DeleteAccountPage() {
             </div>
           </div>
 
-          <Link
-            href="/privacy-policy"
-            className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center space-x-1"
-          >
-            <span>Privacy Notice</span>
-            <ExternalLink className="w-3 h-3" />
-          </Link>
+          <div className="flex items-center space-x-2">
+            <Link
+              href="/privacy-policy"
+              className="hidden sm:flex text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline items-center space-x-1"
+            >
+              <span>Privacy Notice</span>
+              <ExternalLink className="w-3 h-3" />
+            </Link>
+            <MobileHeaderMenu />
+          </div>
         </div>
       </header>
 

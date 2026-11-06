@@ -38,6 +38,7 @@ import {
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
+import MobileHeaderMenu from '@/components/layout/MobileHeaderMenu';
 
 function formatPoints(pts: number): string {
   if (pts === undefined || pts === null || isNaN(pts)) return '0';
@@ -422,6 +423,7 @@ export default function PublicStudentScorecardPage() {
             >
               <Printer className="w-4 h-4 text-amber-300" />
             </button>
+            <MobileHeaderMenu />
           </div>
         </div>
 

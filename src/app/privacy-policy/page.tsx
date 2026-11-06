@@ -33,6 +33,7 @@ import {
   Info,
 } from 'lucide-react';
 import PublicFooter from '@/components/layout/PublicFooter';
+import MobileHeaderMenu from '@/components/layout/MobileHeaderMenu';
 import ScrollToTopHUD from '@/components/leaderboard/ScrollToTopHUD';
 import { PrintButton, CopyContactButton } from '@/components/privacy/PrivacyActions';
 
@@ -109,6 +110,7 @@ export default function PrivacyPolicyPage() {
             >
               Leaderboard
             </Link>
+            <MobileHeaderMenu />
           </div>
         </div>
       </header>

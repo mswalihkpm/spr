@@ -32,6 +32,7 @@ import StudentAvatar from '@/components/ui/StudentAvatar';
 import StudentReportModal from '@/components/modals/StudentReportModal';
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
+import MobileHeaderMenu from '@/components/layout/MobileHeaderMenu';
 import { getAcademicMasterData } from '@/lib/academic-client';
 import CustomSelect from '@/components/ui/CustomSelect';
 import { useAppBootstrap } from '@/context/AppBootstrapContext';
@@ -1023,6 +1024,7 @@ function deriveCategoryLeaderboard(
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Overview</span>
             </Link>
+            <MobileHeaderMenu />
           </div>
         </div>
       </header>

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
+import MobileHeaderMenu from '@/components/layout/MobileHeaderMenu';
 import NewsDetailModal from '@/components/modals/NewsDetailModal';
 import { useAppBootstrap } from '@/context/AppBootstrapContext';
 import { fetchWithDedupe } from '@/lib/client-cache';
@@ -115,6 +116,7 @@ export default function UpdatesPublicPage() {
             >
               Leaderboard
             </Link>
+            <MobileHeaderMenu />
           </div>
         </div>
       </header>

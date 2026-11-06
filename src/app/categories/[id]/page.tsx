@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
+import MobileHeaderMenu from '@/components/layout/MobileHeaderMenu';
 import { getCategoryIcon, getCategoryColor, getCategoryLogo, getCategoryDualLogos } from '@/lib/category-utils';
 import { useAppBootstrap } from '@/context/AppBootstrapContext';
 import { fetchWithDedupe } from '@/lib/client-cache';
@@ -162,6 +163,7 @@ export default function PublicCategorySubcategoriesPage() {
               <Trophy className="w-3.5 h-3.5 text-amber-300" />
               <span>Wing Leaderboard</span>
             </Link>
+            <MobileHeaderMenu />
           </div>
         </div>
       </header>

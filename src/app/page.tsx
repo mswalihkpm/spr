@@ -31,6 +31,7 @@ import NewsDetailModal from '@/components/modals/NewsDetailModal';
 import ItemLeaderboardModal from '@/components/modals/ItemLeaderboardModal';
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
+import MobileHeaderMenu from '@/components/layout/MobileHeaderMenu';
 import { getAcademicMasterData } from '@/lib/academic-client';
 import { fetchWithDedupe } from '@/lib/client-cache';
 import CustomSelect from '@/components/ui/CustomSelect';
@@ -828,6 +829,7 @@ export default function PublicHomePage() {
                 >
                   <GraduationCap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400" />
                 </Link>
+                <MobileHeaderMenu />
               </div>
             </>
           )}

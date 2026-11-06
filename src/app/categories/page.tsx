@@ -36,6 +36,7 @@ import VideoLoader from '@/components/ui/VideoLoader';
 import { getAcademicMasterData } from '@/lib/academic-client';
 import CustomSelect from '@/components/ui/CustomSelect';
 import PublicFooter from '@/components/layout/PublicFooter';
+import MobileHeaderMenu from '@/components/layout/MobileHeaderMenu';
 import { getCategoryIcon, getCategoryColor, getCategoryLogo, getCategoryDualLogos, getCategoryModulePath } from '@/lib/category-utils';
 import { useAppBootstrap } from '@/context/AppBootstrapContext';
 import { fetchWithDedupe, invalidateClientCache } from '@/lib/client-cache';
@@ -248,6 +249,7 @@ export default function CategoriesPage() {
               <Trophy className="w-3.5 h-3.5 text-amber-500" />
               <span>Leaderboard</span>
             </Link>
+            <MobileHeaderMenu />
           </div>
         </div>
       </header>
