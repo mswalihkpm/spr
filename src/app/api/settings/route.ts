@@ -285,10 +285,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'User not found.' }, { status: 404 });
       }
 
-      // Delete sessions, tokens, audit logs
+      // Delete sessions, tokens
       await prisma.session.deleteMany({ where: { userId } });
       await prisma.passwordResetToken.deleteMany({ where: { userId } });
-      await prisma.auditLog.deleteMany({ where: { userId } });
       await prisma.user.delete({ where: { id: userId } });
 
       await logAuditAction({
@@ -317,7 +316,6 @@ export async function POST(req: NextRequest) {
 
       await prisma.session.deleteMany({ where: { userId: { in: safeUserIds } } });
       await prisma.passwordResetToken.deleteMany({ where: { userId: { in: safeUserIds } } });
-      await prisma.auditLog.deleteMany({ where: { userId: { in: safeUserIds } } });
       const deleteResult = await prisma.user.deleteMany({ where: { id: { in: safeUserIds } } });
 
       await logAuditAction({

@@ -89,7 +89,6 @@ export async function runPostMigrationVerification() {
     { name: 'LibraryIntegration', getTarget: () => prisma.libraryIntegration.count(), sourceCount: getCsvCount('LibraryIntegration') || 1 },
     { name: 'ImportHistory', getTarget: () => prisma.importHistory.count(), sourceCount: getCsvCount('ImportHistory') || 1 },
     { name: 'AcademicYear', getTarget: () => prisma.academicYear.count(), sourceCount: getCsvCount('AcademicYear') || 1 },
-    { name: 'AuditLog', getTarget: () => prisma.auditLog.count(), sourceCount: getCsvCount('AuditLog') || 100 },
     { name: 'PasswordResetToken', getTarget: () => prisma.passwordResetToken.count(), sourceCount: 0 },
     { name: 'StudentReport', getTarget: () => prisma.studentReport.count(), sourceCount: 0 },
   ];

@@ -22,7 +22,6 @@ model User {
   passwordResetTokens PasswordResetToken[]
   createdRecords     PerformanceRecord[] @relation("CreatedRecords")
   updatedRecords     PerformanceRecord[] @relation("UpdatedRecords")
-  auditLogs          AuditLog[]
   importHistories    ImportHistory[]
   createdTasks       Task[]              @relation("CreatedTasks")
   approvedTaskRecords StudentTaskRecord[] @relation("ApprovedTaskRecords")
@@ -490,25 +489,6 @@ model SystemSetting {
   value       String
   description String?
   updatedAt   DateTime @updatedAt
-}
-
-model AuditLog {
-  id            String   @id @default(cuid())
-  userId        String?
-  user          User?    @relation(fields: [userId], references: [id])
-  userName      String?
-  action        String   // CREATE, UPDATE, DELETE, IMPORT, LOGIN, PASSWORD_CHANGE, SYNC
-  entity        String   // Student, Score, Category, Weight, Setting, User
-  entityId      String?
-  previousValue String?  // JSON string
-  newValue      String?  // JSON string
-  ipAddress     String?
-  userAgent     String?
-  createdAt     DateTime @default(now())
-
-  @@index([userId])
-  @@index([entity])
-  @@index([createdAt])
 }
 
 model ImportHistory {

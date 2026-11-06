@@ -769,36 +769,6 @@ export async function executeCsvMigration() {
     })
   );
 
-  await insertBatch('AuditLog', loadTable('AuditLog'), (item) =>
-    prisma.auditLog.upsert({
-      where: { id: item.id },
-      update: {
-        userId: toNullableString(item.userId),
-        userName: toNullableString(item.userName),
-        action: String(item.action),
-        entity: String(item.entity),
-        entityId: toNullableString(item.entityId),
-        previousValue: toNullableString(item.previousValue),
-        newValue: toNullableString(item.newValue),
-        ipAddress: toNullableString(item.ipAddress),
-        userAgent: toNullableString(item.userAgent),
-      },
-      create: {
-        id: item.id,
-        userId: toNullableString(item.userId),
-        userName: toNullableString(item.userName),
-        action: String(item.action),
-        entity: String(item.entity),
-        entityId: toNullableString(item.entityId),
-        previousValue: toNullableString(item.previousValue),
-        newValue: toNullableString(item.newValue),
-        ipAddress: toNullableString(item.ipAddress),
-        userAgent: toNullableString(item.userAgent),
-        createdAt: toDate(item.createdAt),
-      },
-    })
-  );
-
   await insertBatch('ImportHistory', loadTable('ImportHistory'), (item) =>
     prisma.importHistory.upsert({
       where: { id: item.id },

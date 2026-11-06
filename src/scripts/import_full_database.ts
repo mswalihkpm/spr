@@ -548,23 +548,6 @@ export async function runFullDatabaseMigration() {
   stats['LibraryRecord'] = { total: libraryRecords.length, inserted: resLibRecord.count, skipped: libraryRecords.length - resLibRecord.count };
   console.log(`✓ LibraryRecord: ${libraryRecords.length}/${libraryRecords.length} synced (${resLibRecord.count} newly inserted)`);
 
-  const auditLogs = (data.AuditLog || []).map((item) => ({
-    id: item.id,
-    userId: toNullableString(item.userId),
-    userName: toNullableString(item.userName),
-    action: String(item.action),
-    entity: String(item.entity),
-    entityId: toNullableString(item.entityId),
-    previousValue: toNullableString(item.previousValue),
-    newValue: toNullableString(item.newValue),
-    ipAddress: toNullableString(item.ipAddress),
-    userAgent: toNullableString(item.userAgent),
-    createdAt: toDate(item.createdAt) || new Date(),
-  }));
-  const resAudit = await withRetry(() => prisma.auditLog.createMany({ data: auditLogs, skipDuplicates: true }));
-  stats['AuditLog'] = { total: auditLogs.length, inserted: resAudit.count, skipped: auditLogs.length - resAudit.count };
-  console.log(`✓ AuditLog: ${auditLogs.length}/${auditLogs.length} synced (${resAudit.count} newly inserted)`);
-
   const importHistories = (data.ImportHistory || []).map((item) => ({
     id: item.id,
     fileName: String(item.fileName),

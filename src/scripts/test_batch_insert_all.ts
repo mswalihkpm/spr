@@ -444,22 +444,6 @@ async function runFastMigration() {
   const resLibRec = await prisma.libraryRecord.createMany({ data: libRecords, skipDuplicates: true });
   console.log(`✓ LibraryRecord: ${resLibRec.count}/${libRecords.length} created`);
 
-  const audits = loadTable('AuditLog').map((item) => ({
-    id: item.id,
-    userId: toNullableString(item.userId),
-    userName: toNullableString(item.userName),
-    action: String(item.action),
-    entity: String(item.entity),
-    entityId: toNullableString(item.entityId),
-    previousValue: toNullableString(item.previousValue),
-    newValue: toNullableString(item.newValue),
-    ipAddress: toNullableString(item.ipAddress),
-    userAgent: toNullableString(item.userAgent),
-    createdAt: toDate(item.createdAt) || new Date(),
-  }));
-  const resAudit = await prisma.auditLog.createMany({ data: audits, skipDuplicates: true });
-  console.log(`✓ AuditLog: ${resAudit.count}/${audits.length} created`);
-
   const imports = loadTable('ImportHistory').map((item) => ({
     id: item.id,
     fileName: String(item.fileName),
