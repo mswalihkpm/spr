@@ -1,18 +1,21 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { useAppBootstrap } from '@/context/AppBootstrapContext';
 
 interface AppIntroProps {
-  maxDuration?: number; // Maximum fallback duration in ms before forcing completion (default: 2400ms)
+  minDuration?: number; // Minimum cinematic presentation time in ms (default: 1600ms)
+  maxDuration?: number; // Maximum fallback duration in ms before forcing completion (default: 2600ms)
   onComplete?: () => void;
 }
 
 export default function AppIntro({
-  maxDuration = 2400,
+  minDuration = 1600,
+  maxDuration = 2600,
   onComplete,
 }: AppIntroProps) {
-  const { isBootstrapped, bootstrapProgress, bootstrapStatus, displayConfig } = useAppBootstrap();
+  const { isBootstrapped, bootstrapProgress, displayConfig } = useAppBootstrap();
 
   const [show, setShow] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -23,9 +26,11 @@ export default function AppIntro({
     }
     return true;
   });
+
   const [fadeOut, setFadeOut] = useState(false);
   const [footerText, setFooterText] = useState('2026 version 0.1');
   const [progress, setProgress] = useState(0);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const progressRef = useRef(0);
@@ -49,34 +54,51 @@ export default function AppIntro({
     } catch {}
   }, [displayConfig]);
 
-  // Ensure video playback starts promptly
+  // Video playback initialization with safety handling
   useEffect(() => {
     const video = videoRef.current;
-    if (video) {
-      const playVideo = () => {
-        if (video.paused) {
-          video.play().catch(() => {});
-        }
-      };
+    if (!video) return;
 
-      playVideo();
-      video.addEventListener('loadeddata', playVideo);
-      video.addEventListener('canplay', playVideo);
+    let isSubscribed = true;
 
-      return () => {
-        video.removeEventListener('loadeddata', playVideo);
-        video.removeEventListener('canplay', playVideo);
-      };
-    }
+    const tryPlay = () => {
+      if (!isSubscribed || !video) return;
+      if (video.paused) {
+        video
+          .play()
+          .then(() => {
+            if (isSubscribed) setIsVideoPlaying(true);
+          })
+          .catch(() => {
+            // Autoplay was restricted by browser/device; fallback will smoothly display logo
+          });
+      }
+    };
+
+    tryPlay();
+    const handlePlaying = () => {
+      if (isSubscribed) setIsVideoPlaying(true);
+    };
+
+    video.addEventListener('playing', handlePlaying);
+    video.addEventListener('canplay', tryPlay);
+    video.addEventListener('loadeddata', tryPlay);
+
+    return () => {
+      isSubscribed = false;
+      video.removeEventListener('playing', handlePlaying);
+      video.removeEventListener('canplay', tryPlay);
+      video.removeEventListener('loadeddata', tryPlay);
+    };
   }, []);
 
-  // Smooth progress animation loop directly driven by genuine bootstrap state
+  // Smooth, non-jittery progress animation loop with guaranteed minimum presentation
   useEffect(() => {
     if (!show) return;
 
     startTimeRef.current = performance.now();
 
-    // Safety fallback timer to prevent getting stuck
+    // Fallback timer to prevent getting stuck
     const fallbackTimer = setTimeout(() => {
       completedRef.current = true;
     }, maxDuration);
@@ -84,30 +106,35 @@ export default function AppIntro({
     const step = () => {
       const now = performance.now();
       const elapsed = now - startTimeRef.current;
+      const timeRatio = Math.min(elapsed / minDuration, 1);
 
-      // Real target progress derived from actual parallel bootstrap progress
+      // Target progress is based on time elapsed AND genuine bootstrap completion
+      // This guarantees the intro does not flash or vanish in a jarring 150ms
       let targetProgress = 0;
-      if (isBootstrapped || completedRef.current) {
+
+      if (completedRef.current || (isBootstrapped && elapsed >= minDuration)) {
         targetProgress = 100;
       } else {
-        // Track genuine bootstrapProgress while smoothing
-        targetProgress = Math.min(Math.max(bootstrapProgress, Math.round(bootstrapProgress)), 98);
+        // Curve smoothly towards 95% over minDuration, then wait for bootstrap if not ready
+        const timeProgress = Math.round(95 * (1 - Math.pow(1 - timeRatio, 1.8)));
+        const dataProgress = Math.round(bootstrapProgress || 0);
+        targetProgress = Math.min(Math.max(timeProgress, dataProgress), 95);
       }
 
-      // Smooth interpolation towards target (snappy acceleration when done)
+      // Smooth interpolation towards target
       const current = progressRef.current;
-      const speed = isBootstrapped || completedRef.current ? 0.35 : 0.15;
+      const speed = targetProgress >= 100 ? 0.22 : 0.12;
       const nextProgress = current + (targetProgress - current) * speed;
 
-      if (Math.abs(nextProgress - current) > 0.1 || (targetProgress >= 100 && nextProgress < 99.5)) {
+      if (Math.abs(nextProgress - current) > 0.08 || (targetProgress >= 100 && nextProgress < 99.5)) {
         progressRef.current = nextProgress;
         setProgress(Math.min(Math.round(nextProgress), 100));
         animFrameRef.current = requestAnimationFrame(step);
-      } else if ((isBootstrapped || completedRef.current || targetProgress >= 100) && !fadeOut) {
+      } else if (targetProgress >= 100 && !fadeOut) {
         progressRef.current = 100;
         setProgress(100);
 
-        // Immediate crisp transition to fade-out without artificial delay
+        // Elegant fade-out transition
         setFadeOut(true);
         setTimeout(() => {
           setShow(false);
@@ -117,7 +144,7 @@ export default function AppIntro({
           if (onComplete) {
             onComplete();
           }
-        }, 250);
+        }, 320);
       } else {
         animFrameRef.current = requestAnimationFrame(step);
       }
@@ -129,7 +156,7 @@ export default function AppIntro({
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       clearTimeout(fallbackTimer);
     };
-  }, [show, isBootstrapped, bootstrapProgress, maxDuration, onComplete, fadeOut]);
+  }, [show, isBootstrapped, bootstrapProgress, minDuration, maxDuration, onComplete, fadeOut]);
 
   if (!show) return null;
 
@@ -146,40 +173,80 @@ export default function AppIntro({
       {/* Top optical spacer */}
       <div className="w-full h-12 sm:h-16 shrink-0" />
 
-      {/* Centered Video Container + Smooth Progress Bar */}
-      <div className="flex-1 flex flex-col items-center justify-center w-full px-4 space-y-4 sm:space-y-5">
-        {/* Seamless Video Container */}
-        <div
-          className="relative flex items-center justify-center shrink-0 overflow-hidden bg-transparent w-[85px] h-[85px] sm:w-[100px] sm:h-[100px] md:w-[115px] md:h-[115px] max-w-[50vw] max-h-[25vh]"
-          style={{
-            backgroundColor: 'transparent',
-            maskImage: 'radial-gradient(ellipse at center, black 65%, black 85%, transparent 100%)',
-            WebkitMaskImage: 'radial-gradient(ellipse at center, black 65%, black 85%, transparent 100%)',
-          }}
-        >
-          <video
-            ref={videoRef}
-            src="/maaax.webm"
-            autoPlay
-            muted
-            playsInline
-            preload="auto"
-            disablePictureInPicture
-            disableRemotePlayback
-            className="w-full h-full object-contain pointer-events-none mix-blend-multiply bg-transparent"
+      {/* Centered Video / Logo Container + Smooth Progress Bar */}
+      <div className="flex-1 flex flex-col items-center justify-center w-full px-4 space-y-5 sm:space-y-6">
+        {/* Seamless Video / Logo Display Box */}
+        <div className="relative flex items-center justify-center shrink-0 w-[95px] h-[95px] sm:w-[110px] sm:h-[110px]">
+          {/* Institutional Brand Logo: Always visible from frame 0 so user NEVER sees an empty box or play icon */}
+          <div
+            className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
+              isVideoPlaying ? 'opacity-0 pointer-events-none' : 'opacity-100'
+            }`}
+          >
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-madin-900 p-2.5 flex items-center justify-center shadow-xl shadow-blue-900/10 border border-slate-100 animate-pulse">
+              <Image
+                src="/logo.png"
+                alt="Madin SPR"
+                width={80}
+                height={80}
+                className="w-full h-full object-contain"
+                priority
+              />
+            </div>
+          </div>
+
+          {/* Intro Video: Fades in only once actively playing frames to eliminate the Android WebView play button */}
+          <div
+            className="w-full h-full relative flex items-center justify-center overflow-hidden bg-transparent"
             style={{
-              filter: 'contrast(1.22) brightness(1.06)',
               backgroundColor: 'transparent',
+              maskImage: 'radial-gradient(ellipse at center, black 65%, black 85%, transparent 100%)',
+              WebkitMaskImage: 'radial-gradient(ellipse at center, black 65%, black 85%, transparent 100%)',
             }}
-          />
+          >
+            <video
+              ref={videoRef}
+              src="/maaax.webm"
+              autoPlay
+              muted
+              loop
+              playsInline
+              webkit-playsinline="true"
+              x5-playsinline="true"
+              x5-video-player-type="h5"
+              preload="auto"
+              disablePictureInPicture
+              disableRemotePlayback
+              controls={false}
+              poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E"
+              onPlaying={() => setIsVideoPlaying(true)}
+              className={`w-full h-full object-contain pointer-events-none mix-blend-multiply bg-transparent transition-opacity duration-300 ${
+                isVideoPlaying ? 'opacity-100' : 'opacity-0'
+              }`}
+              style={{
+                filter: 'contrast(1.22) brightness(1.06)',
+                backgroundColor: 'transparent',
+              }}
+            />
+          </div>
         </div>
 
-        {/* Modern 0–100% Progress Bar Directly Underneath Video */}
-        <div className="w-full max-w-[190px] sm:max-w-[220px] md:max-w-[240px] flex flex-col items-center space-y-2">
+        {/* Institution Brand Title */}
+        <div className="text-center space-y-1">
+          <h2 className="text-xs sm:text-sm font-black tracking-widest text-slate-900 uppercase">
+            MADIN SCHOOL OF EXCELLENCE
+          </h2>
+          <div className="text-[10px] sm:text-[11px] font-bold text-blue-600 tracking-wider uppercase">
+            Students Performance Rate
+          </div>
+        </div>
+
+        {/* Modern 0–100% Progress Bar Directly Underneath */}
+        <div className="w-full max-w-[200px] sm:max-w-[230px] flex flex-col items-center space-y-2 pt-1">
           {/* Progress Track */}
-          <div className="w-full bg-slate-200/90 h-2 sm:h-2.5 rounded-full overflow-hidden relative shadow-inner">
+          <div className="w-full bg-slate-100 h-2 sm:h-2.5 rounded-full overflow-hidden relative shadow-inner border border-slate-200/60">
             <div
-              className="h-full bg-slate-950 dark:bg-white rounded-full transition-all duration-100 ease-out"
+              className="h-full bg-slate-900 rounded-full transition-all duration-100 ease-out"
               style={{
                 width: `${Math.min(Math.max(progress, progress > 0 ? 3 : 0), 100)}%`,
                 minWidth: progress > 0 ? '4px' : '0px',
@@ -208,4 +275,3 @@ export default function AppIntro({
     </div>
   );
 }
-

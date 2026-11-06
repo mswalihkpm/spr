@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 
 interface VideoLoaderProps {
   src?: string;
@@ -25,6 +26,7 @@ export function VideoLoaderComponent({
 }: VideoLoaderProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [displayProgress, setDisplayProgress] = useState(0);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const progressRef = useRef(0);
   const animFrameRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
@@ -74,19 +76,15 @@ export function VideoLoaderComponent({
       } else {
         // Continuous, realistic loading progress curve based on component active lifespan
         if (elapsed < 300) {
-          // Rapid initial request setup (0% -> 38%)
           const t = elapsed / 300;
           target = Math.round(38 * (1 - Math.pow(1 - t, 2)));
         } else if (elapsed < 1000) {
-          // Data transfer & parsing phase (38% -> 78%)
           const t = (elapsed - 300) / 700;
           target = Math.round(38 + 40 * (1 - Math.pow(1 - t, 1.8)));
         } else if (elapsed < 2200) {
-          // Data aggregation & calculations (78% -> 94%)
           const t = (elapsed - 1000) / 1200;
           target = Math.round(78 + 16 * (1 - Math.pow(1 - t, 1.5)));
         } else {
-          // Asymptotically approach 98% if non-critical network is slow
           const t = Math.min((elapsed - 2200) / 3000, 1);
           target = Math.round(94 + 4 * (1 - Math.pow(1 - t, 1.2)));
         }
@@ -122,16 +120,27 @@ export function VideoLoaderComponent({
     const playVideo = () => {
       if (!isSubscribed || !video) return;
       if (video.paused) {
-        video.play().catch(() => {});
+        video
+          .play()
+          .then(() => {
+            if (isSubscribed) setIsVideoPlaying(true);
+          })
+          .catch(() => {});
       }
     };
 
     playVideo();
+    const handlePlaying = () => {
+      if (isSubscribed) setIsVideoPlaying(true);
+    };
+
+    video.addEventListener('playing', handlePlaying);
     video.addEventListener('loadeddata', playVideo);
     video.addEventListener('canplay', playVideo);
 
     return () => {
       isSubscribed = false;
+      video.removeEventListener('playing', handlePlaying);
       video.removeEventListener('loadeddata', playVideo);
       video.removeEventListener('canplay', playVideo);
     };
@@ -150,6 +159,23 @@ export function VideoLoaderComponent({
           WebkitMaskImage: 'radial-gradient(ellipse at center, black 65%, black 85%, transparent 100%)',
         }}
       >
+        {/* Fallback emblem: Visible while video buffers to prevent black play button */}
+        <div
+          className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
+            isVideoPlaying ? 'opacity-0 pointer-events-none' : 'opacity-100'
+          }`}
+        >
+          <div className="w-3/4 h-3/4 rounded-xl bg-madin-900/90 p-1 flex items-center justify-center shadow-xs animate-pulse">
+            <Image
+              src="/logo.png"
+              alt="Loading..."
+              width={pixelSize}
+              height={pixelSize}
+              className="w-full h-full object-contain"
+            />
+          </div>
+        </div>
+
         <video
           ref={videoRef}
           src={src}
@@ -157,8 +183,16 @@ export function VideoLoaderComponent({
           loop={loop}
           muted
           playsInline
-          preload="metadata"
-          className="w-full h-full object-contain pointer-events-none mix-blend-multiply bg-transparent"
+          webkit-playsinline="true"
+          x5-playsinline="true"
+          x5-video-player-type="h5"
+          preload="auto"
+          controls={false}
+          poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E"
+          onPlaying={() => setIsVideoPlaying(true)}
+          className={`w-full h-full object-contain pointer-events-none mix-blend-multiply bg-transparent transition-opacity duration-300 ${
+            isVideoPlaying ? 'opacity-100' : 'opacity-0'
+          }`}
           style={{
             filter: 'contrast(1.22) brightness(1.06)',
             backgroundColor: 'transparent',
@@ -205,4 +239,3 @@ export function VideoLoaderComponent({
 
 const VideoLoader = React.memo(VideoLoaderComponent);
 export default VideoLoader;
-
