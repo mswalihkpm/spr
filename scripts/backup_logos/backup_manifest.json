@@ -1,0 +1,52 @@
+[
+  {
+    "id": "cmtx_sub_kuthbkhana",
+    "code": "KUTHBKHANA",
+    "name": "Kuthbkhana",
+    "mimeType": "image/png",
+    "originalLengthChars": 938198,
+    "fileSizeBytes": 703632,
+    "backupFile": "kuthbkhana_backup.png",
+    "fullLocalPath": "C:\\Users\\DELL\\Downloads\\SPR\\scripts\\backup_logos\\kuthbkhana_backup.png"
+  },
+  {
+    "id": "cmtzl22bw0001daqs63508k82",
+    "code": "MEEM_22BA",
+    "name": "Meem",
+    "mimeType": "image/png",
+    "originalLengthChars": 1301982,
+    "fileSizeBytes": 976470,
+    "backupFile": "meem_22ba_backup.png",
+    "fullLocalPath": "C:\\Users\\DELL\\Downloads\\SPR\\scripts\\backup_logos\\meem_22ba_backup.png"
+  },
+  {
+    "id": "cmtzlgj380001qa2vc07wvwhm",
+    "code": "SHASTRAMELA_GJ2Z",
+    "name": "Shastramela",
+    "mimeType": "image/png",
+    "originalLengthChars": 1510142,
+    "fileSizeBytes": 1132588,
+    "backupFile": "shastramela_gj2z_backup.png",
+    "fullLocalPath": "C:\\Users\\DELL\\Downloads\\SPR\\scripts\\backup_logos\\shastramela_gj2z_backup.png"
+  },
+  {
+    "id": "cmtx_sub_islamic_jamiathul",
+    "code": "JAMIATHUL_HIND",
+    "name": "Jamiathul Hind Al-Islamiyya",
+    "mimeType": "image/png",
+    "originalLengthChars": 20202,
+    "fileSizeBytes": 15133,
+    "backupFile": "jamiathul_hind_backup.png",
+    "fullLocalPath": "C:\\Users\\DELL\\Downloads\\SPR\\scripts\\backup_logos\\jamiathul_hind_backup.png"
+  },
+  {
+    "id": "cmv8e45f4000ghg3xv85f7k7h",
+    "code": "SHEIKH_ABUBAKR_FOUND_45F3",
+    "name": "Sheikh Abubakr Foundation",
+    "mimeType": "image/png",
+    "originalLengthChars": 111846,
+    "fileSizeBytes": 83866,
+    "backupFile": "sheikh_abubakr_found_45f3_backup.png",
+    "fullLocalPath": "C:\\Users\\DELL\\Downloads\\SPR\\scripts\\backup_logos\\sheikh_abubakr_found_45f3_backup.png"
+  }
+]

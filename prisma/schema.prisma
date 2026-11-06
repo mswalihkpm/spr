@@ -26,6 +26,7 @@ model User {
   importHistories    ImportHistory[]
   createdTasks       Task[]              @relation("CreatedTasks")
   approvedTaskRecords StudentTaskRecord[] @relation("ApprovedTaskRecords")
+  handledDeletionRequests AccountDeletionRequest[] @relation("HandledDeletionRequests")
 }
 
 model Session {
@@ -119,6 +120,7 @@ model Student {
   taskRecords        StudentTaskRecord[]
   taskRewardLedgers  TaskRewardLedger[]
   taskPointsLedgers  TaskPointsLedger[]
+  deletionRequests   AccountDeletionRequest[]
 
   @@index([classId])
   @@index([schoolId])
@@ -755,5 +757,38 @@ model TaskPointsLedger {
   @@index([studentId])
   @@index([taskId])
   @@index([studentTaskId])
+}
+
+model AccountDeletionRequest {
+  id                   String    @id @default(cuid())
+  reference            String    @unique // e.g. DEL-2026-XXXXX
+  studentIdentifier    String    // Student ID, SPR ID, or Full Name
+  matchedStudentId     String?   // Resolved Student.id if found
+  student              Student?  @relation(fields: [matchedStudentId], references: [id], onDelete: SetNull)
+  requesterType        String    @default("STUDENT") // STUDENT, PARENT_GUARDIAN
+  requesterName        String
+  requesterContact     String    // Email or Phone number
+  relationship         String?   // If parent/guardian: Mother, Father, Legal Guardian
+  requestType          String    @default("ACCOUNT_DELETION") // ACCOUNT_DELETION, FULL_DELETION
+  reason               String?   @db.Text
+  parentalConsent      Boolean   @default(false)
+  status               String    @default("PENDING") // PENDING, APPROVED, REJECTED, COMPLETED
+  rejectionReason      String?   @db.Text
+  adminNotes           String?   @db.Text
+  handledById          String?
+  handledBy            User?     @relation("HandledDeletionRequests", fields: [handledById], references: [id], onDelete: SetNull)
+  handledByName        String?
+  handledAt            DateTime?
+  completedAt          DateTime?
+  executionSummary     String?   @db.Text // Summary of actual operations performed
+  ipAddress            String?
+  userAgent            String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([status])
+  @@index([studentIdentifier])
+  @@index([matchedStudentId])
+  @@index([createdAt])
 }
 

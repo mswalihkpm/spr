@@ -33,6 +33,7 @@ import {
   Home,
   Store,
   CheckSquare,
+  UserX,
 } from 'lucide-react';
 import GlobalSearchModal from '../search/GlobalSearchModal';
 
@@ -110,7 +111,7 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
           router.push('/kuthbkhana');
         }
       } else if (!isAdmin) {
-        if (pathname.startsWith('/settings') || pathname.startsWith('/weights') || pathname.startsWith('/categories') || pathname.startsWith('/updates/manage') || pathname.startsWith('/store')) {
+        if (pathname.startsWith('/settings') || pathname.startsWith('/weights') || pathname.startsWith('/categories') || pathname.startsWith('/updates/manage') || pathname.startsWith('/store') || pathname.startsWith('/admin/deletion-requests')) {
           router.push('/dashboard');
         }
       }
@@ -141,6 +142,7 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
     { name: 'Weight Management', href: '/weights', icon: Sliders, adminOnly: true },
     { name: 'Leaderboards', href: '/leaderboard', icon: Award },
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+    { name: 'Deletion Requests', href: '/admin/deletion-requests', icon: UserX, adminOnly: true },
     { name: 'Settings', href: '/settings', icon: Settings, adminOnly: true },
   ];
 

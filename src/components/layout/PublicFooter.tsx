@@ -64,6 +64,13 @@ export default function PublicFooter() {
           </Link>
           <span className="text-slate-700">•</span>
           <Link
+            href="/delete-account"
+            className="text-xs font-semibold text-slate-400 hover:text-rose-400 transition"
+          >
+            Delete Account
+          </Link>
+          <span className="text-slate-700">•</span>
+          <Link
             href="/login"
             className="px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-blue-600 text-slate-300 hover:text-white transition-all text-xs font-bold border border-slate-700/80 flex items-center space-x-1.5 cursor-pointer shadow-xs"
             title="Staff & Admin Portal Login"

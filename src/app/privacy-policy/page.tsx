@@ -773,11 +773,36 @@ export default function PrivacyPolicyPage() {
                   Because student accounts are managed through school administration, deletion requests are handled through verified administrative channels:
                 </p>
 
-                <div className="space-y-2 text-xs">
+                <div className="space-y-3 text-xs">
+                  {/* Primary: Online Deletion Portal */}
+                  <div className="p-4 bg-rose-50/60 dark:bg-rose-950/40 rounded-2xl border-2 border-rose-300 dark:border-rose-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex items-start space-x-3">
+                      <Trash2 className="w-5 h-5 text-rose-600 dark:text-rose-400 mt-0.5 shrink-0" />
+                      <div>
+                        <strong className="text-slate-900 dark:text-white text-sm block">
+                          Online Account & Data Deletion Portal (No Login Required)
+                        </strong>
+                        <span className="text-slate-600 dark:text-slate-300 block mt-0.5">
+                          Submit an instant deletion or deactivation request directly via our public web portal. Fully accessible to students, parents, and Google Play reviewers.
+                        </span>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-1 font-mono">
+                          Official URL: {officialWebsite}/delete-account
+                        </span>
+                      </div>
+                    </div>
+                    <Link
+                      href="/delete-account"
+                      className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center space-x-1.5 shrink-0 self-start sm:self-auto"
+                    >
+                      <span>Open Deletion Form</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+
                   <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex items-start space-x-3">
                     <Mail className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
                     <div>
-                      <strong className="text-slate-900 dark:text-white block">Email Request Channel</strong>
+                      <strong className="text-slate-900 dark:text-white block">Email Request Channel (Alternate)</strong>
                       <span className="text-slate-600 dark:text-slate-300 block mt-0.5">
                         Submit a written request to{' '}
                         <a href={`mailto:${officialContactEmail}?subject=SPR%20Account%20and%20Data%20Deletion%20Request`} className="font-mono font-bold text-blue-600 dark:text-blue-400 hover:underline">
