@@ -219,16 +219,29 @@ export async function executeBrandedShare(
       console.warn('Could not fetch banner image blob:', err);
     }
 
+    // Pre-copy text to clipboard so it's always ready in case user needs to paste
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(payload.text);
+      } catch {
+        // Non-blocking clipboard copy
+      }
+    }
+
     // Try sharing with File (Level 2 Web Share)
-    // IMPORTANT: Do NOT include `title` or `url` when sharing files!
-    // Passing `title` sets Intent.EXTRA_SUBJECT in Android Chrome, which causes WhatsApp
-    // to split the share into two separate messages (text bubble + image bubble).
-    // Passing ONLY `files` and `text` causes WhatsApp to set `text` as the image CAPTION,
-    // sending both the image and text together as ONE unified message.
+    // CRITICAL: We pass `title: payload.text` AND `text: payload.text`!
+    // In Chromium Android (ShareHelper.java):
+    // If title !== text, Chromium adds `Intent.EXTRA_SUBJECT`.
+    // When WhatsApp receives `EXTRA_SUBJECT`, it treats it as an email/subject share
+    // and splits the payload into two separate messages (text bubble + image bubble).
+    // By setting `title: payload.text`, `title === text`, so Chromium skips `EXTRA_SUBJECT`!
+    // WhatsApp then maps `text` directly into the image's Caption box ("Add a caption..."),
+    // producing a single unified message bubble!
     if (fileToShare && navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
       try {
         await navigator.share({
           files: [fileToShare],
+          title: payload.text,
           text: payload.text,
         });
         return { success: true, sharedWithFile: true };
@@ -243,6 +256,7 @@ export async function executeBrandedShare(
     // Fallback: Web Share without file
     try {
       await navigator.share({
+        title: payload.text,
         text: payload.text,
       });
       return { success: true, sharedWithFile: false };

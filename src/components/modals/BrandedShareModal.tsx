@@ -104,13 +104,22 @@ export default function BrandedShareModal({
         console.warn('Could not load banner blob for share:', e);
       }
 
+      // Pre-copy text to clipboard for instant availability
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(payload.text);
+        } catch {}
+      }
+
       if (fileToShare && navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
         await navigator.share({
           files: [fileToShare],
+          title: payload.text,
           text: payload.text,
         });
       } else {
         await navigator.share({
+          title: payload.text,
           text: payload.text,
         });
       }
