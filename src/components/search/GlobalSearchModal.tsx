@@ -25,9 +25,10 @@ import { StudentAvatar } from '@/components/ui/StudentAvatar';
 interface GlobalSearchModalProps {
   isOpen: boolean;
   onClose: () => void;
+  isAdmin?: boolean;
 }
 
-export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
+export default function GlobalSearchModal({ isOpen, onClose, isAdmin = false }: GlobalSearchModalProps) {
   const [query, setQuery] = useState('');
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -54,14 +55,25 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        let res = await fetch(`/api/students?search=${encodeURIComponent(query.trim())}&limit=25`, {
-          signal: controller.signal,
-        });
-        if (res.status === 401) {
+        let res: Response;
+        if (isAdmin) {
+          // Authenticated administrator search (accesses full admin student roster)
+          res = await fetch(`/api/students?search=${encodeURIComponent(query.trim())}&limit=25`, {
+            signal: controller.signal,
+          });
+          // Graceful fallback if admin session unexpectedly expired
+          if (res.status === 401) {
+            res = await fetch(`/api/public/search?q=${encodeURIComponent(query.trim())}`, {
+              signal: controller.signal,
+            });
+          }
+        } else {
+          // Public visitor search: routes directly to public search, avoiding unauthorized 401 requests
           res = await fetch(`/api/public/search?q=${encodeURIComponent(query.trim())}`, {
             signal: controller.signal,
           });
         }
+
         const data = await res.json();
         if (data.students) {
           setStudents(data.students);
@@ -79,7 +91,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query]);
+  }, [query, isAdmin]);
 
   const navShortcuts = [
     { title: 'Dashboard', path: '/dashboard', icon: BarChart3, category: 'Navigation' },
@@ -141,7 +153,11 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
                   <button
                     key={st.id}
                     onClick={() => {
-                      router.push(`/students/${st.id}`);
+                      if (isAdmin) {
+                        router.push(`/students/${st.id}`);
+                      } else {
+                        router.push(`/student/${st.studentId || st.id}`);
+                      }
                       onClose();
                     }}
                     className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-blue-50 text-left transition-colors group"

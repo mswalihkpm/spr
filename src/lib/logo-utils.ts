@@ -6,7 +6,7 @@
 
 export function getSubcategoryFallbackLogo(code?: string): string | null {
   const c = (code || '').toUpperCase();
-  if (c === 'KUTHBKHANA' || c.includes('KUTHB') || c.includes('KITHAB')) return '/kuthbkhana-logo.png';
+  if (c === 'KUTHBKHANA' || c.includes('KUTHB') || c.includes('KITHAB')) return '/logos/kuthbkhana.webp';
   if (c === 'LIBRARY_IMTHIYAAZ' || c === 'IMTHIYAAZ_LIBRARY' || c === 'LIBRARY' || c.includes('READ') || c.includes('LIBRA')) return '/library-logo.png';
   if (c === 'MADIN_ACADEMY' || c.includes('MADIN')) return '/madin-academy-dark.png';
   if (c === 'JAMIATHUL_HIND' || c.includes('JAMIATHUL')) return '/jamiathul-hind.png';
@@ -14,8 +14,8 @@ export function getSubcategoryFallbackLogo(code?: string): string | null {
   if (c === 'KALOTSAV' || c.includes('KALOT')) return '/kalotsav.png';
   if (c === 'M_LIT_FEST' || c === 'M_LIT' || c.includes('M_LIT') || c.includes('MLIT')) return '/m-lit.png';
   if (c === 'JAMIA_MAHARJAN' || c.includes('MAHARJAN')) return '/jamia-mahrajan.png';
-  if (c.includes('SHASTRA')) return '/programs-logo.png';
-  if (c.includes('MEEM')) return '/qualification-logo.png';
+  if (c.includes('SHASTRA')) return '/logos/shastramela.webp';
+  if (c.includes('MEEM')) return '/logos/meem.webp';
   if (c.includes('ABUBAKR')) return '/madin-academy-dark.png';
   if (c.includes('GENERAL_ASSESSMENT') || c.includes('THAHADI')) return 'https://arabreadingchallenge.com/assets/frontend/dist/images/logo.svg';
   return null;

@@ -18,6 +18,7 @@ import {
   ArrowRight,
   ArrowUp,
   Flag,
+  Share2,
   RotateCcw,
   RefreshCw,
   CheckCircle2,
@@ -29,6 +30,8 @@ import {
   Percent,
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
+import BrandedShareModal from '@/components/modals/BrandedShareModal';
+import { executeBrandedShare, SharePayload } from '@/lib/share-utils';
 import StudentReportModal from '@/components/modals/StudentReportModal';
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
@@ -92,6 +95,8 @@ function LeaderboardContent() {
 
   // Report Modal State
   const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [reportingStudent, setReportingStudent] = useState<any | null>(null);
 
   // Student Dossier & % Calculation Modal State
@@ -422,8 +427,7 @@ function deriveCategoryLeaderboard(
       setModalCalcTab('OVERALL');
     }
 
-    fetch(`/api/public/student/${studentId}`)
-      .then((res) => res.json())
+    fetchWithDedupe<any>(`/api/public/student/${studentId}`)
       .then((data) => {
         if (data && data.profile) {
           const profileData = {
@@ -537,6 +541,61 @@ function deriveCategoryLeaderboard(
   });
 
   const topThree = filteredEntries.slice(0, 3);
+
+    const handleShareAchievement = async () => {
+    if (!studentProfile?.student) return;
+    const student = studentProfile.student;
+    const rankVal = studentProfile.rank || 1;
+    const scoreVal = studentProfile.overallScore ?? studentProfile.overallSPR ?? 0;
+    const categoryName = selectedCategory ? (categories.find((c: any) => c.id === selectedCategory)?.name || 'Category') : 'Overall SPR';
+    const rankText = rankVal === 1 ? '1st Rank Champion' : rankVal === 2 ? '2nd Rank Silver' : rankVal === 3 ? '3rd Rank Bronze' : `Rank #${rankVal}`;
+    
+    await executeBrandedShare(
+      {
+        template: 'achievement',
+        studentId: studentProfile.student.id || selectedStudentId,
+        studentName: student.fullName,
+        achievementTitle: `${categoryName} Excellence Honor`,
+        rankText,
+        score: typeof scoreVal === 'number' ? scoreVal : parseFloat(scoreVal) || 0,
+        category: categoryName,
+        photoUrl: student.photoUrl || student.avatarUrl || '',
+      },
+      {
+        onFallbackModal: (p) => {
+          setSharePayload(p);
+          setIsShareModalOpen(true);
+        },
+      }
+    );
+  };
+
+  const handleSharePodium = async (e: React.MouseEvent, student: any, rankVal: number | string) => {
+    e.stopPropagation();
+    const categoryName = selectedCategory ? (categories.find((c: any) => c.id === selectedCategory)?.name || 'Category') : 'Overall SPR';
+    const rankNum = typeof rankVal === 'number' ? rankVal : parseInt(String(rankVal), 10) || 1;
+    const rankText = rankNum === 1 ? '1st Rank Champion' : rankNum === 2 ? '2nd Rank Silver' : rankNum === 3 ? '3rd Rank Bronze' : `Rank #${rankNum}`;
+    const score = student.spr ?? student.overallScore ?? 0;
+
+    await executeBrandedShare(
+      {
+        template: 'achievement',
+        studentId: student.studentId || student.id,
+        studentName: student.name || student.studentName || 'Student',
+        achievementTitle: `${categoryName} Podium Honor`,
+        rankText,
+        score: typeof score === 'number' ? score : parseFloat(score) || 0,
+        category: categoryName,
+        photoUrl: student.photoUrl || '',
+      },
+      {
+        onFallbackModal: (p) => {
+          setSharePayload(p);
+          setIsShareModalOpen(true);
+        },
+      }
+    );
+  };
 
   const openReportModal = (e: React.MouseEvent, st: any) => {
     e.stopPropagation();
@@ -710,7 +769,7 @@ function deriveCategoryLeaderboard(
         subtitle: 'Dedicated reading sessions, Islamic library texts & book reviews.',
         badge: 'Library Subcategory',
         badgeClass: 'bg-purple-500/25 text-purple-100 border-purple-300/40',
-        logo: '/kuthbkhana-logo.png',
+        logo: '/logos/kuthbkhana.webp',
         isFest: false,
       };
     } else if (sName.includes('imthiyaaz') || sCode.includes('imthiyaaz')) {
@@ -1500,6 +1559,24 @@ function deriveCategoryLeaderboard(
                             {formatScore(student.spr ?? student.overallScore)} <span className="text-[9px] sm:text-xs font-semibold text-slate-500">pts</span>
                           </span>
                           <button
+                            type="button"
+                            onClick={(e) => handleSharePodium(e, student, rank)}
+                            className="p-0.5 text-slate-400 hover:text-blue-600 transition"
+                            title="Share 2nd Rank Achievement"
+                            aria-label="Share Achievement"
+                          >
+                            <Share2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleSharePodium(e, student, rank)}
+                            className="p-0.5 text-slate-400 hover:text-blue-600 transition"
+                            title="Share 3rd Rank Achievement"
+                            aria-label="Share Achievement"
+                          >
+                            <Share2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                          </button>
+                          <button
                             onClick={(e) => openReportModal(e, student)}
                             className="p-0.5 text-slate-400 hover:text-rose-600 transition"
                             title="Report discrepancy"
@@ -1551,6 +1628,15 @@ function deriveCategoryLeaderboard(
                           <span className="text-xs sm:text-2xl font-black text-amber-800 dark:text-amber-300">
                             {formatScore(student.spr ?? student.overallScore)} <span className="text-[9.5px] sm:text-xs font-semibold text-amber-700/80">pts</span>
                           </span>
+                          <button
+                            type="button"
+                            onClick={(e) => handleSharePodium(e, student, rank)}
+                            className="p-0.5 text-amber-600 hover:text-blue-600 transition"
+                            title="Share 1st Rank Champion Achievement"
+                            aria-label="Share Achievement"
+                          >
+                            <Share2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                          </button>
                           <button
                             onClick={(e) => openReportModal(e, student)}
                             className="p-0.5 text-amber-600 hover:text-rose-600 transition"
@@ -2049,6 +2135,15 @@ function deriveCategoryLeaderboard(
                   </button>
 
                   <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={handleShareAchievement}
+                      className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/50 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 text-xs font-bold border border-slate-200 dark:border-slate-700 transition active:scale-95 cursor-pointer"
+                      title="Share Branded Honors Card"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                      <span>Share Achievement</span>
+                    </button>
                     <Link
                       href={`/student/${selectedStudentId}`}
                       className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md transition"
@@ -2075,6 +2170,13 @@ function deriveCategoryLeaderboard(
           setReportingStudent(null);
         }}
         student={reportingStudent}
+      />
+
+      {/* Branded Sharing Modal */}
+      <BrandedShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        payload={sharePayload}
       />
 
       {/* Permanent Public Footer */}

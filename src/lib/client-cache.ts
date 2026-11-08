@@ -24,6 +24,7 @@ export const CLIENT_CACHE_TTLS: Record<string, number> = {
   '/api/news': 60 * 60 * 1000,                 // 1 hour
   '/api/leaderboard': 5 * 60 * 1000,           // 5 minutes
   '/api/display': 30 * 60 * 1000,              // 30 minutes
+  '/api/public/student': 2 * 60 * 1000,        // 2 minutes (Public Scorecards)
 };
 
 // Endpoints strictly permitted for shared client caching (all other endpoints have TTL = 0)
@@ -35,6 +36,7 @@ const PUBLIC_CACHEABLE_PREFIXES = [
   '/api/news',
   '/api/leaderboard',
   '/api/display',
+  '/api/public/student',
 ];
 
 // Endpoints that MUST NEVER be cached under any circumstances (Private / Authenticated)
@@ -47,7 +49,6 @@ const NEVER_CACHE_PREFIXES = [
   '/api/admin',
   '/api/audit-logs',
   '/api/weights',
-  '/api/public/student/',
 ];
 
 // In-memory module-level storage

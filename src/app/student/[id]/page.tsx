@@ -39,6 +39,9 @@ import StudentAvatar from '@/components/ui/StudentAvatar';
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
 import MobileHeaderMenu from '@/components/layout/MobileHeaderMenu';
+import BrandedShareModal from '@/components/modals/BrandedShareModal';
+import { executeBrandedShare, SharePayload } from '@/lib/share-utils';
+import { fetchWithDedupe } from '@/lib/client-cache';
 
 function formatPoints(pts: number): string {
   if (pts === undefined || pts === null || isNaN(pts)) return '0';
@@ -57,6 +60,8 @@ export default function PublicStudentScorecardPage() {
   const [profile, setProfile] = useState<any | null>(cachedData?.profile || null);
   const [creativeWorks, setCreativeWorks] = useState<any[]>(cachedData?.creativeWorks || []);
   const [libraryRecords, setLibraryRecords] = useState<any[]>(cachedData?.libraryRecords || []);
+  const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [loading, setLoading] = useState(!cachedData);
   const [error, setError] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
@@ -95,8 +100,7 @@ export default function PublicStudentScorecardPage() {
       setLoading(true);
     }
 
-    fetch(`/api/public/student/${studentId}`)
-      .then((res) => res.json())
+    fetchWithDedupe<any>(`/api/public/student/${studentId}`)
       .then((data) => {
         if (data.error) {
           if (!cached) setError(data.error);
@@ -311,6 +315,31 @@ export default function PublicStudentScorecardPage() {
   const overallSprScore = formatScore(profile.overallScore ?? profile.overallSPR);
   const numericScore = parseFloat(overallSprScore);
 
+  const handleShareDossier = async () => {
+    if (!student) return;
+    const rank = profile.overallRank ?? profile.rank ?? 1;
+    const scoreVal = typeof numericScore === 'number' && !isNaN(numericScore) ? numericScore : (profile.overallScore ?? profile.overallSPR ?? 0);
+    await executeBrandedShare(
+      {
+        template: 'dossier',
+        studentId,
+        studentName: student.fullName,
+        className: student.grade || student.class?.name || 'Excellence',
+        division: student.division || 'A',
+        sprId: student.admissionNo || student.sprStudentId || student.studentId || '',
+        rank: typeof rank === 'number' ? rank : parseInt(String(rank), 10) || 1,
+        overallScore: typeof scoreVal === 'number' ? scoreVal : parseFloat(String(scoreVal)) || 0,
+        photoUrl: student.photoUrl || student.avatarUrl || '',
+      },
+      {
+        onFallbackModal: (p) => {
+          setSharePayload(p);
+          setIsShareModalOpen(p ? true : false);
+        },
+      }
+    );
+  };
+
   const categoriesList = profile.categoryBreakdown || profile.categoryScores || [];
   const activeCategory =
     categoriesList.find((c: any) => c.categoryId === selectedCategoryId || c.categoryCode === selectedCategoryId) ||
@@ -397,17 +426,7 @@ export default function PublicStudentScorecardPage() {
 
           <div className="flex items-center space-x-2">
             <button
-              onClick={() => {
-                if (navigator.share) {
-                  navigator.share({
-                    title: `${student?.fullName} - SPR Scorecard`,
-                    url: window.location.href,
-                  });
-                } else {
-                  navigator.clipboard.writeText(window.location.href);
-                  alert('Scorecard URL copied to clipboard!');
-                }
-              }}
+              onClick={handleShareDossier}
               className="inline-flex items-center space-x-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 px-3.5 py-2 min-h-touch rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition hover:scale-105 active:scale-95 btn-interactive cursor-pointer"
             >
               <Share2 className="w-3.5 h-3.5" />
@@ -1229,6 +1248,13 @@ export default function PublicStudentScorecardPage() {
           </div>
         </div>
       )}
+
+      {/* Branded Sharing Modal */}
+      <BrandedShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        payload={sharePayload}
+      />
 
       {/* Permanent Public Footer */}
       <PublicFooter />

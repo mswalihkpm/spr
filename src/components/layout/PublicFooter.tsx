@@ -3,12 +3,30 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Lock } from 'lucide-react';
+import { Lock, Share2 } from 'lucide-react';
 import PublicMobileNav from './PublicMobileNav';
 import { fetchWithDedupe } from '@/lib/client-cache';
+import BrandedShareModal from '@/components/modals/BrandedShareModal';
+import { executeBrandedShare, SharePayload } from '@/lib/share-utils';
 
 export default function PublicFooter() {
   const [introFooter, setIntroFooter] = useState('2026 version 0.1');
+  const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  const handleShareApp = async () => {
+    await executeBrandedShare(
+      {
+        template: 'app',
+      },
+      {
+        onFallbackModal: (p) => {
+          setSharePayload(p);
+          setIsShareModalOpen(true);
+        },
+      }
+    );
+  };
 
   useEffect(() => {
     fetchWithDedupe<any>('/api/display')
@@ -50,6 +68,15 @@ export default function PublicFooter() {
             News & Updates
           </Link>
           <span className="text-slate-700">•</span>
+          <button
+            type="button"
+            onClick={handleShareApp}
+            className="text-xs font-semibold text-slate-400 hover:text-sky-400 transition flex items-center space-x-1 cursor-pointer"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            <span>Share App</span>
+          </button>
+          <span className="text-slate-700">•</span>
           <Link
             href="/student/login"
             className="text-xs font-semibold text-slate-400 hover:text-white transition"
@@ -86,6 +113,13 @@ export default function PublicFooter() {
     {/* Safe-area bottom padding spacer on mobile ensuring page buttons and content are never cut off by PublicMobileNav */}
     <div className="sm:hidden w-full h-[calc(max(env(safe-area-inset-bottom,0px),0.75rem)+4.5rem)] pointer-events-none" aria-hidden="true" />
     <PublicMobileNav />
+
+    {/* Branded Sharing Modal */}
+    <BrandedShareModal
+      isOpen={isShareModalOpen}
+      onClose={() => setIsShareModalOpen(false)}
+      payload={sharePayload}
+    />
   </>
   );
 }

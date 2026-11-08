@@ -82,7 +82,7 @@ export function getCategoryDualLogos(code?: string): string[] | null {
     return ['/madin-academy-dark.png', '/jamiathul-hind-calligraphy.png'];
   }
   if (c === 'LIBRARY' || c.includes('READ') || c.includes('LIBRA')) {
-    return ['/library-logo.png', '/kuthbkhana-logo.png'];
+    return ['/library-logo.png', '/logos/kuthbkhana.webp'];
   }
   return null;
 }

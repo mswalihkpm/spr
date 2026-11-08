@@ -2,11 +2,35 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { calculateStudentSPR, calculateFastStudentRanks } from '@/lib/spr-engine';
+import { calculateStudentSPR, calculateFastStudentRanks, onInvalidateEngine } from '@/lib/spr-engine';
+
+// Server-side in-memory cache for public student performance dossiers (2-minute TTL)
+// Keyed strictly by canonical student database primary key (id) to prevent cross-student contamination.
+interface CachedDossier {
+  timestamp: number;
+  data: any;
+}
+
+const studentDossierServerCache = new Map<string, CachedDossier>();
+const DOSSIER_CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
+
+// Actively cleared when scoring engine cache is invalidated on mutations
+onInvalidateEngine(() => {
+  studentDossierServerCache.clear();
+});
+
+function clearStudentDossierServerCache() {
+  studentDossierServerCache.clear();
+}
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const studentIdentifier = params.id;
+    const { searchParams } = new URL(req.url);
+    const isFresh =
+      searchParams.get('fresh') === 'true' ||
+      searchParams.has('t') ||
+      req.headers.get('cache-control') === 'no-cache';
 
     // Find student either by database ID, studentId (e.g. MSOE-2026-001), or sprStudentId (e.g. SPR0001)
     const student = await prisma.student.findFirst({
@@ -21,10 +45,31 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     });
 
     if (!student) {
-      return NextResponse.json({ error: 'Student record not found in SPR database.' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Student record not found in SPR database.' },
+        {
+          status: 404,
+          headers: {
+            'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+          },
+        }
+      );
     }
 
     const studentId = student.id;
+
+    // Check server memory cache if fresh calculation is not explicitly requested
+    if (!isFresh) {
+      const cached = studentDossierServerCache.get(studentId);
+      if (cached && Date.now() - cached.timestamp < DOSSIER_CACHE_TTL_MS) {
+        return NextResponse.json(cached.data, {
+          headers: {
+            'Cache-Control': 'public, s-maxage=120, max-age=60',
+            'X-SPR-Cache': 'HIT',
+          },
+        });
+      }
+    }
 
     // Parallel fetch: SPR computation + published creative works + library reading history
     const [profile, creativeWorks, libraryRecords] = await Promise.all([
@@ -84,8 +129,24 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     profile.totalStudentsInClass = ranks.totalStudentsInClass;
     profile.totalStudentsInSchool = ranks.totalStudentsInSchool;
 
+    // Sanitize student demographics to guarantee zero administrative/private notes exposure
+    const rawStudent = profile.student || {};
+    const sanitizedStudent = {
+      id: rawStudent.id,
+      studentId: rawStudent.studentId,
+      sprStudentId: rawStudent.sprStudentId,
+      fullName: rawStudent.fullName,
+      division: rawStudent.division,
+      status: rawStudent.status,
+      photoUrl: rawStudent.photoUrl,
+      class: rawStudent.class,
+      school: rawStudent.school,
+      academicYear: rawStudent.academicYear,
+    };
+
     const enrichedProfile: any = {
       ...profile,
+      student: sanitizedStudent,
       rank: overallRank,
       overallRank: overallRank,
       classRank: classRank,
@@ -115,20 +176,37 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       })),
     };
 
-    return NextResponse.json(
-      {
-        profile: enrichedProfile,
-        creativeWorks,
-        libraryRecords,
+    const responsePayload = {
+      profile: enrichedProfile,
+      creativeWorks,
+      libraryRecords,
+    };
+
+    if (!isFresh) {
+      studentDossierServerCache.set(studentId, {
+        timestamp: Date.now(),
+        data: responsePayload,
+      });
+    }
+
+    return NextResponse.json(responsePayload, {
+      headers: {
+        'Cache-Control': isFresh
+          ? 'private, no-cache, no-store, must-revalidate'
+          : 'public, s-maxage=120, max-age=60',
+        'X-SPR-Cache': isFresh ? 'BYPASS' : 'MISS',
       },
+    });
+  } catch (error: any) {
+    console.error('Public student scorecard error:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch student scorecard.' },
       {
+        status: 500,
         headers: {
           'Cache-Control': 'private, no-cache, no-store, must-revalidate',
         },
       }
     );
-  } catch (error: any) {
-    console.error('Public student scorecard error:', error);
-    return NextResponse.json({ error: 'Failed to fetch student scorecard.' }, { status: 500 });
   }
 }

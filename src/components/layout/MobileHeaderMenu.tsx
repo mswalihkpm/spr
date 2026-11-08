@@ -22,8 +22,12 @@ import {
   BookOpen,
   ChevronRight,
   Mail,
+  Share2,
+  Smartphone,
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
+import BrandedShareModal from '@/components/modals/BrandedShareModal';
+import { executeBrandedShare, SharePayload } from '@/lib/share-utils';
 
 interface MobileHeaderMenuProps {
   className?: string;
@@ -38,6 +42,23 @@ export default function MobileHeaderMenu({
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const { theme, isDark, toggleTheme } = useTheme();
+  const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  const handleShareApp = async () => {
+    setIsOpen(false);
+    await executeBrandedShare(
+      {
+        template: 'app',
+      },
+      {
+        onFallbackModal: (p) => {
+          setSharePayload(p);
+          setIsShareModalOpen(true);
+        },
+      }
+    );
+  };
 
   // Ensure portal only mounts on the client
   useEffect(() => {
@@ -402,6 +423,12 @@ export default function MobileHeaderMenu({
           </div>,
           document.body
         )}
+      {/* Branded Sharing Modal */}
+      <BrandedShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        payload={sharePayload}
+      />
     </div>
   );
 }

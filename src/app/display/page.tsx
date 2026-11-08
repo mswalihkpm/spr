@@ -43,31 +43,37 @@ export default function DisplayModePage() {
 
   const isFetchingRef = useRef(false);
 
-  const fetchDisplayData = async () => {
-    if (isFetchingRef.current) return;
-    isFetchingRef.current = true;
-    try {
-      const params = new URLSearchParams();
-      if (selectedCategory) params.append('categoryId', selectedCategory);
-      if (selectedClass) params.append('classId', selectedClass);
-
-      const res = await fetch(`/api/display?${params.toString()}`);
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
-      }
-    } catch (err) {
-      console.error('Display fetch error:', err);
-    } finally {
-      isFetchingRef.current = false;
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    let isMounted = true;
+
+    const fetchDisplayData = async () => {
+      // Prevent overlapping requests if a previous request is still running
+      if (isFetchingRef.current) return;
+      isFetchingRef.current = true;
+      try {
+        const params = new URLSearchParams();
+        if (selectedCategory) params.append('categoryId', selectedCategory);
+        if (selectedClass) params.append('classId', selectedClass);
+
+        const res = await fetch(`/api/display?${params.toString()}`);
+        if (res.ok && isMounted) {
+          const json = await res.json();
+          setData(json);
+        }
+      } catch (err) {
+        if (isMounted) console.error('Display fetch error:', err);
+      } finally {
+        isFetchingRef.current = false;
+        if (isMounted) setLoading(false);
+      }
+    };
+
     fetchDisplayData();
-    const interval = setInterval(fetchDisplayData, 60000); // 60s auto-refresh
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchDisplayData, 120000); // 120s (2 minutes) auto-refresh
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [selectedCategory, selectedClass]);
 
   // Gentle auto-scrolling for 16:9 displays

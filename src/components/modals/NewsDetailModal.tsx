@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
+import BrandedShareModal from '@/components/modals/BrandedShareModal';
+import { executeBrandedShare, SharePayload } from '@/lib/share-utils';
 import {
   Calendar,
   Clock,
@@ -31,6 +33,8 @@ interface NewsDetailModalProps {
 
 export default function NewsDetailModal({ news, isOpen, onClose }: NewsDetailModalProps) {
   const [copied, setCopied] = useState(false);
+  const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   // Close on Escape key and prevent background scrolling
   useEffect(() => {
@@ -70,28 +74,22 @@ export default function NewsDetailModal({ news, isOpen, onClose }: NewsDetailMod
   };
 
   const handleShare = async () => {
-    const shareData = {
-      title: news.title,
-      text: news.subtitle || news.title,
-      url: window.location.href,
-    };
-
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-        return;
-      } catch (err) {
-        // Fallback to clipboard if share was cancelled or failed
+    await executeBrandedShare(
+      {
+        template: 'news',
+        newsId: news.id,
+        title: news.title,
+        subtitle: news.subtitle,
+        date: formatDate(news.publishedAt),
+        imageUrl: news.imageUrl,
+      },
+      {
+        onFallbackModal: (p) => {
+          setSharePayload(p);
+          setIsShareModalOpen(true);
+        },
       }
-    }
-
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    } catch {
-      alert('Link copied to clipboard!');
-    }
+    );
   };
 
   return (
@@ -213,6 +211,12 @@ export default function NewsDetailModal({ news, isOpen, onClose }: NewsDetailMod
           </div>
         </div>
       </div>
+      {/* Branded Sharing Modal */}
+      <BrandedShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        payload={sharePayload}
+      />
     </div>
   );
 }

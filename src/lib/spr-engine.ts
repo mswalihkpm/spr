@@ -1056,10 +1056,17 @@ async function getActiveStudentsSnapshot(): Promise<any[]> {
         getCachedCreativeCategories(),
       ]);
 
-      const catMap = new Map(categories.map((c) => [c.id, c]));
-      const subMap = new Map(categories.flatMap((c) => c.subcategories || []).map((s: any) => [s.id, s]));
-      const levelMap = new Map(levels.map((l) => [l.id, l]));
-      const creativeCatMap = new Map(creativeCats.map((c) => [c.id, c]));
+      const catMap = new Map(categories.map((c) => [c.id, { id: c.id, code: c.code, name: c.name }]));
+      const subMap = new Map(
+        categories.flatMap((c) => c.subcategories || []).map((s: any) => [
+          s.id,
+          { id: s.id, code: s.code, name: s.name, weight: s.weight, maxScore: s.maxScore, categoryId: s.categoryId },
+        ])
+      );
+      const levelMap = new Map(
+        levels.map((l) => [l.id, { id: l.id, code: l.code, name: l.name, weightMultiplier: l.weightMultiplier }])
+      );
+      const creativeCatMap = new Map(creativeCats.map((c) => [c.id, { id: c.id, weight: c.weight }]));
 
       const rawStudents = await prisma.student.findMany({
         where: { status: 'ACTIVE' },
@@ -1069,17 +1076,14 @@ async function getActiveStudentsSnapshot(): Promise<any[]> {
           sprStudentId: true,
           fullName: true,
           division: true,
-          status: true,
           photoUrl: true,
           classId: true,
           schoolId: true,
           academicYearId: true,
-          class: { select: { id: true, name: true, numericGrade: true } },
-          school: { select: { id: true, name: true, code: true } },
-          academicYear: { select: { id: true, name: true, isCurrent: true } },
+          class: { select: { name: true } },
+          school: { select: { name: true } },
           performanceRecords: {
             select: {
-              id: true,
               categoryId: true,
               subcategoryId: true,
               examId: true,
@@ -1095,25 +1099,19 @@ async function getActiveStudentsSnapshot(): Promise<any[]> {
           },
           creativeWorks: {
             select: {
-              id: true,
               score: true,
-              title: true,
-              publicationStatus: true,
               categoryId: true,
             },
           },
           libraryRecords: {
             select: {
-              id: true,
               booksRead: true,
               readingScore: true,
-              readingPeriod: true,
             },
           },
           taskRecords: {
             where: { status: 'APPROVED' },
             select: {
-              id: true,
               awardedPoints: true,
             },
           },

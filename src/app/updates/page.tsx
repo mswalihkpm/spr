@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import {
   Bell,
   ArrowLeft,
@@ -20,16 +21,24 @@ import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
 import MobileHeaderMenu from '@/components/layout/MobileHeaderMenu';
 import NewsDetailModal from '@/components/modals/NewsDetailModal';
+import BrandedShareModal from '@/components/modals/BrandedShareModal';
 import { useAppBootstrap } from '@/context/AppBootstrapContext';
 import { fetchWithDedupe } from '@/lib/client-cache';
+import { executeBrandedShare, SharePayload } from '@/lib/share-utils';
 
-export default function UpdatesPublicPage() {
+function UpdatesPublicContent() {
+  const searchParams = useSearchParams();
+  const newsIdParam = searchParams.get('id');
+
   const { news: bootstrapNews, isBootstrapped } = useAppBootstrap();
 
   const [newsList, setNewsList] = useState<any[]>(() => bootstrapNews || []);
   const [loading, setLoading] = useState(() => (bootstrapNews && bootstrapNews.length > 0 ? false : true));
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedNews, setSelectedNews] = useState<any | null>(null);
+
+  const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   useEffect(() => {
     if (bootstrapNews && bootstrapNews.length > 0) {
@@ -45,6 +54,16 @@ export default function UpdatesPublicPage() {
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
   }, [bootstrapNews]);
+
+  // Deep linking: auto-open individual article if ?id=... is in URL
+  useEffect(() => {
+    if (newsIdParam && newsList.length > 0) {
+      const found = newsList.find((item) => String(item.id) === String(newsIdParam));
+      if (found) {
+        setSelectedNews(found);
+      }
+    }
+  }, [newsIdParam, newsList]);
 
   const filteredNews = newsList.filter((item) => {
     if (!searchQuery.trim()) return true;
@@ -70,16 +89,30 @@ export default function UpdatesPublicPage() {
     }
   };
 
-  const handleShare = (newsItem: any) => {
-    if (navigator.share) {
-      navigator.share({
+  const handleShare = async (e: React.MouseEvent, newsItem: any) => {
+    e.stopPropagation();
+    await executeBrandedShare(
+      {
+        template: 'news',
+        newsId: newsItem.id,
         title: newsItem.title,
-        text: newsItem.subtitle || newsItem.title,
-        url: window.location.href,
-      });
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      alert('Link copied to clipboard!');
+        subtitle: newsItem.subtitle,
+        date: formatDate(newsItem.publishedAt || newsItem.createdAt),
+        imageUrl: newsItem.imageUrl,
+      },
+      {
+        onFallbackModal: (p) => {
+          setSharePayload(p);
+          setIsShareModalOpen(true);
+        },
+      }
+    );
+  };
+
+  const handleCloseModal = () => {
+    setSelectedNews(null);
+    if (typeof window !== 'undefined' && window.location.search.includes('id=')) {
+      window.history.replaceState({}, '', '/updates');
     }
   };
 
@@ -225,11 +258,22 @@ export default function UpdatesPublicPage() {
                   </div>
                 </div>
 
-                <div className="p-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-blue-600 group-hover:text-blue-700">
-                  <span className="group-hover:underline">Read Full</span>
-                  <div className="w-7 h-7 rounded-lg bg-blue-50 group-hover:bg-blue-100 flex items-center justify-center transition">
-                    <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition" />
+                <div className="p-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-blue-600">
+                  <div className="flex items-center space-x-1 group-hover:text-blue-700">
+                    <span className="group-hover:underline">Read Full</span>
+                    <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition" />
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={(e) => handleShare(e, item)}
+                    title="Share Branded Card"
+                    aria-label="Share this update"
+                    className="p-2 rounded-xl bg-slate-50 hover:bg-blue-50 text-slate-500 hover:text-blue-600 transition border border-slate-200/80 hover:border-blue-200 flex items-center space-x-1 text-[11px]"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    <span>Share</span>
+                  </button>
                 </div>
               </article>
             ))}
@@ -241,11 +285,32 @@ export default function UpdatesPublicPage() {
       <NewsDetailModal
         isOpen={!!selectedNews}
         news={selectedNews}
-        onClose={() => setSelectedNews(null)}
+        onClose={handleCloseModal}
+      />
+
+      {/* Branded Sharing Modal */}
+      <BrandedShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        payload={sharePayload}
       />
 
       {/* Permanent Public Footer */}
       <PublicFooter />
     </div>
+  );
+}
+
+export default function UpdatesPublicPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center">
+          <VideoLoader size="xl" text="Loading announcements..." />
+        </div>
+      }
+    >
+      <UpdatesPublicContent />
+    </Suspense>
   );
 }
