@@ -187,6 +187,10 @@ export default function BrandedShareModal({
             <pre className="text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap font-sans leading-relaxed max-h-36 overflow-y-auto select-all">
               {payload.text}
             </pre>
+            <div className="mt-2 text-[11px] text-emerald-700 dark:text-emerald-400 font-medium bg-emerald-100/50 dark:bg-emerald-950/50 px-2.5 py-1.5 rounded-lg flex items-center space-x-1.5">
+              <span>💡</span>
+              <span><strong>Auto-copied:</strong> When WhatsApp opens, click <em>&ldquo;Add a message...&rdquo;</em> and press <strong>Ctrl+V</strong> (Paste) to send image &amp; text together!</span>
+            </div>
           </div>
 
           {/* Quick Action Buttons */}
