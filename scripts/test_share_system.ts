@@ -75,10 +75,12 @@ async function runTests() {
     dossierPayload.imageUrl
   );
   assert(
-    'Dossier text has WhatsApp bold formatting (*...*)',
-    dossierPayload.text.includes('*ABDUL MAJID P*') &&
-      dossierPayload.text.includes('*#1*') &&
-      dossierPayload.text.includes('*94.80 pts*')
+    'Dossier text has clean WhatsApp bold formatting without emoji clutter',
+    dossierPayload.text.includes('*Student:* ABDUL MAJID P') &&
+      dossierPayload.text.includes('*Institutional Rank:* #1') &&
+      dossierPayload.text.includes('*Overall SPR Score:* 94.80 pts') &&
+      !dossierPayload.text.includes('🎓') &&
+      !dossierPayload.text.includes('👤')
   );
   assert(
     'Dossier text includes Play Store link & direct dossier link',

@@ -106,15 +106,12 @@ export default function BrandedShareModal({
 
       if (fileToShare && navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
         await navigator.share({
-          title: payload.title,
-          text: payload.text,
           files: [fileToShare],
+          text: payload.text,
         });
       } else {
         await navigator.share({
-          title: payload.title,
           text: payload.text,
-          url: payload.url,
         });
       }
     } catch (err: any) {
@@ -191,7 +188,7 @@ export default function BrandedShareModal({
               className="flex items-center justify-center space-x-2 w-full py-3 px-4 rounded-xl font-bold text-xs text-white bg-emerald-600 hover:bg-emerald-700 transition shadow-md active:scale-95 cursor-pointer disabled:opacity-60"
             >
               <Share2 className="w-4 h-4" />
-              <span>{sharing ? 'Opening Share...' : 'Share Banner + Text'}</span>
+              <span>{sharing ? 'Opening Share...' : 'Share Banner with Caption'}</span>
             </button>
 
             <button

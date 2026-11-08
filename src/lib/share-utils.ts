@@ -219,13 +219,17 @@ export async function executeBrandedShare(
       console.warn('Could not fetch banner image blob:', err);
     }
 
-    // Try sharing with File (Level 2 Web Share - WhatsApp connects text as image caption)
+    // Try sharing with File (Level 2 Web Share)
+    // IMPORTANT: Do NOT include `title` or `url` when sharing files!
+    // Passing `title` sets Intent.EXTRA_SUBJECT in Android Chrome, which causes WhatsApp
+    // to split the share into two separate messages (text bubble + image bubble).
+    // Passing ONLY `files` and `text` causes WhatsApp to set `text` as the image CAPTION,
+    // sending both the image and text together as ONE unified message.
     if (fileToShare && navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
       try {
         await navigator.share({
-          title: payload.title,
-          text: payload.text,
           files: [fileToShare],
+          text: payload.text,
         });
         return { success: true, sharedWithFile: true };
       } catch (err: any) {
@@ -239,9 +243,7 @@ export async function executeBrandedShare(
     // Fallback: Web Share without file
     try {
       await navigator.share({
-        title: payload.title,
         text: payload.text,
-        url: payload.url,
       });
       return { success: true, sharedWithFile: false };
     } catch (err: any) {
