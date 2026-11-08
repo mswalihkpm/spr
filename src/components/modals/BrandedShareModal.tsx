@@ -1,16 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Image from 'next/image';
 import {
   Share2,
   Copy,
   Check,
   Download,
   X,
-  ExternalLink,
   Smartphone,
-  Sparkles,
+  ExternalLink,
 } from 'lucide-react';
 import { SharePayload } from '@/lib/share-utils';
 
@@ -60,7 +58,7 @@ export default function BrandedShareModal({
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     } catch {
-      alert('Copied to clipboard!');
+      alert('WhatsApp text copied to clipboard!');
     }
   };
 
@@ -72,14 +70,13 @@ export default function BrandedShareModal({
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = payload.filename;
+      a.download = payload.filename || 'SPR-Official-Banner.jpg';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(blobUrl);
     } catch (err) {
       console.error('Download failed:', err);
-      // Fallback: direct window open
       window.open(payload.imageUrl, '_blank');
     } finally {
       setDownloading(false);
@@ -99,10 +96,12 @@ export default function BrandedShareModal({
         const res = await fetch(payload.imageUrl);
         if (res.ok) {
           const blob = await res.blob();
-          fileToShare = new File([blob], payload.filename, { type: 'image/png' });
+          fileToShare = new File([blob], payload.filename || 'SPR-Official-Banner.jpg', {
+            type: 'image/jpeg',
+          });
         }
       } catch (e) {
-        console.warn('Could not load blob for share:', e);
+        console.warn('Could not load banner blob for share:', e);
       }
 
       if (fileToShare && navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
@@ -129,19 +128,6 @@ export default function BrandedShareModal({
 
   const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(payload.text)}`;
   const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(payload.url)}&text=${encodeURIComponent(payload.text)}`;
-  const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(payload.text)}`;
-
-  const templateBadges: Record<string, { label: string; color: string }> = {
-    dossier: { label: 'STUDENT PERFORMANCE DOSSIER', color: 'bg-amber-500 text-slate-950' },
-    news: { label: 'NEWS & UPDATES', color: 'bg-emerald-500 text-slate-950' },
-    achievement: { label: 'HONORS & ACHIEVEMENTS', color: 'bg-purple-500 text-white' },
-    app: { label: 'SPR PLATFORM PROMOTION', color: 'bg-blue-600 text-white' },
-  };
-
-  const badge = templateBadges[payload.template] || {
-    label: 'SPR PLATFORM',
-    color: 'bg-blue-600 text-white',
-  };
 
   return (
     <div
@@ -149,16 +135,14 @@ export default function BrandedShareModal({
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto animate-scale-up"
+        className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto animate-scale-up"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center space-x-2.5">
-            <span
-              className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${badge.color}`}
-            >
-              {badge.label}
+            <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-blue-600 text-white">
+              OFFICIAL SPR BANNER & MESSAGE
             </span>
           </div>
 
@@ -173,18 +157,12 @@ export default function BrandedShareModal({
 
         {/* Modal Body */}
         <div className="p-5 space-y-4 max-h-[calc(85vh-120px)] overflow-y-auto">
-          {/* Card Image Preview */}
-          <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-950 shadow-md aspect-[1200/630]">
-            {!imageLoaded && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-slate-400 space-y-2">
-                <Sparkles className="w-6 h-6 animate-spin text-blue-400" />
-                <span className="text-xs font-semibold">Generating Branded Card...</span>
-              </div>
-            )}
+          {/* Base Official Banner Image Preview (1024x500 aspect ratio) */}
+          <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-950 shadow-md aspect-[1024/500]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={payload.imageUrl}
-              alt={payload.title}
+              alt="Ma'din School of Excellence - SPR Official Banner"
               className={`w-full h-full object-cover transition-opacity duration-300 ${
                 imageLoaded ? 'opacity-100' : 'opacity-0'
               }`}
@@ -192,15 +170,15 @@ export default function BrandedShareModal({
             />
           </div>
 
-          {/* Formatted Message Preview */}
-          <div className="bg-slate-50 dark:bg-slate-950/60 rounded-2xl p-3.5 border border-slate-200/80 dark:border-slate-800/80">
-            <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1.5 flex items-center justify-between">
-              <span>Sharing Message Caption</span>
-              <span className="text-blue-600 dark:text-blue-400 font-semibold lowercase">
-                includes Google Play link
+          {/* Formatted WhatsApp Message Preview */}
+          <div className="bg-emerald-50/60 dark:bg-slate-950/70 rounded-2xl p-3.5 border border-emerald-200/80 dark:border-slate-800">
+            <div className="text-[10px] font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-400 mb-1.5 flex items-center justify-between">
+              <span>WhatsApp Connected Caption</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-semibold lowercase">
+                *bold* &amp; _italic_
               </span>
             </div>
-            <pre className="text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap font-sans leading-relaxed max-h-32 overflow-y-auto select-all">
+            <pre className="text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap font-sans leading-relaxed max-h-36 overflow-y-auto select-all">
               {payload.text}
             </pre>
           </div>
@@ -210,10 +188,10 @@ export default function BrandedShareModal({
             <button
               onClick={handleNativeShare}
               disabled={sharing}
-              className="flex items-center justify-center space-x-2 w-full py-3 px-4 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 transition shadow-md active:scale-95 cursor-pointer disabled:opacity-60"
+              className="flex items-center justify-center space-x-2 w-full py-3 px-4 rounded-xl font-bold text-xs text-white bg-emerald-600 hover:bg-emerald-700 transition shadow-md active:scale-95 cursor-pointer disabled:opacity-60"
             >
               <Share2 className="w-4 h-4" />
-              <span>{sharing ? 'Opening Share...' : 'Share with Image'}</span>
+              <span>{sharing ? 'Opening Share...' : 'Share Banner + Text'}</span>
             </button>
 
             <button
@@ -227,18 +205,18 @@ export default function BrandedShareModal({
               {copied ? (
                 <>
                   <Check className="w-4 h-4 text-white" />
-                  <span>Copied Caption & Link!</span>
+                  <span>Copied Caption!</span>
                 </>
               ) : (
                 <>
                   <Copy className="w-4 h-4" />
-                  <span>Copy Message & Link</span>
+                  <span>Copy WhatsApp Text</span>
                 </>
               )}
             </button>
           </div>
 
-          {/* Secondary Actions: Download PNG & Direct Apps */}
+          {/* Secondary Actions: Download Base Banner & Direct Apps */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
             <button
               onClick={handleDownloadImage}
@@ -246,37 +224,27 @@ export default function BrandedShareModal({
               className="flex items-center space-x-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>{downloading ? 'Downloading...' : 'Download Card (PNG)'}</span>
+              <span>{downloading ? 'Downloading...' : 'Download Banner (JPG)'}</span>
             </button>
 
             {/* Social Shortcuts */}
             <div className="flex items-center space-x-2">
-              <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
-                Share to:
-              </span>
               <a
                 href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold transition flex items-center space-x-1"
+                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center space-x-1 shadow-xs"
               >
-                <span>WhatsApp</span>
+                <span>Open in WhatsApp</span>
+                <ExternalLink className="w-3 h-3 ml-0.5" />
               </a>
               <a
                 href={telegramUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 text-xs font-bold transition flex items-center space-x-1"
+                className="px-2.5 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 text-xs font-bold transition flex items-center space-x-1"
               >
                 <span>Telegram</span>
-              </a>
-              <a
-                href={twitterUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-2.5 py-1 rounded-lg bg-slate-500/10 hover:bg-slate-500/20 text-slate-600 dark:text-slate-400 text-xs font-bold transition flex items-center space-x-1"
-              >
-                <span>X</span>
               </a>
             </div>
           </div>
@@ -284,14 +252,13 @@ export default function BrandedShareModal({
 
         {/* Footer info */}
         <div className="px-5 py-3 bg-slate-50 dark:bg-slate-950/80 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500">
-          <span>Madin School of Excellence</span>
+          <span>Ma&apos;din School of Excellence</span>
           <span className="flex items-center space-x-1">
             <Smartphone className="w-3 h-3 text-blue-500" />
-            <span>Android App: in.madin.spr</span>
+            <span>Official Banner Image</span>
           </span>
         </div>
       </div>
     </div>
   );
 }
-

@@ -1,12 +1,14 @@
 /**
  * Unified Share Constants & Message Formatters for SPR Platform
+ * Optimized for WhatsApp formatting (*bold*, _italic_, emojis)
  * Official Android Package: in.madin.spr
  */
 
 export const GOOGLE_PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=in.madin.spr';
 export const ANDROID_PACKAGE_NAME = 'in.madin.spr';
-export const INSTITUTION_NAME = 'Madin School of Excellence';
+export const INSTITUTION_NAME = "Ma'din School of Excellence";
 export const APP_TITLE = 'Students Performance Rate (SPR)';
+export const OFFICIAL_BANNER_PATH = '/branding/spr-official-banner.jpg';
 
 export interface DossierShareData {
   studentName: string;
@@ -39,118 +41,129 @@ export interface AppShareData {
 }
 
 /**
- * Format Student Dossier Sharing Text
+ * Format Student Dossier Sharing Text (Optimized for WhatsApp)
  */
 export function formatDossierShareText(data: DossierShareData): string {
   const parts = [
-    'EXCELLENCE | SPR PLATFORM',
+    "🎓 *MA'DIN SCHOOL OF EXCELLENCE*",
+    '*Students Performance Rate (SPR)*',
     '',
-    'STUDENT PERFORMANCE DOSSIER',
+    '📋 *STUDENT PERFORMANCE DOSSIER*',
     '',
-    `Student: ${data.studentName}`,
-    `Class: ${data.className}${data.division ? ` (Div ${data.division})` : ''}`,
+    `👤 *Student:* *${data.studentName.trim()}*`,
+    `🏫 *Class:* ${data.className}${data.division ? ` (Div ${data.division})` : ''}`,
   ];
 
-  if (data.rank && data.overallScore) {
-    parts.push(`SPR Rank: #${data.rank} • Score: ${data.overallScore.toFixed(2)} pts`);
+  if (data.sprId) {
+    parts.push(`🆔 *SPR ID:* ${data.sprId}`);
+  }
+
+  if (data.rank !== undefined && data.rank !== null && data.overallScore !== undefined && data.overallScore !== null) {
+    parts.push(
+      `🏆 *Institutional Rank:* *#${data.rank}*`,
+      `⭐ *Overall SPR Score:* *${data.overallScore.toFixed(2)} pts*`
+    );
   }
 
   parts.push(
     '',
-    'Explore this student\'s academic progress, achievements, rankings and school activities.',
+    '_Track academic progress, achievements, rankings and school activities._',
     '',
-    `View Dossier: ${data.dossierUrl}`,
+    '🔗 *View Official Dossier:*',
+    data.dossierUrl,
     '',
-    `Get SPR on Google Play: ${GOOGLE_PLAY_STORE_URL}`
+    '📱 *Get SPR on Google Play:*',
+    GOOGLE_PLAY_STORE_URL
   );
 
   return parts.join('\n');
 }
 
 /**
- * Format News & Updates Sharing Text
+ * Format News & Updates Sharing Text (Optimized for WhatsApp)
  */
 export function formatNewsShareText(data: NewsShareData): string {
   const parts = [
-    'EXCELLENCE | SPR PLATFORM',
+    "📢 *MA'DIN SCHOOL OF EXCELLENCE*",
+    '*Students Performance Rate (SPR)*',
     '',
-    'NEWS & UPDATES',
+    '📌 *OFFICIAL ANNOUNCEMENT*',
     '',
-    data.title,
+    `*${data.title.trim()}*`,
   ];
 
-  if (data.subtitle) {
-    parts.push(data.subtitle);
+  if (data.subtitle && data.subtitle.trim()) {
+    parts.push(`_${data.subtitle.trim()}_`);
   }
 
-  if (data.date) {
-    parts.push(`Published: ${data.date}`);
+  if (data.date && data.date.trim()) {
+    parts.push(`🗓️ *Published:* ${data.date.trim()}`);
   }
 
   parts.push(
     '',
-    'Stay updated with the latest school announcements, activities and events.',
+    '_Stay updated with the latest school announcements, activities and events._',
     '',
-    `Read Full Update: ${data.newsUrl}`,
+    '🔗 *Read Full Circular:*',
+    data.newsUrl,
     '',
-    `Get SPR on Google Play: ${GOOGLE_PLAY_STORE_URL}`
+    '📱 *Get SPR on Google Play:*',
+    GOOGLE_PLAY_STORE_URL
   );
 
   return parts.join('\n');
 }
 
 /**
- * Format Student Achievement Sharing Text
+ * Format Student Achievement Sharing Text (Optimized for WhatsApp)
  */
 export function formatAchievementShareText(data: AchievementShareData): string {
   const parts = [
-    'EXCELLENCE | SPR PLATFORM',
+    "🏆 *MA'DIN SCHOOL OF EXCELLENCE*",
+    '*Students Performance Rate (SPR)*',
     '',
-    'EXCELLENCE HONORS & ACHIEVEMENTS',
+    '🌟 *EXCELLENCE HONORS & ACHIEVEMENTS*',
     '',
-    `Student: ${data.studentName}`,
-    `Honor: ${data.achievementTitle}`,
+    `👤 *Student:* *${data.studentName.trim()}*`,
+    `🎖️ *Honor:* *${data.achievementTitle.trim()}*`,
   ];
 
-  if (data.category) {
-    parts.push(`Category: ${data.category}`);
+  if (data.category && data.category.trim()) {
+    parts.push(`📂 *Category:* ${data.category.trim()}`);
   }
 
-  if (data.rank) {
-    parts.push(`Standing: ${typeof data.rank === 'number' ? `Rank #${data.rank}` : data.rank}`);
+  if (data.rank !== undefined && data.rank !== null) {
+    parts.push(`🥇 *Standing:* *${typeof data.rank === 'number' ? `Rank #${data.rank}` : data.rank}*`);
   }
 
-  if (data.score) {
-    parts.push(`Score: ${data.score.toFixed(2)} SPR Points`);
+  if (data.score !== undefined && data.score !== null) {
+    parts.push(`⭐ *Score:* *${data.score.toFixed(2)} SPR Points*`);
   }
 
   parts.push(
     '',
-    'Track performance rate, competitive milestones and school honors.',
+    '_Track performance rate, competitive milestones and school honors._',
     '',
-    `View Standings: ${data.achievementUrl}`,
+    '🔗 *View Standings:*',
+    data.achievementUrl,
     '',
-    `Get SPR on Google Play: ${GOOGLE_PLAY_STORE_URL}`
+    '📱 *Get SPR on Google Play:*',
+    GOOGLE_PLAY_STORE_URL
   );
 
   return parts.join('\n');
 }
 
 /**
- * Format General SPR Application Promotion Text
+ * Format General SPR Application Promotion Text (Optimized for WhatsApp)
+ * User requirement: "IF WE CLICK ON SHARE APP ,THERE ONLY SHARE THE APPS PLAYSTORE LINK ONLY WITH THIS BASE BANNER IMAGE"
  */
-export function formatAppShareText(data?: AppShareData): string {
-  const portalUrl = data?.webUrl || 'https://msoerate.vercel.app';
+export function formatAppShareText(_data?: AppShareData): string {
   return [
-    'EXCELLENCE | SPR PLATFORM',
+    "📱 *MA'DIN SCHOOL OF EXCELLENCE*",
+    '*Students Performance Rate (SPR)*',
     '',
-    'STUDENTS PERFORMANCE RATE (SPR)',
-    '',
-    'Track academic progress, achievements, rankings and school activities in one place.',
-    '',
-    `Official Web Portal: ${portalUrl}`,
-    '',
-    `Download SPR on Google Play: ${GOOGLE_PLAY_STORE_URL}`,
+    '📲 *Download Official Android App on Google Play:*',
+    GOOGLE_PLAY_STORE_URL,
   ].join('\n');
 }
-

@@ -1,21 +1,16 @@
 /**
  * Centralized Branded Sharing Utilities for SPR Platform
- * Supports:
- * - Student Dossier (Template 1)
- * - News & Updates (Template 2)
- * - Achievements & Honors (Template 3)
- * - General SPR App Promotion (Template 4)
- *
- * Implements Android Native Share Intent / Web Share API Level 2 (files sharing),
- * with graceful fallback to formatted clipboard copy and modal preview.
+ * Uses the official SPR banner image for all sharing actions,
+ * formatting text specifically for WhatsApp (*bold*, _italic_, emojis)
+ * and creating an image-connected text message on WhatsApp / Android Share.
  */
 
 import {
-  GOOGLE_PLAY_STORE_URL,
   formatDossierShareText,
   formatNewsShareText,
   formatAchievementShareText,
   formatAppShareText,
+  OFFICIAL_BANNER_PATH,
 } from './share-constants';
 
 export type ShareTemplateType = 'dossier' | 'news' | 'achievement' | 'app';
@@ -80,54 +75,22 @@ export interface SharePayload {
 }
 
 /**
- * Builds the image API route URL for OG/Share card generation
+ * Builds the official image URL - always returns the base official banner image
  */
-export function buildShareCardUrl(params: ShareItemParams): string {
-  const base = '/api/og/share';
-  const query = new URLSearchParams();
-  query.set('template', params.template);
-
-  if (params.template === 'dossier') {
-    if (params.studentId) query.set('id', params.studentId);
-    if (params.studentName) query.set('name', params.studentName);
-    if (params.className) query.set('class', params.className);
-    if (params.division) query.set('division', params.division);
-    if (params.sprId) query.set('sprId', params.sprId);
-    if (params.rank !== undefined) query.set('rank', String(params.rank));
-    if (params.overallScore !== undefined) query.set('score', String(params.overallScore));
-    if (params.photoUrl) query.set('photoUrl', params.photoUrl);
-  } else if (params.template === 'news') {
-    if (params.newsId) query.set('id', params.newsId);
-    if (params.title) query.set('title', params.title);
-    if (params.subtitle) query.set('subtitle', params.subtitle);
-    if (params.date) query.set('date', params.date);
-    if (params.category) query.set('category', params.category);
-    if (params.imageUrl) query.set('imageUrl', params.imageUrl);
-  } else if (params.template === 'achievement') {
-    if (params.studentId) query.set('id', params.studentId);
-    if (params.studentName) query.set('name', params.studentName);
-    if (params.achievementTitle) query.set('title', params.achievementTitle);
-    if (params.rankText !== undefined) query.set('rank', String(params.rankText));
-    if (params.score !== undefined) query.set('score', String(params.score));
-    if (params.category) query.set('category', params.category);
-    if (params.photoUrl) query.set('photoUrl', params.photoUrl);
-  } else if (params.template === 'app') {
-    if (params.headline) query.set('title', params.headline);
-    if (params.subhead) query.set('subtitle', params.subhead);
-  }
-
-  return `${base}?${query.toString()}`;
+export function buildShareCardUrl(_params?: ShareItemParams): string {
+  return OFFICIAL_BANNER_PATH;
 }
 
 /**
- * Generate formatted share payload with title, caption text, permalink and image url
+ * Generate formatted share payload with WhatsApp-optimized text and official base banner
  */
 export function generateSharePayload(params: ShareItemParams, origin?: string): SharePayload {
   const currentOrigin =
     origin ||
     (typeof window !== 'undefined' ? window.location.origin : 'https://msoerate.vercel.app');
 
-  const imageUrl = `${currentOrigin}${buildShareCardUrl(params)}`;
+  const imageUrl = `${currentOrigin}${OFFICIAL_BANNER_PATH}`;
+  const filename = 'SPR-Official-Banner.jpg';
 
   if (params.template === 'dossier') {
     const dossierUrl = params.url || `${currentOrigin}/student/${params.studentId}`;
@@ -142,14 +105,13 @@ export function generateSharePayload(params: ShareItemParams, origin?: string): 
       dossierUrl,
     });
 
-    const safeSlug = studentName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     return {
       template: 'dossier',
       title: `${studentName} - SPR Student Performance Dossier`,
       text,
       url: dossierUrl,
       imageUrl,
-      filename: `SPR-Dossier-${safeSlug || 'student'}.png`,
+      filename,
     };
   }
 
@@ -163,14 +125,13 @@ export function generateSharePayload(params: ShareItemParams, origin?: string): 
       newsUrl,
     });
 
-    const safeSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30).replace(/(^-|-$)/g, '');
     return {
       template: 'news',
-      title: `${title} | Madin School of Excellence`,
+      title: `${title} | Ma'din School of Excellence`,
       text,
       url: newsUrl,
       imageUrl,
-      filename: `SPR-News-${safeSlug || 'update'}.png`,
+      filename,
     };
   }
 
@@ -185,14 +146,13 @@ export function generateSharePayload(params: ShareItemParams, origin?: string): 
       achievementUrl,
     });
 
-    const safeSlug = params.studentName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     return {
       template: 'achievement',
       title: `Excellence Honors: ${params.studentName} - ${params.achievementTitle}`,
       text,
       url: achievementUrl,
       imageUrl,
-      filename: `SPR-Honor-${safeSlug || 'achievement'}.png`,
+      filename,
     };
   }
 
@@ -201,19 +161,18 @@ export function generateSharePayload(params: ShareItemParams, origin?: string): 
   const text = formatAppShareText({ webUrl: portalUrl });
   return {
     template: 'app',
-    title: 'Students Performance Rate (SPR) - Madin School of Excellence',
+    title: 'Students Performance Rate (SPR) - Ma\'din School of Excellence',
     text,
     url: portalUrl,
     imageUrl,
-    filename: 'SPR-Platform-Madin-Excellence.png',
+    filename,
   };
 }
 
 /**
  * Executes branded sharing:
- * 1. Tries Web Share API Level 2 with attached generated image file (Android native share)
- * 2. If unsupported or rejected, falls back to text-only Web Share
- * 3. If Web Share is not available (desktop browsers), triggers fallback modal
+ * Attaches the official base banner image file with the WhatsApp-formatted message caption.
+ * On WhatsApp/Android, this sends the image with the text connected right below it.
  */
 export async function executeBrandedShare(
   params: ShareItemParams,
@@ -250,17 +209,17 @@ export async function executeBrandedShare(
     let fileToShare: File | null = null;
 
     try {
-      // Attempt to fetch generated image blob
+      // Fetch official base banner image blob
       const res = await fetch(payload.imageUrl, { cache: 'force-cache' });
       if (res.ok) {
         const blob = await res.blob();
-        fileToShare = new File([blob], payload.filename, { type: 'image/png' });
+        fileToShare = new File([blob], payload.filename, { type: 'image/jpeg' });
       }
     } catch (err) {
-      console.warn('Could not fetch share card image blob:', err);
+      console.warn('Could not fetch banner image blob:', err);
     }
 
-    // Try sharing with File (Level 2 Web Share)
+    // Try sharing with File (Level 2 Web Share - WhatsApp connects text as image caption)
     if (fileToShare && navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
       try {
         await navigator.share({
@@ -299,11 +258,11 @@ export async function executeBrandedShare(
     return { success: true, sharedWithFile: false };
   }
 
-  // Last-resort fallback: Copy text with link to clipboard
+  // Last-resort fallback: Copy WhatsApp text with link to clipboard
   if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
     try {
       await navigator.clipboard.writeText(payload.text);
-      alert('Share message and Google Play link copied to clipboard!');
+      alert('WhatsApp message copied to clipboard!');
       return { success: true, sharedWithFile: false };
     } catch (clipboardErr) {
       console.error('Clipboard copy failed:', clipboardErr);
@@ -312,4 +271,3 @@ export async function executeBrandedShare(
 
   return { success: false, sharedWithFile: false };
 }
-

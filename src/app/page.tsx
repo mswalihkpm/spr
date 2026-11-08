@@ -17,7 +17,6 @@ import {
   CheckCircle2,
   X,
   Flag,
-  Share2,
   ArrowRight,
   Megaphone,
   Home,
@@ -36,8 +35,6 @@ import MobileHeaderMenu from '@/components/layout/MobileHeaderMenu';
 import { getAcademicMasterData } from '@/lib/academic-client';
 import { fetchWithDedupe } from '@/lib/client-cache';
 import CustomSelect from '@/components/ui/CustomSelect';
-import BrandedShareModal from '@/components/modals/BrandedShareModal';
-import { executeBrandedShare, SharePayload } from '@/lib/share-utils';
 import { useAppBootstrap } from '@/context/AppBootstrapContext';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -117,8 +114,6 @@ export default function PublicHomePage() {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [modalCalcTab, setModalCalcTab] = useState<'OVERALL' | 'SUBJECTS' | 'PROGRAMMES' | 'RAW'>('OVERALL');
   const [reportModalOpen, setReportModalOpen] = useState(false);
-  const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
-  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [reportingStudent, setReportingStudent] = useState<any | null>(null);
   const [selectedNews, setSelectedNews] = useState<any | null>(null);
 
@@ -363,7 +358,8 @@ export default function PublicHomePage() {
       setLoadingProfile(true);
     }
 
-    fetchWithDedupe<any>(`/api/public/student/${studentId}`)
+    fetch(`/api/public/student/${studentId}`)
+      .then((res) => res.json())
       .then((data) => {
         if (data.profile) {
           const profileData = {
@@ -382,46 +378,6 @@ export default function PublicHomePage() {
   const closeStudentDossier = () => {
     setSelectedStudentId(null);
     setStudentProfile(null);
-  };
-
-    const handleSharePodium = async (e: React.MouseEvent, student: any, rankVal: number | string) => {
-    e.stopPropagation();
-    const rankNum = typeof rankVal === 'number' ? rankVal : parseInt(String(rankVal), 10) || 1;
-    const rankText = rankNum === 1 ? '1st Rank Champion' : rankNum === 2 ? '2nd Rank Silver' : rankNum === 3 ? '3rd Rank Bronze' : `Rank #${rankNum}`;
-    const score = student?.spr ?? student?.overallScore ?? 0;
-
-    await executeBrandedShare(
-      {
-        template: 'achievement',
-        studentId: student?.studentId || student?.id,
-        studentName: student?.studentName || student?.name || 'Student',
-        achievementTitle: 'Overall SPR Podium Honor',
-        rankText,
-        score: typeof score === 'number' ? score : parseFloat(score) || 0,
-        category: 'Overall SPR',
-        photoUrl: student?.photoUrl || '',
-      },
-      {
-        onFallbackModal: (p) => {
-          setSharePayload(p);
-          setIsShareModalOpen(true);
-        },
-      }
-    );
-  };
-
-  const handleShareApp = async () => {
-    await executeBrandedShare(
-      {
-        template: 'app',
-      },
-      {
-        onFallbackModal: (p) => {
-          setSharePayload(p);
-          setIsShareModalOpen(true);
-        },
-      }
-    );
   };
 
   const openReportModal = (e: React.MouseEvent, st: any) => {
@@ -1202,24 +1158,6 @@ export default function PublicHomePage() {
                           {formatScore(student?.overallScore ?? student?.spr)} <span className="text-[9px] sm:text-xs font-semibold text-slate-500">pts</span>
                         </span>
                         <button
-                          type="button"
-                          onClick={(e) => handleSharePodium(e, student, rank)}
-                          className="p-0.5 text-slate-400 hover:text-blue-600 transition"
-                          title="Share 2nd Rank Achievement"
-                          aria-label="Share Achievement"
-                        >
-                          <Share2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => handleSharePodium(e, student, rank)}
-                          className="p-0.5 text-slate-400 hover:text-blue-600 transition"
-                          title="Share 3rd Rank Achievement"
-                          aria-label="Share Achievement"
-                        >
-                          <Share2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                        </button>
-                        <button
                           onClick={(e) => openReportModal(e, student)}
                           className="p-0.5 text-slate-400 hover:text-rose-600 transition"
                           title="Report discrepancy"
@@ -1272,15 +1210,6 @@ export default function PublicHomePage() {
                         <span className="text-xs sm:text-2xl font-black text-amber-800 dark:text-amber-300">
                           {formatScore(student?.overallScore ?? student?.spr)} <span className="text-[9.5px] sm:text-xs font-semibold text-amber-700/80">pts</span>
                         </span>
-                        <button
-                          type="button"
-                          onClick={(e) => handleSharePodium(e, student, rank)}
-                          className="p-0.5 text-amber-600 hover:text-blue-600 transition"
-                          title="Share 1st Rank Champion Achievement"
-                          aria-label="Share Achievement"
-                        >
-                          <Share2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                        </button>
                         <button
                           onClick={(e) => openReportModal(e, student)}
                           className="p-0.5 text-amber-600 hover:text-rose-600 transition"
@@ -1933,13 +1862,6 @@ export default function PublicHomePage() {
           setItemLeaderboardModalOpen(false);
           openStudentDossier(studentId);
         }}
-      />
-
-      {/* Branded Sharing Modal */}
-      <BrandedShareModal
-        isOpen={isShareModalOpen}
-        onClose={() => setIsShareModalOpen(false)}
-        payload={sharePayload}
       />
 
       {/* Permanent Public Footer */}

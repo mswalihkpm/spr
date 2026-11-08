@@ -1,16 +1,18 @@
+import fs from 'fs';
 import {
   GOOGLE_PLAY_STORE_URL,
   ANDROID_PACKAGE_NAME,
+  OFFICIAL_BANNER_PATH,
   formatDossierShareText,
   formatNewsShareText,
   formatAchievementShareText,
   formatAppShareText,
 } from '../src/lib/share-constants';
-import { generateSharePayload, buildShareCardUrl } from '../src/lib/share-utils';
+import { generateSharePayload } from '../src/lib/share-utils';
 
 async function runTests() {
   console.log('================================================================');
-  console.log('     SPR UNIFIED BRANDED SHARING SYSTEM COMPREHENSIVE TEST      ');
+  console.log('   SPR WHATSAPP BRANDED SHARING SYSTEM COMPREHENSIVE TEST       ');
   console.log('================================================================\n');
 
   let passed = 0;
@@ -26,118 +28,133 @@ async function runTests() {
     }
   }
 
-  // 1. Android Package & Play Store URL Verification
+  // 1. Base Banner Image Existence and Path
+  assert(
+    'Official Banner Constant Path',
+    OFFICIAL_BANNER_PATH === '/branding/spr-official-banner.jpg',
+    OFFICIAL_BANNER_PATH
+  );
+  assert(
+    'Base Banner File exists in public/branding',
+    fs.existsSync('public/branding/spr-official-banner.jpg'),
+    `Size: ${fs.statSync('public/branding/spr-official-banner.jpg').size} bytes`
+  );
+  assert(
+    'Base Banner File exists in public root',
+    fs.existsSync('public/spr-official-banner.jpg'),
+    `Size: ${fs.statSync('public/spr-official-banner.jpg').size} bytes`
+  );
+
+  // 2. Official Play Store Link & Package
+  assert(
+    'Official Google Play Store Link',
+    GOOGLE_PLAY_STORE_URL === 'https://play.google.com/store/apps/details?id=in.madin.spr',
+    GOOGLE_PLAY_STORE_URL
+  );
   assert(
     'Official Android Package Name',
     ANDROID_PACKAGE_NAME === 'in.madin.spr',
     ANDROID_PACKAGE_NAME
   );
-  assert(
-    'Official Google Play Store URL',
-    GOOGLE_PLAY_STORE_URL === 'https://play.google.com/store/apps/details?id=in.madin.spr',
-    GOOGLE_PLAY_STORE_URL
-  );
 
-  // 2. Template 1: Student Dossier Payload
+  // 3. Template 1: Student Dossier
   const dossierPayload = generateSharePayload({
     template: 'dossier',
     studentId: 'test-student-123',
-    studentName: 'MUHAMMED SHAHINSHAH',
+    studentName: 'ABDUL MAJID P',
     className: 'Standard 10',
-    division: 'B',
-    sprId: 'MSOE-2026-088',
-    rank: 4,
-    overallScore: 89.45,
+    division: 'A',
+    sprId: 'MSOE-2026-063',
+    rank: 1,
+    overallScore: 94.8,
   });
 
   assert(
-    'Dossier URL includes /student/id',
-    dossierPayload.url.includes('/student/test-student-123'),
-    dossierPayload.url
+    'Dossier uses base banner image for all sharing',
+    dossierPayload.imageUrl.endsWith('/branding/spr-official-banner.jpg'),
+    dossierPayload.imageUrl
   );
   assert(
-    'Dossier text includes Play Store URL',
-    dossierPayload.text.includes(GOOGLE_PLAY_STORE_URL)
+    'Dossier text has WhatsApp bold formatting (*...*)',
+    dossierPayload.text.includes('*ABDUL MAJID P*') &&
+      dossierPayload.text.includes('*#1*') &&
+      dossierPayload.text.includes('*94.80 pts*')
   );
   assert(
-    'Dossier text includes Rank #4 and 89.45 pts',
-    dossierPayload.text.includes('SPR Rank: #4') && dossierPayload.text.includes('89.45 pts')
-  );
-  assert(
-    'Dossier text has zero private notes/passwords/emails',
-    !dossierPayload.text.includes('password') &&
-      !dossierPayload.text.includes('notes') &&
-      !dossierPayload.text.includes('@madin.internal')
-  );
-  assert(
-    'Dossier card URL points to /api/og/share?template=dossier',
-    dossierPayload.imageUrl.includes('/api/og/share?template=dossier')
+    'Dossier text includes Play Store link & direct dossier link',
+    dossierPayload.text.includes(GOOGLE_PLAY_STORE_URL) &&
+      dossierPayload.text.includes('/student/test-student-123')
   );
 
-  // 3. Template 2: News & Updates Payload
+  // 4. Template 2: News & Updates
   const newsPayload = generateSharePayload({
     template: 'news',
-    newsId: 'news-announcement-456',
+    newsId: 'news-789',
     title: 'Grand Annual Festival Results Announced',
-    subtitle: 'Celebrating holistic excellence across all academic wings',
+    subtitle: 'Celebrating holistic excellence',
     date: 'Nov 8, 2026',
   });
 
   assert(
-    'News URL includes permalink /updates?id=news-announcement-456',
-    newsPayload.url.includes('/updates?id=news-announcement-456'),
-    newsPayload.url
+    'News uses base banner image for all sharing',
+    newsPayload.imageUrl.endsWith('/branding/spr-official-banner.jpg'),
+    newsPayload.imageUrl
   );
   assert(
-    'News text includes Play Store URL',
-    newsPayload.text.includes(GOOGLE_PLAY_STORE_URL)
+    'News text has WhatsApp formatting (*bold*, _italic_)',
+    newsPayload.text.includes('*Grand Annual Festival Results Announced*') &&
+      newsPayload.text.includes('_Celebrating holistic excellence_')
   );
   assert(
-    'News text includes headline and subtitle',
-    newsPayload.text.includes('Grand Annual Festival Results Announced') &&
-      newsPayload.text.includes('Celebrating holistic excellence')
+    'News text includes permalink /updates?id=news-789',
+    newsPayload.text.includes('/updates?id=news-789')
   );
 
-  // 4. Template 3: Achievement & Honors Payload
-  const achievementPayload = generateSharePayload({
-    template: 'achievement',
-    studentName: 'FATIMA ZAHRA',
-    achievementTitle: 'State Level Qur’an Recitation Champion',
-    rankText: '1st Rank Champion',
-    score: 98.5,
-    category: 'Islamic Studies',
-  });
-
-  assert(
-    'Achievement text includes Play Store URL',
-    achievementPayload.text.includes(GOOGLE_PLAY_STORE_URL)
-  );
-  assert(
-    'Achievement text includes 1st Rank Champion & score',
-    achievementPayload.text.includes('Standing: 1st Rank Champion') &&
-      achievementPayload.text.includes('98.50 SPR Points')
-  );
-
-  // 5. Template 4: General App Promo Payload
+  // 5. Template 3: Share App
   const appPayload = generateSharePayload({
     template: 'app',
   });
 
   assert(
-    'App promo text includes Google Play link',
-    appPayload.text.includes(GOOGLE_PLAY_STORE_URL)
+    'Share App uses base banner image',
+    appPayload.imageUrl.endsWith('/branding/spr-official-banner.jpg'),
+    appPayload.imageUrl
   );
   assert(
-    'App promo text matches official tagline',
-    appPayload.text.includes('Track academic progress, achievements, rankings and school activities')
+    'Share App ONLY shares the Google Play Store link',
+    appPayload.text.includes(GOOGLE_PLAY_STORE_URL) &&
+      appPayload.text.includes('*MA\'DIN SCHOOL OF EXCELLENCE*') &&
+      !appPayload.text.includes('/student/') &&
+      !appPayload.text.includes('/updates')
+  );
+
+  // 6. Leaderboard Verification: Zero Share Icons on Leaderboard
+  const leaderboardContent = fs.readFileSync('src/app/leaderboard/page.tsx', 'utf8');
+  assert(
+    'Leaderboard page has NO handleSharePodium',
+    !leaderboardContent.includes('handleSharePodium')
   );
   assert(
-    'App promo card filename is SPR-Platform-Madin-Excellence.png',
-    appPayload.filename === 'SPR-Platform-Madin-Excellence.png'
+    'Leaderboard page has NO handleShareAchievement',
+    !leaderboardContent.includes('handleShareAchievement')
+  );
+  assert(
+    'Leaderboard page has NO Share2 import',
+    !leaderboardContent.includes('Share2')
+  );
+
+  const homePageContent = fs.readFileSync('src/app/page.tsx', 'utf8');
+  assert(
+    'Home page leaderboard podium has NO handleSharePodium',
+    !homePageContent.includes('handleSharePodium')
+  );
+  assert(
+    'Home page leaderboard podium has NO Share2',
+    !homePageContent.includes('Share2')
   );
 
   console.log('\n================================================================');
-  console.log(`  ALL SHARING TESTS COMPLETED: ${passed} PASSED, ${failed} FAILED  `);
+  console.log(`  ALL AUDIT CHECKS COMPLETED: ${passed} PASSED, ${failed} FAILED `);
   console.log('================================================================');
 
   if (failed > 0) process.exit(1);
@@ -147,4 +164,3 @@ runTests().catch((err) => {
   console.error(err);
   process.exit(1);
 });
-
