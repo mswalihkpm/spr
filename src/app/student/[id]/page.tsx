@@ -356,7 +356,7 @@ export default function PublicStudentScorecardPage() {
   const isExamCategory = (code?: string) => code === 'ISLAMIC' || code === 'SCHOOL';
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#080e1e] text-slate-900 dark:text-slate-100 font-sans py-4 sm:py-6 px-3 sm:px-6 lg:px-8 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[calc(max(env(safe-area-inset-bottom,0px),0.75rem)+4rem)] sm:pb-8 print:p-0 print:bg-white transition-colors duration-300">
+    <div className="min-h-screen flex flex-col bg-[#f8fafc] dark:bg-[#080e1e] text-slate-900 dark:text-slate-100 font-sans print:p-0 print:bg-white transition-colors duration-300">
       {/* Global CSS for Strict A4 Print Studio Styling */}
       <style jsx global>{`
         @media print {
@@ -413,7 +413,9 @@ export default function PublicStudentScorecardPage() {
         }
       `}</style>
 
-      <div className="max-w-4xl mx-auto space-y-4 print:space-y-0 print:m-0 print:p-0">
+      {/* Main Dossier Content Body */}
+      <main className="flex-1 w-full max-w-4xl mx-auto py-3 sm:py-6 px-2.5 sm:px-6 lg:px-8 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[calc(max(env(safe-area-inset-bottom,0px),0.75rem)+4.5rem)] sm:pb-12 print:p-0">
+        <div className="w-full space-y-3 sm:space-y-4 print:space-y-0 print:m-0 print:p-0">
         {/* Navigation & Action Bar (Hidden on print) */}
         <div className="flex items-center justify-between print:hidden animate-slide-down">
           <Link
@@ -954,7 +956,55 @@ export default function PublicStudentScorecardPage() {
                           </div>
                         </div>
 
-                        <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xs">
+                        {/* Responsive Mobile Attendance Cards (Ensures everything fits mobile screen perfectly) */}
+                        <div className="sm:hidden space-y-2 print:hidden">
+                          {categoryAttendances.map((att: any) => {
+                            const pts =
+                              typeof att.points === 'number'
+                                ? att.points
+                                : Number(((att.percentage / 100) * 20).toFixed(2));
+                            return (
+                              <div
+                                key={att.id}
+                                className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 shadow-2xs space-y-2"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="font-bold text-xs text-slate-900 dark:text-white flex items-center space-x-1.5">
+                                    <span>{att.monthName}</span>
+                                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">
+                                      {att.year} {att.calendarType === 'HIJRI' ? 'AH' : ''}
+                                    </span>
+                                  </div>
+                                  <span
+                                    className={`px-2 py-0.5 rounded-md font-mono font-extrabold text-[11px] inline-block ${
+                                      att.percentage >= 85
+                                        ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                                        : att.percentage >= 70
+                                        ? 'bg-blue-100 dark:bg-blue-950/70 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                                        : att.percentage >= 50
+                                        ? 'bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                                        : 'bg-rose-100 dark:bg-rose-950/70 text-rose-900 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                                    }`}
+                                  >
+                                    {att.percentage.toFixed(1)}%
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 pt-0.5 border-t border-slate-100 dark:border-slate-800">
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                                    {att.calendarType === 'HIJRI' ? 'Hijri Calendar' : 'English Calendar'}
+                                  </span>
+                                  <span className="font-mono font-black text-blue-700 dark:text-blue-400 text-xs">
+                                    +{pts.toFixed(2)}{' '}
+                                    <span className="text-[10px] text-slate-500 font-medium">/ 20 pts</span>
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Desktop & Print Table Layout */}
+                        <div className="hidden sm:block print:block rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xs">
                           <table className="w-full text-left text-xs print:text-[9px]">
                             <thead className="bg-slate-50/70 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold text-[9.5px] print:text-[8px]">
                               <tr>
@@ -1069,6 +1119,7 @@ export default function PublicStudentScorecardPage() {
           </div>
         </div>
       </div>
+    </main>
 
       {/* ========================================================================= */}
       {/* ADVANCED A4 PRINT STUDIO & SCORECARD CUSTOMIZER MODAL */}

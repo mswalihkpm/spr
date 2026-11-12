@@ -6,6 +6,7 @@ import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
 import { normalizeScoreToPercentage, invalidateEngineCache, onInvalidateEngine } from '@/lib/spr-engine';
 import { triggerLeaderboardRevalidation } from '@/lib/cache-invalidation';
+import { syncStudentEarnings } from '@/lib/student-earnings';
 
 const scoresMemoryCache = new Map<string, { timestamp: number; data: any }>();
 const SCORES_MEMORY_TTL = 90 * 1000; // 90 seconds (invalidated on any score mutation)
@@ -479,6 +480,17 @@ export async function POST(req: NextRequest) {
     invalidateEngineCache();
     clearScoresMemoryCache();
 
+    // Reconcile and credit student earnings if records were recorded after Nov 1
+    for (const sid of studentIds) {
+      if (sid) {
+        try {
+          await syncStudentEarnings(sid as string);
+        } catch (earnErr) {
+          console.warn('Earnings sync error for student:', sid, earnErr);
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: `Successfully saved ${savedCount} score records.`,
@@ -729,6 +741,15 @@ export async function PUT(req: NextRequest) {
     invalidateEngineCache();
     clearScoresMemoryCache();
 
+    // Reconcile and credit student earnings if records were recorded after Nov 1
+    if (updated?.studentId) {
+      try {
+        await syncStudentEarnings(updated.studentId);
+      } catch (earnErr) {
+        console.warn('Earnings sync error for student:', updated.studentId, earnErr);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       record: updated,
@@ -827,6 +848,15 @@ export async function DELETE(req: NextRequest) {
 
     invalidateEngineCache();
     clearScoresMemoryCache();
+
+    // Reconcile and credit student earnings if studentId was specified
+    if (deleteStudentId) {
+      try {
+        await syncStudentEarnings(deleteStudentId);
+      } catch (earnErr) {
+        console.warn('Earnings sync error for student:', deleteStudentId, earnErr);
+      }
+    }
 
     return NextResponse.json({
       success: true,

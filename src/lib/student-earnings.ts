@@ -207,10 +207,12 @@ export async function syncStudentEarnings(studentId: string): Promise<{
       let categoryEarningsSum = 0;
 
       for (const record of catRecords) {
-        // Date-based eligibility check:
-        // Must use record.date (the activity date), not createdAt!
+        // Eligibility check:
+        // Records are eligible if the activity date is on/after eligibilityStartDate,
+        // OR if the record was recorded (createdAt) on/after eligibilityStartDate!
         const recordDate = new Date(record.date);
-        const isEligible = recordDate >= eligibilityStartDate;
+        const recordCreatedAt = new Date(record.createdAt);
+        const isEligible = recordDate >= eligibilityStartDate || recordCreatedAt >= eligibilityStartDate;
 
         if (isEligible) {
           const points = record.obtainedScore || 0;
@@ -225,13 +227,14 @@ export async function syncStudentEarnings(studentId: string): Promise<{
             if (!existingEntry) {
               // New eligible earning: create ledger entry and prepare wallet credit
               const earnedDecimal = new Prisma.Decimal(earnedAmount);
+              const activityDate = recordCreatedAt >= eligibilityStartDate ? recordCreatedAt : recordDate;
               await tx.earningLedger.create({
                 data: {
                   studentId,
                   categoryId: cat.id,
                   sourceRecordId: record.id,
                   sourceType: 'PERFORMANCE_RECORD',
-                  activityDate: recordDate,
+                  activityDate,
                   eligiblePoints: new Prisma.Decimal(points),
                   categoryMultiplier: new Prisma.Decimal(multiplier),
                   calculatedAmount: earnedDecimal,

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
 import { invalidateEngineCache } from '@/lib/spr-engine';
+import { syncStudentEarnings } from '@/lib/student-earnings';
 
 export async function GET(req: NextRequest) {
   try {
@@ -281,6 +282,13 @@ export async function POST(req: NextRequest) {
         }
       }
       savedCount++;
+
+      // Automatically reconcile and credit student cash wallet for this recording
+      try {
+        await syncStudentEarnings(studentId);
+      } catch (earnErr) {
+        console.warn('Earnings sync error for student:', studentId, earnErr);
+      }
     }
 
     // Invalidate caches
