@@ -40,6 +40,58 @@ export interface AppShareData {
   webUrl?: string;
 }
 
+export interface CollectionReceiptShareData {
+  contributorName: string;
+  amount: number | string;
+  campaignName: string;
+  receiptNumber?: string | null;
+  receiptUrl?: string | null;
+  studentName?: string | null;
+  sprId?: string | null;
+}
+
+/**
+ * Format Official Contribution Receipt Sharing Text
+ * Matches the official Ma'din Academy WhatsApp Business receipt format
+ */
+export function formatCollectionReceiptShareText(data: CollectionReceiptShareData): string {
+  const parts = [
+    `*Dear ${data.contributorName.trim()},*`,
+    '',
+    `We have successfully received your contribution of *₹${data.amount}* towards *${data.campaignName.trim()}*.`,
+    '',
+    '📄 _Your receipt details are attached below for your reference._',
+  ];
+
+  if (data.receiptNumber) {
+    parts.push(`*Receipt No:* ${data.receiptNumber}`);
+  }
+
+  if (data.studentName && data.studentName.trim() !== data.contributorName.trim()) {
+    parts.push(`*Student Beneficiary:* ${data.studentName.trim()}${data.sprId ? ` (${data.sprId})` : ''}`);
+  }
+
+  parts.push(
+    '',
+    'Thank you for your support.',
+    '',
+    "*Ma'din School of Excellence*",
+    '*Students Performance Rate (SPR)*'
+  );
+
+  if (data.receiptUrl) {
+    parts.push('', '*View Receipt:*', data.receiptUrl);
+  }
+
+  parts.push(
+    '',
+    '*Get SPR on Google Play:*',
+    GOOGLE_PLAY_STORE_URL
+  );
+
+  return parts.join('\n');
+}
+
 /**
  * Format Student Dossier Sharing Text (Clean WhatsApp Formatting, No Emoji Clutter)
  */

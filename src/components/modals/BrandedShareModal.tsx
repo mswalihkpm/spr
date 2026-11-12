@@ -114,12 +114,11 @@ export default function BrandedShareModal({
       if (fileToShare && navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
         await navigator.share({
           files: [fileToShare],
-          title: payload.text,
           text: payload.text,
         });
       } else {
         await navigator.share({
-          title: payload.text,
+          title: payload.title,
           text: payload.text,
         });
       }
@@ -187,9 +186,19 @@ export default function BrandedShareModal({
             <pre className="text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap font-sans leading-relaxed max-h-36 overflow-y-auto select-all">
               {payload.text}
             </pre>
-            <div className="mt-2 text-[11px] text-emerald-700 dark:text-emerald-400 font-medium bg-emerald-100/50 dark:bg-emerald-950/50 px-2.5 py-1.5 rounded-lg flex items-center space-x-1.5">
-              <span>💡</span>
-              <span><strong>Auto-copied:</strong> When WhatsApp opens, click <em>&ldquo;Add a message...&rdquo;</em> and press <strong>Ctrl+V</strong> (Paste) to send image &amp; text together!</span>
+            <div className="mt-2.5 p-3 rounded-xl bg-emerald-100/70 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 text-[11px] text-emerald-950 dark:text-emerald-200 space-y-1.5">
+              <div className="font-bold flex items-center space-x-1.5 text-emerald-950 dark:text-emerald-100">
+                <span>⚡</span>
+                <span>Send as Single Message (Image + Text together):</span>
+              </div>
+              <ul className="list-disc pl-4 space-y-0.5 leading-relaxed text-emerald-900 dark:text-emerald-200">
+                <li>
+                  <strong>Android / Mobile:</strong> Tap <em>&ldquo;Share Banner with Caption&rdquo;</em>. WhatsApp automatically attaches the caption under the banner in 1 message bubble.
+                </li>
+                <li>
+                  <strong>WhatsApp Web / Desktop:</strong> Caption is <strong>auto-copied</strong>. In WhatsApp, click <em>&ldquo;Add a message...&rdquo;</em> and press <strong>Ctrl+V</strong> (Paste) to send them together!
+                </li>
+              </ul>
             </div>
           </div>
 

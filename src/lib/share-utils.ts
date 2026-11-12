@@ -10,10 +10,11 @@ import {
   formatNewsShareText,
   formatAchievementShareText,
   formatAppShareText,
+  formatCollectionReceiptShareText,
   OFFICIAL_BANNER_PATH,
 } from './share-constants';
 
-export type ShareTemplateType = 'dossier' | 'news' | 'achievement' | 'app';
+export type ShareTemplateType = 'dossier' | 'news' | 'achievement' | 'app' | 'receipt';
 
 export interface BaseShareData {
   title?: string;
@@ -59,11 +60,23 @@ export interface AppPromoShareData extends BaseShareData {
   subhead?: string;
 }
 
+export interface CollectionReceiptShareData extends BaseShareData {
+  template: 'receipt';
+  contributorName: string;
+  amount: number | string;
+  campaignName: string;
+  receiptNumber?: string | null;
+  receiptUrl?: string | null;
+  studentName?: string | null;
+  sprId?: string | null;
+}
+
 export type ShareItemParams =
   | StudentDossierShareData
   | NewsShareData
   | AchievementShareData
-  | AppPromoShareData;
+  | AppPromoShareData
+  | CollectionReceiptShareData;
 
 export interface SharePayload {
   template: ShareTemplateType;
@@ -156,6 +169,27 @@ export function generateSharePayload(params: ShareItemParams, origin?: string): 
     };
   }
 
+  if (params.template === 'receipt') {
+    const text = formatCollectionReceiptShareText({
+      contributorName: params.contributorName || 'Supporter',
+      amount: params.amount,
+      campaignName: params.campaignName || 'Field Collection Drive',
+      receiptNumber: params.receiptNumber,
+      receiptUrl: params.receiptUrl || params.url,
+      studentName: params.studentName,
+      sprId: params.sprId,
+    });
+
+    return {
+      template: 'receipt',
+      title: `Contribution Receipt - ₹${params.amount} | Ma'din School of Excellence`,
+      text,
+      url: params.receiptUrl || params.url || currentOrigin,
+      imageUrl,
+      filename,
+    };
+  }
+
   // General App Promo
   const portalUrl = params.url || currentOrigin;
   const text = formatAppShareText({ webUrl: portalUrl });
@@ -219,7 +253,7 @@ export async function executeBrandedShare(
       console.warn('Could not fetch banner image blob:', err);
     }
 
-    // Pre-copy text to clipboard so it's always ready in case user needs to paste
+    // Pre-copy text to clipboard so it's always ready in case user needs to paste (e.g. WhatsApp Web)
     if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
       try {
         await navigator.clipboard.writeText(payload.text);
@@ -229,19 +263,18 @@ export async function executeBrandedShare(
     }
 
     // Try sharing with File (Level 2 Web Share)
-    // CRITICAL: We pass `title: payload.text` AND `text: payload.text`!
+    // CRITICAL FIX: Do NOT pass `title` when sharing files!
     // In Chromium Android (ShareHelper.java):
-    // If title !== text, Chromium adds `Intent.EXTRA_SUBJECT`.
-    // When WhatsApp receives `EXTRA_SUBJECT`, it treats it as an email/subject share
-    // and splits the payload into two separate messages (text bubble + image bubble).
-    // By setting `title: payload.text`, `title === text`, so Chromium skips `EXTRA_SUBJECT`!
-    // WhatsApp then maps `text` directly into the image's Caption box ("Add a caption..."),
-    // producing a single unified message bubble!
+    // If `title` is passed, Chromium adds `Intent.EXTRA_SUBJECT`.
+    // When WhatsApp receives BOTH `EXTRA_SUBJECT` and `EXTRA_STREAM` (the image),
+    // it splits them into TWO separate messages: 1 text bubble first, 1 image bubble second!
+    // By omitting `title`, Chromium only passes `EXTRA_STREAM` and `EXTRA_TEXT`.
+    // WhatsApp Android then maps `EXTRA_TEXT` directly into the image's Caption box ("Add a caption..."),
+    // producing a single unified message bubble with image on top and text below!
     if (fileToShare && navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
       try {
         await navigator.share({
           files: [fileToShare],
-          title: payload.text,
           text: payload.text,
         });
         return { success: true, sharedWithFile: true };
@@ -256,7 +289,7 @@ export async function executeBrandedShare(
     // Fallback: Web Share without file
     try {
       await navigator.share({
-        title: payload.text,
+        title: payload.title,
         text: payload.text,
       });
       return { success: true, sharedWithFile: false };

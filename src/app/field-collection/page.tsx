@@ -22,7 +22,10 @@ import {
   Sparkles,
   RefreshCw,
   Plus,
+  Share2,
 } from 'lucide-react';
+import BrandedShareModal from '@/components/modals/BrandedShareModal';
+import { executeBrandedShare, SharePayload } from '@/lib/share-utils';
 
 interface StudentFieldCollectionItem {
   id: string;
@@ -84,6 +87,41 @@ export default function FieldCollectionPage() {
   // 5. Bulk Operations
   const [bulkInputValue, setBulkInputValue] = useState<string>('50');
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState<boolean>(false);
+
+  // 6. Share Receipt Modal State
+  const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
+
+  const handleShareReceipt = async (student: StudentFieldCollectionItem) => {
+    const points = getEffectivePoints(student);
+    const campaignName =
+      remarksBuffer[student.id] ||
+      student.latestRecord?.remarks ||
+      defaultDriveName ||
+      'Field Collection Drive';
+    const amountVal = points > 0 ? points : 100;
+
+    await executeBrandedShare(
+      {
+        template: 'receipt',
+        contributorName: student.fullName,
+        amount: amountVal,
+        campaignName,
+        studentName: student.fullName,
+        sprId: student.sprStudentId || student.studentId,
+        receiptUrl:
+          typeof window !== 'undefined'
+            ? `${window.location.origin}/student/${student.id}`
+            : undefined,
+      },
+      {
+        onFallbackModal: (p) => {
+          setSharePayload(p);
+          setIsShareModalOpen(true);
+        },
+      }
+    );
+  };
 
   // Fetch Data from Backend
   const fetchData = useCallback(async () => {
@@ -956,17 +994,31 @@ export default function FieldCollectionPage() {
 
                         {/* Actions */}
                         <td className="py-3 px-3.5 text-right">
-                          {isMod && (
-                            <button
-                              type="button"
-                              onClick={() => handleSaveSingleStudent(s.id)}
-                              disabled={saving}
-                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-2xs"
-                              title="Save this student's points"
-                            >
-                              Save
-                            </button>
-                          )}
+                          <div className="flex items-center justify-end space-x-1.5">
+                            {effectivePoints > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => handleShareReceipt(s)}
+                                className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center space-x-1 transition shadow-2xs cursor-pointer"
+                                title="Share WhatsApp Receipt (Image + Caption)"
+                              >
+                                <Share2 className="w-3 h-3 text-emerald-700" />
+                                <span className="hidden sm:inline">Receipt</span>
+                              </button>
+                            )}
+
+                            {isMod && (
+                              <button
+                                type="button"
+                                onClick={() => handleSaveSingleStudent(s.id)}
+                                disabled={saving}
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer"
+                                title="Save this student's points"
+                              >
+                                Save
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1018,6 +1070,12 @@ export default function FieldCollectionPage() {
             </div>
           </div>
         )}
+        {/* Branded WhatsApp Receipt Share Modal */}
+        <BrandedShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          payload={sharePayload}
+        />
       </div>
     </AdminLayout>
   );
