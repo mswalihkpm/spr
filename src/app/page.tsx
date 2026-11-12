@@ -64,15 +64,15 @@ export default function PublicHomePage() {
   const [newsUpdates, setNewsUpdates] = useState<any[]>(() =>
     bootstrapNews.length > 0 ? bootstrapNews.slice(0, 3) : []
   );
-  const [activeNotification, setActiveNotification] = useState<TextNotificationData | null>(null);
+  const [activeNotifications, setActiveNotifications] = useState<TextNotificationData[]>([]);
 
-  // Fetch active text notification for 5s display on homepage
+  // Fetch active text notifications for homepage display
   useEffect(() => {
     fetch('/api/notifications')
       .then((res) => res.json())
       .then((data) => {
-        if (data && Array.isArray(data.notifications) && data.notifications.length > 0) {
-          setActiveNotification(data.notifications[0]);
+        if (data && Array.isArray(data.notifications)) {
+          setActiveNotifications(data.notifications);
         }
       })
       .catch((err) => {
@@ -1016,25 +1016,45 @@ export default function PublicHomePage() {
         <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#f8fafc] to-transparent dark:from-[#080e1e] dark:to-transparent pointer-events-none transition-colors duration-500" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Active 5-Second Text Notification (Selected Sky Area on PC per design specification) */}
-          {activeNotification && (
-            <div className="hidden sm:block absolute top-1 sm:top-2 left-4 sm:left-6 lg:left-8 w-72 sm:w-80 md:w-96 z-40 animate-slide-right">
-              <HomepageTextNotification
-                notification={activeNotification}
-                onClose={() => setActiveNotification(null)}
-              />
+          {/* Active Text Notifications - Stacked one below another in Sky Area on PC */}
+          {activeNotifications.length > 0 && (
+            <div className="hidden sm:flex flex-col space-y-3 absolute top-1 sm:top-2 left-4 sm:left-6 lg:left-8 w-72 sm:w-80 md:w-96 z-40">
+              {activeNotifications.map((notif, idx) => (
+                <div
+                  key={notif.id}
+                  className="animate-slide-right"
+                  style={{ animationDelay: `${idx * 120}ms` }}
+                >
+                  <HomepageTextNotification
+                    notification={notif}
+                    onClose={() =>
+                      setActiveNotifications((prev) => prev.filter((n) => n.id !== notif.id))
+                    }
+                  />
+                </div>
+              ))}
             </div>
           )}
 
           {/* Hero Content with Smooth Staggered Slide-In & Harmonious Sunset Lighting */}
           <div id="search-section" className="max-w-4xl mx-auto text-center space-y-3 sm:space-y-4 pb-4 sm:pb-8">
-            {/* Active 5-Second Text Notification (Mobile Fallback Banner at Top of Hero) */}
-            {activeNotification && (
-              <div className="sm:hidden mb-3 w-full max-w-md mx-auto z-40 animate-slide-down">
-                <HomepageTextNotification
-                  notification={activeNotification}
-                  onClose={() => setActiveNotification(null)}
-                />
+            {/* Active Text Notifications - Stacked one below another in Mobile View */}
+            {activeNotifications.length > 0 && (
+              <div className="sm:hidden mb-3 w-full max-w-md mx-auto z-40 flex flex-col space-y-2.5">
+                {activeNotifications.map((notif, idx) => (
+                  <div
+                    key={notif.id}
+                    className="animate-slide-down"
+                    style={{ animationDelay: `${idx * 120}ms` }}
+                  >
+                    <HomepageTextNotification
+                      notification={notif}
+                      onClose={() =>
+                        setActiveNotifications((prev) => prev.filter((n) => n.id !== notif.id))
+                      }
+                    />
+                  </div>
+                ))}
               </div>
             )}
             <div className="max-w-3xl mx-auto space-y-2 sm:space-y-3">

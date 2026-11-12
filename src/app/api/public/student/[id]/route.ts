@@ -88,6 +88,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
           remarks: true,
           category: { select: { id: true, name: true, code: true, weight: true } },
           publishedMedia: { select: { id: true, name: true } },
+          publishedMediaName: true,
+          createdAt: true,
         },
         orderBy: { date: 'desc' },
       }),

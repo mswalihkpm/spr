@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
 import { normalizeScoreToPercentage, invalidateEngineCache } from '@/lib/spr-engine';
+import { syncStudentEarnings } from '@/lib/student-earnings';
 
 export async function GET(req: NextRequest) {
   try {
@@ -134,6 +135,12 @@ export async function POST(req: NextRequest) {
 
     invalidateEngineCache();
 
+    try {
+      await syncStudentEarnings(submission.studentId);
+    } catch (syncErr) {
+      console.warn('Wallet earnings sync warning:', syncErr);
+    }
+
     return NextResponse.json({
       success: true,
       submission,
@@ -248,6 +255,15 @@ export async function PUT(req: NextRequest) {
 
     invalidateEngineCache();
 
+    try {
+      await syncStudentEarnings(updated.studentId);
+      if (prev && prev.studentId !== updated.studentId) {
+        await syncStudentEarnings(prev.studentId);
+      }
+    } catch (syncErr) {
+      console.warn('Wallet earnings sync warning:', syncErr);
+    }
+
     return NextResponse.json({
       success: true,
       submission: updated,
@@ -295,6 +311,12 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Submission ID(s) are required for deletion.' }, { status: 400 });
     }
 
+    const subsToDelete = await prisma.creativeHubSubmission.findMany({
+      where: { id: { in: idsToDelete } },
+      select: { studentId: true },
+    });
+    const deleteStudentIds = Array.from(new Set(subsToDelete.map((s) => s.studentId)));
+
     const deleteResult = await prisma.creativeHubSubmission.deleteMany({
       where: { id: { in: idsToDelete } },
     });
@@ -308,6 +330,14 @@ export async function DELETE(req: NextRequest) {
     });
 
     invalidateEngineCache();
+
+    try {
+      for (const sid of deleteStudentIds) {
+        await syncStudentEarnings(sid);
+      }
+    } catch (syncErr) {
+      console.warn('Wallet earnings sync warning:', syncErr);
+    }
 
     return NextResponse.json({
       success: true,

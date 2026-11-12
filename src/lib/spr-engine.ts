@@ -661,6 +661,8 @@ export async function calculateStudentSPR(
             earnedPoints: pts,
             mediaUrl: w.mediaUrl,
             date: w.date ? w.date.toISOString() : null,
+            publishedDate: w.date ? w.date.toISOString() : (w.createdAt ? w.createdAt.toISOString() : null),
+            publishedMediaName: w.publishedMedia?.name || w.publishedMediaName || null,
             remarks: w.remarks || w.description,
           };
         });

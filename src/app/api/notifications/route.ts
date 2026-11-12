@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     const notifications = await prisma.homepageNotification.findMany({
       where: whereClause,
       orderBy: { createdAt: 'desc' },
-      take: includeInactive ? 50 : 5,
+      take: includeInactive ? 50 : 20,
     });
 
     return NextResponse.json(
@@ -57,12 +57,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Notification text is required.' }, { status: 400 });
     }
 
+    const resolvedDuration =
+      duration !== undefined ? Math.max(1, parseInt(String(duration), 10) || 5) : 5;
+
     const notification = await prisma.homepageNotification.create({
       data: {
         text: text.trim(),
         title: title ? title.trim() : null,
         active: active !== undefined ? Boolean(active) : true,
-        duration: typeof duration === 'number' && duration > 0 ? duration : 5,
+        duration: resolvedDuration,
         createdAt: new Date(),
       },
     });
@@ -113,7 +116,7 @@ export async function PUT(req: NextRequest) {
         ...(text !== undefined ? { text: text.trim() } : {}),
         title: title !== undefined ? (title ? title.trim() : null) : undefined,
         ...(active !== undefined ? { active: Boolean(active) } : {}),
-        ...(duration !== undefined ? { duration: typeof duration === 'number' && duration > 0 ? duration : 5 } : {}),
+        ...(duration !== undefined ? { duration: Math.max(1, parseInt(String(duration), 10) || 5) } : {}),
       },
     });
 

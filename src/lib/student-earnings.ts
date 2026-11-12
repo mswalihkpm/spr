@@ -140,6 +140,33 @@ export async function syncStudentEarnings(studentId: string): Promise<{
       },
     });
 
+    // Fetch creative hub submissions
+    const creativeHubSubmissions = await tx.creativeHubSubmission.findMany({
+      where: {
+        studentId,
+        score: { gt: 0 },
+      },
+      include: {
+        category: true,
+        publishedMedia: true,
+      },
+    });
+
+    // Fetch monthly attendances
+    const monthlyAttendances = await tx.monthlyAttendance.findMany({
+      where: {
+        studentId,
+        points: { gt: 0 },
+      },
+    });
+
+    // Fetch library records
+    const libraryRecords = await tx.libraryRecord.findMany({
+      where: {
+        studentId,
+      },
+    });
+
     // Fetch existing ledger records for this student
     const existingLedgers = await tx.earningLedger.findMany({
       where: { studentId },
@@ -148,6 +175,105 @@ export async function syncStudentEarnings(studentId: string): Promise<{
 
     const categoryBreakdown: CategoryEarningItem[] = [];
     let netNewWalletCredit = new Prisma.Decimal(0);
+
+    const applyEarningItem = async ({
+      sourceRecordId,
+      reference,
+      sourceType,
+      activityDate,
+      points,
+      multiplier,
+      metadata,
+      description,
+      categoryId,
+    }: {
+      sourceRecordId: string;
+      reference: string;
+      sourceType: string;
+      activityDate: Date;
+      points: number;
+      multiplier: number;
+      metadata: any;
+      description: string;
+      categoryId: string;
+    }) => {
+      const earnedAmount = calculateCategoryEarnings(points, multiplier);
+      if (earnedAmount <= 0) return 0;
+
+      const existingEntry = ledgerBySourceId.get(sourceRecordId) || ledgerBySourceId.get(reference);
+
+      if (!existingEntry) {
+        // New eligible earning: create ledger entry and prepare wallet credit
+        const earnedDecimal = new Prisma.Decimal(earnedAmount);
+        await tx.earningLedger.create({
+          data: {
+            studentId,
+            categoryId,
+            sourceRecordId,
+            sourceType,
+            activityDate,
+            eligiblePoints: new Prisma.Decimal(points),
+            categoryMultiplier: new Prisma.Decimal(multiplier),
+            calculatedAmount: earnedDecimal,
+            recognizedAmount: earnedDecimal,
+            status: 'CREDITED',
+            reference,
+            metadata: JSON.stringify(metadata),
+          },
+        });
+
+        await tx.walletTransaction.create({
+          data: {
+            reference: `TXN-${reference}`,
+            studentId,
+            type: 'EARNING',
+            amount: earnedDecimal,
+            balanceBefore: wallet.balance.add(netNewWalletCredit),
+            balanceAfter: wallet.balance.add(netNewWalletCredit).add(earnedDecimal),
+            description,
+            status: 'COMPLETED',
+          },
+        });
+
+        netNewWalletCredit = netNewWalletCredit.add(earnedDecimal);
+      } else {
+        // Existing ledger entry: check if points or multiplier changed
+        const previouslyRecognized = Number(existingEntry.recognizedAmount);
+        const delta = Math.round((earnedAmount - previouslyRecognized + Number.EPSILON) * 100) / 100;
+
+        if (delta !== 0) {
+          const deltaDecimal = new Prisma.Decimal(delta);
+          await tx.earningLedger.update({
+            where: { id: existingEntry.id },
+            data: {
+              eligiblePoints: new Prisma.Decimal(points),
+              categoryMultiplier: new Prisma.Decimal(multiplier),
+              calculatedAmount: new Prisma.Decimal(earnedAmount),
+              recognizedAmount: new Prisma.Decimal(earnedAmount),
+              status: 'ADJUSTED',
+              updatedAt: new Date(),
+            },
+          });
+
+          await tx.walletTransaction.create({
+            data: {
+              reference: `TXN-ADJ-${sourceRecordId}-${Date.now()}`,
+              studentId,
+              type: 'ADJUSTMENT',
+              amount: deltaDecimal,
+              balanceBefore: wallet.balance.add(netNewWalletCredit),
+              balanceAfter: wallet.balance.add(netNewWalletCredit).add(deltaDecimal),
+              description: `Adjustment: ${delta >= 0 ? '+' : ''}₹${delta.toFixed(2)} (${description})`,
+              status: 'COMPLETED',
+            },
+          });
+
+          netNewWalletCredit = netNewWalletCredit.add(deltaDecimal);
+        }
+      }
+
+      return earnedAmount;
+    };
 
     for (const cat of categories) {
       let multiplier = resolveCategoryMultiplier(cat, currentYear?.id);
@@ -206,10 +332,107 @@ export async function syncStudentEarnings(studentId: string): Promise<{
       let eligiblePointsSum = 0;
       let categoryEarningsSum = 0;
 
+      // 1. Creative Hub Submissions (for CREATIVE_HUB category)
+      if (cat.code === 'CREATIVE_HUB') {
+        for (const sub of creativeHubSubmissions) {
+          const recordDate = new Date(sub.date);
+          const recordCreatedAt = new Date(sub.createdAt);
+          const isEligible = recordDate >= eligibilityStartDate || recordCreatedAt >= eligibilityStartDate;
+
+          if (isEligible) {
+            const points = sub.score || 0;
+            if (points > 0) {
+              eligiblePointsSum += points;
+              const earned = await applyEarningItem({
+                sourceRecordId: sub.id,
+                reference: `ERN-CH-${sub.id}`,
+                sourceType: 'CREATIVE_HUB_SUBMISSION',
+                activityDate: recordCreatedAt >= eligibilityStartDate ? recordCreatedAt : recordDate,
+                points,
+                multiplier,
+                metadata: {
+                  title: sub.title,
+                  publicationStatus: sub.publicationStatus,
+                  mediaName: sub.publishedMedia?.name || sub.publishedMediaName,
+                  categoryDisplay: displayName,
+                },
+                description: `Earned ₹${calculateCategoryEarnings(points, multiplier).toFixed(2)} from ${displayName} - ${sub.title} (${points} pts × ${multiplier})`,
+                categoryId: cat.id,
+              });
+              categoryEarningsSum += earned;
+            }
+          }
+        }
+      }
+
+      // 2. Monthly Attendance Records (for ISLAMIC and SCHOOL)
+      if (cat.code === 'ISLAMIC' || cat.code === 'SCHOOL') {
+        const catAttendances = monthlyAttendances.filter((a) => a.categoryCode === cat.code);
+        for (const att of catAttendances) {
+          const attDate = new Date(att.year, att.month - 1, 1);
+          const attCreatedAt = new Date(att.createdAt);
+          const isEligible = attCreatedAt >= eligibilityStartDate || attDate >= eligibilityStartDate;
+
+          if (isEligible) {
+            const points = att.points || 0;
+            if (points > 0) {
+              eligiblePointsSum += points;
+              const earned = await applyEarningItem({
+                sourceRecordId: att.id,
+                reference: `ERN-ATT-${att.id}`,
+                sourceType: 'MONTHLY_ATTENDANCE',
+                activityDate: attCreatedAt >= eligibilityStartDate ? attCreatedAt : attDate,
+                points,
+                multiplier,
+                metadata: {
+                  monthName: att.monthName,
+                  month: att.month,
+                  year: att.year,
+                  percentage: att.percentage,
+                  categoryDisplay: displayName,
+                },
+                description: `Earned ₹${calculateCategoryEarnings(points, multiplier).toFixed(2)} from ${displayName} Attendance (${att.monthName} ${att.year}) (${points} pts × ${multiplier})`,
+                categoryId: cat.id,
+              });
+              categoryEarningsSum += earned;
+            }
+          }
+        }
+      }
+
+      // 3. Imthiyaaz Library Records (for LIBRARY)
+      if (isLibraryCat) {
+        for (const lib of libraryRecords) {
+          const libCreatedAt = new Date(lib.createdAt);
+          const isEligible = libCreatedAt >= eligibilityStartDate;
+
+          if (isEligible) {
+            const points = lib.readingScore > 0 ? lib.readingScore : ((lib.booksRead || 0) * 20);
+            if (points > 0) {
+              eligiblePointsSum += points;
+              const earned = await applyEarningItem({
+                sourceRecordId: lib.id,
+                reference: `ERN-LIB-${lib.id}`,
+                sourceType: 'LIBRARY_RECORD',
+                activityDate: libCreatedAt,
+                points,
+                multiplier,
+                metadata: {
+                  readingPeriod: lib.readingPeriod,
+                  booksRead: lib.booksRead,
+                  categoryDisplay: displayName,
+                },
+                description: `Earned ₹${calculateCategoryEarnings(points, multiplier).toFixed(2)} from ${displayName} Reading (${points} pts × ${multiplier})`,
+                categoryId: cat.id,
+              });
+              categoryEarningsSum += earned;
+            }
+          }
+        }
+      }
+
+      // 4. Performance Records (Field Collection, Literary, Qualification, Programs, Islamic/School, Kuthbkhana, etc.)
       for (const record of catRecords) {
-        // Eligibility check:
-        // Records are eligible if the activity date is on/after eligibilityStartDate,
-        // OR if the record was recorded (createdAt) on/after eligibilityStartDate!
         const recordDate = new Date(record.date);
         const recordCreatedAt = new Date(record.createdAt);
         const isEligible = recordDate >= eligibilityStartDate || recordCreatedAt >= eligibilityStartDate;
@@ -218,88 +441,23 @@ export async function syncStudentEarnings(studentId: string): Promise<{
           const points = record.obtainedScore || 0;
           if (points > 0) {
             eligiblePointsSum += points;
-            const earnedAmount = calculateCategoryEarnings(points, multiplier);
-            categoryEarningsSum += earnedAmount;
-
-            const reference = `ERN-${record.id}`;
-            const existingEntry = ledgerBySourceId.get(record.id) || ledgerBySourceId.get(reference);
-
-            if (!existingEntry) {
-              // New eligible earning: create ledger entry and prepare wallet credit
-              const earnedDecimal = new Prisma.Decimal(earnedAmount);
-              const activityDate = recordCreatedAt >= eligibilityStartDate ? recordCreatedAt : recordDate;
-              await tx.earningLedger.create({
-                data: {
-                  studentId,
-                  categoryId: cat.id,
-                  sourceRecordId: record.id,
-                  sourceType: 'PERFORMANCE_RECORD',
-                  activityDate,
-                  eligiblePoints: new Prisma.Decimal(points),
-                  categoryMultiplier: new Prisma.Decimal(multiplier),
-                  calculatedAmount: earnedDecimal,
-                  recognizedAmount: earnedDecimal,
-                  status: 'CREDITED',
-                  reference,
-                  metadata: JSON.stringify({
-                    maxScore: record.maxScore,
-                    percentage: record.percentage,
-                    position: record.position,
-                    categoryDisplay: displayName,
-                  }),
-                },
-              });
-
-              // Create transaction log
-              await tx.walletTransaction.create({
-                data: {
-                  reference: `TXN-${reference}`,
-                  studentId,
-                  type: 'EARNING',
-                  amount: earnedDecimal,
-                  balanceBefore: wallet.balance.add(netNewWalletCredit),
-                  balanceAfter: wallet.balance.add(netNewWalletCredit).add(earnedDecimal),
-                  description: `Earned ₹${earnedAmount.toFixed(2)} from ${displayName} (${points} pts × ${multiplier})`,
-                  status: 'COMPLETED',
-                },
-              });
-
-              netNewWalletCredit = netNewWalletCredit.add(earnedDecimal);
-            } else {
-              // Existing ledger entry: check if points or multiplier changed
-              const previouslyRecognized = Number(existingEntry.recognizedAmount);
-              const delta = Math.round((earnedAmount - previouslyRecognized + Number.EPSILON) * 100) / 100;
-
-              if (delta !== 0) {
-                const deltaDecimal = new Prisma.Decimal(delta);
-                await tx.earningLedger.update({
-                  where: { id: existingEntry.id },
-                  data: {
-                    eligiblePoints: new Prisma.Decimal(points),
-                    categoryMultiplier: new Prisma.Decimal(multiplier),
-                    calculatedAmount: new Prisma.Decimal(earnedAmount),
-                    recognizedAmount: new Prisma.Decimal(earnedAmount),
-                    status: 'ADJUSTED',
-                    updatedAt: new Date(),
-                  },
-                });
-
-                await tx.walletTransaction.create({
-                  data: {
-                    reference: `TXN-ADJ-${record.id}-${Date.now()}`,
-                    studentId,
-                    type: 'ADJUSTMENT',
-                    amount: deltaDecimal,
-                    balanceBefore: wallet.balance.add(netNewWalletCredit),
-                    balanceAfter: wallet.balance.add(netNewWalletCredit).add(deltaDecimal),
-                    description: `Adjustment for ${cat.name}: ${delta >= 0 ? '+' : ''}₹${delta.toFixed(2)}`,
-                    status: 'COMPLETED',
-                  },
-                });
-
-                netNewWalletCredit = netNewWalletCredit.add(deltaDecimal);
-              }
-            }
+            const earned = await applyEarningItem({
+              sourceRecordId: record.id,
+              reference: `ERN-${record.id}`,
+              sourceType: 'PERFORMANCE_RECORD',
+              activityDate: recordCreatedAt >= eligibilityStartDate ? recordCreatedAt : recordDate,
+              points,
+              multiplier,
+              metadata: {
+                maxScore: record.maxScore,
+                percentage: record.percentage,
+                position: record.position,
+                categoryDisplay: displayName,
+              },
+              description: `Earned ₹${calculateCategoryEarnings(points, multiplier).toFixed(2)} from ${displayName} (${points} pts × ${multiplier})`,
+              categoryId: cat.id,
+            });
+            categoryEarningsSum += earned;
           }
         }
       }

@@ -247,7 +247,9 @@ export default function PublicStudentScorecardPage() {
         multiplier: 1.0,
         earnedPoints: w.score ?? 20,
         remarks: w.description || w.remarks,
-        date: w.date,
+        date: w.date || w.createdAt,
+        publishedDate: w.date || w.createdAt,
+        publishedMediaName: w.publishedMedia?.name || w.publishedMediaName || null,
       }));
     }
 
@@ -874,7 +876,26 @@ export default function PublicStudentScorecardPage() {
                                     if (r.position) detailParts.push(`Position: ${r.position}`);
                                     if (r.grade) detailParts.push(`Grade: ${r.grade}`);
                                     if (r.booksRead !== undefined) detailParts.push(`${r.booksRead} Books Read`);
+                                    if (r.publishedMediaName) detailParts.push(`Media: ${r.publishedMediaName}`);
                                     if (r.publicationStatus) detailParts.push(`Status: ${r.publicationStatus}`);
+                                    if (r.publishedDate || (cat.categoryCode === 'CREATIVE_HUB' && (r.date || r.createdAt))) {
+                                      try {
+                                        const rawDate = r.publishedDate || r.date || r.createdAt;
+                                        const d = new Date(rawDate);
+                                        if (!isNaN(d.getTime())) {
+                                          const formatted = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                                          detailParts.push(`Published: ${formatted}`);
+                                        }
+                                      } catch {}
+                                    } else if (r.date && cat.categoryCode !== 'ISLAMIC' && cat.categoryCode !== 'SCHOOL') {
+                                      try {
+                                        const d = new Date(r.date);
+                                        if (!isNaN(d.getTime())) {
+                                          const formatted = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                                          detailParts.push(`Date: ${formatted}`);
+                                        }
+                                      } catch {}
+                                    }
                                     if (r.remarks && !r.remarks.includes(displayName)) detailParts.push(r.remarks);
 
                                     const extraDetail = detailParts.join(' • ');

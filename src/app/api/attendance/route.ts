@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
 import { invalidateEngineCache } from '@/lib/spr-engine';
+import { syncStudentEarnings } from '@/lib/student-earnings';
 
 const ENGLISH_MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -280,6 +281,16 @@ export async function POST(req: NextRequest) {
     // Invalidate engine cache so overall scores, dossiers and leaderboards recalculate immediately
     invalidateEngineCache();
 
+    // Sync student wallet earnings for affected students
+    try {
+      const affectedStudentIds = Array.from(new Set(validatedEntries.map((e) => e.studentId)));
+      for (const sId of affectedStudentIds) {
+        await syncStudentEarnings(sId);
+      }
+    } catch (syncErr) {
+      console.warn('Attendance wallet sync warning:', syncErr);
+    }
+
     // Audit log
     await logAuditAction({
       userId: user.id,
@@ -334,6 +345,12 @@ export async function DELETE(req: NextRequest) {
     });
 
     invalidateEngineCache();
+
+    try {
+      await syncStudentEarnings(existing.studentId);
+    } catch (syncErr) {
+      console.warn('Attendance wallet sync warning:', syncErr);
+    }
 
     await logAuditAction({
       userId: user.id,
