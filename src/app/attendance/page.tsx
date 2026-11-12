@@ -26,6 +26,9 @@ import {
   Calculator,
   X,
   Layers,
+  SlidersHorizontal,
+  ArrowUpDown,
+  ChevronDown,
 } from 'lucide-react';
 
 const ENGLISH_MONTHS = [
@@ -92,6 +95,15 @@ export default function AttendancePage() {
   const [classes, setClasses] = useState<any[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // 3b. Advanced Search & Sorting Filters
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState<boolean>(false);
+  const [selectedDivision, setSelectedDivision] = useState<string>('ALL');
+  const [selectedStatus, setSelectedStatus] = useState<'ALL' | 'SAVED' | 'MISSING' | 'MODIFIED'>('ALL');
+  const [presetRange, setPresetRange] = useState<string>('ALL'); // ALL, 90+, 75-89, 50-74, <50
+  const [customMin, setCustomMin] = useState<string>('');
+  const [customMax, setCustomMax] = useState<string>('');
+  const [sortBy, setSortBy] = useState<string>('CLASS_ASC');
 
   // 4. Student & Attendance Data
   const [loading, setLoading] = useState<boolean>(true);
@@ -193,7 +205,105 @@ export default function AttendancePage() {
     return students.filter((s) => isStudentModified(s)).length;
   }, [students, editBuffer]);
 
-  // Bulk Apply to All Visible
+  // Dynamically discover all unique divisions in current list
+  const availableDivisions = useMemo(() => {
+    const set = new Set<string>();
+    students.forEach((s) => {
+      if (s.division) set.add(s.division);
+    });
+    return Array.from(set).sort();
+  }, [students]);
+
+  // Active advanced filters count
+  const activeAdvancedCount = useMemo(() => {
+    let count = 0;
+    if (selectedDivision !== 'ALL') count++;
+    if (selectedStatus !== 'ALL') count++;
+    if (presetRange !== 'ALL' || customMin !== '' || customMax !== '') count++;
+    if (sortBy !== 'CLASS_ASC') count++;
+    return count;
+  }, [selectedDivision, selectedStatus, presetRange, customMin, customMax, sortBy]);
+
+  // Reset all advanced filters
+  const resetAdvancedFilters = () => {
+    setSelectedDivision('ALL');
+    setSelectedStatus('ALL');
+    setPresetRange('ALL');
+    setCustomMin('');
+    setCustomMax('');
+    setSortBy('CLASS_ASC');
+  };
+
+  // Processed students filtered and sorted by advanced criteria
+  const processedStudents = useMemo(() => {
+    return students
+      .filter((s) => {
+        // Division filter
+        if (selectedDivision !== 'ALL' && s.division !== selectedDivision) {
+          return false;
+        }
+
+        // Status filter
+        const isMod = isStudentModified(s);
+        if (selectedStatus === 'SAVED') {
+          if (!s.attendance || isMod) return false;
+        } else if (selectedStatus === 'MISSING') {
+          if (s.attendance || isMod) return false;
+        } else if (selectedStatus === 'MODIFIED') {
+          if (!isMod) return false;
+        }
+
+        // Percentage range
+        const effPct = getEffectivePercentage(s);
+        if (presetRange === '90+') {
+          if (effPct === null || effPct < 90) return false;
+        } else if (presetRange === '75-89') {
+          if (effPct === null || effPct < 75 || effPct >= 90) return false;
+        } else if (presetRange === '50-74') {
+          if (effPct === null || effPct < 50 || effPct >= 75) return false;
+        } else if (presetRange === '<50') {
+          if (effPct === null || effPct >= 50) return false;
+        }
+
+        if (customMin !== '') {
+          const minVal = parseFloat(customMin);
+          if (!isNaN(minVal) && (effPct === null || effPct < minVal)) return false;
+        }
+        if (customMax !== '') {
+          const maxVal = parseFloat(customMax);
+          if (!isNaN(maxVal) && (effPct === null || effPct > maxVal)) return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'NAME_ASC') {
+          return a.fullName.localeCompare(b.fullName);
+        }
+        if (sortBy === 'NAME_DESC') {
+          return b.fullName.localeCompare(a.fullName);
+        }
+        if (sortBy === 'SPR_ASC') {
+          return (a.sprStudentId || a.studentId).localeCompare(b.sprStudentId || b.studentId);
+        }
+        if (sortBy === 'SPR_DESC') {
+          return (b.sprStudentId || b.studentId).localeCompare(a.sprStudentId || a.studentId);
+        }
+        if (sortBy === 'PCT_DESC') {
+          const pA = getEffectivePercentage(a) ?? -1;
+          const pB = getEffectivePercentage(b) ?? -1;
+          return pB - pA;
+        }
+        if (sortBy === 'PCT_ASC') {
+          const pA = getEffectivePercentage(a) ?? 999;
+          const pB = getEffectivePercentage(b) ?? 999;
+          return pA - pB;
+        }
+        return 0;
+      });
+  }, [students, selectedDivision, selectedStatus, presetRange, customMin, customMax, sortBy, editBuffer]);
+
+  // Bulk Apply to All Filtered / Visible
   const handleApplyBulk = () => {
     const val = parseFloat(bulkInputValue);
     if (isNaN(val) || val < 0 || val > 100) {
@@ -201,18 +311,18 @@ export default function AttendancePage() {
       return;
     }
     const newBuffer: Record<string, string> = { ...editBuffer };
-    students.forEach((s) => {
+    processedStudents.forEach((s) => {
       newBuffer[s.id] = val.toString();
     });
     setEditBuffer(newBuffer);
     setBulkConfirmOpen(false);
     setStatusMsg({
       type: 'success',
-      text: `Applied ${val}% to all ${students.length} visible students. Remember to click "Save All Changes" to persist.`,
+      text: `Applied ${val}% to all ${processedStudents.length} visible students. Remember to click "Save All Changes" to persist.`,
     });
   };
 
-  // Bulk Apply only to students with missing attendance
+  // Bulk Apply only to students with missing attendance in current filtered list
   const handleApplyBulkToEmpty = () => {
     const val = parseFloat(bulkInputValue);
     if (isNaN(val) || val < 0 || val > 100) {
@@ -221,7 +331,7 @@ export default function AttendancePage() {
     }
     const newBuffer: Record<string, string> = { ...editBuffer };
     let appliedCount = 0;
-    students.forEach((s) => {
+    processedStudents.forEach((s) => {
       if (!s.attendance && !(s.id in editBuffer)) {
         newBuffer[s.id] = val.toString();
         appliedCount++;
@@ -698,26 +808,193 @@ export default function AttendancePage() {
               })}
             </div>
 
-            {/* Student Search Box */}
-            <div className="relative w-full lg:w-72">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search student or SPR ID..."
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-madin-900 text-slate-900 placeholder:text-slate-400"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
+            {/* Student Search & Advanced Toggle */}
+            <div className="flex items-center space-x-2 w-full lg:w-auto">
+              <div className="relative flex-1 lg:w-64">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search student or SPR ID..."
+                  className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-madin-900 text-slate-900 placeholder:text-slate-400 font-medium"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
+                className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer shrink-0 border ${
+                  isAdvancedOpen || activeAdvancedCount > 0
+                    ? 'bg-blue-50 text-blue-900 border-blue-300'
+                    : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+                }`}
+                title="Toggle Advanced Search & Sorting Options"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5 text-blue-600" />
+                <span>Advanced</span>
+                {activeAdvancedCount > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-blue-600 text-white text-[9px] flex items-center justify-center font-bold">
+                    {activeAdvancedCount}
+                  </span>
+                )}
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isAdvancedOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
             </div>
           </div>
+
+          {/* Advanced Search & Filtering Options Panel */}
+          {isAdvancedOpen && (
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-slate-50 border border-blue-200/80 text-xs space-y-3 animate-fadeIn">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-100 pb-2">
+                <div className="flex items-center space-x-1.5 text-blue-950 font-bold">
+                  <SlidersHorizontal className="w-4 h-4 text-blue-600" />
+                  <span>Advanced Search, Multi-Filter &amp; Custom Sorting</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-[11px] font-bold text-slate-600">
+                    Showing <span className="text-blue-700 font-black">{processedStudents.length}</span> of {students.length} students
+                  </span>
+                  {activeAdvancedCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={resetAdvancedFilters}
+                      className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-white text-rose-600 border border-rose-200 hover:bg-rose-50 transition cursor-pointer"
+                    >
+                      Reset Filters
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* 1. Division Filter */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                    Division
+                  </label>
+                  <select
+                    value={selectedDivision}
+                    onChange={(e) => setSelectedDivision(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                  >
+                    <option value="ALL">All Divisions ({availableDivisions.length})</option>
+                    {availableDivisions.map((div) => (
+                      <option key={div} value={div}>
+                        Division {div}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 2. Saved Status Filter */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                    Attendance Status
+                  </label>
+                  <select
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value as any)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                  >
+                    <option value="ALL">All Statuses</option>
+                    <option value="SAVED">Saved Only</option>
+                    <option value="MISSING">Missing Only</option>
+                    <option value="MODIFIED">Edited (Unsaved)</option>
+                  </select>
+                </div>
+
+                {/* 3. Percentage Range Preset */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                    Percentage Benchmark
+                  </label>
+                  <select
+                    value={presetRange}
+                    onChange={(e) => {
+                      setPresetRange(e.target.value);
+                      setCustomMin('');
+                      setCustomMax('');
+                    }}
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                  >
+                    <option value="ALL">All Percentages</option>
+                    <option value="90+">≥ 90% (Distinction / 18+ pts)</option>
+                    <option value="75-89">75% - 89% (First Class / 15-17.9 pts)</option>
+                    <option value="50-74">50% - 74% (Average / 10-14.9 pts)</option>
+                    <option value="<50">&lt; 50% (Low / &lt; 10 pts)</option>
+                  </select>
+                </div>
+
+                {/* 4. Sort By */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                    Sort Roster By
+                  </label>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                  >
+                    <option value="CLASS_ASC">Class &amp; Division (Default)</option>
+                    <option value="NAME_ASC">Student Name (A → Z)</option>
+                    <option value="NAME_DESC">Student Name (Z → A)</option>
+                    <option value="SPR_ASC">SPR ID (Lowest First)</option>
+                    <option value="SPR_DESC">SPR ID (Highest First)</option>
+                    <option value="PCT_DESC">Attendance % (Highest First)</option>
+                    <option value="PCT_ASC">Attendance % (Lowest First)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Custom Min / Max Range Controls */}
+              <div className="pt-2 border-t border-blue-100 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center space-x-2 text-[11px] font-medium text-slate-700">
+                  <span>Custom % Range:</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    placeholder="Min %"
+                    value={customMin}
+                    onChange={(e) => {
+                      setCustomMin(e.target.value);
+                      setPresetRange('ALL');
+                    }}
+                    className="w-16 px-2 py-0.5 bg-white border border-slate-300 rounded text-center text-xs font-bold"
+                  />
+                  <span>to</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    placeholder="Max %"
+                    value={customMax}
+                    onChange={(e) => {
+                      setCustomMax(e.target.value);
+                      setPresetRange('ALL');
+                    }}
+                    className="w-16 px-2 py-0.5 bg-white border border-slate-300 rounded text-center text-xs font-bold"
+                  />
+                  <span>%</span>
+                </div>
+
+                <div className="text-[11px] text-slate-500 font-medium">
+                  Matches update in real-time as you filter or search.
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Bulk Operations Toolbar */}
           <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/80 -mx-4 -mb-4 p-4 rounded-b-2xl">
@@ -742,7 +1019,7 @@ export default function AttendancePage() {
                 onClick={() => setBulkConfirmOpen(true)}
                 className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition cursor-pointer shadow-xs"
               >
-                Apply to All ({students.length})
+                Apply to Visible ({processedStudents.length})
               </button>
 
               <button
@@ -816,13 +1093,22 @@ export default function AttendancePage() {
                 subtext={`Querying ${categoryCode === 'ISLAMIC' ? 'Islamic' : 'School'} Studies for ${currentMonthObj.name} ${selectedYear}`}
               />
             </div>
-          ) : students.length === 0 ? (
+          ) : processedStudents.length === 0 ? (
             <div className="p-12 text-center space-y-2">
               <Users className="w-10 h-10 text-slate-300 mx-auto" />
-              <div className="text-sm font-bold text-slate-800">No students found</div>
+              <div className="text-sm font-bold text-slate-800">No students match current filters</div>
               <p className="text-xs text-slate-500">
-                No active students found matching the selected class or search filter.
+                No active students found matching the selected class, search query, or advanced filter options.
               </p>
+              {activeAdvancedCount > 0 && (
+                <button
+                  type="button"
+                  onClick={resetAdvancedFilters}
+                  className="mt-2 px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100 transition cursor-pointer"
+                >
+                  Clear Advanced Filters
+                </button>
+              )}
             </div>
           ) : (
             <div className="table-responsive-wrapper">
@@ -839,7 +1125,7 @@ export default function AttendancePage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-sans">
-                  {students.map((s, idx) => {
+                  {processedStudents.map((s, idx) => {
                     const isMod = isStudentModified(s);
                     const effectivePct = getEffectivePercentage(s);
                     const calculatedPoints =

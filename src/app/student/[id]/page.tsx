@@ -611,11 +611,21 @@ export default function PublicStudentScorecardPage() {
                         <td className="py-2 px-2 sm:py-2.5 sm:px-3 print:py-0.5 print:px-2">
                           <div className="flex items-center space-x-1.5 sm:space-x-2 min-w-0">
                             <div
-                              className={`w-5 h-5 sm:w-6 sm:h-6 rounded-md sm:rounded-lg flex items-center justify-center shrink-0 print:hidden ${
+                              className={`w-5 h-5 sm:w-6 sm:h-6 rounded-md sm:rounded-lg flex items-center justify-center shrink-0 print:hidden overflow-hidden ${
                                 isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
                               }`}
                             >
-                              <IconComp className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                              {cat.categoryCode === 'FIELD_COLLECTION' ? (
+                                <Image
+                                  src="/field-collection-logo.png"
+                                  alt="Field Collection"
+                                  width={24}
+                                  height={24}
+                                  className="w-full h-full object-contain p-0.5 bg-white"
+                                />
+                              ) : (
+                                <IconComp className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                              )}
                             </div>
                             <span className="font-bold text-[10.5px] sm:text-xs text-slate-900 dark:text-white truncate block leading-tight">
                               {cat.categoryName}
@@ -719,8 +729,18 @@ export default function PublicStudentScorecardPage() {
                 >
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-2.5 border-b border-blue-100 dark:border-slate-800">
                     <div className="flex items-center space-x-2.5">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shrink-0 print:w-7 print:h-7 print:rounded-lg">
-                        <IconComp className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shrink-0 print:w-7 print:h-7 print:rounded-lg overflow-hidden">
+                        {cat.categoryCode === 'FIELD_COLLECTION' ? (
+                          <Image
+                            src="/field-collection-logo.png"
+                            alt="Field Collection"
+                            width={40}
+                            height={40}
+                            className="w-full h-full object-contain p-0.5 bg-white"
+                          />
+                        ) : (
+                          <IconComp className="w-4 h-4 sm:w-5 sm:h-5" />
+                        )}
                       </div>
                       <div>
                         <div className="flex items-center space-x-1.5">
@@ -728,12 +748,14 @@ export default function PublicStudentScorecardPage() {
                             {cat.categoryName} Assessment Records
                           </h4>
                           <span className="px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-blue-100 dark:bg-blue-950/70 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-mono print:text-[8px]">
-                            {isExam ? 'Academic Evaluation' : 'Points & Weightage Scoring'}
+                            {isExam ? 'Academic Evaluation' : cat.categoryCode === 'FIELD_COLLECTION' ? 'Direct Points Scoring' : 'Points & Weightage Scoring'}
                           </span>
                         </div>
                         <div className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium print:text-[8.5px]">
                           {isExam
                             ? 'Evaluated examinations and subject percentages'
+                            : cat.categoryCode === 'FIELD_COLLECTION'
+                            ? 'Direct points awarded for field collections, campaigns, and drives'
                             : 'Evaluated items showing exact score, prize positions, and level multipliers'}
                         </div>
                       </div>

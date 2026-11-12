@@ -847,6 +847,18 @@ function deriveCategoryLeaderboard(
         logo: '/programs-logo.png',
         isFest: false,
       };
+    } else if (currentCategory.code === 'FIELD_COLLECTION') {
+      heroTheme = {
+        bgGradient: 'bg-gradient-to-r from-[#064e3b] via-[#047857] to-[#059669]',
+        glowColor: 'from-white/30 via-emerald-300/15 to-transparent',
+        borderColor: 'border-emerald-400/40',
+        title: 'Field Collection Leaderboard',
+        subtitle: 'Field collection campaign contributions, student initiatives & fund drives.',
+        badge: 'Assessment Wing Dedicated Page',
+        badgeClass: 'bg-emerald-500/25 text-emerald-100 border-emerald-300/40',
+        logo: '/field-collection-logo.png',
+        isFest: false,
+      };
     } else if (currentCategory.code === 'LIBRARY') {
       heroTheme = {
         bgGradient: 'bg-gradient-to-r from-[#451a03] via-[#713f12] to-[#a16207]',
@@ -898,6 +910,8 @@ function deriveCategoryLeaderboard(
     ? 'PROGRAMS'
     : isLibraryActive
     ? 'LIBRARY'
+    : currentCategory?.code === 'FIELD_COLLECTION'
+    ? 'FIELD_COLLECTION'
     : '';
 
   // Scroll-Driven Animation State

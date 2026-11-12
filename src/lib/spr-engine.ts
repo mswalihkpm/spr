@@ -910,6 +910,45 @@ export async function calculateStudentSPR(
       }
     }
 
+    // 9. FIELD COLLECTION (Field Collection Campaigns & Contribution Drives)
+    else if (cat.code === 'FIELD_COLLECTION') {
+      if (categoryRecords.length > 0) {
+        hasData = true;
+        let sumPoints = 0;
+        itemizedRecords = categoryRecords.map((r: any) => {
+          const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
+          const baseScore = typeof r.obtainedScore === 'number' && !isNaN(r.obtainedScore) ? r.obtainedScore : 0;
+          const pts = Number((baseScore * mult).toFixed(2));
+          sumPoints += pts;
+
+          return {
+            id: r.id,
+            categoryId: r.categoryId,
+            categoryCode: 'FIELD_COLLECTION',
+            categoryName: cat.name,
+            name: r.remarks || r.subcategory?.name || 'Field Collection',
+            subCategoryName: r.subcategory?.name || 'Field Collection Drive',
+            title: r.remarks || r.subcategory?.name || 'Field Collection Drive',
+            type: 'FIELD_COLLECTION',
+            obtainedScore: baseScore,
+            basePoints: baseScore,
+            earnedPoints: pts,
+            maxScore: r.maxScore || baseScore,
+            multiplier: mult,
+            remarks: r.remarks,
+            date: r.date ? r.date.toISOString() : null,
+          };
+        });
+
+        recordsCount = itemizedRecords.length;
+        earnedPoints = Number(sumPoints.toFixed(2));
+        rawInput = `${formatPoints(earnedPoints)} pts`;
+        formula = `${recordsCount} collection record(s) = +${formatPoints(earnedPoints)} SPR Points`;
+      } else {
+        formula = `No Field Collection records logged (+0 SPR Points)`;
+      }
+    }
+
     // CUSTOM / OTHER EXTENSION CATEGORIES
     else {
       if (categoryRecords.length > 0) {
@@ -1589,6 +1628,13 @@ export async function calculateAllLeaderboards(filters?: {
         const records = student.performanceRecords.filter((r: any) => r.categoryId === cat.id);
         records.forEach((r: any) => {
           catEarned += (r.obtainedScore || 0);
+        });
+      } else if (cat.code === 'FIELD_COLLECTION') {
+        const records = student.performanceRecords.filter((r: any) => r.categoryId === cat.id);
+        records.forEach((r: any) => {
+          const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
+          const base = r.obtainedScore || 0;
+          catEarned += (base * mult);
         });
       } else {
         const records = student.performanceRecords.filter((r: any) => r.categoryId === cat.id);

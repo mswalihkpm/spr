@@ -200,7 +200,7 @@ export default function CategoriesPage() {
   // Direct click on category opens its Subcategories Page if it has subcategories, or directly opens its leaderboard
   const handleCategoryCardClick = (cat: any) => {
     const subCount = cat.subcategories?.length || cat._count?.subcategories || 0;
-    if (subCount > 0 && cat.code !== 'CREATIVE_HUB') {
+    if (subCount > 0 && cat.code !== 'CREATIVE_HUB' && cat.code !== 'FIELD_COLLECTION') {
       router.push(`/categories/${cat.id}`);
     } else {
       router.push(`/leaderboard?categoryId=${cat.id}`);
@@ -408,8 +408,8 @@ export default function CategoriesPage() {
                       </p>
                     </div>
 
-                    {/* Subcategories Logos & Badges rendered right on the main category box (Except Creative Hub which is a direct wing) */}
-                    {cat.code !== 'CREATIVE_HUB' && cat.subcategories && cat.subcategories.length > 0 && (
+                    {/* Subcategories Logos & Badges rendered right on the main category box (Except Creative Hub & Field Collection which are direct wings) */}
+                    {cat.code !== 'CREATIVE_HUB' && cat.code !== 'FIELD_COLLECTION' && cat.subcategories && cat.subcategories.length > 0 && (
                       <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 space-y-1.5" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-between text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">
                           <span>Subcategories</span>
@@ -454,7 +454,7 @@ export default function CategoriesPage() {
 
                   {/* Bottom Footer inside Box */}
                   <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                    {cat.code !== 'CREATIVE_HUB' && subCount > 0 ? (
+                    {cat.code !== 'CREATIVE_HUB' && cat.code !== 'FIELD_COLLECTION' && subCount > 0 ? (
                       <Link
                         href={`/categories/${cat.id}`}
                         onClick={(e) => e.stopPropagation()}

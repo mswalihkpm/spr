@@ -31,6 +31,7 @@ import {
   X,
   Zap,
   Loader2,
+  Coins,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
@@ -295,6 +296,9 @@ export default function WeightsPage() {
     }
     if (key.includes('PROGRAM') || key.includes('TROPHY')) {
       return <Trophy className="w-4 h-4 text-amber-600" />;
+    }
+    if (key.includes('FIELD') || key.includes('COLLECT') || key.includes('COIN')) {
+      return <Coins className="w-4 h-4 text-emerald-700" />;
     }
     return <Layers className="w-4 h-4 text-slate-700" />;
   };
@@ -665,6 +669,7 @@ export default function WeightsPage() {
                         {w.code === 'LIBRARY' && 'Reading points accumulate directly without caps or normalization.'}
                         {w.code === 'LITERARY' && 'Literary competitions calculate Prize Base Points × Festival Level Multiplier.'}
                         {w.code === 'PROGRAMS' && 'Competitions calculate Prize Base Points × Festival Level Multiplier.'}
+                        {w.code === 'FIELD_COLLECTION' && 'Field collection contributions earn points directly without caps or normalization.'}
                       </div>
                     </div>
                   </div>

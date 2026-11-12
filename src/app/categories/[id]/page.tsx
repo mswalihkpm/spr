@@ -79,8 +79,13 @@ export default function PublicCategorySubcategoriesPage() {
       }
       setCategory(resolvedCategory);
 
-      // If category is CREATIVE_HUB or direct wing with no subcategories, redirect directly to its leaderboard
-      if (resolvedCategory?.code === 'CREATIVE_HUB' || categoryId?.toUpperCase() === 'CREATIVE_HUB') {
+      // If category is CREATIVE_HUB or FIELD_COLLECTION or direct wing with no subcategories, redirect directly to its leaderboard
+      if (
+        resolvedCategory?.code === 'CREATIVE_HUB' ||
+        resolvedCategory?.code === 'FIELD_COLLECTION' ||
+        categoryId?.toUpperCase() === 'CREATIVE_HUB' ||
+        categoryId?.toUpperCase() === 'FIELD_COLLECTION'
+      ) {
         router.replace(`/leaderboard?categoryId=${resolvedCategory?.id || categoryId}`);
         return;
       }

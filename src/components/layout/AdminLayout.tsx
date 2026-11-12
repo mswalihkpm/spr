@@ -35,6 +35,7 @@ import {
   CheckSquare,
   UserX,
   CalendarDays,
+  Coins,
 } from 'lucide-react';
 import GlobalSearchModal from '../search/GlobalSearchModal';
 
@@ -112,7 +113,7 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
           router.push('/kuthbkhana');
         }
       } else if (!isAdmin) {
-        if (pathname.startsWith('/settings') || pathname.startsWith('/weights') || pathname.startsWith('/categories') || pathname.startsWith('/updates/manage') || pathname.startsWith('/store') || pathname.startsWith('/admin/deletion-requests') || pathname.startsWith('/attendance')) {
+        if (pathname.startsWith('/settings') || pathname.startsWith('/weights') || pathname.startsWith('/categories') || pathname.startsWith('/updates/manage') || pathname.startsWith('/store') || pathname.startsWith('/admin/deletion-requests') || pathname.startsWith('/attendance') || pathname.startsWith('/field-collection')) {
           router.push('/dashboard');
         }
       }
@@ -132,6 +133,7 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
       ],
     },
     { name: 'Attendance', href: '/attendance', icon: CalendarDays, adminOnly: true },
+    { name: 'Field Collection', href: '/field-collection', icon: Coins, adminOnly: true },
     { name: 'Programs & Competitions', href: '/programs', icon: Trophy },
     { name: 'Creative Hub', href: '/creative-hub', icon: Sparkles },
     { name: 'Literary Programs', href: '/literary', icon: Feather },

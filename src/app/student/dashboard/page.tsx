@@ -33,6 +33,7 @@ import {
   CheckSquare,
   LayoutDashboard,
   ExternalLink,
+  Coins,
 } from 'lucide-react';
 
 export default function StudentDashboardPage() {
@@ -216,6 +217,8 @@ export default function StudentDashboardPage() {
 
   const getCategoryIcon = (code: string) => {
     switch (code) {
+      case 'FIELD_COLLECTION':
+        return Coins;
       case 'TASKS':
         return CheckSquare;
       case 'ISLAMIC':
@@ -238,6 +241,11 @@ export default function StudentDashboardPage() {
 
   const getCategoryTheme = (code: string) => {
     switch (code) {
+      case 'FIELD_COLLECTION':
+        return {
+          bg: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+          badge: 'bg-emerald-50 text-emerald-900 border-emerald-300',
+        };
       case 'TASKS':
         return {
           bg: 'bg-amber-100 text-amber-700 border-amber-200',

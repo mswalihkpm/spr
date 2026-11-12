@@ -8,12 +8,16 @@ import {
   Feather,
   Library,
   CheckSquare,
+  Coins,
+  Banknote,
+  Wallet,
 } from 'lucide-react';
 import { getSubcategoryFallbackLogo } from './logo-utils';
 
 // Helper icon resolver for categories
 export function getCategoryIcon(code: string, iconName?: string) {
   const c = code?.toUpperCase() || '';
+  if (c === 'FIELD_COLLECTION' || c.includes('FIELD') || c.includes('COLLECT')) return Coins;
   if (c === 'TASKS' || c.includes('TASK')) return CheckSquare;
   if (c === 'ISLAMIC' || c.includes('ISLAM')) return BookOpen;
   if (c === 'SCHOOL' || c.includes('ACADEMIC')) return GraduationCap;
@@ -23,6 +27,9 @@ export function getCategoryIcon(code: string, iconName?: string) {
   if (c === 'LIBRARY' || c.includes('READ')) return Library;
   if (c === 'QUALIFICATION' || c.includes('HIFZ') || c.includes('CERT')) return Award;
 
+  if (iconName === 'Coins' || iconName === 'coins') return Coins;
+  if (iconName === 'Banknote' || iconName === 'banknote') return Banknote;
+  if (iconName === 'Wallet' || iconName === 'wallet') return Wallet;
   if (iconName === 'CheckSquare') return CheckSquare;
   if (iconName === 'BookOpen') return BookOpen;
   if (iconName === 'GraduationCap') return GraduationCap;
@@ -37,6 +44,7 @@ export function getCategoryIcon(code: string, iconName?: string) {
 // Category theme colors
 export function getCategoryColor(code: string) {
   const c = code?.toUpperCase() || '';
+  if (c === 'FIELD_COLLECTION' || c.includes('FIELD') || c.includes('COLLECT')) return { bg: 'bg-emerald-600', light: 'bg-emerald-50 text-emerald-950 border-emerald-200', text: 'text-emerald-700', border: 'hover:border-emerald-500' };
   if (c === 'TASKS' || c.includes('TASK')) return { bg: 'bg-gold-500', light: 'bg-gold-50 text-gold-950 border-gold-200', text: 'text-gold-700', border: 'hover:border-gold-500' };
   if (c === 'ISLAMIC') return { bg: 'bg-emerald-500', light: 'bg-emerald-50 text-emerald-900 border-emerald-200', text: 'text-emerald-700', border: 'hover:border-emerald-500' };
   if (c === 'SCHOOL') return { bg: 'bg-indigo-600', light: 'bg-indigo-50 text-indigo-900 border-indigo-200', text: 'text-indigo-700', border: 'hover:border-indigo-500' };
@@ -66,6 +74,7 @@ export function getCategoryLogo(code?: string, logoUrl?: string | null): string 
   if (fallback) return fallback;
 
   const c = code?.toUpperCase() || '';
+  if (c === 'FIELD_COLLECTION' || c.includes('FIELD') || c.includes('COLLECT')) return '/field-collection-logo.png';
   if (c === 'ISLAMIC' || c.includes('ISLAM')) return '/jamiathul-hind-calligraphy.png';
   if (c === 'SCHOOL' || c.includes('ACADEMIC') || c.includes('SCHO')) return '/school-studies-logo.png';
   if (c === 'CREATIVE_HUB' || c.includes('CREATIVE') || c.includes('ART') || c.includes('CREA')) return '/creative-hub-logo.png';
@@ -90,6 +99,7 @@ export function getCategoryDualLogos(code?: string): string[] | null {
 // Category direct module link resolver (if applicable)
 export function getCategoryModulePath(code: string) {
   const c = code?.toUpperCase() || '';
+  if (c === 'FIELD_COLLECTION' || c.includes('FIELD') || c.includes('COLLECT')) return '/field-collection';
   if (c === 'TASKS' || c.includes('TASK')) return '/tasks';
   if (c === 'ISLAMIC') return '/academics/islamic';
   if (c === 'SCHOOL') return '/academics/school';
