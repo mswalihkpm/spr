@@ -150,7 +150,9 @@ export default function IslamicStudiesPage() {
         if (islamicSubs.length > 0 && !selectedSubject) setSelectedSubject(islamicSubs[0].id);
       }
       if (data.exams) {
-        const islamicExams = data.exams.filter((e: any) => e.category?.code === 'ISLAMIC');
+        const islamicExams = data.exams.filter(
+          (e: any) => e.category?.code === 'ISLAMIC' && (e.name || '').trim().toLowerCase() !== 'attendance'
+        );
         setExams(islamicExams);
         if (islamicExams.length > 0 && !selectedExam) setSelectedExam(islamicExams[0].id);
       }

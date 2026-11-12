@@ -140,7 +140,7 @@ export default function SettingsPage() {
 
   // Bulk Exam Handlers
   const handleToggleSelectAllExams = () => {
-    const exams = masterData.exams || [];
+    const exams = (masterData.exams || []).filter((e: any) => (e.name || '').trim().toLowerCase() !== 'attendance');
     const allSelected = exams.length > 0 && exams.every((e: any) => selectedExamIds.includes(e.id));
     if (allSelected) {
       setSelectedExamIds([]);
@@ -1014,8 +1014,8 @@ export default function SettingsPage() {
                         <input
                           type="checkbox"
                           checked={
-                            (masterData.exams || []).length > 0 &&
-                            (masterData.exams || []).every((e: any) => selectedExamIds.includes(e.id))
+                            (masterData.exams || []).filter((e: any) => (e.name || '').trim().toLowerCase() !== 'attendance').length > 0 &&
+                            (masterData.exams || []).filter((e: any) => (e.name || '').trim().toLowerCase() !== 'attendance').every((e: any) => selectedExamIds.includes(e.id))
                           }
                           onChange={handleToggleSelectAllExams}
                           className="w-4 h-4 rounded text-blue-600 focus:ring-blue-600 cursor-pointer"
@@ -1031,7 +1031,9 @@ export default function SettingsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-sans">
-                    {masterData.exams?.map((ex: any) => {
+                    {masterData.exams
+                      ?.filter((ex: any) => (ex.name || '').trim().toLowerCase() !== 'attendance')
+                      .map((ex: any) => {
                       const isSelected = selectedExamIds.includes(ex.id);
                       return (
                         <tr key={ex.id} className={`hover:bg-slate-50 ${isSelected ? 'bg-rose-50/50' : ''}`}>

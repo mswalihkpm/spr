@@ -654,6 +654,9 @@ export default function PublicStudentScorecardPage() {
               const IconComp = getCategoryIcon(cat.categoryCode);
               const earned = cat.earnedPoints ?? 0;
               const isExam = isExamCategory(cat.categoryCode);
+              const categoryAttendances = (profile?.monthlyAttendances || []).filter(
+                (a: any) => a.categoryCode === cat.categoryCode
+              );
 
               const groups: {
                 key: string;
@@ -748,10 +751,10 @@ export default function PublicStudentScorecardPage() {
 
                   {/* Assessment / Context Grouped Box Accordions */}
                   <div className="space-y-2.5 print:space-y-1.5">
-                    {records.length === 0 ? (
+                    {records.length === 0 && categoryAttendances.length === 0 ? (
                       <div className="p-4 text-center rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
                         <div className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                          No assessment records logged yet for {cat.categoryName}.
+                          No assessment or attendance records logged yet for {cat.categoryName}.
                         </div>
                       </div>
                     ) : (
@@ -905,6 +908,72 @@ export default function PublicStudentScorecardPage() {
                           </div>
                         );
                       })
+                    )}
+
+                    {/* Attendance Subsection for Islamic Studies & School Studies */}
+                    {(cat.categoryCode === 'ISLAMIC' || cat.categoryCode === 'SCHOOL') && categoryAttendances.length > 0 && (
+                      <div className="mt-3.5 pt-3.5 border-t border-blue-100 dark:border-slate-800 space-y-2.5 print:mt-2 print:pt-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                              <Calendar className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
+                            </div>
+                            <div>
+                              <h5 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-1.5">
+                                <span>Monthly Attendance</span>
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-mono">
+                                  {categoryAttendances.length} Record{categoryAttendances.length > 1 ? 's' : ''}
+                                </span>
+                              </h5>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                                Official monthly attendance percentages for {cat.categoryName}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xs">
+                          <table className="w-full text-left text-xs print:text-[9px]">
+                            <thead className="bg-slate-50/70 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold text-[9.5px] print:text-[8px]">
+                              <tr>
+                                <th className="py-2 px-3 print:py-1 print:px-2">Month</th>
+                                <th className="py-2 px-3 print:py-1 print:px-2">Year / Calendar</th>
+                                <th className="py-2 px-3 text-right print:py-1 print:px-2">Attendance %</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 bg-white dark:bg-slate-900 font-sans">
+                              {categoryAttendances.map((att: any) => (
+                                <tr key={att.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition">
+                                  <td className="py-2.5 px-3 print:py-1 print:px-2 font-bold text-slate-900 dark:text-white">
+                                    {att.monthName}
+                                  </td>
+                                  <td className="py-2.5 px-3 print:py-1 print:px-2 text-slate-600 dark:text-slate-300 font-medium">
+                                    <span>{att.year} {att.calendarType === 'HIJRI' ? 'AH' : ''}</span>
+                                    <span className="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                                      {att.calendarType === 'HIJRI' ? 'Hijri' : 'English'}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right print:py-1 print:px-2">
+                                    <span
+                                      className={`px-2.5 py-1 rounded-md font-mono font-extrabold text-xs print:text-[8.5px] inline-block ${
+                                        att.percentage >= 85
+                                          ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                                          : att.percentage >= 70
+                                          ? 'bg-blue-100 dark:bg-blue-950/70 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                                          : att.percentage >= 50
+                                          ? 'bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                                          : 'bg-rose-100 dark:bg-rose-950/70 text-rose-900 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                                      }`}
+                                    >
+                                      {att.percentage.toFixed(1)}%
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>

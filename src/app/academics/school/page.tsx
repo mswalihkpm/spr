@@ -145,7 +145,9 @@ export default function SchoolStudiesPage() {
         if (schoolSubs.length > 0 && !selectedSubject) setSelectedSubject(schoolSubs[0].id);
       }
       if (data.exams) {
-        const schoolExams = data.exams.filter((e: any) => e.category?.code === 'SCHOOL');
+        const schoolExams = data.exams.filter(
+          (e: any) => e.category?.code === 'SCHOOL' && (e.name || '').trim().toLowerCase() !== 'attendance'
+        );
         setExams(schoolExams);
         if (schoolExams.length > 0 && !selectedExam) setSelectedExam(schoolExams[0].id);
       }

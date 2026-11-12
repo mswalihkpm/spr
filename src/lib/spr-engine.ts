@@ -364,6 +364,7 @@ export async function calculateStudentSPR(
         task: true,
       },
     },
+    monthlyAttendances: true,
   };
 
   let student = await prisma.student.findFirst({
@@ -414,12 +415,19 @@ export async function calculateStudentSPR(
 
     // 1. ISLAMIC STUDIES
     if (cat.code === 'ISLAMIC') {
-      if (categoryRecords.length > 0) {
+      const nonAttendanceExamRecords = categoryRecords.filter(
+        (r: any) => (r.exam?.name || '').trim().toLowerCase() !== 'attendance'
+      );
+      const studentAttendances = ((student as any).monthlyAttendances || []).filter(
+        (a: any) => a.categoryCode === 'ISLAMIC'
+      );
+
+      if (nonAttendanceExamRecords.length > 0 || studentAttendances.length > 0) {
         hasData = true;
 
-        // Group records by unique Assessment Name
+        // Group non-attendance exam records by unique Assessment Name
         const examGroups = new Map<string, any[]>();
-        categoryRecords.forEach((r: any) => {
+        nonAttendanceExamRecords.forEach((r: any) => {
           const key = (r.exam?.name || r.examId || 'General Assessment').trim().toLowerCase();
           if (!examGroups.has(key)) examGroups.set(key, []);
           examGroups.get(key)!.push(r);
@@ -441,7 +449,19 @@ export async function calculateStudentSPR(
           );
         });
 
-        itemizedRecords = categoryRecords.map((r: any) => {
+        // Add Attendance Points (scale 0-20.00 pts)
+        if (studentAttendances.length > 0) {
+          const totalAttPoints = studentAttendances.reduce((acc: number, curr: any) => acc + (Number(curr.points) || 0), 0);
+          const avgAttPoints = Number((totalAttPoints / studentAttendances.length).toFixed(2));
+          const totalAttPct = studentAttendances.reduce((acc: number, curr: any) => acc + (Number(curr.percentage) || 0), 0);
+          const avgAttPct = Number((totalAttPct / studentAttendances.length).toFixed(2));
+          sumPoints += avgAttPoints;
+          examSummaries.push(
+            `Attendance: ${avgAttPct}% (${studentAttendances.length} mo) → ${avgAttPoints}/20`
+          );
+        }
+
+        itemizedRecords = nonAttendanceExamRecords.map((r: any) => {
           const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
           const subjectMax = r.maxScore || r.subject?.maxScore || 100;
           const recordPct = subjectMax > 0 ? Number(((r.obtainedScore / subjectMax) * 100).toFixed(2)) : (r.percentage || 0);
@@ -466,6 +486,7 @@ export async function calculateStudentSPR(
           };
         });
 
+        recordsCount = itemizedRecords.length + studentAttendances.length;
         earnedPoints = Number(sumPoints.toFixed(2));
         rawInput = `${formatPoints(earnedPoints)} pts`;
         formula = `${examSummaries.join('; ')} = +${formatPoints(earnedPoints)} SPR Points`;
@@ -476,12 +497,19 @@ export async function calculateStudentSPR(
 
     // 2. SCHOOL STUDIES
     else if (cat.code === 'SCHOOL') {
-      if (categoryRecords.length > 0) {
+      const nonAttendanceExamRecords = categoryRecords.filter(
+        (r: any) => (r.exam?.name || '').trim().toLowerCase() !== 'attendance'
+      );
+      const studentAttendances = ((student as any).monthlyAttendances || []).filter(
+        (a: any) => a.categoryCode === 'SCHOOL'
+      );
+
+      if (nonAttendanceExamRecords.length > 0 || studentAttendances.length > 0) {
         hasData = true;
 
-        // Group records by unique Assessment Name
+        // Group non-attendance exam records by unique Assessment Name
         const examGroups = new Map<string, any[]>();
-        categoryRecords.forEach((r: any) => {
+        nonAttendanceExamRecords.forEach((r: any) => {
           const key = (r.exam?.name || r.examId || 'General Assessment').trim().toLowerCase();
           if (!examGroups.has(key)) examGroups.set(key, []);
           examGroups.get(key)!.push(r);
@@ -503,7 +531,19 @@ export async function calculateStudentSPR(
           );
         });
 
-        itemizedRecords = categoryRecords.map((r: any) => {
+        // Add Attendance Points (scale 0-20.00 pts)
+        if (studentAttendances.length > 0) {
+          const totalAttPoints = studentAttendances.reduce((acc: number, curr: any) => acc + (Number(curr.points) || 0), 0);
+          const avgAttPoints = Number((totalAttPoints / studentAttendances.length).toFixed(2));
+          const totalAttPct = studentAttendances.reduce((acc: number, curr: any) => acc + (Number(curr.percentage) || 0), 0);
+          const avgAttPct = Number((totalAttPct / studentAttendances.length).toFixed(2));
+          sumPoints += avgAttPoints;
+          examSummaries.push(
+            `Attendance: ${avgAttPct}% (${studentAttendances.length} mo) → ${avgAttPoints}/20`
+          );
+        }
+
+        itemizedRecords = nonAttendanceExamRecords.map((r: any) => {
           const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
           const subjectMax = r.maxScore || r.subject?.maxScore || 100;
           const recordPct = subjectMax > 0 ? Number(((r.obtainedScore / subjectMax) * 100).toFixed(2)) : (r.percentage || 0);
@@ -528,11 +568,12 @@ export async function calculateStudentSPR(
           };
         });
 
+        recordsCount = itemizedRecords.length + studentAttendances.length;
         earnedPoints = Number(sumPoints.toFixed(2));
         rawInput = `${formatPoints(earnedPoints)} pts`;
         formula = `${examSummaries.join('; ')} = +${formatPoints(earnedPoints)} SPR Points`;
       } else {
-        formula = `No School academic marks logged (+0 SPR Points)`;
+        formula = `No School assessments logged (+0 SPR Points)`;
       }
     }
 
@@ -1019,6 +1060,16 @@ export async function calculateStudentSPR(
     recentRecords,
     subjectWiseRecords,
     programmeWiseRecords,
+    monthlyAttendances: ((student as any).monthlyAttendances || []).map((a: any) => ({
+      id: a.id,
+      categoryCode: a.categoryCode,
+      calendarType: a.calendarType,
+      month: a.month,
+      monthName: a.monthName,
+      year: a.year,
+      percentage: a.percentage,
+      createdAt: a.createdAt,
+    })),
     allRecords: student.performanceRecords.map((r) => ({
       id: r.id,
       categoryCode: r.category.code,
@@ -1082,6 +1133,13 @@ async function getActiveStudentsSnapshot(): Promise<any[]> {
           academicYearId: true,
           class: { select: { name: true } },
           school: { select: { name: true } },
+          monthlyAttendances: {
+            select: {
+              categoryCode: true,
+              percentage: true,
+              points: true,
+            },
+          },
           performanceRecords: {
             select: {
               categoryId: true,
@@ -1486,7 +1544,15 @@ export async function calculateAllLeaderboards(filters?: {
           catEarned += (baseScore * subMult * lvlMult * prizeMult);
         });
       } else if (cat.code === 'SCHOOL' || cat.code === 'ISLAMIC') {
-        const records = student.performanceRecords.filter((r: any) => r.categoryId === cat.id);
+        const records = student.performanceRecords.filter((r: any) => {
+          if (r.categoryId !== cat.id) return false;
+          return (r.exam?.name || '').trim().toLowerCase() !== 'attendance';
+        });
+        const attendances = ((student as any).monthlyAttendances || []).filter(
+          (a: any) => a.categoryCode === cat.code
+        );
+
+        let catSum = 0;
         if (records.length > 0) {
           const examGroups = new Map<string, any[]>();
           records.forEach((r: any) => {
@@ -1494,7 +1560,6 @@ export async function calculateAllLeaderboards(filters?: {
             if (!examGroups.has(key)) examGroups.set(key, []);
             examGroups.get(key)!.push(r);
           });
-          let catSum = 0;
           examGroups.forEach((recs) => {
             const examActualMax = recs[0]?.exam?.maxScore || (cat.code === 'SCHOOL' ? 130 : 100);
             const totObt = recs.reduce((sum: number, r: any) => sum + (r.obtainedScore || 0), 0);
@@ -1502,8 +1567,15 @@ export async function calculateAllLeaderboards(filters?: {
             const pct = totMax > 0 ? (totObt / totMax) * 100 : 0;
             catSum += ((pct / 100) * examActualMax);
           });
-          catEarned = Number(catSum.toFixed(2));
         }
+
+        if (attendances.length > 0) {
+          const totalAttPoints = attendances.reduce((acc: number, curr: any) => acc + (Number(curr.points) || 0), 0);
+          const avgAttPoints = Number((totalAttPoints / attendances.length).toFixed(2));
+          catSum += avgAttPoints;
+        }
+
+        catEarned = Number(catSum.toFixed(2));
       } else if (cat.code === 'TASKS' || cat.code.startsWith('TASK')) {
         ((student as any).taskRecords || []).forEach((tr: any) => {
           catEarned += Number(tr.awardedPoints) || 0;

@@ -85,6 +85,7 @@ model AcademicYear {
   literaryEvents     LiteraryEvent[]
   performanceRecords PerformanceRecord[]
   categoryWeights    CategoryWeight[]
+  monthlyAttendances MonthlyAttendance[]
 }
 
 model Student {
@@ -120,6 +121,7 @@ model Student {
   taskRewardLedgers  TaskRewardLedger[]
   taskPointsLedgers  TaskPointsLedger[]
   deletionRequests   AccountDeletionRequest[]
+  monthlyAttendances MonthlyAttendance[]
 
   @@index([classId])
   @@index([schoolId])
@@ -771,4 +773,29 @@ model AccountDeletionRequest {
   @@index([matchedStudentId])
   @@index([createdAt])
 }
+
+model MonthlyAttendance {
+  id             String        @id @default(cuid())
+  studentId      String
+  student        Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  categoryCode   String        // "ISLAMIC" or "SCHOOL"
+  calendarType   String        // "ENGLISH" or "HIJRI"
+  month          Int           // 1 to 12
+  monthName      String        // e.g. "September", "Ramadan"
+  year           Int           // e.g. 2026, 1448
+  percentage     Float         // 0.0 to 100.0
+  points         Float         // (percentage / 100) * 20.0
+  academicYearId String?
+  academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+  createdById    String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([studentId, categoryCode, calendarType, month, year])
+  @@index([studentId])
+  @@index([categoryCode])
+  @@index([calendarType, month, year])
+  @@index([academicYearId])
+}
+
 

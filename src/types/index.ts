@@ -127,6 +127,16 @@ export interface StudentSPRProfile {
   subjectWiseRecords?: any[];
   programmeWiseRecords?: any[];
   allRecords?: any[];
+  monthlyAttendances?: {
+    id: string;
+    categoryCode: string;
+    calendarType: string;
+    month: number;
+    monthName: string;
+    year: number;
+    percentage: number;
+    createdAt?: string | Date;
+  }[];
 }
 
 export interface LeaderboardEntry {
