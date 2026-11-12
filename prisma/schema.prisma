@@ -359,6 +359,19 @@ model News {
   @@index([active])
 }
 
+model HomepageNotification {
+  id        String    @id @default(cuid())
+  title     String?
+  text      String
+  active    Boolean   @default(true)
+  duration  Int       @default(5)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([active])
+  @@index([createdAt])
+}
+
 model LiteraryEvent {
   id           String                @id @default(cuid())
   name         String // Salityotsav, Jamia Maharjan, M-Lit Fest

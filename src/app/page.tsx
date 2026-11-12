@@ -32,6 +32,7 @@ import ItemLeaderboardModal from '@/components/modals/ItemLeaderboardModal';
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
 import MobileHeaderMenu from '@/components/layout/MobileHeaderMenu';
+import HomepageTextNotification, { TextNotificationData } from '@/components/notifications/HomepageTextNotification';
 import { getAcademicMasterData } from '@/lib/academic-client';
 import { fetchWithDedupe } from '@/lib/client-cache';
 import CustomSelect from '@/components/ui/CustomSelect';
@@ -63,6 +64,21 @@ export default function PublicHomePage() {
   const [newsUpdates, setNewsUpdates] = useState<any[]>(() =>
     bootstrapNews.length > 0 ? bootstrapNews.slice(0, 3) : []
   );
+  const [activeNotification, setActiveNotification] = useState<TextNotificationData | null>(null);
+
+  // Fetch active text notification for 5s display on homepage
+  useEffect(() => {
+    fetch('/api/notifications')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && Array.isArray(data.notifications) && data.notifications.length > 0) {
+          setActiveNotification(data.notifications[0]);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load text notifications:', err);
+      });
+  }, []);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(
     () => bootstrapLeaderboard.length === 0 && !homeLeaderboardMemory.has('overview')
   );
@@ -1000,8 +1016,27 @@ export default function PublicHomePage() {
         <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#f8fafc] to-transparent dark:from-[#080e1e] dark:to-transparent pointer-events-none transition-colors duration-500" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Active 5-Second Text Notification (Selected Sky Area on PC per design specification) */}
+          {activeNotification && (
+            <div className="hidden sm:block absolute top-1 sm:top-2 left-4 sm:left-6 lg:left-8 w-72 sm:w-80 md:w-96 z-40 animate-slide-right">
+              <HomepageTextNotification
+                notification={activeNotification}
+                onClose={() => setActiveNotification(null)}
+              />
+            </div>
+          )}
+
           {/* Hero Content with Smooth Staggered Slide-In & Harmonious Sunset Lighting */}
           <div id="search-section" className="max-w-4xl mx-auto text-center space-y-3 sm:space-y-4 pb-4 sm:pb-8">
+            {/* Active 5-Second Text Notification (Mobile Fallback Banner at Top of Hero) */}
+            {activeNotification && (
+              <div className="sm:hidden mb-3 w-full max-w-md mx-auto z-40 animate-slide-down">
+                <HomepageTextNotification
+                  notification={activeNotification}
+                  onClose={() => setActiveNotification(null)}
+                />
+              </div>
+            )}
             <div className="max-w-3xl mx-auto space-y-2 sm:space-y-3">
               <h2 className="text-xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-snug drop-shadow-lg animate-slide-up">
                 Elevating Potential Through <br className="hidden sm:inline" />
