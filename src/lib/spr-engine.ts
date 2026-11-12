@@ -449,16 +449,18 @@ export async function calculateStudentSPR(
           );
         });
 
-        // Add Attendance Points (scale 0-20.00 pts)
+        // Add Attendance Points: for each month attendance, points are given out of 20 according to percentage
         if (studentAttendances.length > 0) {
-          const totalAttPoints = studentAttendances.reduce((acc: number, curr: any) => acc + (Number(curr.points) || 0), 0);
-          const avgAttPoints = Number((totalAttPoints / studentAttendances.length).toFixed(2));
-          const totalAttPct = studentAttendances.reduce((acc: number, curr: any) => acc + (Number(curr.percentage) || 0), 0);
-          const avgAttPct = Number((totalAttPct / studentAttendances.length).toFixed(2));
-          sumPoints += avgAttPoints;
-          examSummaries.push(
-            `Attendance: ${avgAttPct}% (${studentAttendances.length} mo) → ${avgAttPoints}/20`
+          const totalAttPoints = Number(
+            studentAttendances.reduce((acc: number, curr: any) => acc + (Number(curr.points) || 0), 0).toFixed(2)
           );
+          sumPoints += totalAttPoints;
+          studentAttendances.forEach((a: any) => {
+            const mPts = Number((a.points ?? ((a.percentage / 100) * 20)).toFixed(2));
+            examSummaries.push(
+              `${a.monthName} Attendance: ${a.percentage}% → ${mPts}/20`
+            );
+          });
         }
 
         itemizedRecords = nonAttendanceExamRecords.map((r: any) => {
@@ -531,16 +533,18 @@ export async function calculateStudentSPR(
           );
         });
 
-        // Add Attendance Points (scale 0-20.00 pts)
+        // Add Attendance Points: for each month attendance, points are given out of 20 according to percentage
         if (studentAttendances.length > 0) {
-          const totalAttPoints = studentAttendances.reduce((acc: number, curr: any) => acc + (Number(curr.points) || 0), 0);
-          const avgAttPoints = Number((totalAttPoints / studentAttendances.length).toFixed(2));
-          const totalAttPct = studentAttendances.reduce((acc: number, curr: any) => acc + (Number(curr.percentage) || 0), 0);
-          const avgAttPct = Number((totalAttPct / studentAttendances.length).toFixed(2));
-          sumPoints += avgAttPoints;
-          examSummaries.push(
-            `Attendance: ${avgAttPct}% (${studentAttendances.length} mo) → ${avgAttPoints}/20`
+          const totalAttPoints = Number(
+            studentAttendances.reduce((acc: number, curr: any) => acc + (Number(curr.points) || 0), 0).toFixed(2)
           );
+          sumPoints += totalAttPoints;
+          studentAttendances.forEach((a: any) => {
+            const mPts = Number((a.points ?? ((a.percentage / 100) * 20)).toFixed(2));
+            examSummaries.push(
+              `${a.monthName} Attendance: ${a.percentage}% → ${mPts}/20`
+            );
+          });
         }
 
         itemizedRecords = nonAttendanceExamRecords.map((r: any) => {
@@ -1068,6 +1072,7 @@ export async function calculateStudentSPR(
       monthName: a.monthName,
       year: a.year,
       percentage: a.percentage,
+      points: Number((a.points ?? ((a.percentage / 100) * 20)).toFixed(2)),
       createdAt: a.createdAt,
     })),
     allRecords: student.performanceRecords.map((r) => ({
@@ -1570,9 +1575,10 @@ export async function calculateAllLeaderboards(filters?: {
         }
 
         if (attendances.length > 0) {
-          const totalAttPoints = attendances.reduce((acc: number, curr: any) => acc + (Number(curr.points) || 0), 0);
-          const avgAttPoints = Number((totalAttPoints / attendances.length).toFixed(2));
-          catSum += avgAttPoints;
+          const totalAttPoints = Number(
+            attendances.reduce((acc: number, curr: any) => acc + (Number(curr.points) || 0), 0).toFixed(2)
+          );
+          catSum += totalAttPoints;
         }
 
         catEarned = Number(catSum.toFixed(2));

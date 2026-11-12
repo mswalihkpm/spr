@@ -926,7 +926,7 @@ export default function PublicStudentScorecardPage() {
                                 </span>
                               </h5>
                               <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                                Official monthly attendance percentages for {cat.categoryName}
+                                Official monthly attendance records and earned points (out of 20 per month) for {cat.categoryName}
                               </p>
                             </div>
                           </div>
@@ -938,38 +938,51 @@ export default function PublicStudentScorecardPage() {
                               <tr>
                                 <th className="py-2 px-3 print:py-1 print:px-2">Month</th>
                                 <th className="py-2 px-3 print:py-1 print:px-2">Year / Calendar</th>
-                                <th className="py-2 px-3 text-right print:py-1 print:px-2">Attendance %</th>
+                                <th className="py-2 px-3 text-center print:py-1 print:px-2">Attendance %</th>
+                                <th className="py-2 px-3 text-right print:py-1 print:px-2">Points (out of 20)</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 bg-white dark:bg-slate-900 font-sans">
-                              {categoryAttendances.map((att: any) => (
-                                <tr key={att.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition">
-                                  <td className="py-2.5 px-3 print:py-1 print:px-2 font-bold text-slate-900 dark:text-white">
-                                    {att.monthName}
-                                  </td>
-                                  <td className="py-2.5 px-3 print:py-1 print:px-2 text-slate-600 dark:text-slate-300 font-medium">
-                                    <span>{att.year} {att.calendarType === 'HIJRI' ? 'AH' : ''}</span>
-                                    <span className="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                                      {att.calendarType === 'HIJRI' ? 'Hijri' : 'English'}
-                                    </span>
-                                  </td>
-                                  <td className="py-2.5 px-3 text-right print:py-1 print:px-2">
-                                    <span
-                                      className={`px-2.5 py-1 rounded-md font-mono font-extrabold text-xs print:text-[8.5px] inline-block ${
-                                        att.percentage >= 85
-                                          ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                                          : att.percentage >= 70
-                                          ? 'bg-blue-100 dark:bg-blue-950/70 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                                          : att.percentage >= 50
-                                          ? 'bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-                                          : 'bg-rose-100 dark:bg-rose-950/70 text-rose-900 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-                                      }`}
-                                    >
-                                      {att.percentage.toFixed(1)}%
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
+                              {categoryAttendances.map((att: any) => {
+                                const pts =
+                                  typeof att.points === 'number'
+                                    ? att.points
+                                    : Number(((att.percentage / 100) * 20).toFixed(2));
+                                return (
+                                  <tr key={att.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition">
+                                    <td className="py-2.5 px-3 print:py-1 print:px-2 font-bold text-slate-900 dark:text-white">
+                                      {att.monthName}
+                                    </td>
+                                    <td className="py-2.5 px-3 print:py-1 print:px-2 text-slate-600 dark:text-slate-300 font-medium">
+                                      <span>{att.year} {att.calendarType === 'HIJRI' ? 'AH' : ''}</span>
+                                      <span className="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                                        {att.calendarType === 'HIJRI' ? 'Hijri' : 'English'}
+                                      </span>
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center print:py-1 print:px-2">
+                                      <span
+                                        className={`px-2.5 py-1 rounded-md font-mono font-extrabold text-xs print:text-[8.5px] inline-block ${
+                                          att.percentage >= 85
+                                            ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                                            : att.percentage >= 70
+                                            ? 'bg-blue-100 dark:bg-blue-950/70 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                                            : att.percentage >= 50
+                                            ? 'bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                                            : 'bg-rose-100 dark:bg-rose-950/70 text-rose-900 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                                        }`}
+                                      >
+                                        {att.percentage.toFixed(1)}%
+                                      </span>
+                                    </td>
+                                    <td className="py-2.5 px-3 text-right print:py-1 print:px-2">
+                                      <span className="px-2.5 py-1 rounded-md font-mono font-black text-xs print:text-[8.5px] inline-block bg-blue-50 dark:bg-blue-950/60 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                        +{pts.toFixed(2)}{' '}
+                                        <span className="text-[10px] print:text-[7.5px] text-blue-700/80 dark:text-blue-400 font-bold">/ 20 pts</span>
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
                             </tbody>
                           </table>
                         </div>

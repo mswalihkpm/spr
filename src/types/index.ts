@@ -135,6 +135,7 @@ export interface StudentSPRProfile {
     monthName: string;
     year: number;
     percentage: number;
+    points: number;
     createdAt?: string | Date;
   }[];
 }
