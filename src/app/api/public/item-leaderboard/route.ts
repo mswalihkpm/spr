@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { resolveLevelMultiplier, resolvePrizeMultiplier } from '@/lib/spr-engine';
+import { resolveLevelMultiplier, resolvePrizeMultiplier, getCachedLevels } from '@/lib/spr-engine';
 
 export async function GET(req: NextRequest) {
   try {
@@ -26,19 +26,33 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Item ID or Item Name is required.' }, { status: 400 });
     }
 
-    const levels = await prisma.level.findMany({ where: { active: true } });
+    const levels = await getCachedLevels();
 
     // Resolve common name if not explicitly provided
     let resolvedTargetName = itemName;
     if (!resolvedTargetName && idsList.length > 0) {
       const firstId = idsList[0];
-      const [lc, comp, ex, sub] = await Promise.all([
-        prisma.literaryCompetition.findUnique({ where: { id: firstId }, select: { name: true } }),
-        prisma.competition.findUnique({ where: { id: firstId }, select: { name: true } }),
-        prisma.exam.findUnique({ where: { id: firstId }, select: { name: true } }),
-        prisma.subject.findUnique({ where: { id: firstId }, select: { name: true } }),
-      ]);
-      resolvedTargetName = lc?.name || comp?.name || ex?.name || sub?.name || '';
+      if (itemType === 'LITERARY_COMPETITION') {
+        const lc = await prisma.literaryCompetition.findUnique({ where: { id: firstId }, select: { name: true } });
+        resolvedTargetName = lc?.name || '';
+      } else if (itemType === 'COMPETITION') {
+        const comp = await prisma.competition.findUnique({ where: { id: firstId }, select: { name: true } });
+        resolvedTargetName = comp?.name || '';
+      } else if (itemType === 'EXAM') {
+        const ex = await prisma.exam.findUnique({ where: { id: firstId }, select: { name: true } });
+        resolvedTargetName = ex?.name || '';
+      } else if (itemType === 'SUBJECT') {
+        const sub = await prisma.subject.findUnique({ where: { id: firstId }, select: { name: true } });
+        resolvedTargetName = sub?.name || '';
+      } else {
+        const [lc, comp, ex, sub] = await Promise.all([
+          prisma.literaryCompetition.findUnique({ where: { id: firstId }, select: { name: true } }),
+          prisma.competition.findUnique({ where: { id: firstId }, select: { name: true } }),
+          prisma.exam.findUnique({ where: { id: firstId }, select: { name: true } }),
+          prisma.subject.findUnique({ where: { id: firstId }, select: { name: true } }),
+        ]);
+        resolvedTargetName = lc?.name || comp?.name || ex?.name || sub?.name || '';
+      }
     }
 
     // Build conditions to find all performance records associated with this programme / competition / exam

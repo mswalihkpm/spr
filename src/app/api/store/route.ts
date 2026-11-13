@@ -14,41 +14,60 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('q')?.trim() || '';
 
-    // Fetch only students with qualifying Store funds (totalContributed > 0 or availableFund > 0)
-    const qualifyingRecords = await prisma.storeFundRecord.findMany({
-      where: {
-        totalContributed: { gt: 0 },
-        ...(search
-          ? {
-              student: {
-                OR: [
-                  { fullName: { contains: search, mode: 'insensitive' } },
-                  { sprStudentId: { contains: search, mode: 'insensitive' } },
-                  { studentId: { contains: search, mode: 'insensitive' } },
-                ],
-              },
-            }
-          : {}),
-      },
-      include: {
-        student: {
-          select: {
-            id: true,
-            fullName: true,
-            sprStudentId: true,
-            studentId: true,
-            division: true,
-            photoUrl: true,
-            class: { select: { name: true } },
+    // Fetch qualifying records and recent usages concurrently with pruned columns
+    const [qualifyingRecords, recentUsages] = await Promise.all([
+      prisma.storeFundRecord.findMany({
+        where: {
+          totalContributed: { gt: 0 },
+          ...(search
+            ? {
+                student: {
+                  OR: [
+                    { fullName: { contains: search, mode: 'insensitive' } },
+                    { sprStudentId: { contains: search, mode: 'insensitive' } },
+                    { studentId: { contains: search, mode: 'insensitive' } },
+                  ],
+                },
+              }
+            : {}),
+        },
+        select: {
+          totalContributed: true,
+          totalUsed: true,
+          availableFund: true,
+          lastUsedAt: true,
+          student: {
+            select: {
+              id: true,
+              fullName: true,
+              sprStudentId: true,
+              studentId: true,
+              division: true,
+              photoUrl: true,
+              class: { select: { name: true } },
+            },
           },
         },
-      },
-      orderBy: {
-        student: {
-          fullName: 'asc',
+        orderBy: {
+          student: {
+            fullName: 'asc',
+          },
         },
-      },
-    });
+      }),
+      prisma.storeFundUsage.findMany({
+        select: {
+          id: true,
+          reference: true,
+          amount: true,
+          actingAdminEmail: true,
+          remarks: true,
+          createdAt: true,
+          student: { select: { fullName: true, sprStudentId: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 25,
+      }),
+    ]);
 
     const students = qualifyingRecords.map((r) => ({
       studentId: r.student.id,
@@ -74,15 +93,6 @@ export async function GET(req: NextRequest) {
       },
       { totalContributed: 0, totalUsed: 0, availableFund: 0 }
     );
-
-    // Recent usages
-    const recentUsages = await prisma.storeFundUsage.findMany({
-      include: {
-        student: { select: { fullName: true, sprStudentId: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 25,
-    });
 
     const formattedUsages = recentUsages.map((u) => ({
       id: u.id,

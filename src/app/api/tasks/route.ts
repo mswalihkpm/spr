@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/auth';
 import { createTask, getAdminTasks } from '@/lib/tasks';
-import { prisma } from '@/lib/prisma';
+import { getCachedAcademicClasses } from '@/lib/academic-cache';
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,10 +16,7 @@ export async function GET(req: NextRequest) {
 
     const [tasks, classes] = await Promise.all([
       getAdminTasks(filter),
-      prisma.academicClass.findMany({
-        select: { id: true, name: true, numericGrade: true },
-        orderBy: { numericGrade: 'asc' },
-      }),
+      getCachedAcademicClasses(),
     ]);
 
     return NextResponse.json({ tasks, classes });

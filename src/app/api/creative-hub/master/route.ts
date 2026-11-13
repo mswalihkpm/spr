@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
+import { invalidateCreativeHubMasterCache } from '@/lib/creative-hub-cache';
 
 // GET all Creative Wings (Categories) and Published Media
 export async function GET(req: NextRequest) {
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
         newValue: created,
       });
 
+      invalidateCreativeHubMasterCache();
       return NextResponse.json({ success: true, item: created });
     } else {
       const created = await prisma.creativeHubCategory.create({
@@ -84,6 +86,7 @@ export async function POST(req: NextRequest) {
         newValue: created,
       });
 
+      invalidateCreativeHubMasterCache();
       return NextResponse.json({ success: true, item: created });
     }
   } catch (error: any) {
@@ -131,6 +134,7 @@ export async function PUT(req: NextRequest) {
         newValue: updated,
       });
 
+      invalidateCreativeHubMasterCache();
       return NextResponse.json({ success: true, item: updated });
     } else {
       const existing = await prisma.creativeHubCategory.findUnique({ where: { id } });
@@ -156,6 +160,7 @@ export async function PUT(req: NextRequest) {
         newValue: updated,
       });
 
+      invalidateCreativeHubMasterCache();
       return NextResponse.json({ success: true, item: updated });
     }
   } catch (error: any) {
@@ -216,6 +221,7 @@ export async function DELETE(req: NextRequest) {
         newValue: { count: idsToDelete.length, ids: idsToDelete },
       });
 
+      invalidateCreativeHubMasterCache();
       return NextResponse.json({ success: true, message: 'Published Media removed', count: idsToDelete.length });
     } else {
       await prisma.creativeHubCategory.updateMany({
@@ -231,6 +237,7 @@ export async function DELETE(req: NextRequest) {
         newValue: { count: idsToDelete.length, ids: idsToDelete },
       });
 
+      invalidateCreativeHubMasterCache();
       return NextResponse.json({ success: true, message: 'Creative Wing / Form removed', count: idsToDelete.length });
     }
   } catch (error: any) {

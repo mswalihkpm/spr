@@ -11,6 +11,14 @@ onInvalidateEngine(() => {
   cachedKuthbkhanaSub = null;
 });
 
+function getKuthbkhanaLogoUrl(): string {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.SUPABASE_URL ||
+    'https://xfnhahqzywrxzozxrswq.supabase.co';
+  return `${baseUrl}/storage/v1/object/public/logos/subcategories/library/kuthbkhana_v2.webp`;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { user, errorResponse } = await authenticateApiRequest(req, 'VIEWER');
@@ -41,7 +49,7 @@ export async function GET(req: NextRequest) {
               categoryId: libraryCat.id,
               name: 'Kuthbkhana',
               code: 'KUTHBKHANA',
-              logoUrl: 'https://xzklhvmewxcaxbablcxs.supabase.co/storage/v1/object/public/logos/subcategories/library/kuthbkhana_v2.webp',
+              logoUrl: getKuthbkhanaLogoUrl(),
               maxScore: 100,
               weight: 1.0,
               active: true,
@@ -178,7 +186,7 @@ export async function POST(req: NextRequest) {
           categoryId: libraryCat.id,
           name: 'Kuthbkhana',
           code: 'KUTHBKHANA',
-          logoUrl: 'https://xzklhvmewxcaxbablcxs.supabase.co/storage/v1/object/public/logos/subcategories/library/kuthbkhana_v2.webp',
+          logoUrl: getKuthbkhanaLogoUrl(),
           maxScore: 100,
           weight: 1.0,
           active: true,

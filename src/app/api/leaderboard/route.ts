@@ -15,28 +15,26 @@ export async function GET(req: NextRequest) {
     const fest = searchParams.get('fest') || undefined;
     const academicYearId = searchParams.get('academicYearId') || undefined;
 
-    // If categoryId is passed as category code (e.g. 'QUALIFICATION', 'ISLAMIC', etc.), resolve to ID
+    const categories = await getCachedCategories();
+
+    // If categoryId is passed as category code (e.g. 'QUALIFICATION', 'ISLAMIC', etc.), resolve to ID from in-memory cache
     if (categoryId && !categoryId.startsWith('cm')) {
-      const matchedCat = await prisma.category.findUnique({
-        where: { code: categoryId.toUpperCase() },
-      });
+      const targetCode = categoryId.toUpperCase();
+      const matchedCat = categories.find((c: any) => c.code === targetCode);
       if (matchedCat) {
         categoryId = matchedCat.id;
       }
     }
 
-    const [entries, categories] = await Promise.all([
-      calculateAllLeaderboards({
-        classId,
-        schoolId,
-        categoryId,
-        subcategoryId,
-        stream,
-        fest,
-        academicYearId,
-      }),
-      getCachedCategories(),
-    ]);
+    const entries = await calculateAllLeaderboards({
+      classId,
+      schoolId,
+      categoryId,
+      subcategoryId,
+      stream,
+      fest,
+      academicYearId,
+    });
 
     const isFresh = searchParams.get('fresh') === 'true' || searchParams.has('t') || req.headers.get('cache-control') === 'no-cache';
 

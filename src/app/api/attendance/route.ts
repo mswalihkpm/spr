@@ -6,6 +6,7 @@ import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
 import { invalidateEngineCache } from '@/lib/spr-engine';
 import { syncStudentEarnings } from '@/lib/student-earnings';
+import { getCachedAcademicClasses } from '@/lib/academic-cache';
 
 const ENGLISH_MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -66,13 +67,9 @@ export async function GET(req: NextRequest) {
       ];
     }
 
-    // Parallel fetch: classes and students fetched concurrently
+    // Parallel fetch: classes from memory cache and students concurrently
     const [classes, students] = await Promise.all([
-      prisma.academicClass.findMany({
-        where: { active: true },
-        select: { id: true, name: true, numericGrade: true },
-        orderBy: { numericGrade: 'asc' },
-      }),
+      getCachedAcademicClasses(),
       prisma.student.findMany({
         where: studentWhere,
         select: {

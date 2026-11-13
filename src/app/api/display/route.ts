@@ -1,8 +1,8 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { calculateAllLeaderboards } from '@/lib/spr-engine';
+import { calculateAllLeaderboards, getCachedSettings, getCachedCategories } from '@/lib/spr-engine';
+import { getCachedAcademicClasses } from '@/lib/academic-cache';
 
 const displayCache = new Map<string, { timestamp: number; data: any }>();
 const DISPLAY_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -24,18 +24,12 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const [institutionSetting, autoScrollSetting, introFooterSetting, categories, classes] = await Promise.all([
-      prisma.systemSetting.findUnique({ where: { key: 'INSTITUTION_NAME' } }),
-      prisma.systemSetting.findUnique({ where: { key: 'DISPLAY_AUTOSCROLL_INTERVAL' } }),
-      prisma.systemSetting.findUnique({ where: { key: 'APP_INTRO_FOOTER' } }),
-      prisma.category.findMany({ where: { active: true }, select: { id: true, code: true, name: true, icon: true }, orderBy: { displayOrder: 'asc' } }),
-      prisma.academicClass.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { numericGrade: 'asc' } }),
+    const [settings, categories, classes, leaderboard] = await Promise.all([
+      getCachedSettings(),
+      getCachedCategories(),
+      getCachedAcademicClasses(),
+      calculateAllLeaderboards({ categoryId, classId }),
     ]);
-
-    const leaderboard = await calculateAllLeaderboards({
-      categoryId,
-      classId,
-    });
 
     // Strip any sensitive private data: only send rank, name, class, school, spr
     const sanitizedLeaderboard = leaderboard.slice(0, 30).map((entry) => ({
@@ -48,16 +42,19 @@ export async function GET(req: NextRequest) {
     }));
 
     const responsePayload = {
-      institutionName: institutionSetting?.value || 'Madin School of Excellence',
-      autoScrollInterval: parseInt(autoScrollSetting?.value || '10', 10),
-      introFooter: introFooterSetting?.value || '2026 version 0.1',
+      institutionName: settings.INSTITUTION_NAME || 'Madin School of Excellence',
+      autoScrollInterval: parseInt(settings.DISPLAY_AUTOSCROLL_INTERVAL || '10', 10),
+      introFooter: settings.APP_INTRO_FOOTER || '2026 version 0.1',
       leaderboard: sanitizedLeaderboard,
-      categories: categories.map((c) => ({ id: c.id, code: c.code, name: c.name, icon: c.icon })),
-      classes: classes.map((c) => ({ id: c.id, name: c.name })),
+      categories: categories.map((c: any) => ({ id: c.id, code: c.code, name: c.name, icon: c.icon })),
+      classes: classes.map((c: any) => ({ id: c.id, name: c.name })),
       topThree: sanitizedLeaderboard.slice(0, 3),
     };
 
     if (!isFresh) {
+      if (displayCache.size > 50) {
+        displayCache.clear();
+      }
       displayCache.set(cacheKey, { timestamp: Date.now(), data: responsePayload });
     }
 

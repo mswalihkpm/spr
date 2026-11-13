@@ -329,6 +329,9 @@ export async function GET(req: NextRequest) {
       items: items.slice(0, 15),
     };
 
+    if (searchCache.size > 200) {
+      searchCache.clear();
+    }
     searchCache.set(cacheKey, { timestamp: now, data: payload });
 
     return NextResponse.json(payload, {

@@ -6,6 +6,7 @@ import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
 import { normalizeScoreToPercentage, invalidateEngineCache } from '@/lib/spr-engine';
 import { syncStudentEarnings } from '@/lib/student-earnings';
+import { getCachedCreativeCategoriesData, getCachedPublishedMediaData } from '@/lib/creative-hub-cache';
 
 export async function GET(req: NextRequest) {
   try {
@@ -62,16 +63,8 @@ export async function GET(req: NextRequest) {
         },
         orderBy: { date: 'desc' },
       }),
-      prisma.creativeHubCategory.findMany({
-        where: { active: true },
-        select: { id: true, name: true, code: true, weight: true },
-        orderBy: { name: 'asc' },
-      }),
-      prisma.publishedMedia.findMany({
-        where: { active: true },
-        select: { id: true, name: true, code: true, weight: true },
-        orderBy: { name: 'asc' },
-      }),
+      getCachedCreativeCategoriesData(),
+      getCachedPublishedMediaData(),
     ]);
 
     return NextResponse.json({ submissions, categories, publishedMedia });

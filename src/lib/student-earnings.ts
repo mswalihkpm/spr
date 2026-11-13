@@ -198,9 +198,45 @@ export async function syncStudentEarnings(studentId: string): Promise<{
       categoryId: string;
     }) => {
       const earnedAmount = calculateCategoryEarnings(points, multiplier);
-      if (earnedAmount <= 0) return 0;
-
       const existingEntry = ledgerBySourceId.get(sourceRecordId) || ledgerBySourceId.get(reference);
+
+      if (earnedAmount <= 0) {
+        // If earned amount is zero and there was previously recognized earning, adjust down to 0
+        if (existingEntry) {
+          const previouslyRecognized = Number(existingEntry.recognizedAmount);
+          if (previouslyRecognized > 0) {
+            const delta = -previouslyRecognized;
+            const deltaDecimal = new Prisma.Decimal(delta);
+            await tx.earningLedger.update({
+              where: { id: existingEntry.id },
+              data: {
+                eligiblePoints: new Prisma.Decimal(0),
+                categoryMultiplier: new Prisma.Decimal(multiplier),
+                calculatedAmount: new Prisma.Decimal(0),
+                recognizedAmount: new Prisma.Decimal(0),
+                status: 'ADJUSTED',
+                updatedAt: new Date(),
+              },
+            });
+
+            await tx.walletTransaction.create({
+              data: {
+                reference: `TXN-ADJ-${sourceRecordId}-${Date.now()}`,
+                studentId,
+                type: 'ADJUSTMENT',
+                amount: deltaDecimal,
+                balanceBefore: wallet.balance.add(netNewWalletCredit),
+                balanceAfter: wallet.balance.add(netNewWalletCredit).add(deltaDecimal),
+                description: `Adjustment: -₹${previouslyRecognized.toFixed(2)} (${description} - below cash threshold)`,
+                status: 'COMPLETED',
+              },
+            });
+
+            netNewWalletCredit = netNewWalletCredit.add(deltaDecimal);
+          }
+        }
+        return 0;
+      }
 
       if (!existingEntry) {
         // New eligible earning: create ledger entry and prepare wallet credit
@@ -373,38 +409,38 @@ export async function syncStudentEarnings(studentId: string): Promise<{
           const isSeptember = att.month === 9 || att.monthName?.toLowerCase().includes('september');
           if (isSeptember) continue;
 
-          // Explicit exclusion: Muhammed Luqman V trial October attendance cash
-          if (att.id === 'cmwdpcch80005vwo74b8qqoog' || (studentId === 'cmtorfds8002r7v89r0121zat' && att.month === 10)) {
-            continue;
-          }
+          // Attendance cash rule: out of mark is 20; credit cash only if rewarded with 15 or more points (>= 15 pts)
+          const rawPoints = att.points || 0;
+          const meetsAttendanceThreshold = rawPoints >= 15;
+          const cashPoints = meetsAttendanceThreshold ? rawPoints : 0;
 
           const attDate = new Date(att.year, att.month - 1, 1);
           const attCreatedAt = new Date(att.createdAt);
           const isEligible = attCreatedAt >= eligibilityStartDate || attDate >= eligibilityStartDate;
 
           if (isEligible) {
-            const points = att.points || 0;
-            if (points > 0) {
-              eligiblePointsSum += points;
-              const earned = await applyEarningItem({
-                sourceRecordId: att.id,
-                reference: `ERN-ATT-${att.id}`,
-                sourceType: 'MONTHLY_ATTENDANCE',
-                activityDate: attCreatedAt >= eligibilityStartDate ? attCreatedAt : attDate,
-                points,
-                multiplier,
-                metadata: {
-                  monthName: att.monthName,
-                  month: att.month,
-                  year: att.year,
-                  percentage: att.percentage,
-                  categoryDisplay: displayName,
-                },
-                description: `Earned ₹${calculateCategoryEarnings(points, multiplier).toFixed(2)} from ${displayName} Attendance (${att.monthName} ${att.year}) (${points} pts × ${multiplier})`,
-                categoryId: cat.id,
-              });
-              categoryEarningsSum += earned;
+            if (cashPoints > 0) {
+              eligiblePointsSum += cashPoints;
             }
+            const earned = await applyEarningItem({
+              sourceRecordId: att.id,
+              reference: `ERN-ATT-${att.id}`,
+              sourceType: 'MONTHLY_ATTENDANCE',
+              activityDate: attCreatedAt >= eligibilityStartDate ? attCreatedAt : attDate,
+              points: cashPoints,
+              multiplier,
+              metadata: {
+                monthName: att.monthName,
+                month: att.month,
+                year: att.year,
+                percentage: att.percentage,
+                categoryDisplay: displayName,
+                meetsAttendanceThreshold,
+              },
+              description: `Earned ₹${calculateCategoryEarnings(cashPoints, multiplier).toFixed(2)} from ${displayName} Attendance (${att.monthName} ${att.year}) (${cashPoints} pts × ${multiplier})`,
+              categoryId: cat.id,
+            });
+            categoryEarningsSum += earned;
           }
         }
       }
@@ -449,21 +485,32 @@ export async function syncStudentEarnings(studentId: string): Promise<{
         if (isEligible) {
           const points = record.obtainedScore || 0;
           if (points > 0) {
-            eligiblePointsSum += points;
+            // Cash rule for terms and assessments:
+            // Do NOT credit cash if obtained score is less than half of out of mark (maxScore / 2 or percentage < 50)
+            const isTermOrAssessment = Boolean(record.termId || record.examId);
+            const isBelowHalfMark = isTermOrAssessment && record.maxScore > 0 && points < (record.maxScore / 2);
+            const cashPoints = isBelowHalfMark ? 0 : points;
+
+            if (cashPoints > 0) {
+              eligiblePointsSum += cashPoints;
+            }
+
             const earned = await applyEarningItem({
               sourceRecordId: record.id,
               reference: `ERN-${record.id}`,
               sourceType: 'PERFORMANCE_RECORD',
               activityDate: recordCreatedAt >= eligibilityStartDate ? recordCreatedAt : recordDate,
-              points,
+              points: cashPoints,
               multiplier,
               metadata: {
                 maxScore: record.maxScore,
                 percentage: record.percentage,
                 position: record.position,
                 categoryDisplay: displayName,
+                isTermOrAssessment,
+                isBelowHalfMark,
               },
-              description: `Earned ₹${calculateCategoryEarnings(points, multiplier).toFixed(2)} from ${displayName} (${points} pts × ${multiplier})`,
+              description: `Earned ₹${calculateCategoryEarnings(cashPoints, multiplier).toFixed(2)} from ${displayName} (${cashPoints} pts × ${multiplier})`,
               categoryId: cat.id,
             });
             categoryEarningsSum += earned;

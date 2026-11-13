@@ -191,7 +191,18 @@ export async function createTask(params: {
  */
 export async function getAdminTasks(filter?: 'ALL' | 'ACTIVE' | 'SCHEDULED' | 'EXPIRED' | 'DRAFT') {
   const tasks = await prisma.task.findMany({
-    include: {
+    select: {
+      id: true,
+      taskId: true,
+      title: true,
+      description: true,
+      maxPoints: true,
+      maxFund: true,
+      startDate: true,
+      endDate: true,
+      status: true,
+      targetAudience: true,
+      createdAt: true,
       targetClass: { select: { name: true } },
       createdBy: { select: { name: true, email: true } },
       studentRecords: {
@@ -202,7 +213,6 @@ export async function getAdminTasks(filter?: 'ALL' | 'ACTIVE' | 'SCHEDULED' | 'E
           awardedAmount: true,
         },
       },
-      assignments: { select: { studentId: true } },
     },
     orderBy: { createdAt: 'desc' },
   });
@@ -336,25 +346,69 @@ export async function getAdminTaskDetail(taskId: string) {
 export async function getStudentTasks(studentId: string, classId: string) {
   const now = new Date();
 
-  // 1. Fetch eligible published tasks within valid date range
-  const eligibleTasks = await prisma.task.findMany({
-    where: {
-      status: 'PUBLISHED',
-      startDate: { lte: now },
-      endDate: { gte: now },
-      OR: [
-        { targetAudience: 'ALL' },
-        { targetAudience: 'SPECIFIC_CLASS', targetClassId: classId },
-        { targetAudience: 'SPECIFIC_STUDENTS', assignments: { some: { studentId } } },
-      ],
-    },
-    orderBy: { endDate: 'asc' },
-  });
+  // Run eligible tasks, current records, and history queries in parallel with explicit select
+  const [eligibleTasks, studentRecords, historyRecords] = await Promise.all([
+    prisma.task.findMany({
+      where: {
+        status: 'PUBLISHED',
+        startDate: { lte: now },
+        endDate: { gte: now },
+        OR: [
+          { targetAudience: 'ALL' },
+          { targetAudience: 'SPECIFIC_CLASS', targetClassId: classId },
+          { targetAudience: 'SPECIFIC_STUDENTS', assignments: { some: { studentId } } },
+        ],
+      },
+      select: {
+        id: true,
+        taskId: true,
+        title: true,
+        description: true,
+        maxPoints: true,
+        maxFund: true,
+        startDate: true,
+        endDate: true,
+      },
+      orderBy: { endDate: 'asc' },
+    }),
+    prisma.studentTaskRecord.findMany({
+      where: { studentId },
+      select: {
+        id: true,
+        taskId: true,
+        status: true,
+        submissionNotes: true,
+        submittedAt: true,
+        approvedPercentage: true,
+        awardedPoints: true,
+        awardedAmount: true,
+      },
+    }),
+    prisma.studentTaskRecord.findMany({
+      where: {
+        studentId,
+        status: { in: ['APPROVED', 'COMPLETED', 'REJECTED'] },
+      },
+      select: {
+        id: true,
+        status: true,
+        approvedPercentage: true,
+        awardedPoints: true,
+        awardedAmount: true,
+        approvedAt: true,
+        updatedAt: true,
+        task: {
+          select: {
+            id: true,
+            taskId: true,
+            title: true,
+          },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    }),
+  ]);
 
-  // 2. Fetch student's existing task records
-  const studentRecords = await prisma.studentTaskRecord.findMany({
-    where: { studentId },
-  });
   const recordByTaskId = new Map(studentRecords.map((r) => [r.taskId, r]));
 
   const availableTasks = eligibleTasks.map((t) => {
@@ -376,18 +430,6 @@ export async function getStudentTasks(studentId: string, classId: string) {
       awardedPoints: record ? Number(record.awardedPoints) : 0,
       awardedAmount: record ? Number(record.awardedAmount) : 0,
     };
-  });
-
-  // 3. Fetch completed task history (includes expired tasks that were completed/approved)
-  const historyRecords = await prisma.studentTaskRecord.findMany({
-    where: {
-      studentId,
-      status: { in: ['APPROVED', 'COMPLETED', 'REJECTED'] },
-    },
-    include: {
-      task: true,
-    },
-    orderBy: { updatedAt: 'desc' },
   });
 
   const history = historyRecords.map((r) => ({
