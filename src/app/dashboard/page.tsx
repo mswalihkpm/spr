@@ -28,6 +28,7 @@ import {
   AlertCircle,
   Clock,
   Check,
+  Coins,
   X,
   ExternalLink,
   Trash2,
@@ -258,8 +259,15 @@ export default function DashboardPage() {
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-madin-700' : ''}`} />
             </button>
             <button
+              onClick={() => router.push('/analytics?tab=funds')}
+              className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold flex items-center space-x-1.5 shadow transition-all cursor-pointer"
+            >
+              <Coins className="w-4 h-4 text-emerald-200" />
+              <span>Fund Analysis</span>
+            </button>
+            <button
               onClick={() => router.push('/students/bulk-import')}
-              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center space-x-1.5 shadow transition-all"
+              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold flex items-center space-x-1.5 shadow transition-all"
             >
               <FileSpreadsheet className="w-4 h-4" />
               <span>Bulk Import</span>
