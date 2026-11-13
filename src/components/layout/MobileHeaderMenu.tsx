@@ -23,10 +23,22 @@ import {
   Mail,
   Share2,
   Smartphone,
+  Bell,
+  Clock,
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import BrandedShareModal from '@/components/modals/BrandedShareModal';
 import { executeBrandedShare, SharePayload } from '@/lib/share-utils';
+import { fetchWithDedupe } from '@/lib/client-cache';
+
+interface NotificationNoteItem {
+  id: string;
+  title?: string | null;
+  text: string;
+  active: boolean;
+  duration?: number;
+  createdAt: string | Date;
+}
 
 interface MobileHeaderMenuProps {
   className?: string;
@@ -43,6 +55,23 @@ export default function MobileHeaderMenu({
   const { theme, isDark, toggleTheme } = useTheme();
   const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationNoteItem[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+
+  // Fetch active notifications when drawer opens
+  useEffect(() => {
+    if (isOpen) {
+      setLoadingNotifications(true);
+      fetchWithDedupe<{ notifications: NotificationNoteItem[] }>('/api/notifications')
+        .then((res) => {
+          if (res && Array.isArray(res.notifications)) {
+            setNotifications(res.notifications);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setLoadingNotifications(false));
+    }
+  }, [isOpen]);
 
   const handleShareApp = async () => {
     setIsOpen(false);
@@ -183,7 +212,64 @@ export default function MobileHeaderMenu({
                   </button>
                 </div>
 
-                {/* 2. Standings & Overview Navigation */}
+                {/* 2. Notifications & Announcement Notes */}
+                {notifications.length > 0 && (
+                  <div className="space-y-2 pt-0.5">
+                    <div className="flex items-center justify-between px-2">
+                      <div className="flex items-center space-x-1.5">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+                        </span>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                          Notice Board & Alerts
+                        </span>
+                      </div>
+                      <span className="text-[9.5px] font-mono px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 font-bold border border-amber-300/40 dark:border-amber-700/40">
+                        {notifications.length} {notifications.length === 1 ? 'Notice' : 'Notices'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1 overscroll-contain">
+                      {notifications.map((notif) => {
+                        const formattedDate = (() => {
+                          try {
+                            const d = new Date(notif.createdAt);
+                            if (isNaN(d.getTime())) return '';
+                            return `${d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })} • ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+                          } catch {
+                            return '';
+                          }
+                        })();
+
+                        return (
+                          <div
+                            key={notif.id}
+                            className="p-3.5 rounded-2xl bg-amber-500/10 dark:bg-amber-400/10 border border-amber-500/30 dark:border-amber-500/25 text-slate-900 dark:text-slate-100 relative overflow-hidden shadow-2xs"
+                          >
+                            <div className="flex items-center justify-between gap-1.5 mb-1.5 pb-1 border-b border-amber-500/20 dark:border-amber-400/20">
+                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/20 dark:bg-amber-400/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 shrink-0">
+                                <Bell className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                                <span className="truncate max-w-[120px]">{notif.title || 'Official Note'}</span>
+                              </span>
+                              {formattedDate && (
+                                <span className="text-[9.5px] text-slate-500 dark:text-slate-400 font-mono flex items-center space-x-1 shrink-0">
+                                  <Clock className="w-2.5 h-2.5 text-slate-400" />
+                                  <span>{formattedDate}</span>
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap break-words">
+                              {notif.text}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Standings & Overview Navigation */}
                 <div className="space-y-1">
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-2 block">
                     Standings & Overview

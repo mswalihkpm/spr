@@ -56,16 +56,21 @@ export async function POST(req: NextRequest) {
     if (!student) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
 
     const body = await req.json();
-    const { action, recipientStudentId, amount, remarks } = body;
+    const action =
+      body.action ||
+      (body.type === 'STUDENT' ? 'TRANSFER_STUDENT' : body.type === 'STORE' ? 'SHARE_STORE' : body.type);
+    const recipientStudentId = body.recipientStudentId || body.recipientId;
+    const amount = Number(body.amount);
+    const remarks = body.remarks;
 
     const ipAddress = req.headers.get('x-forwarded-for') || req.ip || '127.0.0.1';
     const userAgent = req.headers.get('user-agent') || 'Unknown';
 
-    if (action === 'TRANSFER_STUDENT') {
+    if (action === 'TRANSFER_STUDENT' || action === 'STUDENT') {
       const res = await transferStudentToStudent({
         senderStudentId: student.studentId,
         recipientStudentId,
-        amount: Number(amount),
+        amount,
         remarks,
         ipAddress,
         userAgent,
@@ -73,13 +78,14 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         success: true,
+        reference: res.reference,
         message: `Successfully transferred ₹${res.amount.toFixed(2)} to ${res.recipientName}.`,
         data: res,
       });
-    } else if (action === 'SHARE_STORE') {
+    } else if (action === 'SHARE_STORE' || action === 'STORE') {
       const res = await contributeToStoreFund({
         studentId: student.studentId,
-        amount: Number(amount),
+        amount,
         remarks,
         ipAddress,
         userAgent,
@@ -87,6 +93,7 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         success: true,
+        reference: res.reference,
         message: `Successfully contributed ₹${res.amount.toFixed(2)} to School Store Fund.`,
         data: res,
       });

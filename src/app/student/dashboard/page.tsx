@@ -148,7 +148,9 @@ export default function StudentDashboardPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: transferType === 'STUDENT' ? 'TRANSFER_STUDENT' : 'SHARE_STORE',
           type: transferType,
+          recipientStudentId: transferType === 'STUDENT' ? selectedRecipientId : undefined,
           recipientId: transferType === 'STUDENT' ? selectedRecipientId : undefined,
           amount: parseFloat(transferAmount),
           remarks: transferRemarks,
@@ -158,9 +160,12 @@ export default function StudentDashboardPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Transfer failed.');
 
+      const ref = json.reference || json.data?.reference || '';
       setStatusMsg({
         type: 'success',
-        text: `Successfully transferred ₹${parseFloat(transferAmount).toFixed(2)}! Ref: ${json.reference}`,
+        text:
+          json.message ||
+          `Successfully transferred ₹${parseFloat(transferAmount).toFixed(2)}!${ref ? ` Ref: ${ref}` : ''}`,
       });
       setTransferModalOpen(false);
       setTransferAmount('');
@@ -489,9 +494,23 @@ export default function StudentDashboardPage() {
                 ₹{storeFund.availableFund.toFixed(2)}
               </h2>
             </div>
-            <div className="mt-5 pt-4 border-t border-white/15 flex items-center justify-between text-xs text-indigo-100 font-medium">
-              <span>Contributed: ₹{storeFund.totalContributed.toFixed(2)}</span>
-              <span>Used: ₹{storeFund.totalUsed.toFixed(2)}</span>
+            <div className="mt-5 pt-4 border-t border-white/15 space-y-2.5">
+              <div className="flex items-center justify-between text-xs text-indigo-100 font-medium">
+                <span>Contributed: ₹{storeFund.totalContributed.toFixed(2)}</span>
+                <span>Used: ₹{storeFund.totalUsed.toFixed(2)}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setTransferType('STORE');
+                  setTransferStep('INPUT');
+                  setTransferModalOpen(true);
+                }}
+                className="w-full py-1.5 px-3 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs flex items-center justify-center space-x-1.5 border border-white/25 transition-all shadow-2xs cursor-pointer"
+              >
+                <Store className="w-3.5 h-3.5 text-indigo-200" />
+                <span>Transfer Cash to Store</span>
+              </button>
             </div>
           </div>
         </div>

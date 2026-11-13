@@ -20,28 +20,39 @@ export async function transferStudentToStudent(params: {
     throw new Error('Both sender and recipient student must be specified.');
   }
 
-  if (senderStudentId === recipientStudentId) {
-    throw new Error('Cannot transfer funds to yourself.');
-  }
-
   if (isNaN(amount) || amount <= 0) {
     throw new Error('Transfer amount must be greater than zero.');
   }
 
   // Exact 2-decimal rounded amount
   const transferAmount = Math.round((amount + Number.EPSILON) * 100) / 100;
+  if (transferAmount <= 0) {
+    throw new Error('Transfer amount must be at least ₹0.01.');
+  }
   const amountDecimal = new Prisma.Decimal(transferAmount);
 
   const result = await prisma.$transaction(
     async (tx) => {
-      // 1. Fetch sender and recipient in parallel
+      // 1. Fetch sender and recipient in parallel (flexible matching by id, sprStudentId, or studentId)
       const [senderStudent, recipientStudent] = await Promise.all([
-        tx.student.findUnique({
-          where: { id: senderStudentId },
+        tx.student.findFirst({
+          where: {
+            OR: [
+              { id: senderStudentId },
+              { sprStudentId: senderStudentId },
+              { studentId: senderStudentId },
+            ],
+          },
           select: { id: true, fullName: true, sprStudentId: true },
         }),
-        tx.student.findUnique({
-          where: { id: recipientStudentId },
+        tx.student.findFirst({
+          where: {
+            OR: [
+              { id: recipientStudentId },
+              { sprStudentId: recipientStudentId },
+              { studentId: recipientStudentId },
+            ],
+          },
           select: { id: true, fullName: true, sprStudentId: true },
         }),
       ]);
@@ -49,14 +60,15 @@ export async function transferStudentToStudent(params: {
       if (!senderStudent) throw new Error('Sender student record not found.');
       if (!recipientStudent) throw new Error('Recipient student record not found.');
 
-      // 2. Fetch sender wallet
-      const senderWallet = await tx.studentWallet.findUnique({
-        where: { studentId: senderStudentId },
-      });
-
-      if (!senderWallet) {
-        throw new Error('Sender wallet not found.');
+      if (senderStudent.id === recipientStudent.id) {
+        throw new Error('Cannot transfer funds to yourself.');
       }
+
+      const canonicalSenderId = senderStudent.id;
+      const canonicalRecipientId = recipientStudent.id;
+
+      // 2. Fetch or create sender wallet
+      const { wallet: senderWallet } = await getOrCreateStudentWallet(canonicalSenderId, tx);
 
       if (senderWallet.balance.lessThan(amountDecimal)) {
         throw new Error(
@@ -65,10 +77,7 @@ export async function transferStudentToStudent(params: {
       }
 
       // 3. Ensure recipient wallet exists
-      await getOrCreateStudentWallet(recipientStudentId, tx);
-      const recipientWallet = await tx.studentWallet.findUniqueOrThrow({
-        where: { studentId: recipientStudentId },
-      });
+      const { wallet: recipientWallet } = await getOrCreateStudentWallet(canonicalRecipientId, tx);
 
       const timestamp = Date.now();
       const referenceOut = `TXN-XFER-${senderStudent.sprStudentId || senderStudent.id.slice(-6)}-${recipientStudent.sprStudentId || recipientStudent.id.slice(-6)}-${timestamp}`;
@@ -97,13 +106,13 @@ export async function transferStudentToStudent(params: {
         tx.walletTransaction.create({
           data: {
             reference: referenceOut,
-            studentId: senderStudentId,
+            studentId: canonicalSenderId,
             type: 'TRANSFER_SENT',
             amount: amountDecimal,
             balanceBefore: senderWallet.balance,
             balanceAfter: updatedSenderWallet.balance,
-            senderStudentId,
-            recipientStudentId,
+            senderStudentId: canonicalSenderId,
+            recipientStudentId: canonicalRecipientId,
             description: `Transferred ₹${transferAmount.toFixed(2)} to ${recipientStudent.fullName} (${recipientStudent.sprStudentId || 'ID'})${remarks ? ` - ${remarks}` : ''}`,
             status: 'COMPLETED',
           },
@@ -111,13 +120,13 @@ export async function transferStudentToStudent(params: {
         tx.walletTransaction.create({
           data: {
             reference: referenceIn,
-            studentId: recipientStudentId,
+            studentId: canonicalRecipientId,
             type: 'TRANSFER_RECEIVED',
             amount: amountDecimal,
             balanceBefore: recipientWallet.balance,
             balanceAfter: updatedRecipientWallet.balance,
-            senderStudentId,
-            recipientStudentId,
+            senderStudentId: canonicalSenderId,
+            recipientStudentId: canonicalRecipientId,
             description: `Received ₹${transferAmount.toFixed(2)} from ${senderStudent.fullName} (${senderStudent.sprStudentId || 'ID'})${remarks ? ` - ${remarks}` : ''}`,
             status: 'COMPLETED',
           },
@@ -130,6 +139,7 @@ export async function transferStudentToStudent(params: {
         transferAmount,
         newSenderBalance: Number(updatedSenderWallet.balance),
         recipientName: recipientStudent.fullName,
+        canonicalSenderId,
       };
     },
     {
@@ -143,7 +153,7 @@ export async function transferStudentToStudent(params: {
     userName: result.senderFullName,
     action: 'STUDENT_TRANSFER',
     entity: 'StudentWallet',
-    entityId: senderStudentId,
+    entityId: result.canonicalSenderId,
     newValue: {
       amount: result.transferAmount,
       recipientStudentId,
@@ -157,6 +167,7 @@ export async function transferStudentToStudent(params: {
   return {
     success: true,
     reference: result.referenceOut,
+    referenceOut: result.referenceOut,
     amount: result.transferAmount,
     newSenderBalance: result.newSenderBalance,
     recipientName: result.recipientName,
@@ -181,43 +192,35 @@ export async function contributeToStoreFund(params: {
   }
 
   const contributionAmount = Math.round((amount + Number.EPSILON) * 100) / 100;
+  if (contributionAmount <= 0) {
+    throw new Error('Contribution amount must be at least ₹0.01.');
+  }
   const amountDecimal = new Prisma.Decimal(contributionAmount);
 
   const result = await prisma.$transaction(
     async (tx) => {
-      // 1. Fetch student, wallet, and store fund concurrently
-      const [student, wallet, existingStoreFund] = await Promise.all([
-        tx.student.findUnique({
-          where: { id: studentId },
-          select: { id: true, fullName: true, sprStudentId: true },
-        }),
-        tx.studentWallet.findUnique({
-          where: { studentId },
-        }),
-        tx.storeFundRecord.findUnique({
-          where: { studentId },
-        }),
-      ]);
+      // 1. Fetch student, supporting id, sprStudentId, or studentId
+      const student = await tx.student.findFirst({
+        where: {
+          OR: [
+            { id: studentId },
+            { sprStudentId: studentId },
+            { studentId: studentId },
+          ],
+        },
+        select: { id: true, fullName: true, sprStudentId: true },
+      });
 
       if (!student) throw new Error('Student record not found.');
-      if (!wallet) throw new Error('Student wallet not found.');
+      const canonicalStudentId = student.id;
+
+      // Ensure wallet and store fund exist
+      const { wallet, storeFund } = await getOrCreateStudentWallet(canonicalStudentId, tx);
 
       if (wallet.balance.lessThan(amountDecimal)) {
         throw new Error(
           `Insufficient wallet balance. Available: ₹${Number(wallet.balance).toFixed(2)}, Requested: ₹${contributionAmount.toFixed(2)}.`
         );
-      }
-
-      let storeFund = existingStoreFund;
-      if (!storeFund) {
-        storeFund = await tx.storeFundRecord.create({
-          data: {
-            studentId,
-            totalContributed: new Prisma.Decimal(0),
-            totalUsed: new Prisma.Decimal(0),
-            availableFund: new Prisma.Decimal(0),
-          },
-        });
       }
 
       const timestamp = Date.now();
@@ -245,7 +248,7 @@ export async function contributeToStoreFund(params: {
       await tx.walletTransaction.create({
         data: {
           reference,
-          studentId,
+          studentId: canonicalStudentId,
           type: 'STORE_CONTRIBUTION',
           amount: amountDecimal,
           balanceBefore: wallet.balance,
@@ -261,6 +264,7 @@ export async function contributeToStoreFund(params: {
         amount: contributionAmount,
         newWalletBalance: Number(updatedWallet.balance),
         newAvailableStoreFund: Number(updatedStoreFund.availableFund),
+        canonicalStudentId,
       };
     },
     {
@@ -274,7 +278,7 @@ export async function contributeToStoreFund(params: {
     userName: result.studentName,
     action: 'STORE_CONTRIBUTION',
     entity: 'StoreFundRecord',
-    entityId: studentId,
+    entityId: result.canonicalStudentId,
     newValue: {
       amount: result.amount,
       newAvailableStoreFund: result.newAvailableStoreFund,
