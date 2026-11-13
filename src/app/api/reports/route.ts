@@ -117,14 +117,29 @@ export async function GET(req: NextRequest) {
     const { user, errorResponse } = await authenticateApiRequest(req, 'VIEWER');
     if (errorResponse) return errorResponse;
 
-    const reports = await prisma.studentReport.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    });
-
-    const pendingCount = await prisma.studentReport.count({
-      where: { status: 'PENDING' },
-    });
+    const [reports, pendingCount] = await Promise.all([
+      prisma.studentReport.findMany({
+        select: {
+          id: true,
+          studentId: true,
+          studentName: true,
+          className: true,
+          rank: true,
+          sprScore: true,
+          reporterName: true,
+          message: true,
+          status: true,
+          adminNotes: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+      prisma.studentReport.count({
+        where: { status: 'PENDING' },
+      }),
+    ]);
 
     return NextResponse.json({ reports, pendingCount });
   } catch (error: any) {

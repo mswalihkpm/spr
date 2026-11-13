@@ -4,7 +4,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
-import { invalidateEngineCache } from '@/lib/spr-engine';
+import { invalidateEngineCache, onInvalidateEngine } from '@/lib/spr-engine';
+
+let cachedKuthbkhanaSub: any = null;
+onInvalidateEngine(() => {
+  cachedKuthbkhanaSub = null;
+});
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,33 +19,37 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search') || '';
 
-    // Find Kuthbkhana subcategory
-    let kuthbkhanaSub = await prisma.subcategory.findFirst({
-      where: {
-        OR: [
-          { code: 'KUTHBKHANA' },
-          { name: { contains: 'Kuthbkhana', mode: 'insensitive' } },
-        ],
-      },
-    });
-
+    // Find Kuthbkhana subcategory with memory caching
+    let kuthbkhanaSub = cachedKuthbkhanaSub;
     if (!kuthbkhanaSub) {
-      const libraryCat = await prisma.category.findFirst({
-        where: { OR: [{ code: 'LIBRARY' }, { name: { contains: 'Library', mode: 'insensitive' } }] },
+      kuthbkhanaSub = await prisma.subcategory.findFirst({
+        where: {
+          OR: [
+            { code: 'KUTHBKHANA' },
+            { name: { contains: 'Kuthbkhana', mode: 'insensitive' } },
+          ],
+        },
       });
-      if (libraryCat) {
-        kuthbkhanaSub = await prisma.subcategory.create({
-          data: {
-            categoryId: libraryCat.id,
-            name: 'Kuthbkhana',
-            code: 'KUTHBKHANA',
-            logoUrl: 'https://xzklhvmewxcaxbablcxs.supabase.co/storage/v1/object/public/logos/subcategories/library/kuthbkhana_v2.webp',
-            maxScore: 100,
-            weight: 1.0,
-            active: true,
-          },
+
+      if (!kuthbkhanaSub) {
+        const libraryCat = await prisma.category.findFirst({
+          where: { OR: [{ code: 'LIBRARY' }, { name: { contains: 'Library', mode: 'insensitive' } }] },
         });
+        if (libraryCat) {
+          kuthbkhanaSub = await prisma.subcategory.create({
+            data: {
+              categoryId: libraryCat.id,
+              name: 'Kuthbkhana',
+              code: 'KUTHBKHANA',
+              logoUrl: 'https://xzklhvmewxcaxbablcxs.supabase.co/storage/v1/object/public/logos/subcategories/library/kuthbkhana_v2.webp',
+              maxScore: 100,
+              weight: 1.0,
+              active: true,
+            },
+          });
+        }
       }
+      cachedKuthbkhanaSub = kuthbkhanaSub;
     }
 
     const whereClause: any = {
@@ -57,14 +66,31 @@ export async function GET(req: NextRequest) {
 
     const records = await prisma.performanceRecord.findMany({
       where: whereClause,
-      include: {
+      select: {
+        id: true,
+        studentId: true,
+        categoryId: true,
+        subcategoryId: true,
+        obtainedScore: true,
+        maxScore: true,
+        percentage: true,
+        remarks: true,
+        date: true,
+        createdAt: true,
         student: {
-          include: {
-            class: true,
-            school: true,
+          select: {
+            id: true,
+            studentId: true,
+            sprStudentId: true,
+            fullName: true,
+            division: true,
+            class: { select: { id: true, name: true } },
+            school: { select: { id: true, name: true } },
           },
         },
-        subcategory: true,
+        subcategory: {
+          select: { id: true, name: true, code: true, weight: true },
+        },
         createdBy: {
           select: { id: true, name: true, email: true },
         },

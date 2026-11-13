@@ -127,6 +127,7 @@ model Student {
   @@index([schoolId])
   @@index([academicYearId])
   @@index([status])
+  @@index([status, classId])
   @@index([fullName])
 }
 
@@ -338,6 +339,7 @@ model CreativeHubSubmission {
   updatedAt         DateTime            @updatedAt
 
   @@index([studentId])
+  @@index([studentId, publicationStatus])
   @@index([categoryId])
   @@index([publishedMediaId])
   @@index([publicationStatus])
@@ -479,6 +481,8 @@ model PerformanceRecord {
   @@index([levelId])
   @@index([date])
   @@index([studentId, categoryId])
+  @@index([studentId, academicYearId])
+  @@index([examId, subjectId])
   @@index([subcategoryId, studentId])
 }
 
@@ -713,6 +717,7 @@ model StudentTaskRecord {
   @@unique([taskId, studentId])
   @@index([taskId])
   @@index([studentId])
+  @@index([studentId, status])
   @@index([status])
 }
 
@@ -807,6 +812,7 @@ model MonthlyAttendance {
   @@unique([studentId, categoryCode, calendarType, month, year])
   @@index([studentId])
   @@index([categoryCode])
+  @@index([categoryCode, calendarType, year, month])
   @@index([calendarType, month, year])
   @@index([academicYearId])
 }

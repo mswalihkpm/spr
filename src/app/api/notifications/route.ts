@@ -5,13 +5,30 @@ import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
 
+let cachedPublicNotifications: { timestamp: number; data: any } | null = null;
+const NOTIFICATIONS_CACHE_TTL = 60 * 1000; // 60 seconds cache
+
+function invalidateNotificationsCache() {
+  cachedPublicNotifications = null;
+}
+
 // GET notifications
-// Public: returns active notifications for homepage display
+// Public: returns active notifications for homepage display with Edge caching
 // Admin (with all=true): returns all notifications for management
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const includeInactive = searchParams.get('all') === 'true';
+    const isFresh = searchParams.get('fresh') === 'true' || searchParams.has('t') || req.headers.get('cache-control') === 'no-cache';
+
+    if (!includeInactive && !isFresh && cachedPublicNotifications && Date.now() - cachedPublicNotifications.timestamp < NOTIFICATIONS_CACHE_TTL) {
+      return NextResponse.json(cachedPublicNotifications.data, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+          'X-SPR-Cache': 'HIT',
+        },
+      });
+    }
 
     const whereClause: any = {};
     if (!includeInactive) {
@@ -20,15 +37,31 @@ export async function GET(req: NextRequest) {
 
     const notifications = await prisma.homepageNotification.findMany({
       where: whereClause,
+      select: {
+        id: true,
+        title: true,
+        text: true,
+        active: true,
+        duration: true,
+        createdAt: true,
+      },
       orderBy: { createdAt: 'desc' },
       take: includeInactive ? 50 : 20,
     });
 
+    const payload = { notifications };
+
+    if (!includeInactive && !isFresh) {
+      cachedPublicNotifications = { timestamp: Date.now(), data: payload };
+    }
+
     return NextResponse.json(
-      { notifications },
+      payload,
       {
         headers: {
-          'Cache-Control': 'no-store, no-cache, must-revalidate',
+          'Cache-Control': includeInactive || isFresh
+            ? 'private, no-cache, no-store, must-revalidate'
+            : 'public, s-maxage=60, stale-while-revalidate=120',
         },
       }
     );
@@ -79,6 +112,7 @@ export async function POST(req: NextRequest) {
       newValue: notification,
     });
 
+    invalidateNotificationsCache();
     return NextResponse.json({ success: true, notification });
   } catch (error: any) {
     console.error('Create notification error:', error);
@@ -130,6 +164,7 @@ export async function PUT(req: NextRequest) {
       newValue: updated,
     });
 
+    invalidateNotificationsCache();
     return NextResponse.json({ success: true, notification: updated });
   } catch (error: any) {
     console.error('Update notification error:', error);
@@ -170,6 +205,7 @@ export async function DELETE(req: NextRequest) {
       previousValue: deleted,
     });
 
+    invalidateNotificationsCache();
     return NextResponse.json({
       success: true,
       message: 'Notification deleted successfully.',

@@ -54,23 +54,23 @@ export async function handleStudentPhotoRequest(req: NextRequest, studentIdentif
       return new NextResponse('Photo not found', { status: 404 });
     }
 
-    // 1. Google Drive URLs: Redirect directly to Google CDN edge
+    // 1. Google Drive URLs: Redirect directly to Google CDN edge with permanent edge cache
     if (isGoogleDriveUrl(photoStr)) {
       const directUrl = formatGoogleDriveDirectUrl(photoStr, 360) || photoStr;
       return NextResponse.redirect(directUrl, {
-        status: 307,
+        status: 308,
         headers: {
-          'Cache-Control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400',
+          'Cache-Control': 'public, max-age=604800, s-maxage=2592000, immutable',
         },
       });
     }
 
-    // 2. Direct external HTTPS URL: Redirect directly
+    // 2. Direct external HTTPS URL: Redirect directly with permanent edge cache
     if (photoStr.startsWith('http://') || photoStr.startsWith('https://')) {
       return NextResponse.redirect(photoStr, {
-        status: 307,
+        status: 308,
         headers: {
-          'Cache-Control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400',
+          'Cache-Control': 'public, max-age=604800, s-maxage=2592000, immutable',
         },
       });
     }

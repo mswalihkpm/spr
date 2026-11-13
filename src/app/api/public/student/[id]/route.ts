@@ -64,7 +64,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       if (cached && Date.now() - cached.timestamp < DOSSIER_CACHE_TTL_MS) {
         return NextResponse.json(cached.data, {
           headers: {
-            'Cache-Control': 'public, s-maxage=120, max-age=60',
+            'Cache-Control': 'private, max-age=60, must-revalidate',
             'X-SPR-Cache': 'HIT',
           },
         });
@@ -195,7 +195,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       headers: {
         'Cache-Control': isFresh
           ? 'private, no-cache, no-store, must-revalidate'
-          : 'public, s-maxage=120, max-age=60',
+          : 'private, max-age=60, must-revalidate',
         'X-SPR-Cache': isFresh ? 'BYPASS' : 'MISS',
       },
     });

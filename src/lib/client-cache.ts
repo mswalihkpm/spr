@@ -24,6 +24,7 @@ export const CLIENT_CACHE_TTLS: Record<string, number> = {
   '/api/news': 60 * 60 * 1000,                 // 1 hour
   '/api/leaderboard': 5 * 60 * 1000,           // 5 minutes
   '/api/display': 30 * 60 * 1000,              // 30 minutes
+  '/api/notifications': 60 * 1000,             // 1 minute
   '/api/public/student': 2 * 60 * 1000,        // 2 minutes (Public Scorecards)
 };
 
@@ -34,6 +35,7 @@ const PUBLIC_CACHEABLE_PREFIXES = [
   '/api/settings',
   '/api/academic',
   '/api/news',
+  '/api/notifications',
   '/api/leaderboard',
   '/api/display',
   '/api/public/student',

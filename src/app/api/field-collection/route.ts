@@ -4,8 +4,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
-import { invalidateEngineCache } from '@/lib/spr-engine';
+import { invalidateEngineCache, onInvalidateEngine } from '@/lib/spr-engine';
 import { syncStudentEarnings } from '@/lib/student-earnings';
+
+let cachedFieldCollectionCat: any = null;
+onInvalidateEngine(() => {
+  cachedFieldCollectionCat = null;
+});
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,36 +25,34 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status') || 'ALL'; // ALL, RECORDED, NOT_RECORDED
     const driveName = (searchParams.get('driveName') || '').trim();
 
-    // 1. Fetch or ensure Category
-    let category = await prisma.category.findUnique({
-      where: { code: 'FIELD_COLLECTION' },
-      include: { subcategories: true },
-    });
-
+    // 1. Fetch or ensure Category with memory caching
+    let category = cachedFieldCollectionCat;
     if (!category) {
-      category = await prisma.category.create({
-        data: {
-          code: 'FIELD_COLLECTION',
-          name: 'Field Collection',
-          description: 'Field collection campaigns, student contribution milestones, and social drives',
-          icon: 'coins',
-          isSystem: true,
-          active: true,
-          displayOrder: 9,
-          defaultWeight: 1.0,
-          includeInSPR: true,
-        },
+      category = await prisma.category.findUnique({
+        where: { code: 'FIELD_COLLECTION' },
         include: { subcategories: true },
       });
+
+      if (!category) {
+        category = await prisma.category.create({
+          data: {
+            code: 'FIELD_COLLECTION',
+            name: 'Field Collection',
+            description: 'Field collection campaigns, student contribution milestones, and social drives',
+            icon: 'coins',
+            isSystem: true,
+            active: true,
+            displayOrder: 9,
+            defaultWeight: 1.0,
+            includeInSPR: true,
+          },
+          include: { subcategories: true },
+        });
+      }
+      cachedFieldCollectionCat = category;
     }
 
-    // 2. Fetch active classes
-    const classes = await prisma.academicClass.findMany({
-      where: { active: true },
-      orderBy: { numericGrade: 'asc' },
-    });
-
-    // 3. Build student query
+    // 2. Build student query
     const studentWhere: any = {
       status: 'ACTIVE',
     };
@@ -66,13 +69,19 @@ export async function GET(req: NextRequest) {
       ];
     }
 
-    // 4. Fetch students with Field Collection performance records
-    const students = await prisma.student.findMany({
-      where: studentWhere,
-      select: {
-        id: true,
-        studentId: true,
-        sprStudentId: true,
+    // 3. Parallel fetch: classes and students concurrently
+    const [classes, students] = await Promise.all([
+      prisma.academicClass.findMany({
+        where: { active: true },
+        select: { id: true, name: true, numericGrade: true },
+        orderBy: { numericGrade: 'asc' },
+      }),
+      prisma.student.findMany({
+        where: studentWhere,
+        select: {
+          id: true,
+          studentId: true,
+          sprStudentId: true,
         fullName: true,
         division: true,
         photoUrl: true,
@@ -105,7 +114,8 @@ export async function GET(req: NextRequest) {
         { division: 'asc' },
         { fullName: 'asc' },
       ],
-    });
+    }),
+  ]);
 
     // 5. Structure student items with total points
     const mappedStudents = students.map((s) => {

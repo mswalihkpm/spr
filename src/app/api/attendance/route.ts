@@ -49,12 +49,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid year.' }, { status: 400 });
     }
 
-    // Fetch active classes
-    const classes = await prisma.academicClass.findMany({
-      where: { active: true },
-      orderBy: { numericGrade: 'asc' },
-    });
-
     // Build student query
     const studentWhere: any = {
       status: 'ACTIVE',
@@ -72,46 +66,54 @@ export async function GET(req: NextRequest) {
       ];
     }
 
-    const students = await prisma.student.findMany({
-      where: studentWhere,
-      select: {
-        id: true,
-        studentId: true,
-        sprStudentId: true,
-        fullName: true,
-        division: true,
-        photoUrl: true,
-        class: {
-          select: {
-            id: true,
-            name: true,
+    // Parallel fetch: classes and students fetched concurrently
+    const [classes, students] = await Promise.all([
+      prisma.academicClass.findMany({
+        where: { active: true },
+        select: { id: true, name: true, numericGrade: true },
+        orderBy: { numericGrade: 'asc' },
+      }),
+      prisma.student.findMany({
+        where: studentWhere,
+        select: {
+          id: true,
+          studentId: true,
+          sprStudentId: true,
+          fullName: true,
+          division: true,
+          photoUrl: true,
+          class: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          monthlyAttendances: {
+            where: {
+              categoryCode,
+              calendarType,
+              month,
+              year,
+            },
+            select: {
+              id: true,
+              categoryCode: true,
+              calendarType: true,
+              month: true,
+              monthName: true,
+              year: true,
+              percentage: true,
+              points: true,
+              updatedAt: true,
+            },
           },
         },
-        monthlyAttendances: {
-          where: {
-            categoryCode,
-            calendarType,
-            month,
-            year,
-          },
-          select: {
-            id: true,
-            categoryCode: true,
-            calendarType: true,
-            month: true,
-            monthName: true,
-            year: true,
-            percentage: true,
-            points: true,
-            updatedAt: true,
-          },
-        },
-      },
-      orderBy: [
-        { class: { numericGrade: 'asc' } },
-        { fullName: 'asc' },
-      ],
-    });
+        orderBy: [
+          { class: { numericGrade: 'asc' } },
+          { fullName: 'asc' },
+        ],
+      }),
+    ]);
 
     const studentsWithAttendance = students.map((s) => {
       const att = s.monthlyAttendances?.[0] || null;

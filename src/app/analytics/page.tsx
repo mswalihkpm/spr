@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
+import StudentAvatar from '@/components/ui/StudentAvatar';
 import {
   BarChart3,
   Coins,
@@ -667,15 +668,7 @@ export default function AnalyticsPage() {
                                 {/* Student Info */}
                                 <td className="py-3.5 px-4">
                                   <div className="flex items-center space-x-3">
-                                    <div className="w-9 h-9 rounded-full bg-slate-200 overflow-hidden shrink-0 border border-slate-300">
-                                      {s.photoUrl ? (
-                                        <img src={s.photoUrl} alt={s.fullName} className="w-full h-full object-cover" />
-                                      ) : (
-                                        <div className="w-full h-full flex items-center justify-center font-black text-slate-600 text-xs">
-                                          {s.fullName?.[0] || 'S'}
-                                        </div>
-                                      )}
-                                    </div>
+                                    <StudentAvatar photoUrl={s.photoUrl} name={s.fullName} size="sm" className="w-9 h-9 border border-slate-300" />
                                     <div className="min-w-0">
                                       <div className="font-bold text-slate-900 group-hover:text-emerald-700 transition truncate text-xs sm:text-sm">
                                         {s.fullName}
@@ -769,19 +762,12 @@ export default function AnalyticsPage() {
               {/* Modal Header */}
               <div className="flex items-start justify-between pb-4 border-b border-slate-100">
                 <div className="flex items-center space-x-3.5">
-                  <div className="w-12 h-12 rounded-full bg-slate-200 overflow-hidden shrink-0 border-2 border-emerald-500 shadow-sm">
-                    {selectedStudentForBreakdown.photoUrl ? (
-                      <img
-                        src={selectedStudentForBreakdown.photoUrl}
-                        alt={selectedStudentForBreakdown.fullName}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center font-black text-slate-600 text-sm">
-                        {selectedStudentForBreakdown.fullName?.[0] || 'S'}
-                      </div>
-                    )}
-                  </div>
+                  <StudentAvatar
+                    photoUrl={selectedStudentForBreakdown.photoUrl}
+                    name={selectedStudentForBreakdown.fullName}
+                    size="lg"
+                    className="w-12 h-12 border-2 border-emerald-500 shadow-sm"
+                  />
                   <div>
                     <h3 className="text-base font-bold text-slate-900 leading-tight">
                       {selectedStudentForBreakdown.fullName}

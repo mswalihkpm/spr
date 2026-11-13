@@ -27,7 +27,24 @@ export async function GET(req: NextRequest) {
     const [submissions, categories, publishedMedia] = await Promise.all([
       prisma.creativeHubSubmission.findMany({
         where,
-        include: {
+        select: {
+          id: true,
+          studentId: true,
+          categoryId: true,
+          publishedMediaId: true,
+          publishedMediaName: true,
+          title: true,
+          score: true,
+          maxScore: true,
+          percentage: true,
+          reviewer: true,
+          remarks: true,
+          publicationStatus: true,
+          publicationLink: true,
+          attachmentUrl: true,
+          date: true,
+          createdAt: true,
+          updatedAt: true,
           student: {
             select: {
               id: true,
@@ -39,12 +56,22 @@ export async function GET(req: NextRequest) {
               school: { select: { id: true, name: true } },
             },
           },
-          category: true,
+          category: {
+            select: { id: true, name: true, code: true, weight: true },
+          },
         },
         orderBy: { date: 'desc' },
       }),
-      prisma.creativeHubCategory.findMany({ where: { active: true }, orderBy: { name: 'asc' } }),
-      prisma.publishedMedia.findMany({ where: { active: true }, orderBy: { name: 'asc' } }),
+      prisma.creativeHubCategory.findMany({
+        where: { active: true },
+        select: { id: true, name: true, code: true, weight: true },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.publishedMedia.findMany({
+        where: { active: true },
+        select: { id: true, name: true, code: true, weight: true },
+        orderBy: { name: 'asc' },
+      }),
     ]);
 
     return NextResponse.json({ submissions, categories, publishedMedia });

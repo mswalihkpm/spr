@@ -3,11 +3,31 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
+import { onInvalidateEngine } from '@/lib/spr-engine';
+
+let cachedFundAnalytics: { timestamp: number; data: any } | null = null;
+const FUND_CACHE_TTL_MS = 60 * 1000; // 60 seconds
+
+onInvalidateEngine(() => {
+  cachedFundAnalytics = null;
+});
 
 export async function GET(req: NextRequest) {
   try {
     const { user, errorResponse } = await authenticateApiRequest(req, 'VIEWER');
     if (errorResponse) return errorResponse;
+
+    const isFresh = req.nextUrl.searchParams.get('fresh') === 'true' || req.nextUrl.searchParams.has('t') || req.headers.get('cache-control') === 'no-cache';
+    const now = Date.now();
+
+    if (!isFresh && cachedFundAnalytics && now - cachedFundAnalytics.timestamp < FUND_CACHE_TTL_MS) {
+      return NextResponse.json(cachedFundAnalytics.data, {
+        headers: {
+          'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+          'X-SPR-Cache': 'HIT',
+        },
+      });
+    }
 
     const [classes, categories, students] = await Promise.all([
       prisma.academicClass.findMany({
@@ -31,23 +51,31 @@ export async function GET(req: NextRequest) {
           division: true,
           class: { select: { id: true, name: true, numericGrade: true } },
           school: { select: { id: true, name: true, code: true } },
-          wallet: true,
-          storeFund: true,
+          wallet: {
+            select: {
+              balance: true,
+              totalEarnings: true,
+              totalContributedToStore: true,
+            },
+          },
+          storeFund: {
+            select: {
+              availableFund: true,
+              totalUsed: true,
+              totalContributed: true,
+            },
+          },
           earningLedgers: {
             select: {
               id: true,
               categoryId: true,
-              sourceRecordId: true,
               sourceType: true,
               activityDate: true,
               eligiblePoints: true,
               categoryMultiplier: true,
-              calculatedAmount: true,
               recognizedAmount: true,
-              status: true,
               reference: true,
               metadata: true,
-              createdAt: true,
               category: {
                 select: { id: true, name: true, code: true, icon: true },
               },
@@ -200,6 +228,10 @@ export async function GET(req: NextRequest) {
       classes,
       students: studentList,
     };
+
+    if (!isFresh) {
+      cachedFundAnalytics = { timestamp: Date.now(), data: payload };
+    }
 
     return NextResponse.json(payload, {
       headers: {

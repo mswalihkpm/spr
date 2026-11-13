@@ -66,10 +66,9 @@ export default function PublicHomePage() {
   );
   const [activeNotifications, setActiveNotifications] = useState<TextNotificationData[]>([]);
 
-  // Fetch active text notifications for homepage display
+  // Fetch active text notifications for homepage display with deduplicated client caching
   useEffect(() => {
-    fetch('/api/notifications')
-      .then((res) => res.json())
+    fetchWithDedupe<{ notifications: TextNotificationData[] }>('/api/notifications')
       .then((data) => {
         if (data && Array.isArray(data.notifications)) {
           setActiveNotifications(data.notifications);
