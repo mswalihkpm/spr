@@ -369,6 +369,15 @@ export async function syncStudentEarnings(studentId: string): Promise<{
       if (cat.code === 'ISLAMIC' || cat.code === 'SCHOOL') {
         const catAttendances = monthlyAttendances.filter((a) => a.categoryCode === cat.code);
         for (const att of catAttendances) {
+          // Explicit exclusion: September attendance was a historical/trial pre-November evaluation, non-cash
+          const isSeptember = att.month === 9 || att.monthName?.toLowerCase().includes('september');
+          if (isSeptember) continue;
+
+          // Explicit exclusion: Muhammed Luqman V trial October attendance cash
+          if (att.id === 'cmwdpcch80005vwo74b8qqoog' || (studentId === 'cmtorfds8002r7v89r0121zat' && att.month === 10)) {
+            continue;
+          }
+
           const attDate = new Date(att.year, att.month - 1, 1);
           const attCreatedAt = new Date(att.createdAt);
           const isEligible = attCreatedAt >= eligibilityStartDate || attDate >= eligibilityStartDate;

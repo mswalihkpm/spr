@@ -211,3 +211,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch student fund analytics.' }, { status: 500 });
   }
 }
+
