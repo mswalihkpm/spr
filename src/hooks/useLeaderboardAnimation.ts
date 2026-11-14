@@ -26,11 +26,10 @@ export interface AnimatedLeaderboardItem {
  * - 1–2s: Dynamic ranking transitions towards final positions.
  * - 2–3s: Settle smoothly into final Top 3 podium and ranks.
  * 
- * Safeguards:
- * - Cancels cleanly on unmount or fast navigation.
- * - Does not restart on search filtering keystrokes.
- * - Strictly respects reduced-motion accessibility settings.
- * - Purely visual presentation layer; does not mutate database or calculation engine.
+ * Safety & Performance:
+ * - When not animating, returns `entries` directly (0ms latency, zero loop risk, zero blank states).
+ * - Never calls setState in render loops.
+ * - Bypasses immediately if user prefers reduced motion (accessibility).
  */
 export function useLeaderboardAnimation<T extends Record<string, any>>(
   entries: T[],
@@ -43,28 +42,31 @@ export function useLeaderboardAnimation<T extends Record<string, any>>(
 } {
   const [isAnimating, setIsAnimating] = useState(false);
   const [phase, setPhase] = useState<'COUNTING' | 'RANKING' | 'SETTLED'>('SETTLED');
-  const [animatedEntries, setAnimatedEntries] = useState<T[]>(entries);
+  const [animItems, setAnimItems] = useState<T[] | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const prevTriggerRef = useRef<string | number | undefined>(undefined);
-  const hasAnimatedRef = useRef<boolean>(false);
+  const hasAnimatedForTriggerRef = useRef<boolean>(false);
 
   useEffect(() => {
-    // If triggerKey changed, reset animation trigger gate
-    if (triggerKey !== undefined && triggerKey !== prevTriggerRef.current) {
-      prevTriggerRef.current = triggerKey;
-      hasAnimatedRef.current = false;
-    }
-
+    // If no entries to animate, keep settled
     if (!entries || entries.length === 0) {
-      setAnimatedEntries([]);
-      setIsAnimating(false);
-      setPhase('SETTLED');
+      if (isAnimating) {
+        setIsAnimating(false);
+        setPhase('SETTLED');
+        setAnimItems(null);
+      }
       return;
     }
 
-    // If already animated for this view/trigger and not currently animating, keep settled
-    if (hasAnimatedRef.current && !isAnimating) {
-      setAnimatedEntries(entries);
+    // Check if trigger changed
+    const triggerChanged = triggerKey !== undefined && triggerKey !== prevTriggerRef.current;
+    if (triggerChanged) {
+      prevTriggerRef.current = triggerKey;
+      hasAnimatedForTriggerRef.current = false;
+    }
+
+    // If already animated for this trigger, keep settled
+    if (hasAnimatedForTriggerRef.current) {
       return;
     }
 
@@ -72,10 +74,10 @@ export function useLeaderboardAnimation<T extends Record<string, any>>(
     if (typeof window !== 'undefined') {
       const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       if (prefersReducedMotion) {
-        setAnimatedEntries(entries);
+        hasAnimatedForTriggerRef.current = true;
         setIsAnimating(false);
         setPhase('SETTLED');
-        hasAnimatedRef.current = true;
+        setAnimItems(null);
         return;
       }
     }
@@ -86,7 +88,7 @@ export function useLeaderboardAnimation<T extends Record<string, any>>(
       animationFrameRef.current = null;
     }
 
-    hasAnimatedRef.current = true;
+    hasAnimatedForTriggerRef.current = true;
     setIsAnimating(true);
     setPhase('COUNTING');
 
@@ -110,7 +112,6 @@ export function useLeaderboardAnimation<T extends Record<string, any>>(
       return {
         ...item,
         _animTargetScore: targetScore,
-        _animCurrentScore: 0,
         _animInitialRank: index + 1,
       };
     });
@@ -119,8 +120,8 @@ export function useLeaderboardAnimation<T extends Record<string, any>>(
       const elapsed = currentTime - startTime;
 
       if (elapsed >= totalDuration) {
-        // Animation finished: settle cleanly into exact target scores and positions
-        setAnimatedEntries(entries);
+        // Animation finished: cleanly settle back to original entries
+        setAnimItems(null);
         setIsAnimating(false);
         setPhase('SETTLED');
         return;
@@ -130,7 +131,6 @@ export function useLeaderboardAnimation<T extends Record<string, any>>(
         // Phase 1 (0–1s): Points counting from 0 towards ~65% of target totals
         setPhase('COUNTING');
         const p = elapsed / 1000;
-        // Ease-out quadratic curve for snappy counting start
         const eased = p * (2 - p);
 
         const updated = baseItems.map((item) => {
@@ -145,12 +145,11 @@ export function useLeaderboardAnimation<T extends Record<string, any>>(
           };
         });
 
-        setAnimatedEntries(updated as unknown as T[]);
+        setAnimItems(updated as unknown as T[]);
       } else if (elapsed < 2000) {
         // Phase 2 (1–2s): Dynamic re-ranking transitions as points progress to ~95%
         setPhase('RANKING');
         const p = (elapsed - 1000) / 1000;
-        // Smooth linear progression for ranking shuffle
         const currentProgress = 0.65 + (p * 0.30);
 
         const updated = baseItems.map((item) => {
@@ -171,12 +170,12 @@ export function useLeaderboardAnimation<T extends Record<string, any>>(
           (updated[i] as any).rank = i + 1;
         }
 
-        setAnimatedEntries(updated as unknown as T[]);
+        setAnimItems(updated as unknown as T[]);
       } else {
         // Phase 3 (2–3s): Settle all entries into final positions and complete counting
         setPhase('SETTLED');
         const p = (elapsed - 2000) / 1000;
-        const eased = 1 - Math.pow(1 - p, 3); // Dynamic cubic ease-out
+        const eased = 1 - Math.pow(1 - p, 3);
         const currentProgress = 0.95 + (eased * 0.05);
 
         const updated = baseItems.map((item) => {
@@ -197,7 +196,7 @@ export function useLeaderboardAnimation<T extends Record<string, any>>(
           (updated[i] as any).rank = i + 1;
         }
 
-        setAnimatedEntries(updated as unknown as T[]);
+        setAnimItems(updated as unknown as T[]);
       }
 
       animationFrameRef.current = requestAnimationFrame(updateFrame);
@@ -213,8 +212,9 @@ export function useLeaderboardAnimation<T extends Record<string, any>>(
     };
   }, [triggerKey, entries.length > 0]);
 
-  // Resilient fallback: ensure animatedEntries never returns empty if entries has items
-  const safeEntries = animatedEntries && animatedEntries.length > 0 ? animatedEntries : entries;
+  // While animating, return animItems (if available).
+  // When not animating, return `entries` directly so data is always 100% visible!
+  const animatedEntries = isAnimating && animItems && animItems.length > 0 ? animItems : entries;
 
-  return { animatedEntries: safeEntries, isAnimating, phase };
+  return { animatedEntries, isAnimating, phase };
 }
