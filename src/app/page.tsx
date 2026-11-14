@@ -1189,12 +1189,12 @@ export default function PublicHomePage() {
                 {(() => {
                   const student = top3[1];
                   const rank = student?.rank ?? 2;
-                  const isTied = student?.isTied || leaderboard.filter((s) => s.spr === student?.spr).length > 1;
+                  const isTied = student?.isTied || animatedEntries.filter((s) => s.spr === student?.spr).length > 1;
 
                   return (
                     <div
                       onClick={() => handleStudentClick(student?.studentId)}
-                      className="w-full cursor-pointer rounded-2xl sm:rounded-3xl p-2 sm:p-4 border-2 border-slate-300/90 dark:border-slate-700 bg-gradient-to-b from-slate-50/90 via-white to-white dark:from-slate-800/60 dark:via-slate-900 dark:to-slate-900 shadow-xs hover:shadow-md transition-all flex flex-col items-center justify-between text-center min-h-[180px] sm:min-h-[240px] group animate-podium-2 hover:-translate-y-1"
+                      className="w-full cursor-pointer rounded-2xl sm:rounded-3xl p-2 sm:p-4 border-2 border-slate-300/90 dark:border-slate-700 bg-gradient-to-b from-slate-50/90 via-white to-white dark:from-slate-800/60 dark:via-slate-900 dark:to-slate-900 shadow-xs hover:shadow-md transition-all leaderboard-podium-card flex flex-col items-center justify-between text-center min-h-[180px] sm:min-h-[240px] group animate-podium-2 hover:-translate-y-1"
                     >
                       <div className="flex flex-col items-center mb-1">
                         <div className="relative">
@@ -1242,12 +1242,12 @@ export default function PublicHomePage() {
                 {(() => {
                   const student = top3[0];
                   const rank = student?.rank ?? 1;
-                  const isTied = student?.isTied || leaderboard.filter((s) => s.spr === student?.spr).length > 1;
+                  const isTied = student?.isTied || animatedEntries.filter((s) => s.spr === student?.spr).length > 1;
 
                   return (
                     <div
                       onClick={() => handleStudentClick(student?.studentId)}
-                      className="w-full cursor-pointer rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 border-2 border-amber-400 dark:border-amber-500/70 bg-gradient-to-b from-amber-50/95 via-white to-white dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 shadow-md sm:shadow-xl hover:shadow-2xl transition-all flex flex-col items-center justify-between text-center min-h-[210px] sm:min-h-[280px] -translate-y-2 sm:-translate-y-4 group animate-podium-1 animate-gold-glow"
+                      className="w-full cursor-pointer rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 border-2 border-amber-400 dark:border-amber-500/70 bg-gradient-to-b from-amber-50/95 via-white to-white dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 shadow-md sm:shadow-xl hover:shadow-2xl transition-all leaderboard-podium-card flex flex-col items-center justify-between text-center min-h-[210px] sm:min-h-[280px] -translate-y-2 sm:-translate-y-4 group animate-podium-1 animate-gold-glow"
                     >
                       <div className="flex flex-col items-center mb-1">
                         <div className="relative">
@@ -1295,12 +1295,12 @@ export default function PublicHomePage() {
                 {(() => {
                   const student = top3[2];
                   const rank = student?.rank ?? 3;
-                  const isTied = student?.isTied || leaderboard.filter((s) => s.spr === student?.spr).length > 1;
+                  const isTied = student?.isTied || animatedEntries.filter((s) => s.spr === student?.spr).length > 1;
 
                   return (
                     <div
                       onClick={() => handleStudentClick(student?.studentId)}
-                      className="w-full cursor-pointer rounded-2xl sm:rounded-3xl p-1.5 sm:p-3.5 border border-amber-300/80 dark:border-amber-900/60 bg-gradient-to-b from-amber-50/50 via-white to-white dark:from-amber-950/20 dark:via-slate-900 dark:to-slate-900 shadow-xs hover:shadow-md transition-all flex flex-col items-center justify-between text-center min-h-[160px] sm:min-h-[215px] group animate-podium-3 hover:-translate-y-1"
+                      className="w-full cursor-pointer rounded-2xl sm:rounded-3xl p-1.5 sm:p-3.5 border border-amber-300/80 dark:border-amber-900/60 bg-gradient-to-b from-amber-50/50 via-white to-white dark:from-amber-950/20 dark:via-slate-900 dark:to-slate-900 shadow-xs hover:shadow-md transition-all leaderboard-podium-card flex flex-col items-center justify-between text-center min-h-[160px] sm:min-h-[215px] group animate-podium-3 hover:-translate-y-1"
                     >
                       <div className="flex flex-col items-center mb-1">
                         <div className="relative">
@@ -1468,26 +1468,26 @@ export default function PublicHomePage() {
                       <tr
                         key={row.studentId}
                         onClick={() => handleStudentClick(row.studentId)}
-                        className={`hover:bg-blue-50/50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors duration-150 group ${
+                        className={`hover:bg-blue-50/50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-300 ease-out leaderboard-row-transition group ${
                           isTop1 ? 'bg-amber-50/20 dark:bg-amber-950/10' : ''
-                        }`}
+                        } ${(row as any)._isOvertaking ? 'bg-emerald-50/40 dark:bg-emerald-950/30' : ''}`}
                         title="Click to view full student profile and score origin breakdown"
                       >
                         <td className="py-2 sm:py-3.5 px-1.5 sm:px-4 text-center">
                           {isTop1 ? (
-                            <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-400 text-amber-950 font-black text-[10px] sm:text-xs shadow-xs animate-gold-glow">
+                            <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-400 text-amber-950 font-black text-[10px] sm:text-xs shadow-xs animate-gold-glow rank-badge-transition">
                               1
                             </span>
                           ) : isTop2 ? (
-                            <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-[10px] sm:text-xs">
+                            <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-[10px] sm:text-xs rank-badge-transition">
                               2
                             </span>
                           ) : isTop3 ? (
-                            <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-200 dark:bg-amber-700/60 text-amber-900 dark:text-amber-200 font-bold text-[10px] sm:text-xs">
+                            <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-200 dark:bg-amber-700/60 text-amber-900 dark:text-amber-200 font-bold text-[10px] sm:text-xs rank-badge-transition">
                               3
                             </span>
                           ) : (
-                            <span className="text-slate-500 dark:text-slate-400 font-semibold text-[11px] sm:text-xs">{row.rank}</span>
+                            <span className="text-slate-500 dark:text-slate-400 font-semibold text-[11px] sm:text-xs inline-block rank-badge-transition">{row.rank}</span>
                           )}
                         </td>
 
@@ -1509,7 +1509,7 @@ export default function PublicHomePage() {
 
                         <td className="py-2 sm:py-3.5 px-2 sm:px-4 text-right whitespace-nowrap">
                           <div className="inline-flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl font-mono text-xs font-black shadow-2xs border transition-all group-hover:scale-105 bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700">
-                            <span className={isTop1 ? 'text-amber-800 dark:text-amber-300 font-black' : isTop2 ? 'text-slate-800 dark:text-slate-200 font-black' : isTop3 ? 'text-amber-900 dark:text-amber-300 font-black' : 'text-blue-900 dark:text-blue-300 font-extrabold'}>
+                            <span className={`score-odometer ${isTop1 ? 'text-amber-800 dark:text-amber-300 font-black' : isTop2 ? 'text-slate-800 dark:text-slate-200 font-black' : isTop3 ? 'text-amber-900 dark:text-amber-300 font-black' : 'text-blue-900 dark:text-blue-300 font-extrabold'}`}>
                               {studentSprScore}
                             </span>
                             <span className={`text-[8.5px] sm:text-[9.5px] font-black uppercase px-1 py-0.2 rounded ${

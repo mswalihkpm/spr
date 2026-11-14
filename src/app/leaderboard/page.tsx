@@ -1636,7 +1636,7 @@ function deriveCategoryLeaderboard(
                     return (
                       <div
                         onClick={() => handleStudentRowClick(student.studentId)}
-                        className="w-full rounded-2xl sm:rounded-3xl p-2 sm:p-4 border-2 border-slate-300/90 dark:border-slate-700 bg-gradient-to-b from-slate-50/90 via-white to-white dark:from-slate-800/60 dark:via-slate-900 dark:to-slate-900 shadow-xs cursor-pointer hover:shadow-md transition-all flex flex-col items-center justify-between text-center min-h-[180px] sm:min-h-[240px] group animate-podium-2 hover:-translate-y-1"
+                        className="w-full rounded-2xl sm:rounded-3xl p-2 sm:p-4 border-2 border-slate-300/90 dark:border-slate-700 bg-gradient-to-b from-slate-50/90 via-white to-white dark:from-slate-800/60 dark:via-slate-900 dark:to-slate-900 shadow-xs cursor-pointer hover:shadow-md transition-all leaderboard-podium-card flex flex-col items-center justify-between text-center min-h-[180px] sm:min-h-[240px] group animate-podium-2 hover:-translate-y-1"
                       >
                         <div className="flex flex-col items-center mb-1">
                           <div className="relative">
@@ -1729,7 +1729,7 @@ function deriveCategoryLeaderboard(
                     return (
                       <div
                         onClick={() => handleStudentRowClick(student.studentId)}
-                        className="w-full rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 border-2 border-amber-400 dark:border-amber-500/70 bg-gradient-to-b from-amber-50/95 via-white to-white dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 shadow-md sm:shadow-xl cursor-pointer hover:shadow-2xl transition-all flex flex-col items-center justify-between text-center min-h-[210px] sm:min-h-[280px] -translate-y-2 sm:-translate-y-4 group animate-podium-1 animate-gold-glow"
+                        className="w-full rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 border-2 border-amber-400 dark:border-amber-500/70 bg-gradient-to-b from-amber-50/95 via-white to-white dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 shadow-md sm:shadow-xl cursor-pointer hover:shadow-2xl transition-all leaderboard-podium-card flex flex-col items-center justify-between text-center min-h-[210px] sm:min-h-[280px] -translate-y-2 sm:-translate-y-4 group animate-podium-1 animate-gold-glow"
                       >
                         <div className="flex flex-col items-center mb-1">
                           <div className="relative">
@@ -1822,7 +1822,7 @@ function deriveCategoryLeaderboard(
                     return (
                       <div
                         onClick={() => handleStudentRowClick(student.studentId)}
-                        className="w-full rounded-2xl sm:rounded-3xl p-1.5 sm:p-3.5 border border-amber-300/80 dark:border-amber-900/60 bg-gradient-to-b from-amber-50/50 via-white to-white dark:from-amber-950/20 dark:via-slate-900 dark:to-slate-900 shadow-xs cursor-pointer hover:shadow-md transition-all flex flex-col items-center justify-between text-center min-h-[160px] sm:min-h-[215px] group animate-podium-3 hover:-translate-y-1"
+                        className="w-full rounded-2xl sm:rounded-3xl p-1.5 sm:p-3.5 border border-amber-300/80 dark:border-amber-900/60 bg-gradient-to-b from-amber-50/50 via-white to-white dark:from-amber-950/20 dark:via-slate-900 dark:to-slate-900 shadow-xs cursor-pointer hover:shadow-md transition-all leaderboard-podium-card flex flex-col items-center justify-between text-center min-h-[160px] sm:min-h-[215px] group animate-podium-3 hover:-translate-y-1"
                       >
                         <div className="flex flex-col items-center mb-1">
                           <div className="relative">
@@ -1975,25 +1975,25 @@ function deriveCategoryLeaderboard(
                     return (
                       <tr
                         key={cls.classId || cls.className || idx}
-                        className={`hover:bg-amber-50/40 dark:hover:bg-slate-800/50 transition-colors duration-150 group ${
+                        className={`hover:bg-amber-50/40 dark:hover:bg-slate-800/50 transition-all duration-300 ease-out leaderboard-row-transition group ${
                           isTop1 ? 'bg-amber-50/20 dark:bg-amber-950/10' : ''
-                        }`}
+                        } ${(cls as any)._isOvertaking ? 'bg-amber-100/50 dark:bg-amber-900/30' : ''}`}
                       >
                         <td className="py-3 sm:py-4 px-2 sm:px-4 text-center">
                           {isTop1 ? (
-                            <span className="inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-amber-400 text-amber-950 font-black text-xs shadow-xs animate-gold-glow">
+                            <span className="inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-amber-400 text-amber-950 font-black text-xs shadow-xs animate-gold-glow rank-badge-transition">
                               1
                             </span>
                           ) : isTop2 ? (
-                            <span className="inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs">
+                            <span className="inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs rank-badge-transition">
                               2
                             </span>
                           ) : isTop3 ? (
-                            <span className="inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-amber-200 dark:bg-amber-700/60 text-amber-900 dark:text-amber-200 font-bold text-xs">
+                            <span className="inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-amber-200 dark:bg-amber-700/60 text-amber-900 dark:text-amber-200 font-bold text-xs rank-badge-transition">
                               3
                             </span>
                           ) : (
-                            <span className="text-slate-500 dark:text-slate-400 font-semibold text-xs">{cls.rank}</span>
+                            <span className="text-slate-500 dark:text-slate-400 font-semibold text-xs inline-block rank-badge-transition">{cls.rank}</span>
                           )}
                         </td>
 
@@ -2021,7 +2021,7 @@ function deriveCategoryLeaderboard(
 
                         <td className="py-3 sm:py-4 px-2 sm:px-4 text-right whitespace-nowrap">
                           <div className="inline-flex items-center space-x-1 px-2.5 sm:px-3 py-1 rounded-xl font-mono text-xs sm:text-sm font-black shadow-2xs border bg-amber-50/80 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800">
-                            <span className={isTop1 ? 'text-amber-800 dark:text-amber-300 font-black' : isTop2 ? 'text-slate-800 dark:text-slate-200 font-black' : isTop3 ? 'text-amber-900 dark:text-amber-300 font-black' : 'text-slate-900 dark:text-slate-100 font-extrabold'}>
+                            <span className={`score-odometer ${isTop1 ? 'text-amber-800 dark:text-amber-300 font-black' : isTop2 ? 'text-slate-800 dark:text-slate-200 font-black' : isTop3 ? 'text-amber-900 dark:text-amber-300 font-black' : 'text-slate-900 dark:text-slate-100 font-extrabold'}`}>
                               {displayPct}
                             </span>
                           </div>
@@ -2042,9 +2042,9 @@ function deriveCategoryLeaderboard(
                       <tr
                         key={st.studentId}
                         onClick={() => handleStudentRowClick(st.studentId)}
-                        className={`hover:bg-blue-50/50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors duration-150 group ${
+                        className={`hover:bg-blue-50/50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-300 ease-out leaderboard-row-transition group ${
                           isTop1 ? 'bg-amber-50/20 dark:bg-amber-950/10' : ''
-                        }`}
+                        } ${(st as any)._isOvertaking ? 'bg-emerald-50/40 dark:bg-emerald-950/30' : ''}`}
                         title={
                           !selectedCategory && !selectedStream && !selectedFest
                             ? 'Click to view full student profile and score origin breakdown'
@@ -2053,19 +2053,19 @@ function deriveCategoryLeaderboard(
                       >
                         <td className="py-2 sm:py-3.5 px-1 sm:px-4 text-center">
                           {isTop1 ? (
-                            <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-400 text-amber-950 font-black text-[10px] sm:text-xs shadow-xs animate-gold-glow">
+                            <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-400 text-amber-950 font-black text-[10px] sm:text-xs shadow-xs animate-gold-glow rank-badge-transition">
                               1
                             </span>
                           ) : isTop2 ? (
-                            <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-[10px] sm:text-xs">
+                            <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-[10px] sm:text-xs rank-badge-transition">
                               2
                             </span>
                           ) : isTop3 ? (
-                            <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-200 dark:bg-amber-700/60 text-amber-900 dark:text-amber-200 font-bold text-[10px] sm:text-xs">
+                            <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-200 dark:bg-amber-700/60 text-amber-900 dark:text-amber-200 font-bold text-[10px] sm:text-xs rank-badge-transition">
                               3
                             </span>
                           ) : (
-                            <span className="text-slate-500 dark:text-slate-400 font-semibold text-[10.5px] sm:text-xs">{st.rank}</span>
+                            <span className="text-slate-500 dark:text-slate-400 font-semibold text-[10.5px] sm:text-xs inline-block rank-badge-transition">{st.rank}</span>
                           )}
                         </td>
 
@@ -2087,7 +2087,7 @@ function deriveCategoryLeaderboard(
 
                         <td className="py-2 sm:py-3.5 px-1 sm:px-4 text-right whitespace-nowrap">
                           <div className="inline-flex items-center space-x-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl font-mono text-[11px] sm:text-xs font-black shadow-2xs border transition-all group-hover:scale-105 bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700">
-                            <span className={isTop1 ? 'text-amber-800 dark:text-amber-300 font-black' : isTop2 ? 'text-slate-800 dark:text-slate-200 font-black' : isTop3 ? 'text-amber-900 dark:text-amber-300 font-black' : 'text-blue-900 dark:text-blue-300 font-extrabold'}>
+                            <span className={`score-odometer ${isTop1 ? 'text-amber-800 dark:text-amber-300 font-black' : isTop2 ? 'text-slate-800 dark:text-slate-200 font-black' : isTop3 ? 'text-amber-900 dark:text-amber-300 font-black' : 'text-blue-900 dark:text-blue-300 font-extrabold'}`}>
                               {sprScore}
                             </span>
                             <span className={`text-[8px] sm:text-[9.5px] font-black uppercase px-1 py-0.2 rounded ${

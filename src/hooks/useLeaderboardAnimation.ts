@@ -11,25 +11,46 @@ export interface AnimatedLeaderboardItem {
   targetSpr?: number;
   displayPercentage?: string;
   averagePercentage?: number;
+  _liveScore?: number;
+  _rankDiff?: number;
+  _isOvertaking?: boolean;
+  _isOvertaken?: boolean;
   [key: string]: any;
 }
 
 /**
- * Three-Second Dynamic Leaderboard Animation Hook.
- * Triggers dynamically for ALL leaderboard openings:
- * - Fresh application launches and page navigations to /leaderboard or /
- * - Category, wing, fest, and class ranking switches
- * - Modal leaderboard openings (ItemLeaderboardModal)
+ * Extracts the authoritative target score from any leaderboard item.
+ */
+function extractTargetScore(item: any, isClassRanking: boolean): number {
+  if (isClassRanking) {
+    if (typeof item.averagePercentage === 'number') return item.averagePercentage;
+    if (typeof item.spr === 'number') return item.spr;
+  }
+  if (typeof item.spr === 'number' && item.spr > 0) return item.spr;
+  if (typeof item.overallScore === 'number' && item.overallScore > 0) return item.overallScore;
+  if (typeof item.averagePercentage === 'number' && item.averagePercentage > 0) return item.averagePercentage;
+  if (typeof item.sprPoints === 'number' && item.sprPoints > 0) return item.sprPoints;
+  if (typeof item.score === 'number' && item.score > 0) return item.score;
+  // Fallbacks
+  if (typeof item.spr === 'number') return item.spr;
+  if (typeof item.overallScore === 'number') return item.overallScore;
+  if (typeof item.averagePercentage === 'number') return item.averagePercentage;
+  if (typeof item.sprPoints === 'number') return item.sprPoints;
+  if (typeof item.score === 'number') return item.score;
+  return 0;
+}
+
+/**
+ * Three-Second Dynamic Leaderboard Animation Hook with Live Competition Race Dynamics.
  * 
- * Animation Stages:
- * - 0–1s: Visual numerical points counting up from 0 towards actual totals.
- * - 1–2s: Dynamic ranking transitions towards final positions.
- * - 2–3s: Settle smoothly into final Top 3 podium and ranks.
- * 
- * Safety & Performance:
- * - When not animating, returns `entries` directly (0ms latency, zero loop risk, zero blank states).
- * - Never calls setState in render loops.
- * - Bypasses immediately if user prefers reduced motion (accessibility).
+ * Features:
+ * - Continuously counts up every student's score from 0.00 to their exact final score.
+ * - Dynamic ranking transition: leaderboard positions continuously update on every frame based on changing scores.
+ * - Natural, realistic competition feel: students overtake one another based strictly on calculated animated score values.
+ * - Gold, Silver, Bronze podium and student cards transition smoothly as ranks update.
+ * - Purely visual animation enhancement: zero database mutations.
+ * - Clean settlement at 3 seconds: displays exact final scores and accurately sorted rankings matching database tie-breaking rules.
+ * - Fully robust across Overall Rankings, Class Rankings, Category leaderboards, on mobile and desktop.
  */
 export function useLeaderboardAnimation<T extends Record<string, any>>(
   entries: T[],
@@ -46,9 +67,11 @@ export function useLeaderboardAnimation<T extends Record<string, any>>(
   const animationFrameRef = useRef<number | null>(null);
   const prevTriggerRef = useRef<string | number | undefined>(undefined);
   const hasAnimatedForTriggerRef = useRef<boolean>(false);
+  const prevRankMapRef = useRef<Map<string, number>>(new Map());
+  const lastRenderTimeRef = useRef<number>(0);
 
   useEffect(() => {
-    // If no entries to animate, keep settled
+    // If no entries, remain settled
     if (!entries || entries.length === 0) {
       if (isAnimating) {
         setIsAnimating(false);
@@ -63,6 +86,7 @@ export function useLeaderboardAnimation<T extends Record<string, any>>(
     if (triggerChanged) {
       prevTriggerRef.current = triggerKey;
       hasAnimatedForTriggerRef.current = false;
+      prevRankMapRef.current.clear();
     }
 
     // If already animated for this trigger, keep settled
@@ -91,28 +115,42 @@ export function useLeaderboardAnimation<T extends Record<string, any>>(
     hasAnimatedForTriggerRef.current = true;
     setIsAnimating(true);
     setPhase('COUNTING');
+    lastRenderTimeRef.current = 0;
 
     const totalDuration = 3000; // Exact 3 seconds
     const startTime = performance.now();
+    const N = entries.length;
 
-    // Map initial items with starting score of 0
+    // Map base items with deterministic velocity profiles for realistic overtaking
     const baseItems = entries.map((item, index) => {
-      const targetScore = typeof item.spr === 'number'
-        ? item.spr
-        : typeof item.averagePercentage === 'number'
-        ? item.averagePercentage
-        : typeof item.overallScore === 'number'
-        ? item.overallScore
-        : typeof item.sprPoints === 'number'
-        ? item.sprPoints
-        : typeof item.score === 'number'
-        ? item.score
-        : 0;
+      const targetScore = extractTargetScore(item, isClassRanking);
+      const originalRank = typeof item.rank === 'number' ? item.rank : index + 1;
+      const itemId = String(item.studentId || item.id || item.classId || item.className || index);
+
+      // Deterministic hash based on ID string
+      let hash = 0;
+      for (let c = 0; c < itemId.length; c++) {
+        hash = ((hash << 5) - hash) + itemId.charCodeAt(c);
+        hash |= 0;
+      }
+      const normalizedHash = Math.abs(hash % 100) / 100; // 0.00 to 0.99
+      const rankNorm = N > 1 ? (originalRank - 1) / (N - 1) : 0;
+
+      // Realistic race curves:
+      // - Lower-ranked students experience early bursts (exponent ~ 0.75 to 0.95)
+      // - Top-ranked students accelerate steadily through mid-to-late phase (exponent ~ 1.15 to 1.40)
+      const baseExp = 0.88 + (1 - rankNorm) * 0.40;
+      const expVariation = (normalizedHash - 0.5) * 0.24;
+      const curveExp = Math.max(0.72, Math.min(1.42, baseExp + expVariation));
 
       return {
         ...item,
+        _animItemId: itemId,
         _animTargetScore: targetScore,
-        _animInitialRank: index + 1,
+        _animOriginalRank: originalRank,
+        _animOriginalIndex: index,
+        _animCurveExp: curveExp,
+        _animLastScore: 0,
       };
     });
 
@@ -120,85 +158,102 @@ export function useLeaderboardAnimation<T extends Record<string, any>>(
       const elapsed = currentTime - startTime;
 
       if (elapsed >= totalDuration) {
-        // Animation finished: cleanly settle back to original entries
+        // Animation complete: settle cleanly into original database entries
         setAnimItems(null);
         setIsAnimating(false);
         setPhase('SETTLED');
+        prevRankMapRef.current.clear();
         return;
       }
 
-      if (elapsed < 1000) {
-        // Phase 1 (0–1s): Points counting from 0 towards ~65% of target totals
+      // Throttle state update to ~30ms (~33fps) so React re-renders smoothly without dropped frames
+      if (currentTime - lastRenderTimeRef.current < 28 && elapsed < totalDuration - 50) {
+        animationFrameRef.current = requestAnimationFrame(updateFrame);
+        return;
+      }
+      lastRenderTimeRef.current = currentTime;
+
+      const t = Math.min(1.0, Math.max(0, elapsed / totalDuration));
+
+      // Phase update for UI styling
+      if (t < 0.28) {
         setPhase('COUNTING');
-        const p = elapsed / 1000;
-        const eased = p * (2 - p);
-
-        const updated = baseItems.map((item) => {
-          const currentVal = Number((item._animTargetScore * eased * 0.65).toFixed(2));
-          return {
-            ...item,
-            spr: currentVal,
-            overallScore: currentVal,
-            sprPoints: currentVal,
-            averagePercentage: currentVal,
-            displayPercentage: isClassRanking ? `${currentVal.toFixed(2)}%` : item.displayPercentage,
-          };
-        });
-
-        setAnimItems(updated as unknown as T[]);
-      } else if (elapsed < 2000) {
-        // Phase 2 (1–2s): Dynamic re-ranking transitions as points progress to ~95%
+      } else if (t < 0.80) {
         setPhase('RANKING');
-        const p = (elapsed - 1000) / 1000;
-        const currentProgress = 0.65 + (p * 0.30);
-
-        const updated = baseItems.map((item) => {
-          const currentVal = Number((item._animTargetScore * currentProgress).toFixed(2));
-          return {
-            ...item,
-            spr: currentVal,
-            overallScore: currentVal,
-            sprPoints: currentVal,
-            averagePercentage: currentVal,
-            displayPercentage: isClassRanking ? `${currentVal.toFixed(2)}%` : item.displayPercentage,
-          };
-        });
-
-        // Dynamically rank based on live interpolated points
-        updated.sort((a, b) => b.spr - a.spr);
-        for (let i = 0; i < updated.length; i++) {
-          (updated[i] as any).rank = i + 1;
-        }
-
-        setAnimItems(updated as unknown as T[]);
       } else {
-        // Phase 3 (2–3s): Settle all entries into final positions and complete counting
         setPhase('SETTLED');
-        const p = (elapsed - 2000) / 1000;
-        const eased = 1 - Math.pow(1 - p, 3);
-        const currentProgress = 0.95 + (eased * 0.05);
-
-        const updated = baseItems.map((item) => {
-          const currentVal = Number((item._animTargetScore * currentProgress).toFixed(2));
-          return {
-            ...item,
-            spr: currentVal,
-            overallScore: currentVal,
-            sprPoints: currentVal,
-            averagePercentage: currentVal,
-            displayPercentage: isClassRanking ? `${currentVal.toFixed(2)}%` : item.displayPercentage,
-          };
-        });
-
-        // Sort by final ranking order
-        updated.sort((a, b) => b._animTargetScore - a._animTargetScore);
-        for (let i = 0; i < updated.length; i++) {
-          (updated[i] as any).rank = i + 1;
-        }
-
-        setAnimItems(updated as unknown as T[]);
       }
 
+      // Smooth deceleration curve for overall race
+      const tEased = 1 - Math.pow(1 - t, 2.2);
+
+      // Compute live animated score for every item strictly using the velocity curve
+      const liveItems = baseItems.map((item) => {
+        const pRaw = Math.pow(tEased, item._animCurveExp);
+        let progress = pRaw;
+
+        // Smooth convergence in final stretch (t > 0.80) so all settle into exact database ranks
+        if (t > 0.80) {
+          const blend = (t - 0.80) / 0.20;
+          const smoothBlend = blend * blend * (3 - 2 * blend);
+          progress = (1 - smoothBlend) * pRaw + smoothBlend * 1.0;
+        }
+        progress = Math.min(1.0, Math.max(0, progress));
+
+        // Strict monotonicity: scores only count upwards, never backwards
+        const computedScore = Number((item._animTargetScore * progress).toFixed(2));
+        const liveScore = Math.max(item._animLastScore, computedScore);
+        item._animLastScore = liveScore;
+
+        return {
+          ...item,
+          _liveScore: liveScore,
+          spr: liveScore,
+          overallScore: liveScore,
+          sprPoints: liveScore,
+          score: liveScore,
+          averagePercentage: liveScore,
+          displayPercentage: isClassRanking ? `${liveScore.toFixed(2)}%` : item.displayPercentage,
+        };
+      });
+
+      // Dynamic sorting based strictly on live animated scores
+      liveItems.sort((a, b) => {
+        // 1. Live animated score (higher score moves above lower score)
+        if (b._liveScore !== a._liveScore) {
+          return b._liveScore - a._liveScore;
+        }
+        // 2. Target final score
+        if (b._animTargetScore !== a._animTargetScore) {
+          return b._animTargetScore - a._animTargetScore;
+        }
+        // 3. Database original rank / index (preserves tie-breaking rules)
+        return a._animOriginalIndex - b._animOriginalIndex;
+      });
+
+      // Assign dynamic ranks and calculate overtake differences
+      for (let i = 0; i < liveItems.length; i++) {
+        const currentItem = liveItems[i];
+        let currentRank: number;
+
+        if (i > 0 && currentItem._liveScore === liveItems[i - 1]._liveScore) {
+          currentRank = liveItems[i - 1].rank;
+        } else {
+          currentRank = i + 1;
+        }
+        (currentItem as any).rank = currentRank;
+
+        // Track rank delta from previous frame
+        const prevRank = prevRankMapRef.current.get(currentItem._animItemId) ?? currentRank;
+        const rankDiff = prevRank - currentRank; // > 0 means moved UP (overtook)
+        prevRankMapRef.current.set(currentItem._animItemId, currentRank);
+
+        (currentItem as any)._rankDiff = rankDiff;
+        (currentItem as any)._isOvertaking = rankDiff > 0;
+        (currentItem as any)._isOvertaken = rankDiff < 0;
+      }
+
+      setAnimItems(liveItems as unknown as T[]);
       animationFrameRef.current = requestAnimationFrame(updateFrame);
     };
 
@@ -212,8 +267,8 @@ export function useLeaderboardAnimation<T extends Record<string, any>>(
     };
   }, [triggerKey, entries.length > 0]);
 
-  // While animating, return animItems (if available).
-  // When not animating, return `entries` directly so data is always 100% visible!
+  // While animating, return animItems (if populated).
+  // When not animating, return `entries` directly for 0ms latency and guaranteed database fidelity.
   const animatedEntries = isAnimating && animItems && animItems.length > 0 ? animItems : entries;
 
   return { animatedEntries, isAnimating, phase };
