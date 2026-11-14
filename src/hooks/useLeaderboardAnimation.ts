@@ -213,5 +213,8 @@ export function useLeaderboardAnimation<T extends Record<string, any>>(
     };
   }, [triggerKey, entries.length > 0]);
 
-  return { animatedEntries, isAnimating, phase };
+  // Resilient fallback: ensure animatedEntries never returns empty if entries has items
+  const safeEntries = animatedEntries && animatedEntries.length > 0 ? animatedEntries : entries;
+
+  return { animatedEntries: safeEntries, isAnimating, phase };
 }

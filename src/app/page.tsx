@@ -468,12 +468,8 @@ export default function PublicHomePage() {
     return val.replace(/^(class|std|standard|grade)\s*/i, '').trim();
   };
 
-  // 3-second dynamic animated leaderboard for all leaderboard openings
-  const homeLeaderboardKey = selectedClass ? `HOME_CLASS_${selectedClass}` : 'HOME_OVERALL';
-  const { animatedEntries } = useLeaderboardAnimation(leaderboard, false, homeLeaderboardKey);
-
   // Filtered leaderboard list with multi-term support
-  const filteredLeaderboard = animatedEntries.filter((item) => {
+  const filteredLeaderboard = leaderboard.filter((item) => {
     if (!tableSearch.trim()) return true;
     const q = tableSearch.toLowerCase().trim();
     const terms = q.split(/\s+/).filter(Boolean);
@@ -506,8 +502,12 @@ export default function PublicHomePage() {
     });
   });
 
+  // 3-second dynamic animated leaderboard for all leaderboard openings
+  const homeLeaderboardKey = selectedClass ? `HOME_CLASS_${selectedClass}` : 'HOME_OVERALL';
+  const { animatedEntries } = useLeaderboardAnimation(filteredLeaderboard, false, homeLeaderboardKey);
+
   // Top 15 on homepage overview
-  const displayedLeaderboard = filteredLeaderboard.slice(0, 15);
+  const displayedLeaderboard = animatedEntries.slice(0, 15);
   const top3 = animatedEntries.slice(0, 3);
 
   // Scroll-driven row reveal observer for leaderboard
