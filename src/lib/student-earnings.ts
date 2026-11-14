@@ -3,8 +3,8 @@ import { prisma } from './prisma';
 import { CategoryEarningItem, WalletSummary, StoreFundSummary } from '@/types';
 import { getCachedSettings } from './spr-engine';
 
-// Default Planned Earnings Start Date: November 1, 2026
-export const DEFAULT_ELIGIBILITY_START_DATE = '2026-11-01T00:00:00.000Z';
+// Default Planned Earnings Start Date: October 1, 2026 (includes October attendance and active term evaluations)
+export const DEFAULT_ELIGIBILITY_START_DATE = '2026-10-01T00:00:00.000Z';
 
 /**
  * Retrieves the configured eligibility start date from SystemSettings or fallback.
@@ -486,10 +486,25 @@ export async function syncStudentEarnings(studentId: string): Promise<{
           const points = record.obtainedScore || 0;
           if (points > 0) {
             // Cash rule for terms and assessments:
-            // Do NOT credit cash if obtained score is less than half of out of mark (maxScore / 2 or percentage < 50)
-            const isTermOrAssessment = Boolean(record.termId || record.examId);
-            const isBelowHalfMark = isTermOrAssessment && record.maxScore > 0 && points < (record.maxScore / 2);
-            const cashPoints = isBelowHalfMark ? 0 : points;
+            // Cash must be credited only when the student obtains at least 50% of the maximum marks:
+            // Eligibility formula: obtainedScore >= maxScore / 2 (or percentage >= 50%)
+            // Rules: 50% and above -> Eligible; Below 50% -> ₹0 cash.
+            // Safely handles invalid or missing maximum marks.
+            const isTermOrAssessment = Boolean(
+              record.termId ||
+              record.examId ||
+              (record.category && (record.category.code === 'EXAM' || record.category.code === 'ASSESSMENT' || record.category.code === 'SCHOOL'))
+            );
+
+            let isEligibleForCash = true;
+            if (isTermOrAssessment) {
+              if (typeof record.maxScore === 'number' && record.maxScore > 0) {
+                isEligibleForCash = points >= (record.maxScore / 2);
+              } else if (typeof record.percentage === 'number' && !isNaN(record.percentage)) {
+                isEligibleForCash = record.percentage >= 50;
+              }
+            }
+            const cashPoints = isEligibleForCash ? points : 0;
 
             if (cashPoints > 0) {
               eligiblePointsSum += cashPoints;
@@ -508,7 +523,8 @@ export async function syncStudentEarnings(studentId: string): Promise<{
                 position: record.position,
                 categoryDisplay: displayName,
                 isTermOrAssessment,
-                isBelowHalfMark,
+                isEligibleForCash,
+                isBelowHalfMark: !isEligibleForCash,
               },
               description: `Earned ₹${calculateCategoryEarnings(cashPoints, multiplier).toFixed(2)} from ${displayName} (${cashPoints} pts × ${multiplier})`,
               categoryId: cat.id,

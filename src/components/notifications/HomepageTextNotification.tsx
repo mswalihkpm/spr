@@ -91,10 +91,10 @@ export default function HomepageTextNotification({
     <div
       role="alert"
       aria-live="polite"
-      className={`transition-all duration-300 ease-out select-none ${
+      className={`select-none ${
         isExiting
-          ? 'opacity-0 -translate-x-6 scale-95 pointer-events-none'
-          : 'opacity-100 translate-x-0 scale-100'
+          ? 'opacity-0 -translate-y-4 scale-95 pointer-events-none transition-all duration-300 ease-in'
+          : 'animate-raindrop opacity-100 scale-100'
       }`}
     >
       <div className="relative rounded-2xl bg-slate-900/90 dark:bg-slate-950/95 text-white border border-amber-400/50 shadow-2xl shadow-black/50 backdrop-blur-md overflow-hidden p-3.5 sm:p-4">

@@ -38,6 +38,7 @@ import { fetchWithDedupe } from '@/lib/client-cache';
 import CustomSelect from '@/components/ui/CustomSelect';
 import { useAppBootstrap } from '@/context/AppBootstrapContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useLeaderboardAnimation } from '@/hooks/useLeaderboardAnimation';
 
 // Global module-level client memory caches for instant 0ms loading
 const homeLeaderboardMemory = new Map<string, any[]>();
@@ -66,12 +67,22 @@ export default function PublicHomePage() {
   );
   const [activeNotifications, setActiveNotifications] = useState<TextNotificationData[]>([]);
 
-  // Fetch active text notifications for homepage display with deduplicated client caching
+  // Fetch active text notifications on fresh application launch (session-guarded)
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const alreadyShown = sessionStorage.getItem('spr_app_launch_notifications_shown');
+      if (alreadyShown) {
+        return;
+      }
+    }
+
     fetchWithDedupe<{ notifications: TextNotificationData[] }>('/api/notifications')
       .then((data) => {
-        if (data && Array.isArray(data.notifications)) {
+        if (data && Array.isArray(data.notifications) && data.notifications.length > 0) {
           setActiveNotifications(data.notifications);
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('spr_app_launch_notifications_shown', 'true');
+          }
         }
       })
       .catch((err) => {
@@ -457,8 +468,11 @@ export default function PublicHomePage() {
     return val.replace(/^(class|std|standard|grade)\s*/i, '').trim();
   };
 
+  // 3-second dynamic animated leaderboard on fresh launch
+  const { animatedEntries } = useLeaderboardAnimation(leaderboard);
+
   // Filtered leaderboard list with multi-term support
-  const filteredLeaderboard = leaderboard.filter((item) => {
+  const filteredLeaderboard = animatedEntries.filter((item) => {
     if (!tableSearch.trim()) return true;
     const q = tableSearch.toLowerCase().trim();
     const terms = q.split(/\s+/).filter(Boolean);
@@ -493,7 +507,7 @@ export default function PublicHomePage() {
 
   // Top 15 on homepage overview
   const displayedLeaderboard = filteredLeaderboard.slice(0, 15);
-  const top3 = leaderboard.slice(0, 3);
+  const top3 = animatedEntries.slice(0, 3);
 
   // Scroll-driven row reveal observer for leaderboard
   useEffect(() => {
@@ -1021,7 +1035,7 @@ export default function PublicHomePage() {
               {activeNotifications.map((notif, idx) => (
                 <div
                   key={notif.id}
-                  className="animate-slide-right"
+                  className="animate-raindrop"
                   style={{ animationDelay: `${idx * 120}ms` }}
                 >
                   <HomepageTextNotification
@@ -1043,7 +1057,7 @@ export default function PublicHomePage() {
                 {activeNotifications.map((notif, idx) => (
                   <div
                     key={notif.id}
-                    className="animate-slide-down"
+                    className="animate-raindrop"
                     style={{ animationDelay: `${idx * 120}ms` }}
                   >
                     <HomepageTextNotification

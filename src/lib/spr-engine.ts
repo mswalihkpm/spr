@@ -28,6 +28,7 @@ export function onInvalidateEngine(cb: () => void) {
 
 export function invalidateEngineCache() {
   leaderboardCache.clear();
+  classLeaderboardCache.clear();
   studentSPRProfileCache.clear();
   studentRanksCache.clear();
   inFlightLeaderboardPromises.clear();
@@ -1822,5 +1823,219 @@ export async function calculateFastStudentRanks(
 
   studentRanksCache.set(cacheKey, { timestamp: now, data: rankResult });
   return rankResult;
+}
+
+export interface ClassRankingEntry {
+  rank: number;
+  classId: string;
+  className: string;
+  numericGrade: number;
+  averagePercentage: number;
+  displayPercentage: string;
+  spr: number;
+  overallScore: number;
+  totalStudents: number;
+  includedStudentsCount: number;
+  isTied: boolean;
+  tiedCount?: number;
+  isClassRanking: true;
+}
+
+const classLeaderboardCache = new Map<string, { timestamp: number; data: ClassRankingEntry[] }>();
+
+/**
+ * Calculates the authoritative Class Ranking Leaderboard.
+ * Ranks the five competitor classes (Class 8, Class 9, Class 10, Class +1, Class +2)
+ * using the arithmetic mean of every evaluated student's Final SPR Percentage.
+ * Strictly formats all scores as percentages out of 100 with two decimal places.
+ */
+export async function calculateClassRankingLeaderboard(filters?: {
+  academicYearId?: string;
+}): Promise<ClassRankingEntry[]> {
+  const cacheKey = JSON.stringify(filters || {});
+  const now = Date.now();
+  const cached = classLeaderboardCache.get(cacheKey);
+  if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+
+  const [classes, categories, students] = await Promise.all([
+    prisma.academicClass.findMany({
+      where: { active: true },
+      orderBy: { numericGrade: 'asc' },
+    }),
+    getCachedCategories(),
+    prisma.student.findMany({
+      where: {
+        status: 'ACTIVE',
+        ...(filters?.academicYearId ? { academicYearId: filters.academicYearId } : {}),
+      },
+      include: {
+        class: true,
+        performanceRecords: {
+          include: {
+            exam: true,
+            subcategory: true,
+            subject: true,
+          },
+        },
+        libraryRecords: true,
+        creativeWorks: true,
+        monthlyAttendances: true,
+      },
+    }),
+  ]);
+
+  const targetClassNames = ['Class 8', 'Class 9', 'Class 10', 'Class +1', 'Class +2'];
+  const relevantClasses = classes.filter((c) =>
+    targetClassNames.some(
+      (tc) => c.name.toLowerCase().includes(tc.toLowerCase().replace('class ', '')) || c.name.toLowerCase() === tc.toLowerCase()
+    )
+  );
+  const classesToRank = relevantClasses.length >= 5 ? relevantClasses : classes;
+
+  const active7Categories = categories.filter((c) => c.includeInSPR !== false).slice(0, 7);
+
+  // Calculate each student's authoritative Final SPR Percentage
+  const studentPercentages = new Map<string, number>();
+
+  for (const s of students) {
+    let weightedSum = 0;
+    let weightSum = 0;
+
+    for (const cat of active7Categories) {
+      const weight = cat.defaultWeight || 1.0;
+      let catPct = 0;
+      let hasData = false;
+
+      if (cat.code === 'ISLAMIC' || cat.code === 'SCHOOL') {
+        const nonAttRecs = s.performanceRecords.filter(
+          (r: any) => r.categoryId === cat.id && (r.exam?.name || '').trim().toLowerCase() !== 'attendance'
+        );
+        const atts = s.monthlyAttendances.filter((a: any) => a.categoryCode === cat.code);
+
+        let examPct = 0;
+        let hasExam = false;
+        if (nonAttRecs.length > 0) {
+          const totObt = nonAttRecs.reduce((sum: number, r: any) => sum + (r.obtainedScore || 0), 0);
+          const totMax = nonAttRecs.reduce((sum: number, r: any) => sum + (r.maxScore || r.subject?.maxScore || 100), 0);
+          examPct = totMax > 0 ? (totObt / totMax) * 100 : 0;
+          hasExam = true;
+        }
+
+        let attPct = 0;
+        let hasAtt = false;
+        if (atts.length > 0) {
+          const sumAttPct = atts.reduce((sum: number, a: any) => sum + (a.percentage || 0), 0);
+          attPct = sumAttPct / atts.length;
+          hasAtt = true;
+        }
+
+        if (hasExam && hasAtt) {
+          catPct = (examPct * 0.8) + (attPct * 0.2); // 80% exams, 20% attendance
+          hasData = true;
+        } else if (hasExam) {
+          catPct = examPct;
+          hasData = true;
+        } else if (hasAtt) {
+          catPct = attPct;
+          hasData = true;
+        }
+      } else if (cat.code === 'LIBRARY') {
+        if (s.libraryRecords.length > 0) {
+          const pts = s.libraryRecords.reduce((sum: number, l: any) => sum + (l.readingScore || (l.booksRead || 0) * 20), 0);
+          catPct = Math.min(100, (pts / 100) * 100);
+          hasData = true;
+        }
+      } else if (cat.code === 'CREATIVE_HUB') {
+        if (s.creativeWorks.length > 0) {
+          const pts = s.creativeWorks.reduce((sum: number, w: any) => sum + (w.score || 20), 0);
+          catPct = Math.min(100, (pts / 100) * 100);
+          hasData = true;
+        }
+      } else {
+        const recs = s.performanceRecords.filter((r: any) => r.categoryId === cat.id);
+        if (recs.length > 0) {
+          const pts = recs.reduce((sum: number, r: any) => sum + (r.obtainedScore || 0), 0);
+          catPct = Math.min(100, pts);
+          hasData = true;
+        }
+      }
+
+      if (hasData) {
+        weightedSum += catPct * weight;
+        weightSum += weight;
+      }
+    }
+
+    if (weightSum > 0) {
+      const finalPct = Math.min(100, Math.max(0, Number((weightedSum / weightSum).toFixed(2))));
+      studentPercentages.set(s.id, finalPct);
+    }
+  }
+
+  const entries: ClassRankingEntry[] = classesToRank.map((cls) => {
+    const classStudents = students.filter(
+      (s) => s.classId === cls.id || s.class?.name?.trim().toLowerCase() === cls.name.trim().toLowerCase()
+    );
+
+    // Filter students with valid calculated Final SPR Percentages
+    const includedPercentages: number[] = [];
+    classStudents.forEach((s) => {
+      const pct = studentPercentages.get(s.id);
+      if (typeof pct === 'number' && !isNaN(pct) && pct > 0) {
+        includedPercentages.push(pct);
+      }
+    });
+
+    const sumPct = includedPercentages.reduce((sum, p) => sum + p, 0);
+    const avgPct = includedPercentages.length > 0
+      ? Math.round(((sumPct / includedPercentages.length) + Number.EPSILON) * 100) / 100
+      : 0.00;
+
+    return {
+      rank: 0,
+      classId: cls.id,
+      className: cls.name,
+      numericGrade: cls.numericGrade,
+      averagePercentage: avgPct,
+      displayPercentage: `${avgPct.toFixed(2)}%`,
+      spr: avgPct,
+      overallScore: avgPct,
+      totalStudents: classStudents.length,
+      includedStudentsCount: includedPercentages.length,
+      isTied: false,
+      isClassRanking: true,
+    };
+  });
+
+  // Sort descending by averagePercentage; tie-breaker: numeric grade ascending
+  entries.sort((a, b) => {
+    if (b.averagePercentage !== a.averagePercentage) {
+      return b.averagePercentage - a.averagePercentage;
+    }
+    return a.numericGrade - b.numericGrade;
+  });
+
+  // Assign standard competition ranks
+  for (let i = 0; i < entries.length; i++) {
+    if (i > 0 && entries[i].averagePercentage === entries[i - 1].averagePercentage) {
+      entries[i].rank = entries[i - 1].rank;
+    } else {
+      entries[i].rank = i + 1;
+    }
+  }
+
+  const scoreCounts: Record<number, number> = {};
+  entries.forEach((e) => {
+    scoreCounts[e.averagePercentage] = (scoreCounts[e.averagePercentage] || 0) + 1;
+  });
+  entries.forEach((e) => {
+    e.isTied = scoreCounts[e.averagePercentage] > 1;
+    e.tiedCount = scoreCounts[e.averagePercentage];
+  });
+
+  classLeaderboardCache.set(cacheKey, { timestamp: Date.now(), data: entries });
+  return entries;
 }
 
