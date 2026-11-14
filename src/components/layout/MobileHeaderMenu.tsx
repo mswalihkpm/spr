@@ -57,6 +57,15 @@ export default function MobileHeaderMenu({
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationNoteItem[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [isClassLeaderboardActive, setIsClassLeaderboardActive] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const isClass = params.get('type') === 'class' || params.get('cat') === 'CLASS_RANKING';
+      setIsClassLeaderboardActive(pathname.startsWith('/leaderboard') && isClass);
+    }
+  }, [pathname, isOpen]);
 
   // Fetch active notifications when drawer opens
   useEffect(() => {
@@ -295,7 +304,7 @@ export default function MobileHeaderMenu({
                     href="/leaderboard"
                     onClick={() => setIsOpen(false)}
                     className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition ${
-                      pathname.startsWith('/leaderboard')
+                      pathname.startsWith('/leaderboard') && !isClassLeaderboardActive
                         ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/60'
                         : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
@@ -303,6 +312,28 @@ export default function MobileHeaderMenu({
                     <div className="flex items-center space-x-2.5">
                       <Trophy className="w-4 h-4 text-amber-500" />
                       <span>Leaderboard Standings</span>
+                    </div>
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                  </Link>
+
+                  {/* Class Champions Leaderboard */}
+                  <Link
+                    href="/leaderboard?type=class"
+                    onClick={() => setIsOpen(false)}
+                    className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition ${
+                      pathname.startsWith('/leaderboard') && isClassLeaderboardActive
+                        ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900/60'
+                        : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      <GraduationCap className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                      <div>
+                        <span>Class Champions Leaderboard</span>
+                        <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 block -mt-0.5">
+                          Inter-Class Championship Standings
+                        </span>
+                      </div>
                     </div>
                     <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
                   </Link>

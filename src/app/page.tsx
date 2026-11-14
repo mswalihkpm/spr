@@ -1036,7 +1036,6 @@ export default function PublicHomePage() {
               {activeNotifications.map((notif, idx) => (
                 <div
                   key={notif.id}
-                  className="animate-raindrop"
                   style={{ animationDelay: `${idx * 120}ms` }}
                 >
                   <HomepageTextNotification
@@ -1058,7 +1057,6 @@ export default function PublicHomePage() {
                 {activeNotifications.map((notif, idx) => (
                   <div
                     key={notif.id}
-                    className="animate-raindrop"
                     style={{ animationDelay: `${idx * 120}ms` }}
                   >
                     <HomepageTextNotification

@@ -682,7 +682,7 @@ function deriveCategoryLeaderboard(
       bgGradient: 'bg-gradient-to-r from-[#1e1b4b] via-[#312e81] to-[#4338ca]',
       glowColor: 'from-indigo-300/30 via-indigo-400/10 to-transparent',
       borderColor: 'border-indigo-400/30',
-      title: 'Class Ranking Leaderboard',
+      title: 'Class Champions Leaderboard',
       subtitle: 'Authoritative inter-class competition: five classes competing using the arithmetic mean of student Final SPR Percentages.',
       badge: 'Inter-Class Championship',
       badgeClass: 'bg-indigo-500/25 text-indigo-100 border-indigo-300/40',
@@ -1129,21 +1129,6 @@ function deriveCategoryLeaderboard(
               <span>⭐ Overall Students</span>
             </button>
 
-            {/* Class Ranking Leaderboard */}
-            <button
-              data-item-id="CLASS_RANKING"
-              data-active={isClassRankingActive}
-              onClick={() => switchLeaderboard({ type: 'CLASS' })}
-              className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-150 shrink-0 flex items-center space-x-1.5 ${
-                isClassRankingActive
-                  ? 'bg-indigo-700 text-white shadow-sm shadow-indigo-600/20 ring-2 ring-indigo-600/30'
-                  : 'bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750 hover:text-slate-900 dark:hover:text-white border border-slate-200/80 dark:border-slate-700'
-              }`}
-            >
-              <GraduationCap className={`w-3.5 h-3.5 ${isClassRankingActive ? 'text-indigo-200' : 'text-indigo-600'}`} />
-              <span>🏫 Class Rankings</span>
-            </button>
-
             {/* Qualification */}
             <button
               data-item-id="QUALIFICATION"
@@ -1444,7 +1429,6 @@ function deriveCategoryLeaderboard(
                   }}
                   options={[
                     { value: '', label: '⭐ Overall Institutional SPR' },
-                    { value: 'cat:CLASS_RANKING', label: '🏫 Class Ranking Leaderboard' },
                     ...(qualCat ? [
                       { value: `cat:${qualCat.id}`, label: '📜 All Qualification', group: 'Qualification & Subcategories' },
                       ...subcategories.filter((s) => s.categoryId === qualCat.id).map((sub) => ({

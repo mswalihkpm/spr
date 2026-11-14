@@ -56,10 +56,11 @@ export default function HomepageTextNotification({
 
   const handleDismiss = () => {
     setIsExiting(true);
+    // Allow ending raindrop drop-down animation to play smoothly before unmounting
     setTimeout(() => {
       setVisible(false);
       if (onClose) onClose();
-    }, 350);
+    }, 460);
   };
 
   if (!notification || !visible) return null;
@@ -93,7 +94,7 @@ export default function HomepageTextNotification({
       aria-live="polite"
       className={`select-none ${
         isExiting
-          ? 'opacity-0 -translate-y-4 scale-95 pointer-events-none transition-all duration-300 ease-in'
+          ? 'animate-raindrop-ending-drop pointer-events-none'
           : 'animate-raindrop opacity-100 scale-100'
       }`}
     >
