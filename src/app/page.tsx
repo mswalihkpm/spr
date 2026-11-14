@@ -468,8 +468,9 @@ export default function PublicHomePage() {
     return val.replace(/^(class|std|standard|grade)\s*/i, '').trim();
   };
 
-  // 3-second dynamic animated leaderboard on fresh launch
-  const { animatedEntries } = useLeaderboardAnimation(leaderboard);
+  // 3-second dynamic animated leaderboard for all leaderboard openings
+  const homeLeaderboardKey = selectedClass ? `HOME_CLASS_${selectedClass}` : 'HOME_OVERALL';
+  const { animatedEntries } = useLeaderboardAnimation(leaderboard, false, homeLeaderboardKey);
 
   // Filtered leaderboard list with multi-term support
   const filteredLeaderboard = animatedEntries.filter((item) => {

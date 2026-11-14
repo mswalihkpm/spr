@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import VideoLoader from '@/components/ui/VideoLoader';
+import { useLeaderboardAnimation } from '@/hooks/useLeaderboardAnimation';
 
 export interface ItemLeaderboardItem {
   id?: string;
@@ -137,10 +138,13 @@ export default function ItemLeaderboardModal({
     return list;
   }, [leaderboardData, filterClass, searchStudent]);
 
+  const itemModalKey = `${isOpen ? 'OPEN' : 'CLOSED'}_${item?.id || item?.name || 'ITEM'}_${filterClass}`;
+  const { animatedEntries } = useLeaderboardAnimation(filteredLeaderboard, false, itemModalKey);
+
   if (!isOpen || !item) return null;
 
   const currentItem = leaderboardData?.item || item;
-  const topThree = filteredLeaderboard.slice(0, 3);
+  const topThree = animatedEntries.slice(0, 3);
 
   const getPositionBadge = (pos: string | null) => {
     if (!pos) return null;
@@ -413,7 +417,7 @@ export default function ItemLeaderboardModal({
                 </div>
 
                 <div className="divide-y divide-slate-100 dark:divide-slate-800 rounded-xl sm:rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-xs">
-                  {filteredLeaderboard.map((entry) => {
+                  {animatedEntries.map((entry) => {
                     return (
                       <div
                         key={entry.recordId}

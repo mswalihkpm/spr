@@ -565,7 +565,23 @@ function deriveCategoryLeaderboard(
     });
   });
 
-  const { animatedEntries, isAnimating } = useLeaderboardAnimation(filteredEntries, isClassRankingActive);
+  const activeLeaderboardKey = isClassRankingActive
+    ? 'CLASS_RANKING'
+    : selectedSubcategory
+    ? `SUB_${selectedSubcategory}`
+    : selectedFest
+    ? `FEST_${selectedFest}`
+    : selectedStream
+    ? `STREAM_${selectedStream}`
+    : selectedCategory
+    ? `CAT_${selectedCategory}`
+    : 'OVERALL';
+
+  const { animatedEntries, isAnimating } = useLeaderboardAnimation(
+    filteredEntries,
+    isClassRankingActive,
+    activeLeaderboardKey
+  );
   const topThree = animatedEntries.slice(0, 3);
 
   const openReportModal = (e: React.MouseEvent, st: any) => {

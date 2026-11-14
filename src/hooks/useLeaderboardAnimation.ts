@@ -3,30 +3,39 @@
 import { useState, useEffect, useRef } from 'react';
 
 export interface AnimatedLeaderboardItem {
-  id: string;
+  id?: string;
   rank: number;
-  originalRank: number;
-  spr: number;
-  targetSpr: number;
+  originalRank?: number;
+  spr?: number;
+  overallScore?: number;
+  targetSpr?: number;
   displayPercentage?: string;
+  averagePercentage?: number;
   [key: string]: any;
 }
 
 /**
  * Three-Second Dynamic Leaderboard Animation Hook.
- * - 0–1s: Visual numerical points counting from 0 towards actual totals.
+ * Triggers dynamically for ALL leaderboard openings:
+ * - Fresh application launches and page navigations to /leaderboard or /
+ * - Category, wing, fest, and class ranking switches
+ * - Modal leaderboard openings (ItemLeaderboardModal)
+ * 
+ * Animation Stages:
+ * - 0–1s: Visual numerical points counting up from 0 towards actual totals.
  * - 1–2s: Dynamic ranking transitions towards final positions.
  * - 2–3s: Settle smoothly into final Top 3 podium and ranks.
  * 
  * Safeguards:
- * - Plays ONCE per fresh application launch via sessionStorage ('spr_leaderboard_animation_played').
- * - Will not replay on homepage revisits or ordinary navigation.
+ * - Cancels cleanly on unmount or fast navigation.
+ * - Does not restart on search filtering keystrokes.
  * - Strictly respects reduced-motion accessibility settings.
  * - Purely visual presentation layer; does not mutate database or calculation engine.
  */
 export function useLeaderboardAnimation<T extends Record<string, any>>(
   entries: T[],
-  isClassRanking: boolean = false
+  isClassRanking: boolean = false,
+  triggerKey?: string | number
 ): {
   animatedEntries: T[];
   isAnimating: boolean;
@@ -36,31 +45,48 @@ export function useLeaderboardAnimation<T extends Record<string, any>>(
   const [phase, setPhase] = useState<'COUNTING' | 'RANKING' | 'SETTLED'>('SETTLED');
   const [animatedEntries, setAnimatedEntries] = useState<T[]>(entries);
   const animationFrameRef = useRef<number | null>(null);
-  const hasTriggeredRef = useRef(false);
+  const prevTriggerRef = useRef<string | number | undefined>(undefined);
+  const hasAnimatedRef = useRef<boolean>(false);
 
   useEffect(() => {
+    // If triggerKey changed, reset animation trigger gate
+    if (triggerKey !== undefined && triggerKey !== prevTriggerRef.current) {
+      prevTriggerRef.current = triggerKey;
+      hasAnimatedRef.current = false;
+    }
+
     if (!entries || entries.length === 0) {
       setAnimatedEntries([]);
+      setIsAnimating(false);
+      setPhase('SETTLED');
       return;
     }
 
-    // Check if animation has already played in this application session
-    if (typeof window !== 'undefined') {
-      const alreadyPlayed = sessionStorage.getItem('spr_leaderboard_animation_played');
-      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // If already animated for this view/trigger and not currently animating, keep settled
+    if (hasAnimatedRef.current && !isAnimating) {
+      setAnimatedEntries(entries);
+      return;
+    }
 
-      if (alreadyPlayed || prefersReducedMotion || hasTriggeredRef.current) {
+    // Accessibility check: bypass animation if user prefers reduced motion
+    if (typeof window !== 'undefined') {
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (prefersReducedMotion) {
         setAnimatedEntries(entries);
         setIsAnimating(false);
         setPhase('SETTLED');
+        hasAnimatedRef.current = true;
         return;
       }
-
-      // Mark played for this session to prevent re-triggering on revisits/navigation
-      sessionStorage.setItem('spr_leaderboard_animation_played', 'true');
-      hasTriggeredRef.current = true;
     }
 
+    // Cancel any existing animation frame before starting fresh
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+
+    hasAnimatedRef.current = true;
     setIsAnimating(true);
     setPhase('COUNTING');
 
@@ -73,6 +99,12 @@ export function useLeaderboardAnimation<T extends Record<string, any>>(
         ? item.spr
         : typeof item.averagePercentage === 'number'
         ? item.averagePercentage
+        : typeof item.overallScore === 'number'
+        ? item.overallScore
+        : typeof item.sprPoints === 'number'
+        ? item.sprPoints
+        : typeof item.score === 'number'
+        ? item.score
         : 0;
 
       return {
@@ -107,6 +139,7 @@ export function useLeaderboardAnimation<T extends Record<string, any>>(
             ...item,
             spr: currentVal,
             overallScore: currentVal,
+            sprPoints: currentVal,
             averagePercentage: currentVal,
             displayPercentage: isClassRanking ? `${currentVal.toFixed(2)}%` : item.displayPercentage,
           };
@@ -126,6 +159,7 @@ export function useLeaderboardAnimation<T extends Record<string, any>>(
             ...item,
             spr: currentVal,
             overallScore: currentVal,
+            sprPoints: currentVal,
             averagePercentage: currentVal,
             displayPercentage: isClassRanking ? `${currentVal.toFixed(2)}%` : item.displayPercentage,
           };
@@ -151,6 +185,7 @@ export function useLeaderboardAnimation<T extends Record<string, any>>(
             ...item,
             spr: currentVal,
             overallScore: currentVal,
+            sprPoints: currentVal,
             averagePercentage: currentVal,
             displayPercentage: isClassRanking ? `${currentVal.toFixed(2)}%` : item.displayPercentage,
           };
@@ -173,10 +208,10 @@ export function useLeaderboardAnimation<T extends Record<string, any>>(
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
     };
-  }, [entries, isClassRanking]);
+  }, [triggerKey, entries.length > 0]);
 
   return { animatedEntries, isAnimating, phase };
 }
-
