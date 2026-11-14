@@ -1601,7 +1601,7 @@ function deriveCategoryLeaderboard(
                               {student.className}
                             </div>
                             <div className="text-[8.5px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-                              {student.includedStudentsCount} of {student.totalStudents} evaluated
+                              {student.totalStudents} Eligible Students
                             </div>
                           </div>
 
@@ -1694,7 +1694,7 @@ function deriveCategoryLeaderboard(
                               {student.className}
                             </div>
                             <div className="text-[9.5px] sm:text-xs text-slate-500 dark:text-slate-400 mt-1 font-semibold">
-                              {student.includedStudentsCount} of {student.totalStudents} evaluated
+                              {student.totalStudents} Eligible Students
                             </div>
                           </div>
 
@@ -1787,7 +1787,7 @@ function deriveCategoryLeaderboard(
                               {student.className}
                             </div>
                             <div className="text-[8px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-                              {student.includedStudentsCount} of {student.totalStudents} evaluated
+                              {student.totalStudents} Eligible Students
                             </div>
                           </div>
 
@@ -1999,7 +1999,7 @@ function deriveCategoryLeaderboard(
 
                         <td className="py-3 sm:py-4 px-2 sm:px-4 text-center font-medium text-slate-600 dark:text-slate-300 text-xs">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 font-semibold text-[10.5px] sm:text-xs text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                            {cls.includedStudentsCount} of {cls.totalStudents} evaluated
+                            {cls.totalStudents} Eligible Students
                           </span>
                         </td>
 

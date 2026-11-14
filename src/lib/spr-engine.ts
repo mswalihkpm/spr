@@ -1971,26 +1971,28 @@ export async function calculateClassRankingLeaderboard(filters?: {
     if (weightSum > 0) {
       const finalPct = Math.min(100, Math.max(0, Number((weightedSum / weightSum).toFixed(2))));
       studentPercentages.set(s.id, finalPct);
+    } else {
+      studentPercentages.set(s.id, 0.0);
     }
   }
 
+  // Calculate Class Champion Leaderboard according to strict arithmetic mean:
+  // Class Average SPR = Total Final SPR Percentages of All Eligible Students ÷ Total Number of Eligible Students
   const entries: ClassRankingEntry[] = classesToRank.map((cls) => {
     const classStudents = students.filter(
       (s) => s.classId === cls.id || s.class?.name?.trim().toLowerCase() === cls.name.trim().toLowerCase()
     );
 
-    // Filter students with valid calculated Final SPR Percentages
-    const includedPercentages: number[] = [];
-    classStudents.forEach((s) => {
-      const pct = studentPercentages.get(s.id);
-      if (typeof pct === 'number' && !isNaN(pct) && pct > 0) {
-        includedPercentages.push(pct);
-      }
-    });
+    const totalEligibleCount = classStudents.length;
 
-    const sumPct = includedPercentages.reduce((sum, p) => sum + p, 0);
-    const avgPct = includedPercentages.length > 0
-      ? Math.round(((sumPct / includedPercentages.length) + Number.EPSILON) * 100) / 100
+    // Sum all eligible students' Final SPR Percentages (including 0.0% for students with pending records)
+    const sumPct = classStudents.reduce((sum, s) => {
+      const pct = studentPercentages.get(s.id) ?? 0.0;
+      return sum + pct;
+    }, 0);
+
+    const avgPct = totalEligibleCount > 0
+      ? Math.round(((sumPct / totalEligibleCount) + Number.EPSILON) * 100) / 100
       : 0.00;
 
     return {
@@ -2002,19 +2004,22 @@ export async function calculateClassRankingLeaderboard(filters?: {
       displayPercentage: `${avgPct.toFixed(2)}%`,
       spr: avgPct,
       overallScore: avgPct,
-      totalStudents: classStudents.length,
-      includedStudentsCount: includedPercentages.length,
+      totalStudents: totalEligibleCount,
+      includedStudentsCount: totalEligibleCount,
       isTied: false,
       isClassRanking: true,
     };
   });
 
-  // Sort descending by averagePercentage; tie-breaker: numeric grade ascending
+  // Sort descending by averagePercentage; tie-breaker: numeric grade descending (+2 > +1 > 10 > 9 > 8)
   entries.sort((a, b) => {
     if (b.averagePercentage !== a.averagePercentage) {
       return b.averagePercentage - a.averagePercentage;
     }
-    return a.numericGrade - b.numericGrade;
+    if (b.numericGrade !== a.numericGrade) {
+      return b.numericGrade - a.numericGrade;
+    }
+    return a.className.localeCompare(b.className);
   });
 
   // Assign standard competition ranks
