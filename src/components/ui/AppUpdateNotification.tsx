@@ -157,10 +157,10 @@ export default function AppUpdateNotification() {
             </div>
 
             <h2 className="text-sm font-bold text-white tracking-tight leading-snug">
-              New Update Available
+              New Features Ready
             </h2>
             <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-              A newer version of SPR is ready with the latest performance and UI upgrades.
+              A newer version of SPR is ready with the latest performance and UI features.
             </p>
 
             {/* Actions */}
@@ -174,12 +174,12 @@ export default function AppUpdateNotification() {
                 {isUpdating ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Updating SPR...</span>
+                    <span>Loading new features...</span>
                   </>
                 ) : (
                   <>
                     <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Update Now</span>
+                    <span>Continue with new features...</span>
                   </>
                 )}
               </button>

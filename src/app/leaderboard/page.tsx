@@ -27,7 +27,6 @@ import {
   ExternalLink,
   ChevronRight,
   Percent,
-  Download,
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import StudentReportModal from '@/components/modals/StudentReportModal';
@@ -43,7 +42,6 @@ import ScrollProgressBar from '@/components/leaderboard/ScrollProgressBar';
 import ScrollToTopHUD from '@/components/leaderboard/ScrollToTopHUD';
 import { useLeaderboardAnimation } from '@/hooks/useLeaderboardAnimation';
 import ClassChampionsBenchmarkChart from '@/components/leaderboard/ClassChampionsBenchmarkChart';
-import OfficialPdfExportModal from '@/components/modals/OfficialPdfExportModal';
 
 // Global client-side memory caches for 0ms instant loading
 const clientLeaderboardMemory = new Map<string, any[]>();
@@ -103,9 +101,6 @@ function LeaderboardContent() {
   const [studentProfile, setStudentProfile] = useState<any | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [modalCalcTab, setModalCalcTab] = useState<'OVERALL' | 'SUBJECTS' | 'PROGRAMMES'>('OVERALL');
-
-  // Official PDF Export Modal State
-  const [exportPdfModalOpen, setExportPdfModalOpen] = useState(false);
 
   // Sync state from bootstrap context
   useEffect(() => {
@@ -1097,15 +1092,6 @@ function deriveCategoryLeaderboard(
           </div>
 
           <div className="flex items-center space-x-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setExportPdfModalOpen(true)}
-              className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 min-h-touch rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition btn-interactive"
-              title="Download official tabulated standings or student dossiers as PDF"
-            >
-              <Download className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-              <span className="hidden sm:inline">PDF</span>
-            </button>
             <Link
               href="/"
               className="inline-flex items-center space-x-1.5 px-3 py-1.5 min-h-touch rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition btn-interactive"
@@ -1409,15 +1395,6 @@ function deriveCategoryLeaderboard(
                   <span>{syncingLibrary ? 'Syncing...' : 'Sync Points'}</span>
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => setExportPdfModalOpen(true)}
-                className="px-3 py-1.5 sm:px-3.5 sm:py-2.5 rounded-xl sm:rounded-2xl bg-white/20 hover:bg-white/30 text-white text-[11px] sm:text-xs font-bold transition flex items-center space-x-1.5 border border-white/30 shadow-md active:scale-95"
-                title="Download official tabulated standings or student dossiers as PDF"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Download PDF</span>
-              </button>
               <div className="w-full sm:w-64">
                 <CustomSelect
                   value={
@@ -1511,8 +1488,8 @@ function deriveCategoryLeaderboard(
           </div>
         </div>
 
-        {/* Live Top Podium Cards (Dynamic Rank & Tie-Aware Layout) */}
-        {animatedEntries.length > 0 && (
+        {/* Live Top Podium Cards (Dynamic Rank & Tie-Aware Layout for Students) */}
+        {animatedEntries.length > 0 && !isClassRankingActive && (
           <div className="space-y-3 sm:space-y-4 max-w-4xl mx-auto pt-1">
             {animatedEntries.length === 1 ? (
               /* Single Center Card for 1 Ranked Student / Class */
@@ -1943,126 +1920,12 @@ function deriveCategoryLeaderboard(
           <ClassChampionsBenchmarkChart entries={animatedEntries} loading={loading} />
         )}
 
-        {/* Full Main Leaderboard Table (Click row to open complete % calculation modal) */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden w-full animate-slide-up delay-250">
-          {/* Revamped Mobile Layout for Class Champions: Exciting Championship Cards */}
-          {isClassRankingActive && !loading && animatedEntries.length > 0 && (
-            <div className="block md:hidden p-3.5 space-y-3.5 bg-slate-50/50 dark:bg-slate-900/40">
-              {animatedEntries.map((cls, idx) => {
-                const isTop1 = cls.rank === 1;
-                const isTop2 = cls.rank === 2;
-                const isTop3 = cls.rank === 3;
-                const displayPct = cls.displayPercentage || `${(cls.averagePercentage ?? cls.spr ?? 0).toFixed(2)}%`;
-                const score = cls.averagePercentage ?? cls.spr ?? 0;
-                const topScore = animatedEntries[0]?.averagePercentage ?? animatedEntries[0]?.spr ?? 0;
-                const diffFromTop = topScore - score;
-
-                const cardBorder = isTop1
-                  ? 'border-2 border-amber-400 bg-gradient-to-br from-amber-500/15 via-amber-50/60 to-white dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 shadow-md ring-1 ring-amber-400/40'
-                  : isTop2
-                  ? 'border-2 border-slate-300 dark:border-slate-700 bg-gradient-to-br from-slate-200/40 via-white to-white dark:from-slate-800/40 dark:via-slate-900 dark:to-slate-900 shadow-xs'
-                  : isTop3
-                  ? 'border-2 border-amber-600/40 dark:border-amber-700/40 bg-gradient-to-br from-amber-900/10 via-white to-white dark:from-amber-950/20 dark:via-slate-900 dark:to-slate-900 shadow-xs'
-                  : 'border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs';
-
-                const badgeStyle = isTop1
-                  ? 'bg-amber-400 text-amber-950 ring-2 ring-amber-300 shadow-xs'
-                  : isTop2
-                  ? 'bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-200'
-                  : isTop3
-                  ? 'bg-amber-200 dark:bg-amber-700/60 text-amber-900 dark:text-amber-200'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300';
-
-                const barGradient = isTop1
-                  ? 'from-amber-400 via-amber-500 to-yellow-400'
-                  : isTop2
-                  ? 'from-slate-300 via-slate-400 to-slate-200'
-                  : isTop3
-                  ? 'from-amber-600 via-amber-700 to-amber-500'
-                  : 'from-indigo-500 to-blue-500';
-
-                return (
-                  <div
-                    key={cls.classId || cls.className || idx}
-                    className={`rounded-2xl p-4 transition-all duration-300 relative overflow-hidden ${cardBorder} ${(cls as any)._isOvertaking ? 'ring-2 ring-emerald-400 animate-pulse' : ''}`}
-                  >
-                    {/* Card Top: Rank Label & Score Odometer */}
-                    <div className="flex items-center justify-between gap-2 mb-2.5">
-                      <div className="flex items-center space-x-2">
-                        <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full font-black text-xs ${badgeStyle}`}>
-                          {isTop1 ? '🥇' : isTop2 ? '🥈' : isTop3 ? '🥉' : `#${cls.rank}`}
-                        </span>
-                        <span className={`text-[11px] font-black uppercase tracking-wider ${isTop1 ? 'text-amber-700 dark:text-amber-300' : isTop2 ? 'text-slate-700 dark:text-slate-300' : isTop3 ? 'text-amber-800 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}`}>
-                          {isTop1 ? 'Champion' : isTop2 ? 'Runner-Up' : isTop3 ? '3rd Podium' : `Rank ${cls.rank}`}
-                        </span>
-                      </div>
-
-                      <div className="inline-flex items-center px-3 py-1 rounded-xl font-mono text-sm font-black shadow-2xs border bg-amber-50/90 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800">
-                        <span className={`score-odometer ${isTop1 ? 'text-amber-800 dark:text-amber-300 font-black' : isTop2 ? 'text-slate-800 dark:text-slate-200 font-black' : isTop3 ? 'text-amber-900 dark:text-amber-300 font-black' : 'text-slate-900 dark:text-slate-100 font-extrabold'}`}>
-                          {displayPct}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Card Middle: Class Name & Margin */}
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <h4 className="text-base font-black text-slate-900 dark:text-slate-100">
-                          {cls.className}
-                        </h4>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                          Academic Cohort
-                        </p>
-                      </div>
-
-                      <div className="text-right">
-                        {isTop1 ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
-                            👑 Leader
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
-                            -{diffFromTop.toFixed(2)}% from 1st
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Card Progress Bar */}
-                    <div className="w-full h-2.5 bg-slate-100 dark:bg-slate-700/60 rounded-full overflow-hidden p-0.5 mb-3">
-                      <div
-                        className={`h-full rounded-full bg-gradient-to-r ${barGradient} transition-all duration-1000 ease-out`}
-                        style={{ width: `${Math.min(100, Math.max(0, score))}%` }}
-                      />
-                    </div>
-
-                    {/* Card Bottom: Evaluated Cohort & Details */}
-                    <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400">
-                      <span className="inline-flex items-center space-x-1 font-semibold text-slate-700 dark:text-slate-300">
-                        <span>👥</span>
-                        <span>{cls.totalStudents} Eligible Students</span>
-                      </span>
-                      <span className="font-medium text-[10.5px]">
-                        100% Cohort Evaluated
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          <div className="w-full">
-            <table className={isClassRankingActive ? "hidden md:table w-full table-fixed text-left text-xs" : "w-full table-fixed text-left text-xs"}>
-              <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">
-                {isClassRankingActive ? (
-                  <tr>
-                    <th className="py-2.5 sm:py-3.5 px-2 sm:px-4 w-12 sm:w-16 text-center">Rank</th>
-                    <th className="py-2.5 sm:py-3.5 px-2 sm:px-4">Class</th>
-                    <th className="py-2.5 sm:py-3.5 px-2 sm:px-4 w-28 sm:w-48 text-center">Evaluated Cohort</th>
-                    <th className="py-2.5 sm:py-3.5 px-2 sm:px-4 w-28 sm:w-40 text-right">Average SPR %</th>
-                  </tr>
-                ) : (
+        {/* Full Main Leaderboard Table for Students (Hidden when in Class Champions view) */}
+        {!isClassRankingActive && (
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden w-full animate-slide-up delay-250">
+            <div className="w-full">
+              <table className="w-full table-fixed text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">
                   <tr>
                     <th className="py-2.5 sm:py-3.5 px-1 sm:px-4 w-7 sm:w-16 text-center">Rank</th>
                     <th className="py-2.5 sm:py-3.5 px-1.5 sm:px-4">Student</th>
@@ -2070,181 +1933,114 @@ function deriveCategoryLeaderboard(
                     <th className="py-2.5 sm:py-3.5 px-1.5 sm:px-4 w-20 sm:w-32 text-right">SPR Points</th>
                     <th className="py-2.5 sm:py-3.5 px-1 sm:px-3 w-7 sm:w-12 text-center" title="Report inaccuracy"></th>
                   </tr>
-                )}
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70 font-sans">
-                {loading ? (
-                  <tr>
-                    <td colSpan={isClassRankingActive ? 4 : 5} className="py-10 text-center">
-                      <VideoLoader size="md" text="Computing live rankings..." subtext="SPR Evaluation Engine" />
-                    </td>
-                  </tr>
-                ) : animatedEntries.length === 0 ? (
-                  <tr>
-                    <td colSpan={isClassRankingActive ? 4 : 5} className="py-10 text-center text-slate-500 dark:text-slate-400">
-                      {isClassRankingActive ? 'No class ranking records found.' : 'No ranked student records found matching the active filters.'}
-                    </td>
-                  </tr>
-                ) : isClassRankingActive ? (
-                  animatedEntries.map((cls, idx) => {
-                    const isTop1 = cls.rank === 1;
-                    const isTop2 = cls.rank === 2;
-                    const isTop3 = cls.rank === 3;
-                    const displayPct = cls.displayPercentage || `${(cls.averagePercentage ?? cls.spr ?? 0).toFixed(2)}%`;
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70 font-sans">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={5} className="py-10 text-center">
+                        <VideoLoader size="md" text="Computing live rankings..." subtext="SPR Evaluation Engine" />
+                      </td>
+                    </tr>
+                  ) : animatedEntries.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-10 text-center text-slate-500 dark:text-slate-400">
+                        No ranked student records found matching the active filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    animatedEntries.map((st, idx) => {
+                      const isTop1 = st.rank === 1;
+                      const isTop2 = st.rank === 2;
+                      const isTop3 = st.rank === 3;
+                      const studentDisplayName = st.name || st.studentName || 'Student';
+                      const sprScore = formatScore(st.spr ?? st.overallScore);
+                      const classNum = formatClassNumber(st.className);
 
-                    return (
-                      <tr
-                        key={cls.classId || cls.className || idx}
-                        className={`hover:bg-amber-50/40 dark:hover:bg-slate-800/50 transition-all duration-300 ease-out leaderboard-row-transition group ${
-                          isTop1 ? 'bg-amber-50/20 dark:bg-amber-950/10' : ''
-                        } ${(cls as any)._isOvertaking ? 'bg-amber-100/50 dark:bg-amber-900/30' : ''}`}
-                      >
-                        <td className="py-3 sm:py-4 px-2 sm:px-4 text-center">
-                          {isTop1 ? (
-                            <span className="inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-amber-400 text-amber-950 font-black text-xs shadow-xs animate-gold-glow rank-badge-transition">
-                              1
-                            </span>
-                          ) : isTop2 ? (
-                            <span className="inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs rank-badge-transition">
-                              2
-                            </span>
-                          ) : isTop3 ? (
-                            <span className="inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-amber-200 dark:bg-amber-700/60 text-amber-900 dark:text-amber-200 font-bold text-xs rank-badge-transition">
-                              3
-                            </span>
-                          ) : (
-                            <span className="text-slate-500 dark:text-slate-400 font-semibold text-xs inline-block rank-badge-transition">{cls.rank}</span>
-                          )}
-                        </td>
-
-                        <td className="py-3 sm:py-4 px-2 sm:px-4">
-                          <div className="flex items-center space-x-2 sm:space-x-3">
-                            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-amber-500/20 to-amber-200/40 dark:from-amber-900/40 dark:to-amber-800/20 border border-amber-300/40 flex items-center justify-center text-sm sm:text-base shrink-0 shadow-2xs">
-                              🏫
-                            </div>
-                            <div>
-                              <span className="font-black text-slate-900 dark:text-slate-100 text-xs sm:text-sm">
-                                {cls.className}
+                      return (
+                        <tr
+                          key={st.studentId}
+                          onClick={() => handleStudentRowClick(st.studentId)}
+                          className={`hover:bg-blue-50/50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-300 ease-out leaderboard-row-transition group ${
+                            isTop1 ? 'bg-amber-50/20 dark:bg-amber-950/10' : ''
+                          } ${(st as any)._isOvertaking ? 'bg-emerald-50/40 dark:bg-emerald-950/30' : ''}`}
+                          title={
+                            !selectedCategory && !selectedStream && !selectedFest
+                              ? 'Click to view full student profile and score origin breakdown'
+                              : 'Click to view calculation breakdown for this category'
+                          }
+                        >
+                          <td className="py-2 sm:py-3.5 px-1 sm:px-4 text-center">
+                            {isTop1 ? (
+                              <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-400 text-amber-950 font-black text-[10px] sm:text-xs shadow-xs animate-gold-glow rank-badge-transition">
+                                1
                               </span>
-                              <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                                Academic Cohort
+                            ) : isTop2 ? (
+                              <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-[10px] sm:text-xs rank-badge-transition">
+                                2
+                              </span>
+                            ) : isTop3 ? (
+                              <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-200 dark:bg-amber-700/60 text-amber-900 dark:text-amber-200 font-bold text-[10px] sm:text-xs rank-badge-transition">
+                                3
+                              </span>
+                            ) : (
+                              <span className="text-slate-500 dark:text-slate-400 font-semibold text-[10.5px] sm:text-xs inline-block rank-badge-transition">{st.rank}</span>
+                            )}
+                          </td>
+
+                          <td className="py-2 sm:py-3.5 px-1.5 sm:px-4">
+                            <div className="flex items-center space-x-1.5 sm:space-x-3">
+                              <StudentAvatar
+                                photoUrl={st.photoUrl}
+                                name={studentDisplayName}
+                                size="sm"
+                                className="w-6 h-6 sm:w-8 sm:h-8 shrink-0 ring-1 ring-slate-200"
+                              />
+                              <div className="min-w-0">
+                                <div className="font-extrabold text-slate-900 dark:text-slate-100 truncate text-[11px] sm:text-xs group-hover:text-blue-600 transition">
+                                  {studentDisplayName}
+                                </div>
+                                <div className="text-[9.5px] sm:text-[10px] text-slate-500 dark:text-slate-400 font-mono flex items-center space-x-1">
+                                  <span>{st.studentCode || st.studentIdCode || st.sprStudentId}</span>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </td>
+                          </td>
 
-                        <td className="py-3 sm:py-4 px-2 sm:px-4 text-center font-medium text-slate-600 dark:text-slate-300 text-xs">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 font-semibold text-[10.5px] sm:text-xs text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                            {cls.totalStudents} Eligible Students
-                          </span>
-                        </td>
-
-                        <td className="py-3 sm:py-4 px-2 sm:px-4 text-right whitespace-nowrap">
-                          <div className="inline-flex items-center space-x-1 px-2.5 sm:px-3 py-1 rounded-xl font-mono text-xs sm:text-sm font-black shadow-2xs border bg-amber-50/80 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800">
-                            <span className={`score-odometer ${isTop1 ? 'text-amber-800 dark:text-amber-300 font-black' : isTop2 ? 'text-slate-800 dark:text-slate-200 font-black' : isTop3 ? 'text-amber-900 dark:text-amber-300 font-black' : 'text-slate-900 dark:text-slate-100 font-extrabold'}`}>
-                              {displayPct}
+                          <td className="py-2 sm:py-3.5 px-1 sm:px-4 text-center font-medium text-slate-600 dark:text-slate-300 text-xs">
+                            <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-bold text-[10px] sm:text-xs text-slate-700 dark:text-slate-300">
+                              {classNum}
                             </span>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  animatedEntries.map((st, idx) => {
-                    const isTop1 = st.rank === 1;
-                    const isTop2 = st.rank === 2;
-                    const isTop3 = st.rank === 3;
-                    const studentDisplayName = st.name || st.studentName || 'Student';
-                    const sprScore = formatScore(st.spr ?? st.overallScore);
-                    const classNum = formatClassNumber(st.className);
+                          </td>
 
-                    return (
-                      <tr
-                        key={st.studentId}
-                        onClick={() => handleStudentRowClick(st.studentId)}
-                        className={`hover:bg-blue-50/50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-300 ease-out leaderboard-row-transition group ${
-                          isTop1 ? 'bg-amber-50/20 dark:bg-amber-950/10' : ''
-                        } ${(st as any)._isOvertaking ? 'bg-emerald-50/40 dark:bg-emerald-950/30' : ''}`}
-                        title={
-                          !selectedCategory && !selectedStream && !selectedFest
-                            ? 'Click to view full student profile and score origin breakdown'
-                            : 'Click to view calculation breakdown for this category'
-                        }
-                      >
-                        <td className="py-2 sm:py-3.5 px-1 sm:px-4 text-center">
-                          {isTop1 ? (
-                            <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-400 text-amber-950 font-black text-[10px] sm:text-xs shadow-xs animate-gold-glow rank-badge-transition">
-                              1
-                            </span>
-                          ) : isTop2 ? (
-                            <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-[10px] sm:text-xs rank-badge-transition">
-                              2
-                            </span>
-                          ) : isTop3 ? (
-                            <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-200 dark:bg-amber-700/60 text-amber-900 dark:text-amber-200 font-bold text-[10px] sm:text-xs rank-badge-transition">
-                              3
-                            </span>
-                          ) : (
-                            <span className="text-slate-500 dark:text-slate-400 font-semibold text-[10.5px] sm:text-xs inline-block rank-badge-transition">{st.rank}</span>
-                          )}
-                        </td>
-
-                        <td className="py-2 sm:py-3.5 px-1.5 sm:px-4">
-                          <div className="flex items-center space-x-1.5 sm:space-x-3 min-w-0">
-                            <StudentAvatar photoUrl={st.photoUrl} name={studentDisplayName} size="sm" className="w-6 h-6 sm:w-8 sm:h-8 shrink-0" />
-                            <span className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors text-[11px] sm:text-xs leading-tight line-clamp-2">
-                              {studentDisplayName}
-                            </span>
-                          </div>
-                        </td>
-
-                        {/* Class column showing Number Only (e.g. "8", "9", "10") */}
-                        <td className="py-2 sm:py-3.5 px-0.5 sm:px-4 text-center font-bold text-slate-800 dark:text-slate-200">
-                          <span className="inline-flex items-center justify-center px-1 sm:px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-[9.5px] sm:text-xs font-black">
-                            {classNum}
-                          </span>
-                        </td>
-
-                        <td className="py-2 sm:py-3.5 px-1 sm:px-4 text-right whitespace-nowrap">
-                          <div className="inline-flex items-center space-x-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl font-mono text-[11px] sm:text-xs font-black shadow-2xs border transition-all group-hover:scale-105 bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700">
-                            <span className={`score-odometer ${isTop1 ? 'text-amber-800 dark:text-amber-300 font-black' : isTop2 ? 'text-slate-800 dark:text-slate-200 font-black' : isTop3 ? 'text-amber-900 dark:text-amber-300 font-black' : 'text-blue-900 dark:text-blue-300 font-extrabold'}`}>
+                          <td className="py-2 sm:py-3.5 px-1.5 sm:px-4 text-right whitespace-nowrap">
+                            <span className="font-mono text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100 score-odometer">
                               {sprScore}
                             </span>
-                            <span className={`text-[8px] sm:text-[9.5px] font-black uppercase px-1 py-0.2 rounded ${
-                              isTop1 ? 'bg-amber-400 dark:bg-amber-500 text-amber-950' : isTop2 ? 'bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-200' : isTop3 ? 'bg-amber-300 dark:bg-amber-600 text-amber-950' : 'bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300'
-                            }`}>
-                              PTS
-                            </span>
-                          </div>
-                        </td>
+                          </td>
 
-                        {/* Report Discrepancy Icon */}
-                        <td className="py-2 sm:py-3.5 px-0.5 sm:px-3 text-center">
-                          <button
-                            onClick={(e) => openReportModal(e, st)}
-                            className="p-1 min-h-[36px] min-w-[36px] inline-flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition"
-                            title="Report inaccuracy to administration"
-                          >
-                            <Flag className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                          <td className="py-2 sm:py-3.5 px-1 sm:px-3 text-center">
+                            <button
+                              onClick={(e) => openReportModal(e, st)}
+                              className="p-1 min-h-[36px] min-w-[36px] inline-flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition"
+                              title="Report inaccuracy to administration"
+                            >
+                              <Flag className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-          <div className="p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 dark:text-slate-400 gap-2">
-            <span>
-              {isClassRankingActive
-                ? `Showing all ${filteredEntries.length} competing classes in SPR Registry`
-                : `Showing all ${filteredEntries.length} ranked students in SPR Registry`}
-            </span>
-            <span>Madin School of Excellence • Official Record</span>
+            <div className="p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 dark:text-slate-400 gap-2">
+              <span>Showing all {filteredEntries.length} ranked students in SPR Registry</span>
+              <span>Madin School of Excellence • Official Record</span>
+            </div>
           </div>
-        </div>
+        )}
       </main>
 
       {/* Transparent % Calculation Breakdown Modal */}
@@ -2526,15 +2322,6 @@ function deriveCategoryLeaderboard(
           setReportingStudent(null);
         }}
         student={reportingStudent}
-      />
-
-      {/* Official Tabulated Standings & Dossier PDF Export Modal */}
-      <OfficialPdfExportModal
-        isOpen={exportPdfModalOpen}
-        onClose={() => setExportPdfModalOpen(false)}
-        classes={classes}
-        categories={categories}
-        initialTab="LEADERBOARD"
       />
 
       {/* Permanent Public Footer */}

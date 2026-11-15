@@ -137,6 +137,8 @@ export async function syncStudentEarnings(studentId: string): Promise<{
       },
       include: {
         category: true,
+        subcategory: true,
+        exam: true,
       },
     });
 
@@ -356,12 +358,13 @@ export async function syncStudentEarnings(studentId: string): Promise<{
 
       let catRecords = performanceRecords.filter((r) => r.categoryId === cat.id);
       if (isLibraryCat) {
-        // In student wallet, value Kuthbkhana records (subcategoryId cmtx_sub_kuthbkhana or remarks)
+        // User rule: Only credit cash to Kuthbkhana subcategory in the main category of Library and Reading.
+        // Not credit for Imthiyaaz library or other non-Kuthbkhana entries.
         catRecords = catRecords.filter(
           (r) =>
             r.subcategoryId === 'cmtx_sub_kuthbkhana' ||
             (r.remarks && (r.remarks.includes('[Muthala]') || r.remarks.includes('[Point picking]') || r.remarks.toLowerCase().includes('kuthbkhana'))) ||
-            !r.subcategoryId
+            (r.subcategory && (r.subcategory.name?.toLowerCase().includes('kuthbkhana') || r.subcategory.code?.toLowerCase().includes('kuthbkhana')))
         );
       }
 
@@ -446,34 +449,10 @@ export async function syncStudentEarnings(studentId: string): Promise<{
       }
 
       // 3. Imthiyaaz Library Records (for LIBRARY)
+      // USER RULE: Explicitly do NOT credit cash for Imthiyaaz Library records.
+      // Cash is ONLY credited to Kuthbkhana subcategory in the main category of Library and Reading.
       if (isLibraryCat) {
-        for (const lib of libraryRecords) {
-          const libCreatedAt = new Date(lib.createdAt);
-          const isEligible = libCreatedAt >= eligibilityStartDate;
-
-          if (isEligible) {
-            const points = lib.readingScore > 0 ? lib.readingScore : ((lib.booksRead || 0) * 20);
-            if (points > 0) {
-              eligiblePointsSum += points;
-              const earned = await applyEarningItem({
-                sourceRecordId: lib.id,
-                reference: `ERN-LIB-${lib.id}`,
-                sourceType: 'LIBRARY_RECORD',
-                activityDate: libCreatedAt,
-                points,
-                multiplier,
-                metadata: {
-                  readingPeriod: lib.readingPeriod,
-                  booksRead: lib.booksRead,
-                  categoryDisplay: displayName,
-                },
-                description: `Earned ₹${calculateCategoryEarnings(points, multiplier).toFixed(2)} from ${displayName} Reading (${points} pts × ${multiplier})`,
-                categoryId: cat.id,
-              });
-              categoryEarningsSum += earned;
-            }
-          }
-        }
+        // Imthiyaaz library records yield ₹0 cash per institutional rules
       }
 
       // 4. Performance Records (Field Collection, Literary, Qualification, Programs, Islamic/School, Kuthbkhana, etc.)
@@ -486,9 +465,9 @@ export async function syncStudentEarnings(studentId: string): Promise<{
           const points = record.obtainedScore || 0;
           if (points > 0) {
             // Cash rule for terms and assessments:
-            // Cash must be credited only when the student obtains at least 50% of the maximum marks:
-            // Eligibility formula: obtainedScore >= maxScore / 2 (or percentage >= 50%)
-            // Rules: 50% and above -> Eligible; Below 50% -> ₹0 cash.
+            // Cash must be credited only when the student obtains at least 70% of the maximum marks:
+            // Eligibility formula: obtainedScore >= (maxScore * 0.70) (or percentage >= 70%)
+            // Rules: 70% and above -> Eligible; Below 70% -> ₹0 cash.
             // Safely handles invalid or missing maximum marks.
             const isTermOrAssessment = Boolean(
               record.termId ||
@@ -499,9 +478,9 @@ export async function syncStudentEarnings(studentId: string): Promise<{
             let isEligibleForCash = true;
             if (isTermOrAssessment) {
               if (typeof record.maxScore === 'number' && record.maxScore > 0) {
-                isEligibleForCash = points >= (record.maxScore / 2);
+                isEligibleForCash = points >= (record.maxScore * 0.70);
               } else if (typeof record.percentage === 'number' && !isNaN(record.percentage)) {
-                isEligibleForCash = record.percentage >= 50;
+                isEligibleForCash = record.percentage >= 70;
               }
             }
             const cashPoints = isEligibleForCash ? points : 0;
@@ -524,7 +503,7 @@ export async function syncStudentEarnings(studentId: string): Promise<{
                 categoryDisplay: displayName,
                 isTermOrAssessment,
                 isEligibleForCash,
-                isBelowHalfMark: !isEligibleForCash,
+                isBelow70Percent: !isEligibleForCash,
               },
               description: `Earned ₹${calculateCategoryEarnings(cashPoints, multiplier).toFixed(2)} from ${displayName} (${cashPoints} pts × ${multiplier})`,
               categoryId: cat.id,

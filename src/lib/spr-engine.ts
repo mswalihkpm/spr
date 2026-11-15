@@ -1978,7 +1978,7 @@ export async function calculateClassRankingLeaderboard(filters?: {
 
   // Calculate Class Champion Leaderboard according to strict arithmetic mean:
   // Class Average SPR = Total Final SPR Percentages of All Eligible Students ÷ Total Number of Eligible Students
-  const entries: ClassRankingEntry[] = classesToRank.map((cls) => {
+  const rawEntries: ClassRankingEntry[] = classesToRank.map((cls) => {
     const classStudents = students.filter(
       (s) => s.classId === cls.id || s.class?.name?.trim().toLowerCase() === cls.name.trim().toLowerCase()
     );
@@ -2010,6 +2010,19 @@ export async function calculateClassRankingLeaderboard(filters?: {
       isClassRanking: true,
     };
   });
+
+  // Filter out any entries with 0 students and de-duplicate by normalized class name
+  const classByNameMap = new Map<string, ClassRankingEntry>();
+  for (const entry of rawEntries) {
+    if (entry.totalStudents <= 0) continue;
+    const normName = entry.className.trim().toLowerCase();
+    const existing = classByNameMap.get(normName);
+    if (!existing || entry.totalStudents > existing.totalStudents || entry.averagePercentage > existing.averagePercentage) {
+      classByNameMap.set(normName, entry);
+    }
+  }
+
+  const entries = Array.from(classByNameMap.values());
 
   // Sort descending by averagePercentage; tie-breaker: numeric grade descending (+2 > +1 > 10 > 9 > 8)
   entries.sort((a, b) => {
