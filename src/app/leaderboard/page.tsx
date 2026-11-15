@@ -27,6 +27,7 @@ import {
   ExternalLink,
   ChevronRight,
   Percent,
+  Download,
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import StudentReportModal from '@/components/modals/StudentReportModal';
@@ -41,6 +42,8 @@ import HorizontalScrollRibbon from '@/components/leaderboard/HorizontalScrollRib
 import ScrollProgressBar from '@/components/leaderboard/ScrollProgressBar';
 import ScrollToTopHUD from '@/components/leaderboard/ScrollToTopHUD';
 import { useLeaderboardAnimation } from '@/hooks/useLeaderboardAnimation';
+import ClassChampionsBenchmarkChart from '@/components/leaderboard/ClassChampionsBenchmarkChart';
+import OfficialPdfExportModal from '@/components/modals/OfficialPdfExportModal';
 
 // Global client-side memory caches for 0ms instant loading
 const clientLeaderboardMemory = new Map<string, any[]>();
@@ -100,6 +103,9 @@ function LeaderboardContent() {
   const [studentProfile, setStudentProfile] = useState<any | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [modalCalcTab, setModalCalcTab] = useState<'OVERALL' | 'SUBJECTS' | 'PROGRAMMES'>('OVERALL');
+
+  // Official PDF Export Modal State
+  const [exportPdfModalOpen, setExportPdfModalOpen] = useState(false);
 
   // Sync state from bootstrap context
   useEffect(() => {
@@ -1091,6 +1097,15 @@ function deriveCategoryLeaderboard(
           </div>
 
           <div className="flex items-center space-x-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setExportPdfModalOpen(true)}
+              className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 min-h-touch rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition btn-interactive"
+              title="Download official tabulated standings or student dossiers as PDF"
+            >
+              <Download className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span className="hidden sm:inline">PDF</span>
+            </button>
             <Link
               href="/"
               className="inline-flex items-center space-x-1.5 px-3 py-1.5 min-h-touch rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition btn-interactive"
@@ -1394,6 +1409,15 @@ function deriveCategoryLeaderboard(
                   <span>{syncingLibrary ? 'Syncing...' : 'Sync Points'}</span>
                 </button>
               )}
+              <button
+                type="button"
+                onClick={() => setExportPdfModalOpen(true)}
+                className="px-3 py-1.5 sm:px-3.5 sm:py-2.5 rounded-xl sm:rounded-2xl bg-white/20 hover:bg-white/30 text-white text-[11px] sm:text-xs font-bold transition flex items-center space-x-1.5 border border-white/30 shadow-md active:scale-95"
+                title="Download official tabulated standings or student dossiers as PDF"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download PDF</span>
+              </button>
               <div className="w-full sm:w-64">
                 <CustomSelect
                   value={
@@ -1914,10 +1938,122 @@ function deriveCategoryLeaderboard(
           </div>
         )}
 
+        {/* Benchmark Graphical Representation for Class Champions */}
+        {isClassRankingActive && (
+          <ClassChampionsBenchmarkChart entries={animatedEntries} loading={loading} />
+        )}
+
         {/* Full Main Leaderboard Table (Click row to open complete % calculation modal) */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden w-full animate-slide-up delay-250">
+          {/* Revamped Mobile Layout for Class Champions: Exciting Championship Cards */}
+          {isClassRankingActive && !loading && animatedEntries.length > 0 && (
+            <div className="block md:hidden p-3.5 space-y-3.5 bg-slate-50/50 dark:bg-slate-900/40">
+              {animatedEntries.map((cls, idx) => {
+                const isTop1 = cls.rank === 1;
+                const isTop2 = cls.rank === 2;
+                const isTop3 = cls.rank === 3;
+                const displayPct = cls.displayPercentage || `${(cls.averagePercentage ?? cls.spr ?? 0).toFixed(2)}%`;
+                const score = cls.averagePercentage ?? cls.spr ?? 0;
+                const topScore = animatedEntries[0]?.averagePercentage ?? animatedEntries[0]?.spr ?? 0;
+                const diffFromTop = topScore - score;
+
+                const cardBorder = isTop1
+                  ? 'border-2 border-amber-400 bg-gradient-to-br from-amber-500/15 via-amber-50/60 to-white dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 shadow-md ring-1 ring-amber-400/40'
+                  : isTop2
+                  ? 'border-2 border-slate-300 dark:border-slate-700 bg-gradient-to-br from-slate-200/40 via-white to-white dark:from-slate-800/40 dark:via-slate-900 dark:to-slate-900 shadow-xs'
+                  : isTop3
+                  ? 'border-2 border-amber-600/40 dark:border-amber-700/40 bg-gradient-to-br from-amber-900/10 via-white to-white dark:from-amber-950/20 dark:via-slate-900 dark:to-slate-900 shadow-xs'
+                  : 'border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs';
+
+                const badgeStyle = isTop1
+                  ? 'bg-amber-400 text-amber-950 ring-2 ring-amber-300 shadow-xs'
+                  : isTop2
+                  ? 'bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-200'
+                  : isTop3
+                  ? 'bg-amber-200 dark:bg-amber-700/60 text-amber-900 dark:text-amber-200'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300';
+
+                const barGradient = isTop1
+                  ? 'from-amber-400 via-amber-500 to-yellow-400'
+                  : isTop2
+                  ? 'from-slate-300 via-slate-400 to-slate-200'
+                  : isTop3
+                  ? 'from-amber-600 via-amber-700 to-amber-500'
+                  : 'from-indigo-500 to-blue-500';
+
+                return (
+                  <div
+                    key={cls.classId || cls.className || idx}
+                    className={`rounded-2xl p-4 transition-all duration-300 relative overflow-hidden ${cardBorder} ${(cls as any)._isOvertaking ? 'ring-2 ring-emerald-400 animate-pulse' : ''}`}
+                  >
+                    {/* Card Top: Rank Label & Score Odometer */}
+                    <div className="flex items-center justify-between gap-2 mb-2.5">
+                      <div className="flex items-center space-x-2">
+                        <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full font-black text-xs ${badgeStyle}`}>
+                          {isTop1 ? '🥇' : isTop2 ? '🥈' : isTop3 ? '🥉' : `#${cls.rank}`}
+                        </span>
+                        <span className={`text-[11px] font-black uppercase tracking-wider ${isTop1 ? 'text-amber-700 dark:text-amber-300' : isTop2 ? 'text-slate-700 dark:text-slate-300' : isTop3 ? 'text-amber-800 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                          {isTop1 ? 'Champion' : isTop2 ? 'Runner-Up' : isTop3 ? '3rd Podium' : `Rank ${cls.rank}`}
+                        </span>
+                      </div>
+
+                      <div className="inline-flex items-center px-3 py-1 rounded-xl font-mono text-sm font-black shadow-2xs border bg-amber-50/90 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800">
+                        <span className={`score-odometer ${isTop1 ? 'text-amber-800 dark:text-amber-300 font-black' : isTop2 ? 'text-slate-800 dark:text-slate-200 font-black' : isTop3 ? 'text-amber-900 dark:text-amber-300 font-black' : 'text-slate-900 dark:text-slate-100 font-extrabold'}`}>
+                          {displayPct}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Card Middle: Class Name & Margin */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <h4 className="text-base font-black text-slate-900 dark:text-slate-100">
+                          {cls.className}
+                        </h4>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                          Academic Cohort
+                        </p>
+                      </div>
+
+                      <div className="text-right">
+                        {isTop1 ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                            👑 Leader
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                            -{diffFromTop.toFixed(2)}% from 1st
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Card Progress Bar */}
+                    <div className="w-full h-2.5 bg-slate-100 dark:bg-slate-700/60 rounded-full overflow-hidden p-0.5 mb-3">
+                      <div
+                        className={`h-full rounded-full bg-gradient-to-r ${barGradient} transition-all duration-1000 ease-out`}
+                        style={{ width: `${Math.min(100, Math.max(0, score))}%` }}
+                      />
+                    </div>
+
+                    {/* Card Bottom: Evaluated Cohort & Details */}
+                    <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400">
+                      <span className="inline-flex items-center space-x-1 font-semibold text-slate-700 dark:text-slate-300">
+                        <span>👥</span>
+                        <span>{cls.totalStudents} Eligible Students</span>
+                      </span>
+                      <span className="font-medium text-[10.5px]">
+                        100% Cohort Evaluated
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           <div className="w-full">
-            <table className="w-full table-fixed text-left text-xs">
+            <table className={isClassRankingActive ? "hidden md:table w-full table-fixed text-left text-xs" : "w-full table-fixed text-left text-xs"}>
               <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">
                 {isClassRankingActive ? (
                   <tr>
@@ -2390,6 +2526,15 @@ function deriveCategoryLeaderboard(
           setReportingStudent(null);
         }}
         student={reportingStudent}
+      />
+
+      {/* Official Tabulated Standings & Dossier PDF Export Modal */}
+      <OfficialPdfExportModal
+        isOpen={exportPdfModalOpen}
+        onClose={() => setExportPdfModalOpen(false)}
+        classes={classes}
+        categories={categories}
+        initialTab="LEADERBOARD"
       />
 
       {/* Permanent Public Footer */}

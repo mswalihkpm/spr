@@ -34,12 +34,13 @@ interface ProgrammeRow {
 interface MultiProgrammeRecordModalProps {
   isOpen: boolean;
   onClose: () => void;
-  categoryType: 'LITERARY' | 'PROGRAMS';
+  categoryType: 'LITERARY' | 'PROGRAMS' | 'SUBCATEGORY' | string;
   categoryTitle: string;
   categoryId: string;
   levels: any[];
   students: any[];
   subcategories?: any[];
+  defaultSubcategoryId?: string;
   onSuccess: () => void;
 }
 
@@ -68,11 +69,16 @@ export default function MultiProgrammeRecordModal({
   levels,
   students,
   subcategories = [],
+  defaultSubcategoryId,
   onSuccess,
 }: MultiProgrammeRecordModalProps) {
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [defaultFestival, setDefaultFestival] = useState(
-    categoryType === 'LITERARY' ? 'Sahityotsav' : 'Madin Excellence Talent Olympiad 2026'
+    categoryType === 'LITERARY'
+      ? 'Sahityotsav'
+      : categoryType === 'SUBCATEGORY'
+      ? 'Subcategory Event'
+      : 'Madin Excellence Talent Olympiad 2026'
   );
 
   const defaultBasePoint = categoryType === 'LITERARY' ? 3.5 : 50;
@@ -84,7 +90,7 @@ export default function MultiProgrammeRecordModal({
     {
       id: '1',
       festivalName: defaultFestival,
-      subcategoryId: subcategories[0]?.id || '',
+      subcategoryId: defaultSubcategoryId || subcategories[0]?.id || '',
       programmeName: '',
       levelId: levels[0]?.id || '',
       basePoint: defaultBasePoint,
@@ -107,7 +113,12 @@ export default function MultiProgrammeRecordModal({
         prev.map((r, i) => (i === 0 ? { ...r, levelId: levels[0].id } : r))
       );
     }
-  }, [students, levels]);
+    if (defaultSubcategoryId && programmeRows[0]?.subcategoryId === '') {
+      setProgrammeRows((prev) =>
+        prev.map((r, i) => (i === 0 ? { ...r, subcategoryId: defaultSubcategoryId } : r))
+      );
+    }
+  }, [students, levels, defaultSubcategoryId]);
 
   if (!isOpen) return null;
 
@@ -427,7 +438,7 @@ export default function MultiProgrammeRecordModal({
                           handleProgrammeSelectForRow(row.id, name, histBase, histLvl, histEvent)
                         }
                         onBasePointsChange={(pts) => handleUpdateProgrammeRow(row.id, 'basePoint', pts)}
-                        categoryType={categoryType}
+                        categoryType={categoryType === 'LITERARY' ? 'LITERARY' : categoryType === 'PROGRAMS' ? 'PROGRAMS' : 'ALL'}
                         placeholder="Search programme (e.g. HS Essay Writing Malayalam, Elocution)..."
                         required
                       />

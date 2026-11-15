@@ -29,13 +29,14 @@ interface StudentRow {
 interface MultiStudentRecordModalProps {
   isOpen: boolean;
   onClose: () => void;
-  categoryType: 'LITERARY' | 'PROGRAMS';
+  categoryType: 'LITERARY' | 'PROGRAMS' | 'SUBCATEGORY' | string;
   categoryTitle: string;
   categoryId: string;
   levels: any[];
   classes: any[];
   students: any[];
   subcategories?: any[];
+  defaultSubcategoryId?: string;
   onSuccess: () => void;
 }
 
@@ -65,12 +66,17 @@ export default function MultiStudentRecordModal({
   classes,
   students,
   subcategories = [],
+  defaultSubcategoryId,
   onSuccess,
 }: MultiStudentRecordModalProps) {
   const [festivalName, setFestivalName] = useState(
-    categoryType === 'LITERARY' ? 'Sahityotsav' : 'Madin Excellence Talent Olympiad 2026'
+    categoryType === 'LITERARY'
+      ? 'Sahityotsav'
+      : categoryType === 'SUBCATEGORY'
+      ? 'Subcategory Event'
+      : 'Madin Excellence Talent Olympiad 2026'
   );
-  const [subcategoryId, setSubcategoryId] = useState<string>('');
+  const [subcategoryId, setSubcategoryId] = useState<string>(defaultSubcategoryId || '');
   const [programmeName, setProgrammeName] = useState('');
   const [levelId, setLevelId] = useState<string>('');
   const [basePoint, setBasePoint] = useState<number>(
@@ -94,11 +100,15 @@ export default function MultiStudentRecordModal({
     if (levels.length > 0 && !levelId) {
       setLevelId(levels[0].id);
     }
-    if (subcategories.length > 0 && !subcategoryId) {
+    if (defaultSubcategoryId) {
+      setSubcategoryId(defaultSubcategoryId);
+      const matched = subcategories.find((s) => s.id === defaultSubcategoryId);
+      if (matched) setFestivalName(matched.name);
+    } else if (subcategories.length > 0 && !subcategoryId) {
       setSubcategoryId(subcategories[0].id);
       setFestivalName(subcategories[0].name);
     }
-  }, [levels, subcategories]);
+  }, [levels, subcategories, defaultSubcategoryId]);
 
   if (!isOpen) return null;
 
@@ -285,11 +295,11 @@ export default function MultiStudentRecordModal({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              {/* Event / Festival */}
-              {categoryType === 'LITERARY' && subcategories.length > 0 ? (
+              {/* Event / Festival / Subcategory */}
+              {(categoryType === 'LITERARY' || categoryType === 'SUBCATEGORY') && subcategories.length > 0 ? (
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Festival / Event
+                    {categoryType === 'SUBCATEGORY' ? 'Subcategory' : 'Festival / Event'}
                   </label>
                   <CustomSelect
                     value={subcategoryId}
@@ -332,7 +342,7 @@ export default function MultiStudentRecordModal({
                   value={programmeName}
                   onChange={handleProgrammeSelect}
                   onBasePointsChange={(pts) => setBasePoint(pts)}
-                  categoryType={categoryType}
+                  categoryType={categoryType === 'LITERARY' ? 'LITERARY' : categoryType === 'PROGRAMS' ? 'PROGRAMS' : 'ALL'}
                   placeholder="Select or search programme (e.g. Malayalam Essay Writing)..."
                   required
                 />

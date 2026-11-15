@@ -32,9 +32,7 @@ export function triggerSubcategoriesRevalidation() {
   invalidateEngineCache();
   safeRevalidate('/api/subcategories');
   safeRevalidate('/api/categories');
-  safeRevalidate('/api/leaderboard');
   safeRevalidate('/subcategories');
-  safeRevalidate('/leaderboard');
 }
 
 export function triggerWeightsRevalidation() {

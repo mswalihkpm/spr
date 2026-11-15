@@ -32,6 +32,7 @@ import {
   X,
   ExternalLink,
   Trash2,
+  Download,
 } from 'lucide-react';
 import {
   BarChart,
@@ -44,6 +45,7 @@ import {
   Cell,
 } from 'recharts';
 import VideoLoader from '@/components/ui/VideoLoader';
+import OfficialPdfExportModal from '@/components/modals/OfficialPdfExportModal';
 
 
 export default function DashboardPage() {
@@ -60,6 +62,10 @@ export default function DashboardPage() {
   const [selectedReportIds, setSelectedReportIds] = useState<string[]>([]);
   const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
   const [bulkDeletingReports, setBulkDeletingReports] = useState(false);
+
+  // Official Records & PDF Export State
+  const [exportPdfOpen, setExportPdfOpen] = useState(false);
+  const [exportInitialTab, setExportInitialTab] = useState<'LEADERBOARD' | 'DOSSIERS'>('LEADERBOARD');
 
   const fetchAnalytics = async () => {
     try {
@@ -758,6 +764,44 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Official Records & PDF Export Center */}
+        <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 p-6 rounded-2xl text-white shadow-xl border border-indigo-500/20 flex flex-col lg:flex-row items-center justify-between gap-6">
+          <div className="space-y-1.5 text-center lg:text-left">
+            <div className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 text-[10px] font-black uppercase tracking-wider">
+              <Sparkles className="w-3 h-3 text-indigo-400" />
+              <span>Official Export & Archival Center</span>
+            </div>
+            <h3 className="text-lg font-black text-white">Download Records & Official Dossiers (PDF)</h3>
+            <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
+              Export high-resolution vector A4 tabulated standings or batch student dossiers (sorted alphabetically A–Z) with real-time percentage progress indicators.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-3 shrink-0">
+            <button
+              onClick={() => {
+                setExportInitialTab('LEADERBOARD');
+                setExportPdfOpen(true);
+              }}
+              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md transition-all flex items-center space-x-2 border border-indigo-400/30 active:scale-95"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download Standings PDF</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setExportInitialTab('DOSSIERS');
+                setExportPdfOpen(true);
+              }}
+              className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs shadow-md transition-all flex items-center space-x-2 border border-white/20 active:scale-95"
+            >
+              <GraduationCap className="w-4 h-4 text-amber-400" />
+              <span>Download Class Dossiers (A-Z)</span>
+            </button>
+          </div>
+        </div>
+
         {/* Quick Actions Matrix */}
         <div className="bg-gradient-to-r from-madin-900 via-madin-800 to-madin-950 p-6 rounded-2xl text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="space-y-1 text-center md:text-left">
@@ -793,6 +837,13 @@ export default function DashboardPage() {
             </button>
           </div>
         </div>
+
+        {/* Official Records & PDF Export Modal */}
+        <OfficialPdfExportModal
+          isOpen={exportPdfOpen}
+          onClose={() => setExportPdfOpen(false)}
+          initialTab={exportInitialTab}
+        />
       </div>
     </AdminLayout>
   );
