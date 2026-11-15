@@ -359,6 +359,25 @@ video::-webkit-media-controls-start-playback-button {
     display: none !important;
   }
 
+  /* When printing official reports, completely suppress all background layout elements */
+  body.spr-printing-official-doc > *:not(#spr-official-print-root) {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body.spr-printing-official-doc #spr-official-print-root {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
   /* Body and html container for multi-page and single-page A4 printing */
   html, body {
     width: 100% !important;

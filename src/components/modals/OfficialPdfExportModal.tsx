@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import {
   Download,
@@ -46,6 +47,11 @@ export default function OfficialPdfExportModal({
   const [activeTab, setActiveTab] = useState<'LEADERBOARD' | 'DOSSIERS'>(initialTab);
   const [localClasses, setLocalClasses] = useState<any[]>(classes);
   const [localCategories, setLocalCategories] = useState<any[]>(categories);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Tab 1: Leaderboard Filters
   const [lbType, setLbType] = useState<string>('OVERALL');
@@ -190,8 +196,19 @@ export default function OfficialPdfExportModal({
 
       setTimeout(() => {
         setIsGenerating(false);
-        window.print();
-      }, 500);
+        if (typeof document !== 'undefined') {
+          document.body.classList.add('spr-printing-official-doc');
+          setTimeout(() => {
+            window.print();
+            const cleanup = () => {
+              document.body.classList.remove('spr-printing-official-doc');
+              window.removeEventListener('afterprint', cleanup);
+            };
+            window.addEventListener('afterprint', cleanup);
+            setTimeout(cleanup, 4000);
+          }, 150);
+        }
+      }, 400);
     } catch (err: any) {
       alert(err.message || 'Error compiling leaderboard PDF.');
       setIsGenerating(false);
@@ -280,8 +297,19 @@ export default function OfficialPdfExportModal({
 
       setTimeout(() => {
         setIsGenerating(false);
-        window.print();
-      }, 500);
+        if (typeof document !== 'undefined') {
+          document.body.classList.add('spr-printing-official-doc');
+          setTimeout(() => {
+            window.print();
+            const cleanup = () => {
+              document.body.classList.remove('spr-printing-official-doc');
+              window.removeEventListener('afterprint', cleanup);
+            };
+            window.addEventListener('afterprint', cleanup);
+            setTimeout(cleanup, 4000);
+          }, 150);
+        }
+      }, 400);
     } catch (err: any) {
       alert(err.message || 'Error generating student dossiers.');
       setIsGenerating(false);
@@ -290,12 +318,12 @@ export default function OfficialPdfExportModal({
 
   return (
     <>
-      {/* Strict Print Studio Styling for Clean A4 Vector PDF Generation */}
+      {/* Strict Print Studio Styling for Clean A4 Vector PDF Generation Without Background Dashboard Artifacts */}
       <style jsx global>{`
         @media print {
           @page {
             size: A4 portrait;
-            margin: 6mm 7mm 6mm 7mm;
+            margin: 8mm 8mm 8mm 8mm;
           }
           *, *::before, *::after {
             -webkit-print-color-adjust: exact !important;
@@ -304,17 +332,29 @@ export default function OfficialPdfExportModal({
           html, body {
             background: white !important;
             color: #0f172a !important;
+            margin: 0 !important;
+            padding: 0 !important;
             overflow: visible !important;
           }
-          .export-modal-overlay {
+          /* Strictly hide all background dashboard content, navbar, footers, and modals */
+          body.spr-printing-official-doc > *:not(#spr-official-print-root) {
             display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            max-height: 0 !important;
+            overflow: hidden !important;
           }
-          .official-print-document {
+          #spr-official-print-root {
             display: block !important;
             visibility: visible !important;
+            position: static !important;
             width: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
+            background: white !important;
+          }
+          .export-modal-overlay {
+            display: none !important;
           }
           .page-break-after {
             page-break-after: always !important;
@@ -323,6 +363,35 @@ export default function OfficialPdfExportModal({
           .page-break-avoid {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
+          }
+          .dossier-card-page {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            break-after: page !important;
+            page-break-after: always !important;
+            box-sizing: border-box !important;
+          }
+          .dossier-card-page:last-child {
+            break-after: auto !important;
+            page-break-after: auto !important;
+          }
+          table {
+            display: table !important;
+            width: 100% !important;
+          }
+          thead {
+            display: table-header-group !important;
+          }
+          tbody {
+            display: table-row-group !important;
+          }
+          tr {
+            display: table-row !important;
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+          th, td {
+            display: table-cell !important;
           }
         }
       `}</style>
@@ -579,246 +648,249 @@ export default function OfficialPdfExportModal({
       </div>
 
       {/* =========================================================================
-          PRINT DOCUMENT RENDERING CANVAS (Hidden on screen, Active during print)
+          PRINT DOCUMENT RENDERING CANVAS (Mounted directly to document.body via Portal)
           ========================================================================= */}
-      <div className="official-print-document hidden">
-        {generatedDocType === 'LEADERBOARD' && leaderboardReportData && (
-          <div className="p-0 font-sans text-slate-900 space-y-4">
-            {/* Document Header Banner */}
-            <div className="border-b-2 border-slate-800 pb-3 flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 flex items-center justify-center">
-                  <Image src="/logo.png" alt="Madin Logo" width={48} height={48} className="object-contain" />
+      {isMounted && typeof document !== 'undefined' && createPortal(
+        <div id="spr-official-print-root" className="hidden">
+          {generatedDocType === 'LEADERBOARD' && leaderboardReportData && (
+            <div className="p-0 font-sans text-slate-900 space-y-4">
+              {/* Document Header Banner */}
+              <div className="border-b-2 border-slate-800 pb-3 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 flex items-center justify-center">
+                    <Image src="/logo.png" alt="Madin Logo" width={48} height={48} className="object-contain" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+                      Madin School of Excellence
+                    </div>
+                    <h1 className="text-base font-black text-slate-950 uppercase tracking-tight">
+                      {leaderboardReportData.title}
+                    </h1>
+                    <div className="text-xs text-slate-600 font-medium">
+                      {leaderboardReportData.filterSubtitle} • Academic Year: 2025-2026
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-slate-600">
-                    Madin School of Excellence
-                  </div>
-                  <h1 className="text-base font-black text-slate-950 uppercase tracking-tight">
-                    {leaderboardReportData.title}
-                  </h1>
-                  <div className="text-xs text-slate-600 font-medium">
-                    {leaderboardReportData.filterSubtitle} • Academic Year: 2025-2026
-                  </div>
+
+                <div className="text-right text-[10px] text-slate-600 space-y-0.5">
+                  <div className="font-bold text-emerald-700 uppercase">Certified Official Report</div>
+                  <div>Generated: {leaderboardReportData.generatedAt}</div>
+                  <div>Total Ranked: {leaderboardReportData.entries.length} Cohorts/Students</div>
                 </div>
               </div>
 
-              <div className="text-right text-[10px] text-slate-600 space-y-0.5">
-                <div className="font-bold text-emerald-700 uppercase">Certified Official Report</div>
-                <div>Generated: {leaderboardReportData.generatedAt}</div>
-                <div>Total Ranked: {leaderboardReportData.entries.length} Cohorts/Students</div>
-              </div>
-            </div>
-
-            {/* Tabulated Table */}
-            <table className="w-full table-fixed text-left text-[11px] border-collapse">
-              <thead>
-                <tr className="border-b-2 border-slate-800 bg-slate-100 text-slate-800 font-black">
-                  <th className="py-2 px-2 w-12 text-center">Rank</th>
-                  {leaderboardReportData.isClassRanking ? (
-                    <>
-                      <th className="py-2 px-3">Class Cohort</th>
-                      <th className="py-2 px-3 w-40 text-center">Evaluated Students</th>
-                      <th className="py-2 px-3 w-32 text-right">Average SPR %</th>
-                    </>
-                  ) : (
-                    <>
-                      <th className="py-2 px-2 w-20">SPR ID</th>
-                      <th className="py-2 px-3">Student Name</th>
-                      <th className="py-2 px-2 w-20 text-center">Class</th>
-                      <th className="py-2 px-3 w-32 text-right">Total SPR Points</th>
-                    </>
-                  )}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {leaderboardReportData.entries.map((entry, idx) => (
-                  <tr key={idx} className={idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}>
-                    <td className="py-2 px-2 text-center font-bold">
-                      {entry.rank === 1 ? '🥇 1' : entry.rank === 2 ? '🥈 2' : entry.rank === 3 ? '🥉 3' : entry.rank}
-                    </td>
+              {/* Tabulated Table */}
+              <table className="w-full table-fixed text-left text-[11px] border-collapse">
+                <thead>
+                  <tr className="border-b-2 border-slate-800 bg-slate-100 text-slate-800 font-black">
+                    <th className="py-2 px-2 w-12 text-center">Rank</th>
                     {leaderboardReportData.isClassRanking ? (
                       <>
-                        <td className="py-2 px-3 font-black text-slate-950">
-                          {entry.className}
-                        </td>
-                        <td className="py-2 px-3 text-center text-slate-700">
-                          {entry.totalStudents} Eligible Students (100% evaluated)
-                        </td>
-                        <td className="py-2 px-3 text-right font-black font-mono text-slate-950">
-                          {entry.displayPercentage || `${(entry.averagePercentage ?? entry.spr ?? 0).toFixed(2)}%`}
-                        </td>
+                        <th className="py-2 px-3">Class Cohort</th>
+                        <th className="py-2 px-3 w-40 text-center">Evaluated Students</th>
+                        <th className="py-2 px-3 w-32 text-right">Average SPR %</th>
                       </>
                     ) : (
                       <>
-                        <td className="py-2 px-2 font-mono text-slate-600 font-semibold text-[10px]">
-                          {entry.sprStudentId || entry.studentCode || '—'}
-                        </td>
-                        <td className="py-2 px-3 font-bold text-slate-950 truncate">
-                          {entry.name || entry.studentName}
-                        </td>
-                        <td className="py-2 px-2 text-center font-semibold text-slate-700">
-                          {formatClassNumber(entry.className)}
-                        </td>
-                        <td className="py-2 px-3 text-right font-black font-mono text-slate-950">
-                          {entry.spr ?? entry.overallScore} pts
-                        </td>
+                        <th className="py-2 px-2 w-20">SPR ID</th>
+                        <th className="py-2 px-3">Student Name</th>
+                        <th className="py-2 px-2 w-20 text-center">Class</th>
+                        <th className="py-2 px-3 w-32 text-right">Total SPR Points</th>
                       </>
                     )}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {leaderboardReportData.entries.map((entry, idx) => (
+                    <tr key={idx} className={idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}>
+                      <td className="py-2 px-2 text-center font-bold">
+                        {entry.rank === 1 ? '🥇 1' : entry.rank === 2 ? '🥈 2' : entry.rank === 3 ? '🥉 3' : entry.rank}
+                      </td>
+                      {leaderboardReportData.isClassRanking ? (
+                        <>
+                          <td className="py-2 px-3 font-black text-slate-950">
+                            {entry.className}
+                          </td>
+                          <td className="py-2 px-3 text-center text-slate-700">
+                            {entry.totalStudents} Eligible Students (100% evaluated)
+                          </td>
+                          <td className="py-2 px-3 text-right font-black font-mono text-slate-950">
+                            {entry.displayPercentage || `${(entry.averagePercentage ?? entry.spr ?? 0).toFixed(2)}%`}
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="py-2 px-2 font-mono text-slate-600 font-semibold text-[10px]">
+                            {entry.sprStudentId || entry.studentCode || '—'}
+                          </td>
+                          <td className="py-2 px-3 font-bold text-slate-950 truncate">
+                            {entry.name || entry.studentName}
+                          </td>
+                          <td className="py-2 px-2 text-center font-semibold text-slate-700">
+                            {formatClassNumber(entry.className)}
+                          </td>
+                          <td className="py-2 px-3 text-right font-black font-mono text-slate-950">
+                            {entry.spr ?? entry.overallScore} pts
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
 
-            {/* Official Certification Footer */}
-            <div className="pt-6 border-t border-slate-300 flex items-end justify-between text-[10px] text-slate-500 page-break-avoid">
-              <div>
-                <div>Madin School of Excellence • Student Performance Rate (SPR) System</div>
-                <div>Automated cryptographic verification and weighted evaluation engine</div>
-              </div>
-              <div className="text-center space-y-1">
-                <div className="w-32 border-b border-slate-800"></div>
-                <div className="font-bold text-slate-800">Authorized Signatory</div>
+              {/* Official Certification Footer */}
+              <div className="pt-6 border-t border-slate-300 flex items-end justify-between text-[10px] text-slate-500 page-break-avoid">
+                <div>
+                  <div>Madin School of Excellence • Student Performance Rate (SPR) System</div>
+                  <div>Automated cryptographic verification and weighted evaluation engine</div>
+                </div>
+                <div className="text-center space-y-1">
+                  <div className="w-32 border-b border-slate-800"></div>
+                  <div className="font-bold text-slate-800">Authorized Signatory</div>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Tab 2: Batch Student Dossiers (Sorted A-Z) */}
-        {generatedDocType === 'DOSSIERS' && dossierReportData && (
-          <div className="font-sans text-slate-900">
-            {dossierReportData.students.map(({ student, profile }, idx) => {
-              const numericScore = profile ? (profile.overallScore ?? profile.overallSPR ?? 0) : 0;
-              const cats = profile?.categoryBreakdown || profile?.categoryScores || [];
+          {/* Tab 2: Batch Student Dossiers (Sorted A-Z) */}
+          {generatedDocType === 'DOSSIERS' && dossierReportData && (
+            <div className="font-sans text-slate-900">
+              {dossierReportData.students.map(({ student, profile }, idx) => {
+                const numericScore = profile ? (profile.overallScore ?? profile.overallSPR ?? 0) : 0;
+                const cats = profile?.categoryBreakdown || profile?.categoryScores || [];
 
-              return (
-                <div key={student.id || idx} className="page-break-after p-2 space-y-3 min-h-[96vh] flex flex-col justify-between">
-                  {/* Top Dossier Header */}
-                  <div className="space-y-3">
-                    <div className="rounded-xl bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-900 text-white p-3 flex items-center justify-between page-break-avoid">
-                      <div className="flex items-center space-x-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-white p-1 flex items-center justify-center shrink-0">
-                          <Image src="/logo.png" alt="Logo" width={32} height={32} className="object-contain" />
+                return (
+                  <div key={student.id || idx} className="dossier-card-page p-2 space-y-3 flex flex-col justify-between">
+                    {/* Top Dossier Header */}
+                    <div className="space-y-3">
+                      <div className="rounded-xl bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-900 text-white p-3 flex items-center justify-between page-break-avoid">
+                        <div className="flex items-center space-x-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-white p-1 flex items-center justify-center shrink-0">
+                            <Image src="/logo.png" alt="Logo" width={32} height={32} className="object-contain" />
+                          </div>
+                          <div>
+                            <div className="text-[8px] font-black uppercase tracking-widest text-amber-300">
+                              Madin School of Excellence
+                            </div>
+                            <h2 className="text-xs font-black text-white leading-tight">
+                              Official Student Performance Rate (SPR) Scorecard Dossier
+                            </h2>
+                            <div className="text-[8px] text-blue-100">
+                              Academic &amp; Co-Curricular Comprehensive Evaluation Dossier
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <div className="text-[8px] font-black uppercase tracking-widest text-amber-300">
-                            Madin School of Excellence
-                          </div>
-                          <h2 className="text-xs font-black text-white leading-tight">
-                            Official Student Performance Rate (SPR) Scorecard Dossier
-                          </h2>
-                          <div className="text-[8px] text-blue-100">
-                            Academic &amp; Co-Curricular Comprehensive Evaluation Dossier
-                          </div>
+                        <div className="text-right text-[8px] text-blue-100">
+                          <div className="font-bold text-emerald-300">Certified Official Record</div>
+                          <div>Academic Year: 2025-2026</div>
+                          <div>Student #{idx + 1} of {dossierReportData.students.length} (Alphabetical A-Z)</div>
                         </div>
                       </div>
-                      <div className="text-right text-[8px] text-blue-100">
-                        <div className="font-bold text-emerald-300">Certified Official Record</div>
-                        <div>Academic Year: 2025-2026</div>
-                        <div>Student #{idx + 1} of {dossierReportData.students.length} (Alphabetical A-Z)</div>
-                      </div>
-                    </div>
 
-                    {/* Student Profile Card */}
-                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 flex items-center justify-between page-break-avoid">
-                      <div className="space-y-1">
-                        <div className="flex items-center space-x-2">
-                          <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-900 font-mono text-[9px] font-bold">
-                            {student.sprStudentId || 'SPR ID'}
-                          </span>
-                          {student.studentId && (
-                            <span className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-800 text-[9px] font-semibold">
-                              ADM: {student.studentId}
+                      {/* Student Profile Card */}
+                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 flex items-center justify-between page-break-avoid">
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-2">
+                            <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-900 font-mono text-[9px] font-bold">
+                              {student.sprStudentId || 'SPR ID'}
                             </span>
-                          )}
-                        </div>
-                        <h3 className="text-sm font-black text-slate-900">{student.fullName}</h3>
-                        <div className="text-[10px] text-slate-600 font-medium">
-                          Class: <span className="font-bold text-slate-900">{formatClassNumber(student.class?.name || dossierReportData.className)}</span> • Roll No: <span className="font-bold text-slate-900">{student.rollNo || 'N/A'}</span> • School: <span className="font-bold text-slate-900">{student.school?.name || 'Main Campus'}</span>
-                        </div>
-                      </div>
-
-                      {/* Total Score */}
-                      <div className="text-right bg-blue-600 text-white px-3 py-1.5 rounded-xl min-w-[90px]">
-                        <div className="text-[7.5px] uppercase font-bold text-blue-100">Total SPR Points</div>
-                        <div className="text-base font-black font-mono leading-tight">{numericScore}</div>
-                        <div className="text-[7.5px] text-blue-200">
-                          {numericScore >= 400 ? 'Exceptional' : numericScore >= 250 ? 'Outstanding' : 'Standard'}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Rankings Grid */}
-                    {profile && (
-                      <div className="grid grid-cols-3 gap-2 text-center page-break-avoid">
-                        <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200">
-                          <div className="text-[8.5px] text-slate-500 font-semibold">Class Rank</div>
-                          <div className="text-xs font-black text-slate-900">
-                            #{profile.classRank || 1} <span className="text-[8px] text-slate-400 font-normal">/ {profile.totalStudentsInClass || 1}</span>
+                            {student.studentId && (
+                              <span className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-800 text-[9px] font-semibold">
+                                ADM: {student.studentId}
+                              </span>
+                            )}
+                          </div>
+                          <h3 className="text-sm font-black text-slate-900">{student.fullName}</h3>
+                          <div className="text-[10px] text-slate-600 font-medium">
+                            Class: <span className="font-bold text-slate-900">{formatClassNumber(student.class?.name || dossierReportData.className)}</span> • Roll No: <span className="font-bold text-slate-900">{student.rollNo || 'N/A'}</span> • School: <span className="font-bold text-slate-900">{student.school?.name || 'Main Campus'}</span>
                           </div>
                         </div>
-                        <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200">
-                          <div className="text-[8.5px] text-slate-500 font-semibold">School Rank</div>
-                          <div className="text-xs font-black text-slate-900">
-                            #{profile.schoolRank || 1} <span className="text-[8px] text-slate-400 font-normal">/ {profile.totalStudentsInSchool || 1}</span>
-                          </div>
-                        </div>
-                        <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200">
-                          <div className="text-[8.5px] text-slate-500 font-semibold">Overall Standing</div>
-                          <div className="text-xs font-black text-blue-700">
-                            #{profile.overallRank ?? profile.rank ?? 1} <span className="text-[8px] text-slate-400 font-normal">/ {profile.totalStudentsOverall || 1}</span>
+
+                        {/* Total Score */}
+                        <div className="text-right bg-blue-600 text-white px-3 py-1.5 rounded-xl min-w-[90px]">
+                          <div className="text-[7.5px] uppercase font-bold text-blue-100">Total SPR Points</div>
+                          <div className="text-base font-black font-mono leading-tight">{numericScore}</div>
+                          <div className="text-[7.5px] text-blue-200">
+                            {numericScore >= 400 ? 'Exceptional' : numericScore >= 250 ? 'Outstanding' : 'Standard'}
                           </div>
                         </div>
                       </div>
-                    )}
 
-                    {/* Category Breakdown Table */}
-                    {cats.length > 0 && (
-                      <div className="space-y-1 page-break-avoid">
-                        <div className="text-[10px] font-black text-slate-900 uppercase tracking-wider">
-                          Cumulative Category Performance Summary
+                      {/* Rankings Grid */}
+                      {profile && (
+                        <div className="grid grid-cols-3 gap-2 text-center page-break-avoid">
+                          <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200">
+                            <div className="text-[8.5px] text-slate-500 font-semibold">Class Rank</div>
+                            <div className="text-xs font-black text-slate-900">
+                              #{profile.classRank || 1} <span className="text-[8px] text-slate-400 font-normal">/ {profile.totalStudentsInClass || 1}</span>
+                            </div>
+                          </div>
+                          <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200">
+                            <div className="text-[8.5px] text-slate-500 font-semibold">School Rank</div>
+                            <div className="text-xs font-black text-slate-900">
+                              #{profile.schoolRank || 1} <span className="text-[8px] text-slate-400 font-normal">/ {profile.totalStudentsInSchool || 1}</span>
+                            </div>
+                          </div>
+                          <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200">
+                            <div className="text-[8.5px] text-slate-500 font-semibold">Overall Standing</div>
+                            <div className="text-xs font-black text-blue-700">
+                              #{profile.overallRank ?? profile.rank ?? 1} <span className="text-[8px] text-slate-400 font-normal">/ {profile.totalStudentsOverall || 1}</span>
+                            </div>
+                          </div>
                         </div>
-                        <table className="w-full table-fixed text-left text-[10px] border border-slate-200 rounded-lg overflow-hidden">
-                          <thead className="bg-slate-100 font-bold text-slate-700">
-                            <tr>
-                              <th className="py-1 px-2">Category Wing</th>
-                              <th className="py-1 px-2 w-28 text-center">Records Logged</th>
-                              <th className="py-1 px-2 w-28 text-right">Earned Points</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-200">
-                            {cats.map((cat: any, cIdx: number) => (
-                              <tr key={cIdx} className={cIdx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}>
-                                <td className="py-1 px-2 font-bold text-slate-900">{cat.categoryName}</td>
-                                <td className="py-1 px-2 text-center text-slate-600">{cat.recordsCount || 0} items</td>
-                                <td className="py-1 px-2 text-right font-black font-mono text-slate-950">
-                                  {cat.earnedPoints || 0} pts
-                                </td>
+                      )}
+
+                      {/* Category Breakdown Table */}
+                      {cats.length > 0 && (
+                        <div className="space-y-1 page-break-avoid">
+                          <div className="text-[10px] font-black text-slate-900 uppercase tracking-wider">
+                            Cumulative Category Performance Summary
+                          </div>
+                          <table className="w-full table-fixed text-left text-[10px] border border-slate-200 rounded-lg overflow-hidden">
+                            <thead className="bg-slate-100 font-bold text-slate-700">
+                              <tr>
+                                <th className="py-1 px-2">Category Wing</th>
+                                <th className="py-1 px-2 w-28 text-center">Records Logged</th>
+                                <th className="py-1 px-2 w-28 text-right">Earned Points</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200">
+                              {cats.map((cat: any, cIdx: number) => (
+                                <tr key={cIdx} className={cIdx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}>
+                                  <td className="py-1 px-2 font-bold text-slate-900">{cat.categoryName}</td>
+                                  <td className="py-1 px-2 text-center text-slate-600">{cat.recordsCount || 0} items</td>
+                                  <td className="py-1 px-2 text-right font-black font-mono text-slate-950">
+                                    {cat.earnedPoints || 0} pts
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
 
-                  {/* Certified Footer */}
-                  <div className="pt-3 border-t border-slate-300 flex items-end justify-between text-[8px] text-slate-500 page-break-avoid">
-                    <div>
-                      <div>Madin School of Excellence • Student Performance Rate (SPR) System</div>
-                      <div>Document generated: {dossierReportData.generatedAt}</div>
-                    </div>
-                    <div className="text-center space-y-0.5">
-                      <div className="w-24 border-b border-slate-700"></div>
-                      <div className="font-bold text-slate-800">Official Stamp &amp; Signature</div>
+                    {/* Certified Footer */}
+                    <div className="pt-3 border-t border-slate-300 flex items-end justify-between text-[8px] text-slate-500 page-break-avoid">
+                      <div>
+                        <div>Madin School of Excellence • Student Performance Rate (SPR) System</div>
+                        <div>Document generated: {dossierReportData.generatedAt}</div>
+                      </div>
+                      <div className="text-center space-y-0.5">
+                        <div className="w-24 border-b border-slate-700"></div>
+                        <div className="font-bold text-slate-800">Official Stamp &amp; Signature</div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                );
+              })}
+            </div>
+          )}
+        </div>,
+        document.body
+      )}
     </>
   );
 }

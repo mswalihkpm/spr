@@ -3,8 +3,23 @@ import { prisma } from './prisma';
 import { CategoryEarningItem, WalletSummary, StoreFundSummary } from '@/types';
 import { getCachedSettings } from './spr-engine';
 
-// Default Planned Earnings Start Date: October 1, 2026 (includes October attendance and active term evaluations)
-export const DEFAULT_ELIGIBILITY_START_DATE = '2026-10-01T00:00:00.000Z';
+// Default Planned Earnings Start Date: November 1, 2026 (strictly for records after November 1st)
+export const DEFAULT_ELIGIBILITY_START_DATE = '2026-11-01T00:00:00.000Z';
+
+// Authoritative list of categories permitted to generate cash earnings
+export const ALLOWED_CASH_CATEGORY_CODES = new Set([
+  'ISLAMIC',
+  'SCHOOL',
+  'QUALIFICATION',
+  'CREATIVE_HUB',
+  'LIBRARY',
+  'KUTHBKHANA',
+  'LITERARY',
+  'PROGRAMS',
+  'COMPETITIONS',
+  'TASKS',
+  'FIELD_COLLECTION',
+]);
 
 /**
  * Retrieves the configured eligibility start date from SystemSettings or fallback.
@@ -177,6 +192,7 @@ export async function syncStudentEarnings(studentId: string): Promise<{
 
     const categoryBreakdown: CategoryEarningItem[] = [];
     let netNewWalletCredit = new Prisma.Decimal(0);
+    const processedLedgerIds = new Set<string>();
 
     const applyEarningItem = async ({
       sourceRecordId,
@@ -201,6 +217,9 @@ export async function syncStudentEarnings(studentId: string): Promise<{
     }) => {
       const earnedAmount = calculateCategoryEarnings(points, multiplier);
       const existingEntry = ledgerBySourceId.get(sourceRecordId) || ledgerBySourceId.get(reference);
+      if (existingEntry) {
+        processedLedgerIds.add(existingEntry.id);
+      }
 
       if (earnedAmount <= 0) {
         // If earned amount is zero and there was previously recognized earning, adjust down to 0
@@ -370,13 +389,13 @@ export async function syncStudentEarnings(studentId: string): Promise<{
 
       let eligiblePointsSum = 0;
       let categoryEarningsSum = 0;
+      const isAllowedCashCategory = ALLOWED_CASH_CATEGORY_CODES.has(cat.code) || isLibraryCat;
 
       // 1. Creative Hub Submissions (for CREATIVE_HUB category)
-      if (cat.code === 'CREATIVE_HUB') {
+      if (cat.code === 'CREATIVE_HUB' && isAllowedCashCategory) {
         for (const sub of creativeHubSubmissions) {
-          const recordDate = new Date(sub.date);
-          const recordCreatedAt = new Date(sub.createdAt);
-          const isEligible = recordDate >= eligibilityStartDate || recordCreatedAt >= eligibilityStartDate;
+          const recordDate = new Date(sub.date || sub.createdAt);
+          const isEligible = recordDate >= eligibilityStartDate;
 
           if (isEligible) {
             const points = sub.score || 0;
@@ -386,7 +405,7 @@ export async function syncStudentEarnings(studentId: string): Promise<{
                 sourceRecordId: sub.id,
                 reference: `ERN-CH-${sub.id}`,
                 sourceType: 'CREATIVE_HUB_SUBMISSION',
-                activityDate: recordCreatedAt >= eligibilityStartDate ? recordCreatedAt : recordDate,
+                activityDate: recordDate,
                 points,
                 multiplier,
                 metadata: {
@@ -405,21 +424,17 @@ export async function syncStudentEarnings(studentId: string): Promise<{
       }
 
       // 2. Monthly Attendance Records (for ISLAMIC and SCHOOL)
-      if (cat.code === 'ISLAMIC' || cat.code === 'SCHOOL') {
+      if ((cat.code === 'ISLAMIC' || cat.code === 'SCHOOL') && isAllowedCashCategory) {
         const catAttendances = monthlyAttendances.filter((a) => a.categoryCode === cat.code);
         for (const att of catAttendances) {
-          // Explicit exclusion: September attendance was a historical/trial pre-November evaluation, non-cash
-          const isSeptember = att.month === 9 || att.monthName?.toLowerCase().includes('september');
-          if (isSeptember) continue;
+          // Cash rule: Strictly for records on or after November 1st (month >= 11 for year 2026)
+          const attDate = new Date(Date.UTC(att.year, att.month - 1, 1));
+          const isEligible = attDate >= eligibilityStartDate;
 
           // Attendance cash rule: out of mark is 20; credit cash only if rewarded with 15 or more points (>= 15 pts)
           const rawPoints = att.points || 0;
           const meetsAttendanceThreshold = rawPoints >= 15;
-          const cashPoints = meetsAttendanceThreshold ? rawPoints : 0;
-
-          const attDate = new Date(att.year, att.month - 1, 1);
-          const attCreatedAt = new Date(att.createdAt);
-          const isEligible = attCreatedAt >= eligibilityStartDate || attDate >= eligibilityStartDate;
+          const cashPoints = (isEligible && meetsAttendanceThreshold) ? rawPoints : 0;
 
           if (isEligible) {
             if (cashPoints > 0) {
@@ -429,7 +444,7 @@ export async function syncStudentEarnings(studentId: string): Promise<{
               sourceRecordId: att.id,
               reference: `ERN-ATT-${att.id}`,
               sourceType: 'MONTHLY_ATTENDANCE',
-              activityDate: attCreatedAt >= eligibilityStartDate ? attCreatedAt : attDate,
+              activityDate: attDate,
               points: cashPoints,
               multiplier,
               metadata: {
@@ -456,59 +471,60 @@ export async function syncStudentEarnings(studentId: string): Promise<{
       }
 
       // 4. Performance Records (Field Collection, Literary, Qualification, Programs, Islamic/School, Kuthbkhana, etc.)
-      for (const record of catRecords) {
-        const recordDate = new Date(record.date);
-        const recordCreatedAt = new Date(record.createdAt);
-        const isEligible = recordDate >= eligibilityStartDate || recordCreatedAt >= eligibilityStartDate;
+      if (isAllowedCashCategory) {
+        for (const record of catRecords) {
+          const recordDate = new Date(record.date || record.createdAt);
+          const isEligible = recordDate >= eligibilityStartDate;
 
-        if (isEligible) {
-          const points = record.obtainedScore || 0;
-          if (points > 0) {
-            // Cash rule for terms and assessments:
-            // Cash must be credited only when the student obtains at least 70% of the maximum marks:
-            // Eligibility formula: obtainedScore >= (maxScore * 0.70) (or percentage >= 70%)
-            // Rules: 70% and above -> Eligible; Below 70% -> ₹0 cash.
-            // Safely handles invalid or missing maximum marks.
-            const isTermOrAssessment = Boolean(
-              record.termId ||
-              record.examId ||
-              (record.category && (record.category.code === 'EXAM' || record.category.code === 'ASSESSMENT' || record.category.code === 'SCHOOL'))
-            );
+          if (isEligible) {
+            const points = record.obtainedScore || 0;
+            if (points > 0) {
+              // Cash rule for terms and assessments:
+              // Cash must be credited only when the student obtains at least 70% of the maximum marks:
+              // Eligibility formula: obtainedScore >= (maxScore * 0.70) (or percentage >= 70%)
+              // Rules: 70% and above -> Eligible; Below 70% -> ₹0 cash.
+              // Safely handles invalid or missing maximum marks.
+              const isTermOrAssessment = Boolean(
+                record.termId ||
+                record.examId ||
+                (record.category && (record.category.code === 'EXAM' || record.category.code === 'ASSESSMENT' || record.category.code === 'SCHOOL'))
+              );
 
-            let isEligibleForCash = true;
-            if (isTermOrAssessment) {
-              if (typeof record.maxScore === 'number' && record.maxScore > 0) {
-                isEligibleForCash = points >= (record.maxScore * 0.70);
-              } else if (typeof record.percentage === 'number' && !isNaN(record.percentage)) {
-                isEligibleForCash = record.percentage >= 70;
+              let isEligibleForCash = true;
+              if (isTermOrAssessment) {
+                if (typeof record.maxScore === 'number' && record.maxScore > 0) {
+                  isEligibleForCash = points >= (record.maxScore * 0.70);
+                } else if (typeof record.percentage === 'number' && !isNaN(record.percentage)) {
+                  isEligibleForCash = record.percentage >= 70;
+                }
               }
-            }
-            const cashPoints = isEligibleForCash ? points : 0;
+              const cashPoints = isEligibleForCash ? points : 0;
 
-            if (cashPoints > 0) {
-              eligiblePointsSum += cashPoints;
-            }
+              if (cashPoints > 0) {
+                eligiblePointsSum += cashPoints;
+              }
 
-            const earned = await applyEarningItem({
-              sourceRecordId: record.id,
-              reference: `ERN-${record.id}`,
-              sourceType: 'PERFORMANCE_RECORD',
-              activityDate: recordCreatedAt >= eligibilityStartDate ? recordCreatedAt : recordDate,
-              points: cashPoints,
-              multiplier,
-              metadata: {
-                maxScore: record.maxScore,
-                percentage: record.percentage,
-                position: record.position,
-                categoryDisplay: displayName,
-                isTermOrAssessment,
-                isEligibleForCash,
-                isBelow70Percent: !isEligibleForCash,
-              },
-              description: `Earned ₹${calculateCategoryEarnings(cashPoints, multiplier).toFixed(2)} from ${displayName} (${cashPoints} pts × ${multiplier})`,
-              categoryId: cat.id,
-            });
-            categoryEarningsSum += earned;
+              const earned = await applyEarningItem({
+                sourceRecordId: record.id,
+                reference: `ERN-${record.id}`,
+                sourceType: 'PERFORMANCE_RECORD',
+                activityDate: recordDate,
+                points: cashPoints,
+                multiplier,
+                metadata: {
+                  maxScore: record.maxScore,
+                  percentage: record.percentage,
+                  position: record.position,
+                  categoryDisplay: displayName,
+                  isTermOrAssessment,
+                  isEligibleForCash,
+                  isBelow70Percent: !isEligibleForCash,
+                },
+                description: `Earned ₹${calculateCategoryEarnings(cashPoints, multiplier).toFixed(2)} from ${displayName} (${cashPoints} pts × ${multiplier})`,
+                categoryId: cat.id,
+              });
+              categoryEarningsSum += earned;
+            }
           }
         }
       }
@@ -522,6 +538,41 @@ export async function syncStudentEarnings(studentId: string): Promise<{
         multiplier,
         earnings: Math.round(categoryEarningsSum * 100) / 100,
       });
+    }
+
+    // Reconcile and reverse any legacy pre-November or invalid entries in earningLedger
+    for (const entry of existingLedgers) {
+      if (!processedLedgerIds.has(entry.id) && Number(entry.recognizedAmount) > 0) {
+        const previouslyRecognized = Number(entry.recognizedAmount);
+        const delta = -previouslyRecognized;
+        const deltaDecimal = new Prisma.Decimal(delta);
+
+        await tx.earningLedger.update({
+          where: { id: entry.id },
+          data: {
+            eligiblePoints: new Prisma.Decimal(0),
+            calculatedAmount: new Prisma.Decimal(0),
+            recognizedAmount: new Prisma.Decimal(0),
+            status: 'ADJUSTED',
+            updatedAt: new Date(),
+          },
+        });
+
+        await tx.walletTransaction.create({
+          data: {
+            reference: `TXN-REV-${entry.id}-${Date.now()}`,
+            studentId,
+            type: 'ADJUSTMENT',
+            amount: deltaDecimal,
+            balanceBefore: wallet.balance.add(netNewWalletCredit),
+            balanceAfter: wallet.balance.add(netNewWalletCredit).add(deltaDecimal),
+            description: `Adjustment: -₹${previouslyRecognized.toFixed(2)} (Pre-November activity removed from monetization)`,
+            status: 'COMPLETED',
+          },
+        });
+
+        netNewWalletCredit = netNewWalletCredit.add(deltaDecimal);
+      }
     }
 
     // Atomically apply net new wallet credit if any
