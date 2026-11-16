@@ -29,6 +29,8 @@ import {
   Feather,
   Filter,
   Check,
+  Wallet,
+  History,
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import VideoLoader from '@/components/ui/VideoLoader';
@@ -73,6 +75,9 @@ export default function StudentDossierPage() {
   const taskSummary = data?.taskSummary;
   const questionnairesSummary = data?.questionnairesSummary;
   const itemizedLedger: any[] = data?.itemizedPointsLedger || [];
+  const wallet = data?.wallet || { balance: 0, totalEarnings: 0 };
+  const storeFund = data?.storeFund || { availableFund: 0 };
+  const recentTransactions: any[] = data?.transactions || data?.recentTransactions || [];
 
   // Filtered Activities
   const filteredActivities = useMemo(() => {
@@ -459,6 +464,76 @@ export default function StudentDossierPage() {
               </Link>
             </div>
           </div>
+        </div>
+
+        {/* =========================================================================
+            MONETARY INCENTIVES & WALLET TRANSACTION LEDGER
+            ========================================================================= */}
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 sm:p-7 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="p-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                  <Wallet className="w-5 h-5" />
+                </span>
+                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                  Monetized Incentive &amp; Wallet Ledger
+                </h3>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Transparent record of cash bonuses earned from tasks, academic evaluations, attendance consistency, and peer transfers.
+              </p>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <div className="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 font-mono font-bold text-xs text-emerald-700 dark:text-emerald-300">
+                Wallet: ₹{Number(wallet.balance || 0).toFixed(2)}
+              </div>
+              <div className="px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 font-mono font-bold text-xs text-purple-700 dark:text-purple-300">
+                Store: ₹{Number(storeFund.availableFund || 0).toFixed(2)}
+              </div>
+              <Link
+                href="/student/cash"
+                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition flex items-center space-x-1"
+              >
+                <span>Full Account</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+
+          {/* Transaction List */}
+          {recentTransactions.length === 0 ? (
+            <div className="py-8 text-center text-xs text-slate-500">
+              No wallet transactions recorded yet.
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {recentTransactions.slice(0, 10).map((tx: any) => {
+                const isPositive = Number(tx.amount) >= 0;
+                return (
+                  <div key={tx.id || tx.reference} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
+                    <div>
+                      <span className="font-bold text-slate-900 dark:text-slate-100 block">{tx.description}</span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {new Date(tx.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} • Ref: {tx.reference}
+                      </span>
+                    </div>
+                    <div className="text-left sm:text-right shrink-0">
+                      <span className={`font-black font-mono ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {isPositive ? '+' : ''}₹{Math.abs(Number(tx.amount)).toFixed(2)}
+                      </span>
+                      {tx.balanceAfter !== undefined && (
+                        <span className="text-[10px] text-slate-400 block font-mono">
+                          Bal: ₹{Number(tx.balanceAfter).toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -50,13 +50,29 @@ export default function StudentCashPage() {
       if (!silent) setLoading(true);
       else setRefreshing(true);
 
-      const res = await fetch('/api/student/auth/me');
-      if (res.status === 401 || res.status === 403) {
+      const [meRes, txRes] = await Promise.all([
+        fetch('/api/student/auth/me'),
+        fetch('/api/student/transfers').catch(() => null),
+      ]);
+
+      if (meRes.status === 401 || meRes.status === 403) {
         router.push('/student/login');
         return;
       }
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Failed to load cash account');
+      const json = await meRes.json();
+      if (!meRes.ok) throw new Error(json.error || 'Failed to load cash account');
+
+      let txList = json.transactions || json.recentTransactions || [];
+      if (txRes && txRes.ok) {
+        try {
+          const txJson = await txRes.json();
+          if (Array.isArray(txJson.transactions) && txJson.transactions.length > 0) {
+            txList = txJson.transactions;
+          }
+        } catch {}
+      }
+      json.transactions = txList;
+      json.recentTransactions = txList;
       setData(json);
     } catch (err: any) {
       console.error(err);
@@ -153,7 +169,7 @@ export default function StudentCashPage() {
   const wallet = data.wallet || { balance: 0, totalEarnings: 0, totalTransferred: 0, totalReceived: 0 };
   const storeFund = data.storeFund || { availableFund: 0, totalContributed: 0, totalUsed: 0 };
   const categories = data.categoryEarnings || [];
-  const transactions = data.transactions || [];
+  const transactions: any[] = data.transactions || data.recentTransactions || [];
 
   const getCategoryTheme = (code: string) => {
     switch (code) {
@@ -389,39 +405,99 @@ export default function StudentCashPage() {
 
       {/* Transaction History Table */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-xs space-y-4">
-        <h3 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white flex items-center space-x-2">
-          <History className="w-4 h-4 text-blue-600" />
-          <span>Wallet Transaction History</span>
-        </h3>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center space-x-2">
+            <span className="p-1.5 rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
+              <History className="w-4 h-4" />
+            </span>
+            <h3 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white">
+              Wallet Transaction History
+            </h3>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold font-mono bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+              {transactions.length} {transactions.length === 1 ? 'Record' : 'Records'}
+            </span>
+            <button
+              onClick={() => fetchCashData(true)}
+              disabled={refreshing}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              title="Refresh transaction history"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-blue-600' : ''}`} />
+            </button>
+          </div>
+        </div>
 
         {transactions.length === 0 ? (
-          <div className="py-8 text-center text-xs text-slate-500">
-            No transactions recorded yet.
+          <div className="py-12 text-center space-y-2">
+            <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
+              <Wallet className="w-6 h-6" />
+            </div>
+            <p className="text-xs font-bold text-slate-700 dark:text-slate-300">No transactions recorded yet.</p>
+            <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+              Credits from evaluated tasks, attendance speed bonuses, and student transfers will appear here automatically.
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {transactions.map((tx: any) => (
-              <div key={tx.id} className="py-3 flex items-center justify-between text-xs">
-                <div>
-                  <span className="font-bold text-slate-900 dark:text-slate-100 block">{tx.description}</span>
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    {new Date(tx.createdAt).toLocaleDateString()} • Ref: {tx.reference}
-                  </span>
+            {transactions.map((tx: any) => {
+              const isPositive = Number(tx.amount) >= 0;
+              const typeUpper = (tx.type || '').toUpperCase();
+              let badgeText = 'Credit';
+              let badgeBg = 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800';
+
+              if (typeUpper.includes('SENT') || typeUpper === 'TRANSFER_SENT') {
+                badgeText = 'Sent';
+                badgeBg = 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800';
+              } else if (typeUpper.includes('RECV') || typeUpper === 'TRANSFER_RECEIVED') {
+                badgeText = 'Received';
+                badgeBg = 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800';
+              } else if (typeUpper.includes('STORE')) {
+                badgeText = 'Store Fund';
+                badgeBg = 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800';
+              } else if (typeUpper.includes('ADJ') || typeUpper === 'ADJUSTMENT') {
+                badgeText = 'Adjustment';
+                badgeBg = isPositive
+                  ? 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800'
+                  : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800';
+              }
+
+              return (
+                <div key={tx.id || tx.reference} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs hover:bg-slate-50/50 dark:hover:bg-slate-800/30 px-2 rounded-xl transition">
+                  <div className="space-y-1">
+                    <div className="flex items-center space-x-2">
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${badgeBg}`}>
+                        {badgeText}
+                      </span>
+                      <span className="font-extrabold text-slate-900 dark:text-slate-100">
+                        {tx.description || 'Wallet Transaction'}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-2 text-[10px] text-slate-400 font-mono">
+                      <span>{new Date(tx.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                      <span>•</span>
+                      <span>{new Date(tx.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span>•</span>
+                      <span>Ref: {tx.reference}</span>
+                      {tx.senderName && <span>• From: {tx.senderName}</span>}
+                      {tx.recipientName && <span>• To: {tx.recipientName}</span>}
+                    </div>
+                  </div>
+
+                  <div className="text-left sm:text-right shrink-0">
+                    <div className={`text-sm sm:text-base font-black font-mono ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                      {isPositive ? '+' : ''}₹{Math.abs(Number(tx.amount)).toFixed(2)}
+                    </div>
+                    {tx.balanceAfter !== undefined && (
+                      <div className="text-[10px] text-slate-400 font-mono">
+                        Balance: ₹{Number(tx.balanceAfter).toFixed(2)}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="text-right">
-                  <span
-                    className={`font-black font-mono ${
-                      Number(tx.amount) >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                    }`}
-                  >
-                    {Number(tx.amount) >= 0 ? '+' : ''}₹{Math.abs(Number(tx.amount)).toFixed(2)}
-                  </span>
-                  <span className="text-[10px] text-slate-400 block font-mono">
-                    Bal: ₹{Number(tx.balanceAfter).toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

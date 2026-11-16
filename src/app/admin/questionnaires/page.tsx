@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/layout/AdminLayout';
 import {
   Sparkles,
@@ -31,6 +32,7 @@ const QUESTION_TYPES = [
 ];
 
 export default function AdminQuestionnairesPage() {
+  const router = useRouter();
   const [questionnaires, setQuestionnaires] = useState<any[]>([]);
   const [selectedQId, setSelectedQId] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -55,8 +57,12 @@ export default function AdminQuestionnairesPage() {
     try {
       setLoading(true);
       const res = await fetch('/api/admin/questionnaires');
-      if (!res.ok) throw new Error('Failed to load questionnaires');
+      if (res.status === 401 || res.status === 403) {
+        router.push('/login');
+        return;
+      }
       const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to load questionnaires');
       setQuestionnaires(json.questionnaires || []);
       if (json.questionnaires?.length > 0 && !selectedQId) {
         setSelectedQId(json.questionnaires[0].id);

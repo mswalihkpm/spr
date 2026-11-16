@@ -17,11 +17,15 @@ export async function GET(req: NextRequest) {
     // Idempotently reconcile earnings and obtain wallet + store fund summaries
     const earningsData = await syncStudentEarnings(student.studentId);
 
-    // Fetch recent transactions for this student
+    // Fetch wallet transaction history for this student (up to 100 entries)
     const recentTransactions = await prisma.walletTransaction.findMany({
       where: { studentId: student.studentId },
+      include: {
+        senderStudent: { select: { fullName: true, sprStudentId: true } },
+        recipientStudent: { select: { fullName: true, sprStudentId: true } },
+      },
       orderBy: { createdAt: 'desc' },
-      take: 20,
+      take: 100,
     });
 
     const formattedTransactions = recentTransactions.map((t) => ({
@@ -33,6 +37,8 @@ export async function GET(req: NextRequest) {
       balanceAfter: Number(t.balanceAfter),
       description: t.description,
       status: t.status,
+      senderName: t.senderStudent?.fullName,
+      recipientName: t.recipientStudent?.fullName,
       createdAt: t.createdAt.toISOString(),
     }));
 
@@ -293,6 +299,7 @@ export async function GET(req: NextRequest) {
         wallet: earningsData.wallet,
         categoryEarnings: earningsData.categoryEarnings,
         storeFund: earningsData.storeFund,
+        transactions: formattedTransactions,
         recentTransactions: formattedTransactions,
         sprProfile,
         rankInfo,

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/layout/AdminLayout';
 import {
   CheckSquare,
@@ -107,6 +108,7 @@ interface AcademicClassItem {
 }
 
 export default function AdminTasksPage() {
+  const router = useRouter();
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
   const [classes, setClasses] = useState<AcademicClassItem[]>([]);
   const [metrics, setMetrics] = useState({
@@ -219,6 +221,10 @@ export default function AdminTasksPage() {
     if (isManual) setRefreshing(true);
     try {
       const res = await fetch(`/api/tasks?filter=${statusFilter}`);
+      if (res.status === 401 || res.status === 403) {
+        router.push('/login');
+        return;
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to fetch tasks.');
       setTasks(data.tasks || []);
