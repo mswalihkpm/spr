@@ -124,6 +124,12 @@ export async function POST(req: NextRequest) {
     return response;
   } catch (error: any) {
     console.error('Student login error:', error);
-    return NextResponse.json({ error: 'Authentication failed due to a server error.' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Authentication failed due to a server error.',
+        message: error?.message || 'Server error',
+      },
+      { status: 500 }
+    );
   }
 }

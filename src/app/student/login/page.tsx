@@ -73,7 +73,8 @@ export default function StudentLoginPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Authentication failed.');
+        const errorDetail = data.message && data.message !== data.error ? `${data.error}: ${data.message}` : (data.error || 'Authentication failed.');
+        throw new Error(errorDetail);
       }
 
       router.push('/student/dashboard');
