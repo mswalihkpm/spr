@@ -286,7 +286,7 @@ export async function GET(req: NextRequest) {
           residentialStatus: studentRecord?.residentialStatus,
           preferredContact: studentRecord?.preferredContact,
           isProfileLocked: studentRecord?.isProfileLocked ?? false,
-          photoUrl: studentRecord?.photoUrl,
+          photoUrl: studentRecord?.photoUrl || (student as any)?.photoUrl || null,
           className: studentRecord?.class?.name || student.className,
           academicYear: studentRecord?.academicYear?.name,
         },

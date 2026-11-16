@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { clearClientCache } from '@/lib/client-cache';
+import StudentAvatar from '@/components/ui/StudentAvatar';
+import VideoLoader from '@/components/ui/VideoLoader';
 import {
   TrendingUp,
   Award,
@@ -130,13 +132,13 @@ export default function StudentDashboardPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6 max-w-6xl w-full mx-auto p-4 sm:p-6 lg:p-8 animate-pulse">
-        <div className="h-40 bg-slate-200 dark:bg-slate-800 rounded-3xl" />
-        <div className="h-80 bg-slate-200 dark:bg-slate-800 rounded-3xl" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="h-44 bg-slate-200 dark:bg-slate-800 rounded-3xl" />
-          <div className="h-44 bg-slate-200 dark:bg-slate-800 rounded-3xl" />
-        </div>
+      <div className="min-h-[70vh] flex items-center justify-center p-4 sm:p-6">
+        <VideoLoader
+          size="xl"
+          text="Loading Student Performance Dashboard..."
+          subtext="Accessing SPR Academic Records & Points Ledger"
+          showProgress={true}
+        />
       </div>
     );
   }
@@ -191,9 +193,13 @@ export default function StudentDashboardPage() {
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-5 sm:p-7 shadow-xl">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
             <div className="flex items-center space-x-3.5 sm:space-x-4">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center font-black text-xl text-white shadow-md shrink-0">
-                {student?.fullName ? student.fullName.slice(0, 2).toUpperCase() : 'ST'}
-              </div>
+              <StudentAvatar
+                photoUrl={student?.photoUrl}
+                name={student?.fullName || 'Student'}
+                size="xl"
+                studentId={student?.sprStudentId || student?.studentId}
+                className="w-14 h-14 sm:w-16 sm:h-16 ring-4 ring-white/20 shadow-md shrink-0"
+              />
               <div>
                 <div className="flex items-center space-x-2">
                   <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/30 text-blue-200 border border-blue-400/30">

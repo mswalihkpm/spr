@@ -2056,7 +2056,12 @@ function deriveCategoryLeaderboard(
 
             {loadingProfile || !studentProfile ? (
               <div className="py-12 text-center">
-                <VideoLoader size="lg" text="Computing mathematical % calculations..." subtext="Analyzing student performance dossier" />
+                <VideoLoader
+                  size="lg"
+                  text="Computing mathematical % calculations..."
+                  subtext="Analyzing student performance dossier"
+                  showProgress={true}
+                />
               </div>
             ) : (
               <div className="space-y-6">
@@ -2066,6 +2071,7 @@ function deriveCategoryLeaderboard(
                     photoUrl={studentProfile.student?.photoUrl}
                     name={studentProfile.student?.fullName || 'Student'}
                     size="xl"
+                    studentId={studentProfile.student?.sprStudentId || studentProfile.student?.studentId || selectedStudentId || undefined}
                   />
 
                   <div className="text-center sm:text-left flex-1">

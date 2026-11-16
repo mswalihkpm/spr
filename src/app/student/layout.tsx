@@ -20,6 +20,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { clearClientCache } from '@/lib/client-cache';
+import StudentAvatar from '@/components/ui/StudentAvatar';
 
 interface StudentLayoutProps {
   children: React.ReactNode;
@@ -156,13 +157,13 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
         {/* Student Quick Profile Card */}
         {student && !collapsed && (
           <div className="p-4 mx-3 my-3 rounded-2xl bg-gradient-to-br from-blue-50/80 to-indigo-50/60 dark:from-slate-800/60 dark:to-slate-800/30 border border-blue-100 dark:border-slate-700/60 flex items-center space-x-3">
-            <div className="w-11 h-11 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden shrink-0 flex items-center justify-center font-black text-sm text-blue-700 dark:text-blue-300 shadow-2xs">
-              {student.photoUrl ? (
-                <Image src={student.photoUrl} alt={student.fullName} width={44} height={44} className="w-full h-full object-cover" />
-              ) : (
-                student.fullName?.slice(0, 2).toUpperCase()
-              )}
-            </div>
+            <StudentAvatar
+              photoUrl={student.photoUrl}
+              name={student.fullName}
+              size="md"
+              studentId={student.sprStudentId || student.id}
+              className="w-11 h-11 ring-2 ring-white/50 shadow-xs"
+            />
             <div className="min-w-0 flex-1">
               <div className="font-extrabold text-xs text-slate-900 dark:text-slate-100 truncate">
                 {student.fullName}
@@ -231,9 +232,18 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
 
         <div className="flex items-center space-x-2">
           {student && (
-            <span className="text-[10.5px] font-mono font-bold text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800">
-              {student.sprStudentId}
-            </span>
+            <div className="flex items-center space-x-2">
+              <span className="text-[10.5px] font-mono font-bold text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800">
+                {student.sprStudentId}
+              </span>
+              <StudentAvatar
+                photoUrl={student.photoUrl}
+                name={student.fullName}
+                size="sm"
+                studentId={student.sprStudentId || student.id}
+                className="w-7 h-7"
+              />
+            </div>
           )}
           <button
             onClick={handleLogout}

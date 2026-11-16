@@ -143,7 +143,12 @@ export default function StudentProfilePage() {
     return (
       <AdminLayout>
         <div className="py-20 flex items-center justify-center">
-          <VideoLoader size="xl" text="Loading Student Performance Dossier..." subtext="Accessing SPR Academic Records" />
+          <VideoLoader
+            size="xl"
+            text="Loading Student Performance Dossier..."
+            subtext="Accessing SPR Academic Records & Points Ledger"
+            showProgress={true}
+          />
         </div>
       </AdminLayout>
     );
@@ -218,6 +223,7 @@ export default function StudentProfilePage() {
                   photoUrl={student.photoUrl}
                   name={student.fullName}
                   size="2xl"
+                  studentId={student.sprStudentId || student.studentId || studentId}
                   className="ring-4 ring-white/20 group-hover:ring-blue-400 transition-all duration-200"
                 />
 

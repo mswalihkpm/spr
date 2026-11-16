@@ -24,6 +24,7 @@ import {
   Coins,
   Search,
 } from 'lucide-react';
+import VideoLoader from '@/components/ui/VideoLoader';
 
 export default function StudentCashPage() {
   const router = useRouter();
@@ -138,13 +139,13 @@ export default function StudentCashPage() {
 
   if (loading || !data) {
     return (
-      <div className="flex-1 p-6 max-w-6xl w-full mx-auto animate-pulse space-y-6">
-        <div className="h-8 w-48 bg-slate-200 dark:bg-slate-800 rounded-xl" />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="h-44 bg-slate-200 dark:bg-slate-800 rounded-3xl" />
-          <div className="h-44 bg-slate-200 dark:bg-slate-800 rounded-3xl" />
-          <div className="h-44 bg-slate-200 dark:bg-slate-800 rounded-3xl" />
-        </div>
+      <div className="min-h-[70vh] flex items-center justify-center p-4 sm:p-6">
+        <VideoLoader
+          size="xl"
+          text="Loading Student Cash Account & Wallet..."
+          subtext="Accessing SPR Automated Ledger & Earnings"
+          showProgress={true}
+        />
       </div>
     );
   }

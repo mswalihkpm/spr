@@ -1,14 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { formatGoogleDriveDirectUrl } from '@/lib/google-drive';
+import React, { useState, useEffect, useMemo } from 'react';
+import { formatGoogleDriveDirectUrl, extractGoogleDriveFileId } from '@/lib/google-drive';
 
-interface StudentAvatarProps {
+export interface StudentAvatarProps {
   photoUrl?: string | null;
   name?: string;
   fullName?: string;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   className?: string;
+  studentId?: string;
 }
 
 const sizeClasses = {
@@ -24,9 +25,9 @@ const pixelSizes = {
   xs: 48,
   sm: 64,
   md: 80,
-  lg: 96,
-  xl: 160,
-  '2xl': 200,
+  lg: 120,
+  xl: 180,
+  '2xl': 240,
 };
 
 const gradientStyles = [
@@ -43,14 +44,46 @@ export function StudentAvatar({
   fullName,
   size = 'md',
   className = '',
+  studentId,
 }: StudentAvatarProps) {
   const displayName = fullName || name || 'ST';
-  const [imageError, setImageError] = useState(false);
+  const cleanPhotoUrl = typeof photoUrl === 'string' && photoUrl.trim().length > 0 ? photoUrl.trim() : null;
+  const targetPixelSize = pixelSizes[size] || 80;
 
-  // Reset image error state whenever photoUrl changes
+  // Build ordered list of candidate image URLs to attempt
+  const candidateUrls = useMemo(() => {
+    if (!cleanPhotoUrl) return [];
+
+    const driveFileId = extractGoogleDriveFileId(cleanPhotoUrl);
+    if (driveFileId) {
+      return [
+        // 1. Google Edge CDN (fastest, pre-sized)
+        `https://lh3.googleusercontent.com/d/${driveFileId}=s${targetPixelSize}`,
+        // 2. Google Drive Thumbnail API
+        `https://drive.google.com/thumbnail?id=${driveFileId}&sz=w${targetPixelSize}`,
+        // 3. Direct Google Drive View Export
+        `https://drive.google.com/uc?export=view&id=${driveFileId}`,
+        // 4. Same-origin proxied fallback (bypasses any ISP or ad-blocker restrictions)
+        `/api/avatar/${driveFileId}?proxy=true`,
+      ];
+    }
+
+    // Direct HTTP/HTTPS or Data URL
+    const list = [cleanPhotoUrl];
+    if (studentId) {
+      list.push(`/api/avatar/${encodeURIComponent(studentId)}?proxy=true`);
+    }
+    return list;
+  }, [cleanPhotoUrl, targetPixelSize, studentId]);
+
+  const [candidateIndex, setCandidateIndex] = useState(0);
+  const [hasFailedAll, setHasFailedAll] = useState(false);
+
+  // Reset fallback state when photoUrl or student changes
   useEffect(() => {
-    setImageError(false);
-  }, [photoUrl]);
+    setCandidateIndex(0);
+    setHasFailedAll(false);
+  }, [cleanPhotoUrl]);
 
   // Generate consistent gradient based on student name
   const nameHash = displayName
@@ -67,10 +100,18 @@ export function StudentAvatar({
     initials = words[0].slice(0, 2).toUpperCase();
   }
 
-  const cleanPhotoUrl = typeof photoUrl === 'string' && photoUrl.trim().length > 0 ? photoUrl.trim() : null;
-  const targetPixelSize = pixelSizes[size] || 80;
-  const directPhotoUrl = cleanPhotoUrl ? formatGoogleDriveDirectUrl(cleanPhotoUrl, targetPixelSize) : null;
-  const hasValidPhoto = Boolean(directPhotoUrl && !imageError);
+  const currentUrl = candidateUrls[candidateIndex];
+  const hasValidPhoto = Boolean(currentUrl && !hasFailedAll);
+
+  const handleImageError = () => {
+    if (candidateIndex < candidateUrls.length - 1) {
+      // Step to next candidate delivery channel
+      setCandidateIndex((prev) => prev + 1);
+    } else {
+      // All candidate URLs failed; fallback to colored initials
+      setHasFailedAll(true);
+    }
+  };
 
   return (
     <div
@@ -80,13 +121,13 @@ export function StudentAvatar({
     >
       {hasValidPhoto ? (
         <img
-          src={directPhotoUrl!}
+          key={currentUrl}
+          src={currentUrl}
           alt={displayName}
           loading="lazy"
           decoding="async"
-          referrerPolicy="no-referrer"
-          crossOrigin="anonymous"
-          onError={() => setImageError(true)}
+          referrerPolicy="no-referrer-when-downgrade"
+          onError={handleImageError}
           className="w-full h-full object-cover"
         />
       ) : (

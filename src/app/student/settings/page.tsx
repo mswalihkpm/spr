@@ -16,6 +16,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import StudentAvatar from '@/components/ui/StudentAvatar';
 
 export default function StudentSettingsPage() {
   const router = useRouter();
@@ -85,7 +86,12 @@ export default function StudentSettingsPage() {
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center min-h-[60vh]">
-        <VideoLoader size="lg" text="Loading Settings..." subtext="Accessing student security configuration" />
+        <VideoLoader
+          size="xl"
+          text="Loading Student Account Settings..."
+          subtext="Accessing Student Security & Identity Configuration"
+          showProgress={true}
+        />
       </div>
     );
   }
@@ -112,6 +118,21 @@ export default function StudentSettingsPage() {
           <User className="w-4 h-4 text-blue-600" />
           <span>Student Official Identity</span>
         </h2>
+
+        <div className="flex items-center space-x-4 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80">
+          <StudentAvatar
+            photoUrl={student?.photoUrl}
+            name={student?.fullName}
+            size="xl"
+            studentId={student?.sprStudentId || student?.id}
+            className="w-14 h-14 sm:w-16 sm:h-16 ring-4 ring-blue-500/20 shadow-md shrink-0"
+          />
+          <div className="min-w-0">
+            <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white truncate">{student?.fullName}</h3>
+            <p className="text-xs text-blue-600 dark:text-blue-400 font-mono font-bold">{student?.sprStudentId || 'SPR ID'}</p>
+            <p className="text-xs text-slate-500 truncate">{student?.class?.name || 'Class Cohort'}</p>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
           <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700">

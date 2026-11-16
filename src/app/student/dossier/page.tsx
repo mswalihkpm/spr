@@ -31,6 +31,7 @@ import {
   Check,
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
+import VideoLoader from '@/components/ui/VideoLoader';
 
 export default function StudentDossierPage() {
   const router = useRouter();
@@ -104,12 +105,13 @@ export default function StudentDossierPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6 max-w-5xl mx-auto p-4 sm:p-6 animate-pulse">
-        <div className="h-44 bg-slate-200 dark:bg-slate-800 rounded-3xl" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className="h-64 bg-slate-200 dark:bg-slate-800 rounded-3xl" />
-          <div className="h-64 bg-slate-200 dark:bg-slate-800 rounded-3xl md:col-span-2" />
-        </div>
+      <div className="min-h-[70vh] flex items-center justify-center p-4 sm:p-6">
+        <VideoLoader
+          size="xl"
+          text="Loading Student Performance Dossier..."
+          subtext="Accessing SPR Academic Records & Points Ledger"
+          showProgress={true}
+        />
       </div>
     );
   }
@@ -142,8 +144,9 @@ export default function StudentDossierPage() {
             <StudentAvatar
               photoUrl={student?.photoUrl}
               name={student?.fullName || 'Student'}
-              size="lg"
-              className="w-16 h-16 sm:w-20 sm:h-20 ring-4 ring-white/20 shadow-lg"
+              size="xl"
+              studentId={student?.sprStudentId || student?.studentId}
+              className="w-16 h-16 sm:w-20 sm:h-20 ring-4 ring-white/20 shadow-lg shrink-0"
             />
             <div>
               <div className="flex items-center space-x-2">

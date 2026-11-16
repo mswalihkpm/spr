@@ -21,6 +21,7 @@ import {
   AlertCircle,
   RefreshCw,
 } from 'lucide-react';
+import VideoLoader from '@/components/ui/VideoLoader';
 
 export default function StudentActivitiesPage() {
   const router = useRouter();
@@ -124,13 +125,13 @@ export default function StudentActivitiesPage() {
 
   if (loading) {
     return (
-      <div className="flex-1 p-6 max-w-6xl w-full mx-auto space-y-6 animate-pulse">
-        <div className="h-8 w-60 bg-slate-200 dark:bg-slate-800 rounded-xl" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="h-56 bg-slate-200 dark:bg-slate-800 rounded-3xl" />
-          ))}
-        </div>
+      <div className="min-h-[70vh] flex items-center justify-center p-4 sm:p-6">
+        <VideoLoader
+          size="xl"
+          text="Loading Student Questionnaires & Activities..."
+          subtext="Accessing SPR Institutional Collection Framework"
+          showProgress={true}
+        />
       </div>
     );
   }

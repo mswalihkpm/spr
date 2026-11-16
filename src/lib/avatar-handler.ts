@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { isGoogleDriveUrl, formatGoogleDriveDirectUrl } from '@/lib/google-drive';
+import { isGoogleDriveUrl, formatGoogleDriveDirectUrl, extractGoogleDriveFileId } from '@/lib/google-drive';
 
 const photoCache = new Map<string, { buffer: Buffer; contentType: string } | null>();
 const studentPhotoUrlCache = new Map<string, string | null>();
@@ -21,10 +21,22 @@ export async function handleStudentPhotoRequest(req: NextRequest, studentIdentif
       return new NextResponse('Student ID required', { status: 400 });
     }
 
+    const url = new URL(req.url);
+    const shouldProxy = url.searchParams.get('proxy') === 'true';
+
     const cachedUrl = studentPhotoUrlCache.get(studentIdentifier);
     let photoStr: string | null = null;
 
-    if (cachedUrl !== undefined) {
+    // Check if the identifier is already a raw Google Drive file ID
+    const isDirectDriveId =
+      /^[a-zA-Z0-9_-]{25,}$/.test(studentIdentifier) &&
+      !studentIdentifier.startsWith('SPR') &&
+      !studentIdentifier.startsWith('MSOE') &&
+      !studentIdentifier.startsWith('cmtor');
+
+    if (isDirectDriveId) {
+      photoStr = `https://drive.google.com/file/d/${studentIdentifier}/view`;
+    } else if (cachedUrl !== undefined) {
       photoStr = cachedUrl;
     } else {
       const student = await prisma.student.findFirst({
@@ -54,23 +66,71 @@ export async function handleStudentPhotoRequest(req: NextRequest, studentIdentif
       return new NextResponse('Photo not found', { status: 404 });
     }
 
-    // 1. Google Drive URLs: Redirect directly to Google CDN edge with permanent edge cache
+    // 1. Google Drive URLs
     if (isGoogleDriveUrl(photoStr)) {
+      const fileId = extractGoogleDriveFileId(photoStr);
       const directUrl = formatGoogleDriveDirectUrl(photoStr, 360) || photoStr;
+
+      // If server-side proxy is requested, stream the bytes directly (bypasses any ISP/client-side adblockers)
+      if (shouldProxy && fileId) {
+        const cached = photoCache.get(studentIdentifier);
+        if (cached) {
+          return new NextResponse(new Uint8Array(cached.buffer), {
+            headers: {
+              'Content-Type': cached.contentType,
+              'Cache-Control': 'public, max-age=86400, s-maxage=604800, immutable',
+            },
+          });
+        }
+
+        // Try candidate URLs from server-side
+        const candidateUrls = [
+          directUrl,
+          `https://drive.google.com/thumbnail?id=${fileId}&sz=w360`,
+          `https://drive.google.com/uc?export=view&id=${fileId}`,
+        ];
+
+        for (const candidate of candidateUrls) {
+          try {
+            const fetchRes = await fetch(candidate, {
+              headers: {
+                'User-Agent':
+                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              },
+            });
+            if (fetchRes.ok) {
+              const ab = await fetchRes.arrayBuffer();
+              const buffer = Buffer.from(ab);
+              const contentType = fetchRes.headers.get('content-type') || 'image/jpeg';
+              photoCache.set(studentIdentifier, { buffer, contentType });
+              return new NextResponse(new Uint8Array(buffer), {
+                headers: {
+                  'Content-Type': contentType,
+                  'Cache-Control': 'public, max-age=86400, s-maxage=604800, immutable',
+                },
+              });
+            }
+          } catch {
+            // continue to next candidate
+          }
+        }
+      }
+
+      // Default: 307 Temporary redirect to Google CDN
       return NextResponse.redirect(directUrl, {
-        status: 308,
+        status: 307,
         headers: {
-          'Cache-Control': 'public, max-age=604800, s-maxage=2592000, immutable',
+          'Cache-Control': 'public, max-age=604800, s-maxage=2592000',
         },
       });
     }
 
-    // 2. Direct external HTTPS URL: Redirect directly with permanent edge cache
+    // 2. Direct external HTTPS URL
     if (photoStr.startsWith('http://') || photoStr.startsWith('https://')) {
       return NextResponse.redirect(photoStr, {
-        status: 308,
+        status: 307,
         headers: {
-          'Cache-Control': 'public, max-age=604800, s-maxage=2592000, immutable',
+          'Cache-Control': 'public, max-age=604800, s-maxage=2592000',
         },
       });
     }

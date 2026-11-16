@@ -288,7 +288,12 @@ export default function PublicStudentScorecardPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4">
-        <VideoLoader size="xl" text="Loading Student Performance Dossier..." subtext="Accessing SPR Academic Records" />
+        <VideoLoader
+          size="xl"
+          text="Loading Student Performance Dossier..."
+          subtext="Accessing SPR Academic Records & Points Ledger"
+          showProgress={true}
+        />
       </div>
     );
   }
@@ -498,7 +503,8 @@ export default function PublicStudentScorecardPage() {
             <StudentAvatar
               photoUrl={student?.photoUrl}
               name={student?.fullName || 'Student'}
-              size="lg"
+              size="xl"
+              studentId={student?.sprStudentId || student?.studentId || studentId}
               className="w-12 h-12 sm:w-20 sm:h-20 print:w-12 print:h-12 shrink-0"
             />
 

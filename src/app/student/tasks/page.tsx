@@ -34,6 +34,7 @@ import {
   Timer,
   CheckCheck,
 } from 'lucide-react';
+import VideoLoader from '@/components/ui/VideoLoader';
 
 export interface TaskTelemetry {
   rewardMode: 'EQUAL' | 'RANK_BASED' | 'TIME_BASED' | 'COMBINED';
@@ -370,9 +371,13 @@ export default function StudentTasksPage() {
         </div>
 
         {loading ? (
-          <div className="py-20 flex flex-col items-center justify-center space-y-3">
-            <RefreshCw className="w-8 h-8 text-amber-600 animate-spin" />
-            <p className="text-xs sm:text-sm font-bold text-slate-500">Loading student tasks...</p>
+          <div className="py-20 flex flex-col items-center justify-center">
+            <VideoLoader
+              size="xl"
+              text="Loading Student Tasks & Assignments..."
+              subtext="Synchronizing Reward Allocations & Real-Time Telemetry"
+              showProgress={true}
+            />
           </div>
         ) : activeTab === 'AVAILABLE' ? (
           /* Available Tasks Tab */
