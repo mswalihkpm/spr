@@ -289,7 +289,7 @@ export default function StudentTasksPage() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-5xl w-full mx-auto p-3.5 sm:p-6 lg:p-8 space-y-5 sm:space-y-6">
+      <main className="flex-1 max-w-5xl w-full max-w-full overflow-x-hidden min-w-0 mx-auto p-3.5 sm:p-6 lg:p-8 space-y-5 sm:space-y-6">
         {/* Status Toast Notification */}
         {statusMsg && (
           <div

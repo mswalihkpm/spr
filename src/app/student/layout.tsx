@@ -120,7 +120,7 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#070d1e] text-slate-900 dark:text-slate-100 flex flex-col md:flex-row antialiased selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50 dark:bg-[#070d1e] text-slate-900 dark:text-slate-100 flex flex-col md:flex-row antialiased selection:bg-blue-600 selection:text-white">
       {/* ---------------------------------------------------------------------
           DESKTOP PERSISTENT COLLAPSIBLE SIDEBAR
           --------------------------------------------------------------------- */}
@@ -220,20 +220,20 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
       {/* ---------------------------------------------------------------------
           MOBILE TOP NAVBAR & DRAWER
           --------------------------------------------------------------------- */}
-      <header className="md:hidden sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 h-14 flex items-center justify-between">
-        <Link href="/student/dashboard" className="flex items-center space-x-2.5">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 p-1 flex items-center justify-center">
+      <header className="md:hidden sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3.5 h-14 flex items-center justify-between w-full max-w-full">
+        <Link href="/student/dashboard" className="flex items-center space-x-2 shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-blue-600 p-1 flex items-center justify-center shrink-0">
             <Image src="/logo.png" alt="SPR" width={24} height={24} className="object-contain" />
           </div>
-          <span className="font-black text-xs tracking-tight text-slate-900 dark:text-white uppercase">
+          <span className="font-black text-xs tracking-tight text-slate-900 dark:text-white uppercase truncate">
             SPR Portal
           </span>
         </Link>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 shrink-0">
           {student && (
-            <div className="flex items-center space-x-2">
-              <span className="text-[10.5px] font-mono font-bold text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center space-x-1.5">
+              <span className="text-[10px] font-mono font-bold text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800">
                 {student.sprStudentId}
               </span>
               <StudentAvatar
@@ -247,7 +247,7 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
           )}
           <button
             onClick={handleLogout}
-            className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition"
+            className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
             title="Sign Out"
           >
             <LogOut className="w-4 h-4" />
@@ -258,7 +258,7 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
       {/* ---------------------------------------------------------------------
           PAGE MAIN CONTENT
           --------------------------------------------------------------------- */}
-      <div className="flex-1 flex flex-col min-w-0 pb-20 md:pb-6">
+      <div className="flex-1 flex flex-col min-w-0 pb-20 md:pb-6 w-full max-w-full overflow-x-hidden">
         {children}
       </div>
 

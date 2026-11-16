@@ -141,80 +141,80 @@ export default function StudentDossierPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12 p-3.5 sm:p-6">
+    <div className="space-y-5 sm:space-y-6 max-w-5xl mx-auto pb-16 p-3 sm:p-6 w-full max-w-full overflow-x-hidden min-w-0">
       {/* Dossier Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-6 sm:p-8 shadow-xl">
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-          <div className="flex items-center space-x-4 sm:space-x-5">
+      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-4 sm:p-8 shadow-xl">
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6 min-w-0">
+          <div className="flex items-center space-x-3.5 sm:space-x-5 min-w-0 flex-1">
             <StudentAvatar
               photoUrl={student?.photoUrl}
               name={student?.fullName || 'Student'}
               size="xl"
               studentId={student?.sprStudentId || student?.studentId}
-              className="w-16 h-16 sm:w-20 sm:h-20 ring-4 ring-white/20 shadow-lg shrink-0"
+              className="w-14 h-14 sm:w-20 sm:h-20 ring-3 sm:ring-4 ring-white/20 shadow-lg shrink-0"
             />
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-500/30 text-blue-200 border border-blue-400/30">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider bg-blue-500/30 text-blue-200 border border-blue-400/30 shrink-0">
                   Certified Scorecard Dossier
                 </span>
                 {student?.isProfileLocked && (
-                  <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/30 text-emerald-200 border border-emerald-400/30">
-                    <ShieldCheck className="w-3 h-3" />
+                  <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 shrink-0">
+                    <ShieldCheck className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                     <span>Verified</span>
                   </span>
                 )}
               </div>
-              <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight mt-1">
+              <h1 className="text-lg sm:text-2xl font-black text-white tracking-tight mt-1 truncate">
                 {student?.fullName}
               </h1>
-              <p className="text-xs text-blue-200 font-mono mt-0.5">
+              <p className="text-[11px] sm:text-xs text-blue-200 font-mono mt-0.5 break-words line-clamp-1 sm:line-clamp-none">
                 SPR ID: {student?.sprStudentId || student?.studentId} • Class {student?.className || student?.class?.name} • Year {student?.academicYear || '2025-2026'}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center space-x-3 shrink-0 print:hidden">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:space-x-3 w-full sm:w-auto shrink-0 print:hidden">
             <button
               onClick={handlePrint}
-              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/20 transition flex items-center space-x-2 shadow-xs cursor-pointer"
+              className="w-full sm:w-auto px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/20 transition flex items-center justify-center space-x-1.5 shadow-xs cursor-pointer"
             >
-              <Printer className="w-4 h-4" />
+              <Printer className="w-3.5 h-3.5" />
               <span>Print Scorecard</span>
             </button>
             <button
               onClick={() => router.push(`/student/${encodeURIComponent(student?.sprStudentId || student?.studentId)}`)}
-              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition flex items-center space-x-2 shadow-md cursor-pointer"
+              className="w-full sm:w-auto px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-md cursor-pointer"
             >
-              <ExternalLink className="w-4 h-4" />
+              <ExternalLink className="w-3.5 h-3.5" />
               <span>Public View</span>
             </button>
           </div>
         </div>
 
         {/* Quick Metrics Bar */}
-        <div className="mt-6 pt-6 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-          <div>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-blue-200">Official SPR</div>
-            <div className="text-xl sm:text-2xl font-black text-amber-300 font-mono mt-0.5">
+        <div className="mt-5 sm:mt-6 pt-5 sm:pt-6 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 text-center">
+          <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-white/5 border border-white/10">
+            <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-blue-200">Official SPR</div>
+            <div className="text-base sm:text-2xl font-black text-amber-300 font-mono mt-0.5">
               {sprProfile?.sprPercentage !== undefined ? `${sprProfile.sprPercentage.toFixed(2)}%` : '—'}
             </div>
           </div>
-          <div>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-blue-200">Total SPR Points</div>
-            <div className="text-xl sm:text-2xl font-black text-white font-mono mt-0.5">
+          <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-white/5 border border-white/10">
+            <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-blue-200">Total SPR Points</div>
+            <div className="text-base sm:text-2xl font-black text-white font-mono mt-0.5">
               {sprProfile?.totalWeightedScore !== undefined ? sprProfile.totalWeightedScore.toFixed(2) : '—'}
             </div>
           </div>
-          <div>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-blue-200">Overall Rank</div>
-            <div className="text-xl sm:text-2xl font-black text-emerald-300 font-mono mt-0.5">
+          <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-white/5 border border-white/10">
+            <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-blue-200">Overall Rank</div>
+            <div className="text-base sm:text-2xl font-black text-emerald-300 font-mono mt-0.5">
               {rankInfo?.overallRank ? `#${rankInfo.overallRank}` : '—'}
             </div>
           </div>
-          <div>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-blue-200">Class Rank</div>
-            <div className="text-xl sm:text-2xl font-black text-indigo-300 font-mono mt-0.5">
+          <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-white/5 border border-white/10">
+            <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-blue-200">Class Rank</div>
+            <div className="text-base sm:text-2xl font-black text-indigo-300 font-mono mt-0.5">
               {rankInfo?.classRank ? `#${rankInfo.classRank}` : '—'}
             </div>
           </div>
@@ -222,42 +222,41 @@ export default function StudentDossierPage() {
       </div>
 
       {/* Main Grid: Profile Snapshot + Full Itemized Points Ledger */}
-      <div className="space-y-6">
+      <div className="space-y-5 sm:space-y-6">
         {/* =========================================================================
             ITEMIZED POINTS LEDGER & ACTIVITY EXPLANATIONS
-            "student also want to see his dossier will all points .and also want to see how he get that points,and from which programmes and exams and others..."
             ========================================================================= */}
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 sm:p-7 shadow-xs space-y-5">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 p-4 sm:p-7 shadow-xs space-y-4 sm:space-y-5">
           {/* Section Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-4 border-b border-slate-100 dark:border-slate-800">
             <div>
               <div className="flex items-center space-x-2">
-                <span className="p-1.5 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300">
-                  <Award className="w-5 h-5" />
+                <span className="p-1.5 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 shrink-0">
+                  <Award className="w-4 h-4 sm:w-5 sm:h-5" />
                 </span>
-                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                <h3 className="text-sm sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
                   Itemized Points Ledger &amp; Activity Breakdown
                 </h3>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Transparent audit log showing all evaluated exams, competition honours, monthly attendance, library reading, and tasks.
               </p>
             </div>
 
-            <div className="flex items-center space-x-2 text-xs">
-              <span className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono font-bold text-slate-700 dark:text-slate-300">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs">
+              <span className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono font-bold text-slate-700 dark:text-slate-300 text-[11px] sm:text-xs">
                 {filteredActivities.length} Activities Logged
               </span>
-              <span className="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 font-mono font-black text-emerald-700 dark:text-emerald-300">
+              <span className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 font-mono font-black text-emerald-700 dark:text-emerald-300 text-[11px] sm:text-xs">
                 +{totalFilteredPoints.toFixed(1)} pts
               </span>
             </div>
           </div>
 
           {/* Activity Filters and Search Bar */}
-          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between print:hidden">
+          <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 items-stretch sm:items-center justify-between min-w-0 w-full print:hidden">
             {/* Filter Tabs */}
-            <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 sm:pb-0 text-xs font-bold scrollbar-none">
+            <div className="flex items-center space-x-1.5 overflow-x-auto pb-1.5 sm:pb-0 text-xs font-bold scrollbar-none min-w-0 w-full max-w-full">
               {[
                 { id: 'ALL', label: 'All Records' },
                 { id: 'EXAMS', label: 'Exams & Academics' },
@@ -270,7 +269,7 @@ export default function StudentDossierPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActivityFilter(tab.id)}
-                  className={`px-3 py-1.5 rounded-xl transition whitespace-nowrap cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl transition whitespace-nowrap cursor-pointer shrink-0 ${
                     activityFilter === tab.id
                       ? 'bg-blue-600 text-white shadow-sm'
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -282,14 +281,14 @@ export default function StudentDossierPage() {
             </div>
 
             {/* Search Input */}
-            <div className="relative shrink-0 sm:w-64">
+            <div className="relative shrink-0 w-full sm:w-64">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 placeholder="Search activity or subject..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full pl-8 pr-3 py-2 sm:py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-600"
               />
             </div>
           </div>
@@ -307,40 +306,40 @@ export default function StudentDossierPage() {
                 return (
                   <div
                     key={act.id || idx}
-                    className="p-4 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/70 hover:bg-white dark:hover:bg-slate-800 transition-all space-y-2.5"
+                    className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/70 hover:bg-white dark:hover:bg-slate-800 transition-all space-y-2"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div className="flex items-start space-x-3">
-                        <div className="p-2 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 shrink-0 mt-0.5 text-blue-600 dark:text-blue-400">
-                          <Icon className="w-4 h-4" />
+                      <div className="flex items-start space-x-2.5 sm:space-x-3 min-w-0 flex-1">
+                        <div className="p-1.5 sm:p-2 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 shrink-0 mt-0.5 text-blue-600 dark:text-blue-400">
+                          <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </div>
-                        <div>
-                          <div className="flex items-center space-x-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
                             <span
-                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${badge.bg}`}
+                              className={`px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-bold uppercase tracking-wider border ${badge.bg}`}
                             >
                               {badge.label}
                             </span>
                             <span className="text-[10px] text-slate-400 font-mono">{act.date}</span>
                           </div>
-                          <h4 className="text-sm font-extrabold text-slate-900 dark:text-white mt-1">
+                          <h4 className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white mt-1 break-words">
                             {act.title}
                           </h4>
                         </div>
                       </div>
 
                       {/* Points Pill */}
-                      <div className="flex items-center space-x-2 shrink-0 self-start sm:self-auto">
+                      <div className="flex flex-wrap items-center gap-1.5 shrink-0 self-start sm:self-auto pt-1 sm:pt-0">
                         {act.percentage !== undefined && act.percentage !== null && (
-                          <span className="px-2 py-1 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
+                          <span className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-[10.5px] sm:text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
                             {act.percentage}%
                           </span>
                         )}
-                        <span className="px-2.5 py-1 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-xs font-black font-mono text-emerald-800 dark:text-emerald-300">
+                        <span className="px-2 py-0.5 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-[10.5px] sm:text-xs font-black font-mono text-emerald-800 dark:text-emerald-300">
                           +{Number(act.pointsEarned).toFixed(1)} pts
                         </span>
                         {act.rewardAmount > 0 && (
-                          <span className="px-2 py-1 rounded-xl bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-xs font-black font-mono text-amber-800 dark:text-amber-300">
+                          <span className="px-2 py-0.5 rounded-xl bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-[10.5px] sm:text-xs font-black font-mono text-amber-800 dark:text-amber-300">
                             +₹{act.rewardAmount}
                           </span>
                         )}
@@ -348,9 +347,9 @@ export default function StudentDossierPage() {
                     </div>
 
                     {/* How the Points Were Derived (Explanation) */}
-                    <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-700/60 text-[11px] text-slate-600 dark:text-slate-400 flex items-start space-x-2">
+                    <div className="p-2 sm:p-2.5 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-700/60 text-[10.5px] sm:text-[11px] text-slate-600 dark:text-slate-400 flex items-start space-x-2">
                       <span className="font-bold text-blue-600 dark:text-blue-400 shrink-0">Derivation:</span>
-                      <span className="leading-relaxed">{act.explanation}</span>
+                      <span className="leading-relaxed break-words">{act.explanation}</span>
                     </div>
                   </div>
                 );
@@ -362,35 +361,35 @@ export default function StudentDossierPage() {
         {/* =========================================================================
             BOTTOM SUMMARY: CATEGORY SCORES & PERSONAL PROFILE
             ========================================================================= */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           {/* Category-Wise Performance Summary */}
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-xs space-y-3 sm:space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center space-x-2">
+              <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white flex items-center space-x-2">
                 <Layers className="w-4 h-4 text-blue-600" />
                 <span>Weighted Category Standings</span>
               </h3>
-              <span className="text-xs text-slate-400">7 Core Categories</span>
+              <span className="text-[11px] sm:text-xs text-slate-400">7 Core Categories</span>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2.5 sm:space-y-3">
               {sprProfile?.categoryScores && sprProfile.categoryScores.length > 0 ? (
                 sprProfile.categoryScores.map((cat: any) => {
                   const pct = Math.min(100, Math.max(0, cat.normalizedPercentage || 0));
                   return (
                     <div
                       key={cat.categoryId || cat.categoryCode}
-                      className="p-3 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/70 space-y-1.5"
+                      className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/70 space-y-1.5"
                     >
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-slate-900 dark:text-white">
+                      <div className="flex items-center justify-between text-xs gap-2">
+                        <span className="font-bold text-slate-900 dark:text-white truncate">
                           {cat.categoryName}
                         </span>
-                        <div className="flex items-center space-x-2">
-                          <span className="font-mono text-slate-400 text-[11px]">
+                        <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
+                          <span className="font-mono text-slate-400 text-[10.5px] sm:text-[11px]">
                             {cat.rawScore?.toFixed(1) || 0} pts
                           </span>
-                          <span className="font-mono font-black text-slate-900 dark:text-white px-2 py-0.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                          <span className="font-mono font-black text-slate-900 dark:text-white px-1.5 py-0.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10.5px] sm:text-xs">
                             {pct.toFixed(2)}%
                           </span>
                         </div>
@@ -413,9 +412,9 @@ export default function StudentDossierPage() {
           </div>
 
           {/* Personal & Family Profile */}
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-xs space-y-3 sm:space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center space-x-2">
+              <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white flex items-center space-x-2">
                 <User className="w-4 h-4 text-blue-600" />
                 <span>Personal &amp; Family Profile</span>
               </h3>
@@ -426,7 +425,7 @@ export default function StudentDossierPage() {
               )}
             </div>
 
-            <div className="space-y-2.5 text-xs">
+            <div className="space-y-2 text-xs">
               <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                 <span className="text-slate-400">Father's Name</span>
                 <span className="font-bold text-slate-800 dark:text-slate-200">{student?.fatherName || '—'}</span>
@@ -469,32 +468,32 @@ export default function StudentDossierPage() {
         {/* =========================================================================
             MONETARY INCENTIVES & WALLET TRANSACTION LEDGER
             ========================================================================= */}
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 sm:p-7 shadow-xs space-y-4">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 p-4 sm:p-7 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
             <div>
               <div className="flex items-center space-x-2">
-                <span className="p-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
-                  <Wallet className="w-5 h-5" />
+                <span className="p-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 shrink-0">
+                  <Wallet className="w-4 h-4 sm:w-5 sm:h-5" />
                 </span>
-                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                <h3 className="text-sm sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
                   Monetized Incentive &amp; Wallet Ledger
                 </h3>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Transparent record of cash bonuses earned from tasks, academic evaluations, attendance consistency, and peer transfers.
               </p>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <div className="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 font-mono font-bold text-xs text-emerald-700 dark:text-emerald-300">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 font-mono font-bold text-xs text-emerald-700 dark:text-emerald-300">
                 Wallet: ₹{Number(wallet.balance || 0).toFixed(2)}
               </div>
-              <div className="px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 font-mono font-bold text-xs text-purple-700 dark:text-purple-300">
+              <div className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 font-mono font-bold text-xs text-purple-700 dark:text-purple-300">
                 Store: ₹{Number(storeFund.availableFund || 0).toFixed(2)}
               </div>
               <Link
                 href="/student/cash"
-                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition flex items-center space-x-1"
+                className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition flex items-center space-x-1"
               >
                 <span>Full Account</span>
                 <ArrowRight className="w-3.5 h-3.5" />

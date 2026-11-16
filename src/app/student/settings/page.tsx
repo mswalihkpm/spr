@@ -97,7 +97,7 @@ export default function StudentSettingsPage() {
   }
 
   return (
-    <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-4xl w-full mx-auto space-y-6">
+    <div className="flex-1 p-3.5 sm:p-6 lg:p-8 max-w-4xl w-full max-w-full overflow-x-hidden min-w-0 mx-auto space-y-5 sm:space-y-6">
       <div className="flex items-center space-x-3 pb-2 border-b border-slate-200 dark:border-slate-800">
         <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center">
           <Settings className="w-5 h-5" />

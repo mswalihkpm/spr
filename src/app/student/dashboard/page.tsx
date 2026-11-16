@@ -188,7 +188,7 @@ export default function StudentDashboardPage() {
   return (
     <div className="text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-white pb-12">
       {/* Main Content Area */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-3.5 sm:p-6 lg:p-8 space-y-5 sm:space-y-6">
+      <main className="flex-1 max-w-6xl w-full max-w-full overflow-x-hidden min-w-0 mx-auto p-3.5 sm:p-6 lg:p-8 space-y-5 sm:space-y-6">
         {/* Welcome & Performance Hero Banner */}
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-5 sm:p-7 shadow-xl">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">

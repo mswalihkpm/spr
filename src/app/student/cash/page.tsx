@@ -199,7 +199,7 @@ export default function StudentCashPage() {
   };
 
   return (
-    <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto space-y-6">
+    <div className="flex-1 p-3.5 sm:p-6 lg:p-8 max-w-6xl w-full max-w-full overflow-x-hidden min-w-0 mx-auto space-y-5 sm:space-y-6">
       {/* Top Header */}
       <div className="flex items-center justify-between">
         <div>
