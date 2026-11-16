@@ -1,6 +1,6 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import { prisma } from './prisma';
-import { CategoryEarningItem, WalletSummary, StoreFundSummary } from '@/types';
+import { CategoryEarningItem, WalletSummary, StoreFundSummary } from '../types';
 import { getCachedSettings } from './spr-engine';
 
 // Default Planned Earnings Start Date: November 1, 2026 00:00:00 IST (2026-10-31T18:30:00.000Z UTC)

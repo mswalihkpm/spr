@@ -1,5 +1,5 @@
 import { prisma } from './prisma';
-import { MissingDataRule, CategorySummary, StudentSPRProfile, LeaderboardEntry } from '@/types';
+import { MissingDataRule, CategorySummary, StudentSPRProfile, LeaderboardEntry } from '../types';
 
 // High-performance server-side in-memory cache with TTL for ultra-fast loading
 const leaderboardCache = new Map<string, { timestamp: number; data: LeaderboardEntry[] }>();

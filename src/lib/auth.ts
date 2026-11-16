@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from './prisma';
-import { UserRole, UserSession, StudentSession } from '@/types';
+import { UserRole, UserSession, StudentSession } from '../types';
 
 const MIN_JWT_SECRET_LENGTH = 32;
 
