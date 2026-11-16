@@ -46,5 +46,8 @@ prisma/dev.db-journal
 # supabase temp
 supabase/.temp/
 
+# scratch directory
+src/scratch/
+
 .vercel
 

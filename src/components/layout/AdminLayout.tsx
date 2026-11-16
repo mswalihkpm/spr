@@ -123,6 +123,7 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
   const allNavItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Students', href: '/students', icon: Users },
+    { name: 'Student Details & Intelligence', href: '/admin/student-details', icon: Users, adminOnly: true },
     {
       name: 'Academics',
       icon: BookOpen,
@@ -140,6 +141,8 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
     { name: 'Kuthbkhana', href: '/kuthbkhana', icon: BookOpen },
     { name: 'Library / Reading', href: '/library', icon: Library },
     { name: 'Task Management', href: '/tasks', icon: CheckSquare, adminOnly: true },
+    { name: 'Questionnaires', href: '/admin/questionnaires', icon: Sparkles, adminOnly: true },
+    { name: 'Brief Note Templates', href: '/admin/brief-notes', icon: FileSpreadsheet, adminOnly: true },
     { name: 'Other Subcategories', href: '/subcategories', icon: Layers },
     { name: 'Store Management', href: '/store', icon: Store, adminOnly: true },
     { name: 'News & Updates', href: '/updates/manage', icon: Megaphone, adminOnly: true },

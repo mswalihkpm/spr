@@ -2,11 +2,12 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { calculateAllLeaderboards, getCachedCategories } from '@/lib/spr-engine';
+import { calculateAllLeaderboards, calculateClassRankingLeaderboard, getCachedCategories } from '@/lib/spr-engine';
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
+    const viewType = searchParams.get('type') || searchParams.get('view') || '';
     const classId = searchParams.get('classId') || undefined;
     const schoolId = searchParams.get('schoolId') || undefined;
     let categoryId = searchParams.get('categoryId') || searchParams.get('cat') || undefined;
@@ -16,6 +17,34 @@ export async function GET(req: NextRequest) {
     const academicYearId = searchParams.get('academicYearId') || undefined;
 
     const categories = await getCachedCategories();
+    const isFresh = searchParams.get('fresh') === 'true' || searchParams.has('t') || req.headers.get('cache-control') === 'no-cache';
+
+    // 1. Handle Class Ranking Leaderboard Request
+    const isClassRanking =
+      viewType.toLowerCase() === 'class' ||
+      viewType.toLowerCase() === 'classes' ||
+      categoryId === 'CLASS_RANKING' ||
+      categoryId === 'CLASSES';
+
+    if (isClassRanking) {
+      const classRankings = await calculateClassRankingLeaderboard({ academicYearId });
+      return NextResponse.json(
+        {
+          type: 'CLASS_RANKING',
+          leaderboard: classRankings,
+          categories,
+          totalClasses: classRankings.length,
+          totalStudents: classRankings.reduce((sum, c) => sum + c.totalStudents, 0),
+        },
+        {
+          headers: {
+            'Cache-Control': isFresh
+              ? 'private, no-cache, no-store, must-revalidate'
+              : 'public, s-maxage=300, stale-while-revalidate=600',
+          },
+        }
+      );
+    }
 
     // If categoryId is passed as category code (e.g. 'QUALIFICATION', 'ISLAMIC', etc.), resolve to ID from in-memory cache
     if (categoryId && !categoryId.startsWith('cm')) {
@@ -35,8 +64,6 @@ export async function GET(req: NextRequest) {
       fest,
       academicYearId,
     });
-
-    const isFresh = searchParams.get('fresh') === 'true' || searchParams.has('t') || req.headers.get('cache-control') === 'no-cache';
 
     return NextResponse.json(
       {

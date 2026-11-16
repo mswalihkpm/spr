@@ -7,15 +7,18 @@ import { invalidateEngineCache } from '@/lib/spr-engine';
  */
 
 function safeRevalidate(pathOrTag: string, type?: 'page' | 'layout') {
-  try {
-    if (type) {
-      revalidatePath(pathOrTag, type);
-    } else {
-      revalidatePath(pathOrTag);
+  // Execute asynchronously without blocking route response execution
+  setTimeout(() => {
+    try {
+      if (type) {
+        revalidatePath(pathOrTag, type);
+      } else {
+        revalidatePath(pathOrTag);
+      }
+    } catch (err) {
+      // Graceful fallback if called outside active Next.js request lifecycle
     }
-  } catch (err) {
-    // Graceful fallback if called outside active Next.js request lifecycle
-  }
+  }, 0);
 }
 
 export function triggerCategoriesRevalidation() {
@@ -32,9 +35,7 @@ export function triggerSubcategoriesRevalidation() {
   invalidateEngineCache();
   safeRevalidate('/api/subcategories');
   safeRevalidate('/api/categories');
-  safeRevalidate('/api/leaderboard');
   safeRevalidate('/subcategories');
-  safeRevalidate('/leaderboard');
 }
 
 export function triggerWeightsRevalidation() {

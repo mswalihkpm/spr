@@ -121,13 +121,20 @@ export async function generateTaskId(): Promise<string> {
 export async function createTask(params: {
   title: string;
   description: string;
+  instructions?: string;
   maxPoints: number;
   maxFund: number;
   startDate: string;
   endDate: string;
-  targetAudience?: 'ALL' | 'SPECIFIC_CLASS' | 'SPECIFIC_STUDENTS';
+  targetAudience?: 'ALL' | 'SPECIFIC_CLASS' | 'SPECIFIC_STUDENTS' | 'QUESTIONNAIRE_GROUP';
+  targetAudienceJson?: any;
   targetClassId?: string | null;
   assignedStudentIds?: string[];
+  rewardMode?: 'EQUAL' | 'RANK_BASED' | 'TIME_BASED' | 'COMBINED';
+  rewardConfig?: any;
+  closeWhenSlotsFilled?: boolean;
+  winnerSlots?: number | null;
+  approvalMode?: 'ADMIN_APPROVAL' | 'AUTO_APPROVAL';
   status?: 'DRAFT' | 'PUBLISHED';
   createdById: string;
   createdByEmail: string;
@@ -142,21 +149,63 @@ export async function createTask(params: {
       taskId: humanTaskId,
       title: params.title.trim(),
       description: params.description.trim(),
+      instructions: params.instructions ? params.instructions.trim() : null,
       maxPoints: new Prisma.Decimal(params.maxPoints),
       maxFund: new Prisma.Decimal(params.maxFund),
       startDate: start,
       endDate: end,
       status: params.status || 'PUBLISHED',
       targetAudience: params.targetAudience || 'ALL',
+      targetAudienceJson: params.targetAudienceJson || undefined,
+      rewardMode: params.rewardMode || 'EQUAL',
+      rewardConfig: params.rewardConfig || undefined,
+      closeWhenSlotsFilled: Boolean(params.closeWhenSlotsFilled),
+      winnerSlots: params.winnerSlots !== undefined && params.winnerSlots !== null ? Number(params.winnerSlots) : null,
+      approvalMode: params.approvalMode || 'ADMIN_APPROVAL',
       targetClassId: params.targetAudience === 'SPECIFIC_CLASS' ? params.targetClassId : null,
       createdById: params.createdById,
     },
   });
 
-  // Assign specific students if provided
+  // Target Audience Resolution Snapshot
+  let resolvedStudentIds: string[] = [];
+
   if (params.targetAudience === 'SPECIFIC_STUDENTS' && params.assignedStudentIds && params.assignedStudentIds.length > 0) {
+    resolvedStudentIds = params.assignedStudentIds;
+  } else if (params.targetAudience === 'SPECIFIC_CLASS') {
+    const classIds = params.targetAudienceJson?.classIds || (params.targetClassId ? [params.targetClassId] : []);
+    if (classIds.length > 0) {
+      const classStudents = await prisma.student.findMany({
+        where: { classId: { in: classIds } },
+        select: { id: true },
+      });
+      resolvedStudentIds = classStudents.map((s) => s.id);
+    }
+  } else if (params.targetAudience === 'QUESTIONNAIRE_GROUP' && params.targetAudienceJson?.optionKeywords) {
+    const keywords: string[] = params.targetAudienceJson.optionKeywords;
+    // Find all responses containing matching answers
+    const responses = await prisma.questionnaireResponse.findMany({
+      where: { status: 'SUBMITTED' },
+      select: { studentId: true, answers: true },
+    });
+
+    const matchSet = new Set<string>();
+    for (const r of responses) {
+      if (!r.answers || typeof r.answers !== 'object') continue;
+      const valuesStr = JSON.stringify(r.answers).toLowerCase();
+      const hasMatch = keywords.some((k) => valuesStr.includes(k.toLowerCase()));
+      if (hasMatch) {
+        matchSet.add(r.studentId);
+      }
+    }
+    resolvedStudentIds = Array.from(matchSet);
+  }
+
+  // Deduplicate and persist task assignments snapshot
+  if (resolvedStudentIds.length > 0) {
+    const uniqueIds = Array.from(new Set(resolvedStudentIds));
     await prisma.taskAssignment.createMany({
-      data: params.assignedStudentIds.map((studentId) => ({
+      data: uniqueIds.map((studentId) => ({
         taskId: task.id,
         studentId,
       })),
@@ -202,6 +251,10 @@ export async function getAdminTasks(filter?: 'ALL' | 'ACTIVE' | 'SCHEDULED' | 'E
       endDate: true,
       status: true,
       targetAudience: true,
+      targetAudienceJson: true,
+      rewardMode: true,
+      winnerSlots: true,
+      closeWhenSlotsFilled: true,
       createdAt: true,
       targetClass: { select: { name: true } },
       createdBy: { select: { name: true, email: true } },
@@ -238,6 +291,10 @@ export async function getAdminTasks(filter?: 'ALL' | 'ACTIVE' | 'SCHEDULED' | 'E
         publicationStatus: t.status,
         dateStatus,
         targetAudience: t.targetAudience,
+        targetAudienceJson: t.targetAudienceJson,
+        rewardMode: t.rewardMode || 'EQUAL',
+        winnerSlots: t.winnerSlots,
+        closeWhenSlotsFilled: t.closeWhenSlotsFilled,
         targetClassName: t.targetClass?.name || null,
         createdByName: t.createdBy.name,
         createdAt: t.createdAt.toISOString(),
@@ -256,6 +313,97 @@ export async function getAdminTasks(filter?: 'ALL' | 'ACTIVE' | 'SCHEDULED' | 'E
       if (filter === 'EXPIRED') return t.dateStatus === 'EXPIRED';
       return true;
     });
+}
+
+/**
+ * 13 Database-Driven Admin Overview Metrics
+ */
+export async function getAdminTaskOverviewMetrics() {
+  const now = new Date();
+  const allTasks = await prisma.task.findMany({
+    select: {
+      id: true,
+      startDate: true,
+      endDate: true,
+      status: true,
+      closeWhenSlotsFilled: true,
+      winnerSlots: true,
+      studentRecords: {
+        select: {
+          id: true,
+          status: true,
+          awardedPoints: true,
+          awardedAmount: true,
+        },
+      },
+      assignments: {
+        select: { id: true },
+      },
+    },
+  });
+
+  const totalTasks = allTasks.length;
+  const draftTasks = allTasks.filter((t) => t.status === 'DRAFT').length;
+  const scheduledTasks = allTasks.filter((t) => t.status === 'PUBLISHED' && new Date(t.startDate) > now).length;
+  const activeTasks = allTasks.filter(
+    (t) => t.status === 'PUBLISHED' && new Date(t.startDate) <= now && new Date(t.endDate) >= now
+  ).length;
+  const closedTasks = allTasks.filter((t) => t.status === 'ARCHIVED' || new Date(t.endDate) < now).length;
+  const completedTasks = allTasks.filter((t) => {
+    if (t.studentRecords.length === 0) return false;
+    const hasApprovedOrRejected = t.studentRecords.every(
+      (r) => r.status === 'APPROVED' || r.status === 'REJECTED' || r.status === 'COMPLETED'
+    );
+    const slotsFilled =
+      t.closeWhenSlotsFilled &&
+      t.winnerSlots &&
+      t.studentRecords.filter((r) => r.status === 'APPROVED').length >= t.winnerSlots;
+    return hasApprovedOrRejected || Boolean(slotsFilled);
+  }).length;
+
+  let totalAssignedStudents = 0;
+  let totalSubmissions = 0;
+  let pendingReviews = 0;
+  let approvedSubmissions = 0;
+  let rejectedSubmissions = 0;
+  let totalPointsDistributed = 0;
+  let totalCashDistributed = 0;
+
+  for (const t of allTasks) {
+    totalAssignedStudents += Math.max(t.assignments.length, t.studentRecords.length);
+    for (const r of t.studentRecords) {
+      if (r.status !== 'AVAILABLE') {
+        totalSubmissions++;
+      }
+      if (r.status === 'UNDER_REVIEW' || r.status === 'SUBMITTED') {
+        pendingReviews++;
+      }
+      if (r.status === 'APPROVED' || r.status === 'COMPLETED') {
+        approvedSubmissions++;
+        totalPointsDistributed += Number(r.awardedPoints) || 0;
+        totalCashDistributed += Number(r.awardedAmount) || 0;
+      }
+      if (r.status === 'REJECTED') {
+        rejectedSubmissions++;
+      }
+    }
+  }
+
+  return {
+    totalTasks,
+    draftTasks,
+    scheduledTasks,
+    activeTasks,
+    completedTasks,
+    closedTasks,
+    totalAssignedStudents,
+    totalSubmissions,
+    pendingReviews,
+    approvedSubmissions,
+    rejectedSubmissions,
+    totalPointsDistributed: Number(totalPointsDistributed.toFixed(2)),
+    totalCashDistributed: Number(totalCashDistributed.toFixed(2)),
+  };
 }
 
 /**
@@ -356,7 +504,7 @@ export async function getStudentTasks(studentId: string, classId: string) {
         OR: [
           { targetAudience: 'ALL' },
           { targetAudience: 'SPECIFIC_CLASS', targetClassId: classId },
-          { targetAudience: 'SPECIFIC_STUDENTS', assignments: { some: { studentId } } },
+          { assignments: { some: { studentId } } },
         ],
       },
       select: {
@@ -364,10 +512,35 @@ export async function getStudentTasks(studentId: string, classId: string) {
         taskId: true,
         title: true,
         description: true,
+        instructions: true,
         maxPoints: true,
         maxFund: true,
         startDate: true,
         endDate: true,
+        rewardMode: true,
+        rewardConfig: true,
+        winnerSlots: true,
+        closeWhenSlotsFilled: true,
+        submissionType: true,
+        studentRecords: {
+          select: {
+            id: true,
+            studentId: true,
+            status: true,
+            submittedAt: true,
+            approvedPercentage: true,
+            awardedPoints: true,
+            awardedAmount: true,
+            student: {
+              select: {
+                id: true,
+                fullName: true,
+                sprStudentId: true,
+              },
+            },
+          },
+          orderBy: { submittedAt: 'asc' },
+        },
       },
       orderBy: { endDate: 'asc' },
     }),
@@ -413,11 +586,187 @@ export async function getStudentTasks(studentId: string, classId: string) {
 
   const availableTasks = eligibleTasks.map((t) => {
     const record = recordByTaskId.get(t.id);
+
+    // Compute real-time submission tracking and telemetry
+    const allTaskSubmissions = (t.studentRecords || [])
+      .filter((r) => r.submittedAt !== null && r.status !== 'AVAILABLE' && r.status !== 'NOT_STARTED')
+      .sort((a, b) => new Date(a.submittedAt!).getTime() - new Date(b.submittedAt!).getTime());
+
+    const totalSubmissions = allTaskSubmissions.length;
+    const approvedSubmissions = (t.studentRecords || []).filter(
+      (r) => r.status === 'APPROVED' || r.status === 'COMPLETED'
+    );
+    const slotsOccupied = approvedSubmissions.length;
+    const winnerSlots = t.winnerSlots !== null && t.winnerSlots !== undefined ? Number(t.winnerSlots) : null;
+    const slotsRemaining = winnerSlots !== null ? Math.max(0, winnerSlots - slotsOccupied) : null;
+    const slotsPercentFilled = winnerSlots ? Math.min(100, Math.round((slotsOccupied / winnerSlots) * 100)) : 0;
+
+    // Current student's submission standing
+    const mySubIndex = allTaskSubmissions.findIndex((r) => r.studentId === studentId);
+    const myPosition = mySubIndex >= 0 ? mySubIndex + 1 : null;
+    const mySubRecord = mySubIndex >= 0 ? allTaskSubmissions[mySubIndex] : null;
+
+    // Leaderboard of first submissions
+    const leaderboard = allTaskSubmissions.slice(0, 10).map((r, idx) => ({
+      rank: idx + 1,
+      studentId: r.studentId,
+      studentName: r.student?.fullName || 'Student',
+      sprStudentId: r.student?.sprStudentId || '',
+      submittedAt: r.submittedAt ? r.submittedAt.toISOString() : '',
+      status: r.status,
+      awardedPoints: Number(r.awardedPoints) || 0,
+      awardedAmount: Number(r.awardedAmount) || 0,
+      isCurrentStudent: r.studentId === studentId,
+    }));
+
+    // Parse reward config
+    const rawConfig = typeof t.rewardConfig === 'string' ? JSON.parse(t.rewardConfig) : (t.rewardConfig || {});
+    const tiers: Array<{ rank: number; points: number; cash: number }> = Array.isArray(rawConfig.tiers)
+      ? rawConfig.tiers
+      : [];
+
+    // Calculate time elapsed / remaining for Time-Based early submission bonuses
+    const startMs = new Date(t.startDate).getTime();
+    const endMs = new Date(t.endDate).getTime();
+    const durationMs = Math.max(1, endMs - startMs);
+    const elapsedMs = Math.max(0, now.getTime() - startMs);
+    const remainingMs = Math.max(0, endMs - now.getTime());
+    const hoursRemaining = Math.max(0, Math.round(remainingMs / (1000 * 60 * 60)));
+
+    // Early bird bonus threshold: first 25% of task window (or at least 24 hours if duration is multi-day)
+    const earlyBirdWindowMs = Math.min(durationMs * 0.25, 24 * 60 * 60 * 1000);
+    const isEarlyBirdActive = elapsedMs <= earlyBirdWindowMs;
+    const earlyBirdHoursLeft = Math.max(0, Math.round((earlyBirdWindowMs - elapsedMs) / (1000 * 60 * 60)));
+
+    // Base amounts
+    const basePts = Number(t.maxPoints);
+    const baseFund = Number(t.maxFund);
+
+    // Estimated Reward calculation
+    let estimatedReward: {
+      tierRank?: number;
+      points: number;
+      cash: number;
+      tierName?: string;
+      speedBonusMultiplier?: number;
+      bonusLabel?: string;
+      notes?: string;
+    } | null = null;
+
+    let nextPotentialReward: {
+      tierRank: number;
+      points: number;
+      cash: number;
+      speedBonusMultiplier?: number;
+    } | null = null;
+
+    if (t.rewardMode === 'RANK_BASED') {
+      if (myPosition) {
+        const tier = tiers.find((tr) => tr.rank === myPosition) || (tiers.length > 0 ? tiers[tiers.length - 1] : { rank: myPosition, points: basePts, cash: baseFund });
+        estimatedReward = {
+          tierRank: myPosition,
+          points: Number(tier.points),
+          cash: Number(tier.cash),
+          tierName: `Rank #${myPosition} Tier Reward`,
+        };
+      }
+      const nextRank = totalSubmissions + 1;
+      const nextTier = tiers.find((tr) => tr.rank === nextRank) || (tiers.length > 0 ? tiers[tiers.length - 1] : { rank: nextRank, points: basePts, cash: baseFund });
+      nextPotentialReward = {
+        tierRank: nextRank,
+        points: Number(nextTier.points),
+        cash: Number(nextTier.cash),
+      };
+    } else if (t.rewardMode === 'TIME_BASED') {
+      let mult = isEarlyBirdActive ? 1.5 : 1.0;
+      if (mySubRecord?.submittedAt) {
+        const subElapsed = new Date(mySubRecord.submittedAt).getTime() - startMs;
+        mult = subElapsed <= earlyBirdWindowMs ? 1.5 : 1.0;
+      }
+      estimatedReward = {
+        points: Math.round(basePts * mult),
+        cash: Math.round((baseFund * mult + Number.EPSILON) * 100) / 100,
+        speedBonusMultiplier: mult,
+        bonusLabel: mult > 1 ? '+50% Early Bird Bonus' : 'Standard Rate',
+        notes: mult > 1 ? 'Early submission speed bonus applied' : 'Standard submission rate',
+      };
+      nextPotentialReward = {
+        tierRank: totalSubmissions + 1,
+        points: Math.round(basePts * (isEarlyBirdActive ? 1.5 : 1.0)),
+        cash: Math.round(((baseFund * (isEarlyBirdActive ? 1.5 : 1.0)) + Number.EPSILON) * 100) / 100,
+        speedBonusMultiplier: isEarlyBirdActive ? 1.5 : 1.0,
+      };
+    } else if (t.rewardMode === 'COMBINED') {
+      const pos = myPosition || (totalSubmissions + 1);
+      const tier = tiers.find((tr) => tr.rank === pos) || (tiers.length > 0 ? tiers[tiers.length - 1] : { rank: pos, points: basePts, cash: baseFund });
+      let mult = isEarlyBirdActive ? 1.25 : 1.0;
+      if (mySubRecord?.submittedAt) {
+        const subElapsed = new Date(mySubRecord.submittedAt).getTime() - startMs;
+        mult = subElapsed <= earlyBirdWindowMs ? 1.25 : 1.0;
+      }
+      estimatedReward = {
+        tierRank: pos,
+        points: Math.round(Number(tier.points) * mult),
+        cash: Math.round((Number(tier.cash) * mult + Number.EPSILON) * 100) / 100,
+        speedBonusMultiplier: mult,
+        bonusLabel: mult > 1 ? `Rank #${pos} + 25% Speed Boost` : `Rank #${pos} Standard`,
+        notes: `Combined Rank #${pos} Tier with ${mult}x speed multiplier`,
+      };
+      const nextRank = totalSubmissions + 1;
+      const nextTier = tiers.find((tr) => tr.rank === nextRank) || (tiers.length > 0 ? tiers[tiers.length - 1] : { rank: nextRank, points: basePts, cash: baseFund });
+      const nextMult = isEarlyBirdActive ? 1.25 : 1.0;
+      nextPotentialReward = {
+        tierRank: nextRank,
+        points: Math.round(Number(nextTier.points) * nextMult),
+        cash: Math.round((Number(nextTier.cash) * nextMult + Number.EPSILON) * 100) / 100,
+        speedBonusMultiplier: nextMult,
+      };
+    }
+
+    // Reward tiers list with claiming status
+    const rewardTiers = tiers.map((tr) => {
+      const claimer = allTaskSubmissions[tr.rank - 1];
+      return {
+        rank: tr.rank,
+        points: Number(tr.points),
+        cash: Number(tr.cash),
+        claimedBy: claimer ? claimer.student?.fullName : null,
+        claimedSprId: claimer ? claimer.student?.sprStudentId : null,
+        status: claimer ? ('CLAIMED' as const) : ('AVAILABLE' as const),
+      };
+    });
+
+    // Submission eligibility determination
+    let canSubmit = true;
+    let eligibilityReason = 'Eligible to submit completion report.';
+    if (record && (record.status === 'SUBMITTED' || record.status === 'UNDER_REVIEW')) {
+      canSubmit = false;
+      eligibilityReason = 'You have already submitted this task and it is currently under review.';
+    } else if (record && (record.status === 'APPROVED' || record.status === 'COMPLETED')) {
+      canSubmit = false;
+      eligibilityReason = 'Your submission has already been approved and rewarded.';
+    } else if (t.closeWhenSlotsFilled && winnerSlots && slotsOccupied >= winnerSlots) {
+      canSubmit = false;
+      eligibilityReason = `All ${winnerSlots} reward slots have been occupied. Submissions are closed.`;
+    } else if (now > new Date(t.endDate)) {
+      canSubmit = false;
+      eligibilityReason = 'Task deadline has expired.';
+    } else if (now < new Date(t.startDate)) {
+      canSubmit = false;
+      eligibilityReason = 'Task has not started yet.';
+    }
+
     return {
       id: t.id,
       taskId: t.taskId,
       title: t.title,
       description: t.description,
+      instructions: t.instructions,
+      rewardMode: t.rewardMode || 'EQUAL',
+      rewardConfig: t.rewardConfig,
+      winnerSlots: t.winnerSlots,
+      closeWhenSlotsFilled: t.closeWhenSlotsFilled,
+      submissionType: t.submissionType,
       maxPoints: Number(t.maxPoints),
       maxFund: Number(t.maxFund),
       startDate: t.startDate.toISOString(),
@@ -429,6 +778,29 @@ export async function getStudentTasks(studentId: string, classId: string) {
       approvedPercentage: record?.approvedPercentage ? Number(record.approvedPercentage) : null,
       awardedPoints: record ? Number(record.awardedPoints) : 0,
       awardedAmount: record ? Number(record.awardedAmount) : 0,
+      telemetry: {
+        rewardMode: t.rewardMode || 'EQUAL',
+        totalSubmissions,
+        slotsOccupied,
+        winnerSlots,
+        slotsRemaining,
+        slotsPercentFilled,
+        myPosition,
+        mySubmissionTime: mySubRecord?.submittedAt ? mySubRecord.submittedAt.toISOString() : null,
+        estimatedReward,
+        nextPotentialReward,
+        leaderboard,
+        rewardTiers,
+        timeBonusInfo: {
+          isEarlyBirdActive,
+          earlyBirdHoursLeft,
+          hoursRemaining,
+        },
+        eligibility: {
+          canSubmit,
+          reason: eligibilityReason,
+        },
+      },
     };
   });
 
@@ -633,14 +1005,77 @@ export async function adminApproveTaskCompletion(params: {
   if (!task) throw new Error('Task not found.');
   if (!student) throw new Error('Student record not found.');
 
-  // Exact calculations:
-  // Awarded Points = Maximum Task Points * Approved Percentage / 100
-  // Monetary Reward = Maximum Task Fund * Approved Percentage / 100
-  const maxPointsNum = Number(task.maxPoints);
-  const maxFundNum = Number(task.maxFund);
+  // Dynamic reward mode resolution:
+  let baseTargetPoints = Number(task.maxPoints);
+  let baseTargetFund = Number(task.maxFund);
 
-  const rawPoints = (maxPointsNum * percentage) / 100;
-  const rawReward = (maxFundNum * percentage) / 100;
+  const rawConfig = typeof task.rewardConfig === 'string' ? JSON.parse(task.rewardConfig) : (task.rewardConfig || {});
+  const tiers: Array<{ rank: number; points: number; cash: number }> = Array.isArray(rawConfig.tiers) ? rawConfig.tiers : [];
+
+  if (task.rewardMode === 'RANK_BASED' && tiers.length > 0) {
+    const existingRec = await prisma.studentTaskRecord.findUnique({
+      where: { taskId_studentId: { taskId, studentId } },
+    });
+    const subTime = existingRec?.submittedAt || new Date();
+    const earlierSubmissionsCount = await prisma.studentTaskRecord.count({
+      where: {
+        taskId,
+        studentId: { not: studentId },
+        submittedAt: { lt: subTime },
+        status: { in: ['SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'COMPLETED'] },
+      },
+    });
+    const subRank = earlierSubmissionsCount + 1;
+    const tier = tiers.find((tr) => tr.rank === subRank) || tiers[tiers.length - 1];
+    if (tier) {
+      baseTargetPoints = Number(tier.points);
+      baseTargetFund = Number(tier.cash);
+    }
+  } else if (task.rewardMode === 'TIME_BASED') {
+    const existingRec = await prisma.studentTaskRecord.findUnique({
+      where: { taskId_studentId: { taskId, studentId } },
+    });
+    const submissionTime = existingRec?.submittedAt || new Date();
+    const startMs = new Date(task.startDate).getTime();
+    const durationMs = Math.max(1, new Date(task.endDate).getTime() - startMs);
+    const earlyBirdWindowMs = Math.min(durationMs * 0.25, 24 * 60 * 60 * 1000);
+    const subElapsed = new Date(submissionTime).getTime() - startMs;
+    const mult = subElapsed <= earlyBirdWindowMs ? 1.5 : 1.0;
+    baseTargetPoints = Math.round(baseTargetPoints * mult);
+    baseTargetFund = Math.round((baseTargetFund * mult + Number.EPSILON) * 100) / 100;
+  } else if (task.rewardMode === 'COMBINED') {
+    const existingRec = await prisma.studentTaskRecord.findUnique({
+      where: { taskId_studentId: { taskId, studentId } },
+    });
+    const subTime = existingRec?.submittedAt || new Date();
+    const earlierSubmissionsCount = await prisma.studentTaskRecord.count({
+      where: {
+        taskId,
+        studentId: { not: studentId },
+        submittedAt: { lt: subTime },
+        status: { in: ['SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'COMPLETED'] },
+      },
+    });
+    const subRank = earlierSubmissionsCount + 1;
+    const tier = tiers.find((tr) => tr.rank === subRank) || (tiers.length > 0 ? tiers[tiers.length - 1] : null);
+    if (tier) {
+      baseTargetPoints = Number(tier.points);
+      baseTargetFund = Number(tier.cash);
+    }
+    const startMs = new Date(task.startDate).getTime();
+    const durationMs = Math.max(1, new Date(task.endDate).getTime() - startMs);
+    const earlyBirdWindowMs = Math.min(durationMs * 0.25, 24 * 60 * 60 * 1000);
+    const subElapsed = new Date(subTime).getTime() - startMs;
+    const mult = subElapsed <= earlyBirdWindowMs ? 1.25 : 1.0;
+    baseTargetPoints = Math.round(baseTargetPoints * mult);
+    baseTargetFund = Math.round((baseTargetFund * mult + Number.EPSILON) * 100) / 100;
+  }
+
+  // Exact calculations:
+  // Awarded Points = Base Target Points * Approved Percentage / 100
+  // Monetary Reward = Base Target Fund * Approved Percentage / 100
+  const rawPoints = (baseTargetPoints * percentage) / 100;
+  const rawReward = (baseTargetFund * percentage) / 100;
 
   const awardedPoints = Math.round((rawPoints + Number.EPSILON) * 100) / 100;
   const awardedReward = Math.round((rawReward + Number.EPSILON) * 100) / 100;
@@ -772,6 +1207,19 @@ export async function adminApproveTaskCompletion(params: {
             status: 'COMPLETED',
           },
         });
+      }
+
+      // Early closure when winner slots are filled (PART 17)
+      if (task.closeWhenSlotsFilled && task.winnerSlots) {
+        const approvedCount = await tx.studentTaskRecord.count({
+          where: { taskId, status: 'APPROVED' },
+        });
+        if (approvedCount >= task.winnerSlots) {
+          await tx.task.update({
+            where: { id: taskId },
+            data: { status: 'CLOSED' },
+          });
+        }
       }
 
       return {

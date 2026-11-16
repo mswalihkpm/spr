@@ -26,6 +26,9 @@ model User {
   createdTasks       Task[]              @relation("CreatedTasks")
   approvedTaskRecords StudentTaskRecord[] @relation("ApprovedTaskRecords")
   handledDeletionRequests AccountDeletionRequest[] @relation("HandledDeletionRequests")
+  profileCorrections ProfileCorrectionLog[] @relation("AdminCorrections")
+  savedFilters       StudentSavedFilter[]   @relation("SavedFilters")
+  briefNoteTemplates StudentBriefNoteTemplate[] @relation("BriefNoteTemplates")
 }
 
 model Session {
@@ -122,6 +125,21 @@ model Student {
   taskPointsLedgers  TaskPointsLedger[]
   deletionRequests   AccountDeletionRequest[]
   monthlyAttendances MonthlyAttendance[]
+
+  // Extended Profile from Questionnaire 1 (Personal & Family)
+  fatherName         String?
+  motherName         String?
+  houseName          String?
+  guardianPhone      String?
+  studentPhone       String?
+  studentEmail       String?
+  place              String?
+  district           String?
+  residentialStatus  String?
+  preferredContact   String?
+  isProfileLocked    Boolean                 @default(false)
+  profileCorrections ProfileCorrectionLog[]
+  questionnaireResponses QuestionnaireResponse[]
 
   @@index([classId])
   @@index([schoolId])
@@ -660,8 +678,16 @@ model Task {
   maxFund         Decimal             @db.Decimal(10, 2)
   startDate       DateTime
   endDate         DateTime
-  status          String              @default("PUBLISHED") // DRAFT, PUBLISHED, ARCHIVED
-  targetAudience  String              @default("ALL") // ALL, SPECIFIC_CLASS, SPECIFIC_STUDENTS
+  status          String              @default("PUBLISHED") // DRAFT, SCHEDULED, PUBLISHED, ARCHIVED, CLOSED
+  instructions    String?             @db.Text
+  targetAudience  String              @default("ALL") // ALL, SPECIFIC_CLASS, SPECIFIC_STUDENTS, QUESTIONNAIRE_GROUP
+  targetAudienceJson Json?
+  rewardMode      String              @default("EQUAL") // EQUAL, RANK_BASED, TIME_BASED, COMBINED
+  rewardConfig    Json?
+  closeWhenSlotsFilled Boolean           @default(false)
+  winnerSlots     Int?
+  approvalMode    String              @default("ADMIN_APPROVAL") // ADMIN_APPROVAL, AUTO_APPROVAL
+  submissionType  String              @default("LINK_ONLY") // LINK_ONLY
   targetClassId   String?
   targetClass     AcademicClass?      @relation(fields: [targetClassId], references: [id])
   createdById     String
@@ -815,6 +841,112 @@ model MonthlyAttendance {
   @@index([categoryCode, calendarType, year, month])
   @@index([calendarType, month, year])
   @@index([academicYearId])
+}
+
+model ProfileCorrectionLog {
+  id            String   @id @default(cuid())
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  adminId       String
+  admin         User     @relation("AdminCorrections", fields: [adminId], references: [id])
+  fieldName     String
+  previousValue String?
+  newValue      String?
+  reason        String?
+  createdAt     DateTime @default(now())
+
+  @@index([studentId])
+  @@index([adminId])
+  @@index([createdAt])
+}
+
+model Questionnaire {
+  id           String                  @id @default(cuid())
+  code         String                  @unique // PERSONAL_FAMILY, ISLAMIC_PROFILE, etc.
+  title        String
+  description  String                  @db.Text
+  category     String                  @default("GENERAL")
+  displayOrder Int                     @default(0)
+  isActive     Boolean                 @default(true)
+  version      Int                     @default(1)
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  questions    QuestionnaireQuestion[]
+  responses    QuestionnaireResponse[]
+
+  @@index([displayOrder])
+  @@index([isActive])
+}
+
+model QuestionnaireQuestion {
+  id                     String        @id @default(cuid())
+  questionId             String        // Stable question identifier (e.g. q1_father_name, etc.)
+  questionnaireId        String
+  questionnaire          Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  title                  String
+  description            String?       @db.Text
+  questionType           String        // SHORT_TEXT, SINGLE_SELECTION, MULTI_SELECTION, SEARCHABLE_SINGLE, SEARCHABLE_MULTI, RATING_SCALE, PHONE, EMAIL
+  isRequired             Boolean       @default(false)
+  displayOrder           Int           @default(0)
+  options                Json?         // Array of string options
+  conditionalParentId    String?       // questionId of parent question
+  conditionalMatchValue  String?       // Answer string required on parent
+  dynamicSource          String?       // ACADEMIC_SUBJECTS, PARENT_SELECTIONS:questionId
+  isArchived             Boolean       @default(false)
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  @@unique([questionnaireId, questionId])
+  @@index([questionnaireId])
+  @@index([displayOrder])
+}
+
+model QuestionnaireResponse {
+  id               String        @id @default(cuid())
+  studentId        String
+  student          Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  questionnaireId  String
+  questionnaire    Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  version          Int           @default(1)
+  status           String        @default("NOT_STARTED") // NOT_STARTED, IN_PROGRESS, READY_FOR_REVIEW, SUBMITTED, LOCKED
+  progressPercent  Float         @default(0.0)
+  answers          Json          // Key-value pairs: { [questionId]: value }
+  submittedAt      DateTime?
+  lastSavedAt      DateTime      @default(now())
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@unique([studentId, questionnaireId])
+  @@index([studentId])
+  @@index([questionnaireId])
+  @@index([status])
+}
+
+model StudentSavedFilter {
+  id          String   @id @default(cuid())
+  name        String
+  matchType   String   @default("ALL") // ALL (AND), ANY (OR)
+  criteria    Json     // Array of condition objects: [{ questionId, operator, value }]
+  createdById String
+  createdBy   User     @relation("SavedFilters", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([createdById])
+}
+
+model StudentBriefNoteTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  sections    Json     // Array of sections with titles and mapped questionIds
+  createdById String
+  createdBy   User     @relation("BriefNoteTemplates", fields: [createdById], references: [id])
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([createdById])
 }
 
 

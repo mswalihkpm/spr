@@ -28,6 +28,7 @@ import {
   Percent,
   TrendingUp,
   Trash2,
+  ArrowRight,
 } from 'lucide-react';
 
 interface TaskSummary {
@@ -108,24 +109,72 @@ interface AcademicClassItem {
 export default function AdminTasksPage() {
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
   const [classes, setClasses] = useState<AcademicClassItem[]>([]);
+  const [metrics, setMetrics] = useState({
+    totalTasks: 0,
+    draftTasks: 0,
+    scheduledTasks: 0,
+    activeTasks: 0,
+    completedTasks: 0,
+    closedTasks: 0,
+    totalAssignedStudents: 0,
+    totalSubmissions: 0,
+    pendingReviews: 0,
+    approvedSubmissions: 0,
+    rejectedSubmissions: 0,
+    totalPointsDistributed: 0,
+    totalCashDistributed: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'SCHEDULED' | 'EXPIRED' | 'DRAFT'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Create Task Modal
+  // Multi-Step Task Creation State (7 Steps)
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createStep, setCreateStep] = useState<number>(1);
   const [savingTask, setSavingTask] = useState(false);
   const [formData, setFormData] = useState({
+    // Step 1: Basic Information
     title: '',
     description: '',
-    maxPoints: '',
-    maxFund: '',
+    instructions: '',
+    category: 'ACADEMIC',
+    priority: 'NORMAL',
+    adminRemarks: '',
+
+    // Step 2: Target Audience
+    targetAudience: 'ALL',
+    selectedClassIds: [] as string[],
+    selectedStudentIds: [] as string[],
+    targetClassId: '',
+    questionnaireGroup: '',
+
+    // Step 3: Schedule
     startDate: '',
     endDate: '',
-    targetAudience: 'ALL',
-    targetClassId: '',
+    allowLateSubmission: false,
+
+    // Step 4: Submission Configuration
+    submissionType: 'LINK_ONLY', // Strict Link-only Google Drive / OneDrive
+    requiresTextResponse: true,
+
+    // Step 5: Approval Mode
+    approvalMode: 'ADMIN_APPROVAL',
+
+    // Step 6: Rewards
+    rewardMode: 'EQUAL',
+    maxPoints: '20',
+    maxFund: '10.00',
+    rankTiers: [
+      { rank: 1, points: 50, cash: 25 },
+      { rank: 2, points: 30, cash: 15 },
+      { rank: 3, points: 20, cash: 10 },
+    ],
+
+    // Step 7: Liability & Early Closure
+    closeWhenSlotsFilled: false,
+    winnerSlots: '',
     status: 'PUBLISHED',
   });
 
@@ -174,6 +223,7 @@ export default function AdminTasksPage() {
       if (!res.ok) throw new Error(data.error || 'Failed to fetch tasks.');
       setTasks(data.tasks || []);
       if (data.classes) setClasses(data.classes);
+      if (data.metrics) setMetrics(data.metrics);
     } catch (err: any) {
       console.error(err);
       setStatusMsg({ type: 'error', text: err.message || 'Error loading tasks.' });
@@ -260,27 +310,94 @@ export default function AdminTasksPage() {
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.title.trim()) {
+      setStatusMsg({ type: 'error', text: 'Task title is required.' });
+      setCreateStep(1);
+      return;
+    }
+    if (!formData.description.trim()) {
+      setStatusMsg({ type: 'error', text: 'Task description is required.' });
+      setCreateStep(1);
+      return;
+    }
+    if (!formData.startDate || !formData.endDate) {
+      setStatusMsg({ type: 'error', text: 'Start and end dates are required.' });
+      setCreateStep(3);
+      return;
+    }
+
     setSavingTask(true);
     setStatusMsg(null);
     try {
+      const payload: any = {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        instructions: formData.instructions.trim() || undefined,
+        category: formData.category,
+        priority: formData.priority,
+        maxPoints: parseFloat(formData.maxPoints) || 0,
+        maxFund: parseFloat(formData.maxFund) || 0,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        targetAudience: formData.targetAudience,
+        targetClassId: formData.targetClassId || undefined,
+        rewardMode: formData.rewardMode,
+        rewardConfig: formData.rewardMode === 'RANK_BASED' ? { tiers: formData.rankTiers } : undefined,
+        closeWhenSlotsFilled: formData.closeWhenSlotsFilled,
+        winnerSlots: formData.winnerSlots ? parseInt(formData.winnerSlots, 10) : null,
+        approvalMode: formData.approvalMode,
+        status: formData.status,
+      };
+
+      if (formData.targetAudience === 'SPECIFIC_CLASS') {
+        payload.targetAudienceJson = {
+          classIds: formData.selectedClassIds.length > 0 ? formData.selectedClassIds : [formData.targetClassId],
+        };
+      } else if (formData.targetAudience === 'QUESTIONNAIRE_GROUP') {
+        payload.targetAudienceJson = {
+          group: formData.questionnaireGroup,
+          optionKeywords: [formData.questionnaireGroup],
+        };
+      }
+
       const res = await fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create task.');
       setStatusMsg({ type: 'success', text: data.message || 'Task created successfully!' });
       setCreateModalOpen(false);
+      setCreateStep(1);
       setFormData({
         title: '',
         description: '',
-        maxPoints: '',
-        maxFund: '',
+        instructions: '',
+        category: 'ACADEMIC',
+        priority: 'NORMAL',
+        adminRemarks: '',
+        targetAudience: 'ALL',
+        selectedClassIds: [],
+        selectedStudentIds: [],
+        targetClassId: '',
+        questionnaireGroup: '',
         startDate: '',
         endDate: '',
-        targetAudience: 'ALL',
-        targetClassId: '',
+        allowLateSubmission: false,
+        submissionType: 'LINK_ONLY',
+        requiresTextResponse: true,
+        approvalMode: 'ADMIN_APPROVAL',
+        rewardMode: 'EQUAL',
+        maxPoints: '20',
+        maxFund: '10.00',
+        rankTiers: [
+          { rank: 1, points: 50, cash: 25 },
+          { rank: 2, points: 30, cash: 15 },
+          { rank: 3, points: 20, cash: 10 },
+        ],
+        closeWhenSlotsFilled: false,
+        winnerSlots: '',
         status: 'PUBLISHED',
       });
       await fetchTasks();
@@ -629,27 +746,60 @@ export default function AdminTasksPage() {
           </div>
         )}
 
-        {/* Metrics Banner */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
-          <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm">
+        {/* 13 Database-Driven Overview Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 sm:gap-3">
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Tasks</p>
-            <h3 className="text-2xl font-black text-slate-900 mt-0.5">{totalTasksCount}</h3>
+            <h3 className="text-xl font-black text-slate-900 mt-0.5">{metrics.totalTasks}</h3>
           </div>
-          <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Draft Tasks</p>
+            <h3 className="text-xl font-black text-slate-700 mt-0.5">{metrics.draftTasks}</h3>
+          </div>
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Scheduled</p>
+            <h3 className="text-xl font-black text-blue-700 mt-0.5">{metrics.scheduledTasks}</h3>
+          </div>
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs">
             <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Active Tasks</p>
-            <h3 className="text-2xl font-black text-emerald-700 mt-0.5">{activeTasksCount}</h3>
+            <h3 className="text-xl font-black text-emerald-700 mt-0.5">{metrics.activeTasks}</h3>
           </div>
-          <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+            <p className="text-[10px] font-bold text-teal-600 uppercase tracking-wider">Completed</p>
+            <h3 className="text-xl font-black text-teal-700 mt-0.5">{metrics.completedTasks}</h3>
+          </div>
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+            <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Closed</p>
+            <h3 className="text-xl font-black text-amber-700 mt-0.5">{metrics.closedTasks}</h3>
+          </div>
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+            <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Assigned</p>
+            <h3 className="text-xl font-black text-indigo-700 mt-0.5">{metrics.totalAssignedStudents}</h3>
+          </div>
+
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Submissions</p>
+            <h3 className="text-xl font-black text-slate-800 mt-0.5">{metrics.totalSubmissions}</h3>
+          </div>
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs">
             <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Pending Reviews</p>
-            <h3 className="text-2xl font-black text-amber-700 mt-0.5">{pendingReviewsCount}</h3>
+            <h3 className="text-xl font-black text-amber-700 mt-0.5">{metrics.pendingReviews}</h3>
           </div>
-          <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm">
-            <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Points Awarded</p>
-            <h3 className="text-2xl font-black text-indigo-700 mt-0.5">+{totalPointsAwardedOverall}</h3>
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Approved</p>
+            <h3 className="text-xl font-black text-emerald-700 mt-0.5">{metrics.approvedSubmissions}</h3>
           </div>
-          <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm col-span-2 sm:col-span-1">
-            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Cash Issued</p>
-            <h3 className="text-2xl font-black text-emerald-700 mt-0.5">₹{totalRewardsIssuedOverall.toFixed(2)}</h3>
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+            <p className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Rejected</p>
+            <h3 className="text-xl font-black text-rose-700 mt-0.5">{metrics.rejectedSubmissions}</h3>
+          </div>
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs sm:col-span-2">
+            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Points Distributed</p>
+            <h3 className="text-xl font-black text-blue-700 mt-0.5">+{metrics.totalPointsDistributed} pts</h3>
+          </div>
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs sm:col-span-2 lg:col-span-1">
+            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Cash Distributed</p>
+            <h3 className="text-xl font-black text-emerald-700 mt-0.5">₹{metrics.totalCashDistributed.toFixed(2)}</h3>
           </div>
         </div>
 
@@ -1407,188 +1557,615 @@ export default function AdminTasksPage() {
           </div>
         )}
 
-        {/* Create Task Modal */}
+        {/* =========================================================================
+            MULTI-STEP TASK CREATION MODAL (7 STEPS WIZARD)
+            ========================================================================= */}
         {createModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-            <div className="relative w-full max-w-xl max-h-[90vh] flex flex-col rounded-3xl bg-white border border-slate-200 shadow-2xl overflow-hidden">
-              <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                <h3 className="text-lg font-black text-slate-900 flex items-center space-x-2">
-                  <Plus className="w-5 h-5 text-emerald-600" />
-                  <span>Create New Task</span>
-                </h3>
+            <div className="relative w-full max-w-2xl max-h-[92vh] flex flex-col rounded-3xl bg-white border border-slate-200 shadow-2xl overflow-hidden">
+              {/* Modal Header */}
+              <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                    <Plus className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900 leading-tight">
+                      Create Institutional Task
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      Step {createStep} of 7: {
+                        createStep === 1 ? 'Basic Information & Instructions' :
+                        createStep === 2 ? 'Target Audience & Student Selection' :
+                        createStep === 3 ? 'Schedule, Window & Deadlines' :
+                        createStep === 4 ? 'Submission Configuration (Strict Link-Only)' :
+                        createStep === 5 ? 'Approval & Verification Mode' :
+                        createStep === 6 ? 'Reward Distribution Configuration' :
+                        'Liability Preview & Final Publication'
+                      }
+                    </p>
+                  </div>
+                </div>
                 <button
                   onClick={() => setCreateModalOpen(false)}
-                  className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-800"
+                  className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <form onSubmit={handleCreateTask} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-800">
-                    Task Title <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    placeholder="e.g. Science Fair Project Submission 2026"
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
+              {/* Step Navigation Pill Indicator */}
+              <div className="px-5 py-2.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-xs overflow-x-auto">
+                {[1, 2, 3, 4, 5, 6, 7].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setCreateStep(s)}
+                    className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all ${
+                      createStep === s
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : createStep > s
+                        ? 'text-emerald-800 bg-emerald-100/70'
+                        : 'text-slate-400 hover:text-slate-700'
+                    }`}
+                  >
+                    <span className="w-4 h-4 rounded-full border flex items-center justify-center text-[10px] font-mono">
+                      {s}
+                    </span>
+                    <span className="hidden sm:inline">
+                      {s === 1 ? 'Details' : s === 2 ? 'Audience' : s === 3 ? 'Schedule' : s === 4 ? 'Submissions' : s === 5 ? 'Approval' : s === 6 ? 'Rewards' : 'Preview'}
+                    </span>
+                  </button>
+                ))}
+              </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-800">
-                    Task Description / Body <span className="text-rose-500">*</span>
-                  </label>
-                  <textarea
-                    required
-                    rows={4}
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Provide full task details, requirements, submission instructions, and deliverables..."
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-emerald-500 resize-none"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-800">
-                      Maximum Points <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      required
-                      value={formData.maxPoints}
-                      onChange={(e) => setFormData({ ...formData, maxPoints: e.target.value })}
-                      placeholder="e.g. 20"
-                      className="w-full p-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-800">
-                      Maximum Fund / Reward (INR ₹) <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      required
-                      value={formData.maxFund}
-                      onChange={(e) => setFormData({ ...formData, maxFund: e.target.value })}
-                      placeholder="e.g. 10.00"
-                      className="w-full p-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-800">
-                      Start Date <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      value={formData.startDate}
-                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-emerald-500"
-                    />
-                    <p className="text-[10px] text-slate-400">Interpreted in Asia/Kolkata timezone</p>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-800">
-                      End Date (Inclusive) <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      value={formData.endDate}
-                      onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-emerald-500"
-                    />
-                    <p className="text-[10px] text-slate-400">Valid until 23:59:59 IST of this date</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-800">Target Audience</label>
-                    <select
-                      value={formData.targetAudience}
-                      onChange={(e) => setFormData({ ...formData, targetAudience: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 bg-white focus:outline-none focus:border-emerald-500"
-                    >
-                      <option value="ALL">All Eligible Students</option>
-                      <option value="SPECIFIC_CLASS">Specific Academic Class</option>
-                      <option value="SPECIFIC_STUDENTS">Selected Students</option>
-                    </select>
-                  </div>
-
-                  {formData.targetAudience === 'SPECIFIC_CLASS' ? (
+              {/* Step Body */}
+              <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 text-xs">
+                {/* STEP 1: Basic Information */}
+                {createStep === 1 && (
+                  <div className="space-y-4 animate-fade-in">
                     <div className="space-y-1">
-                      <label className="text-xs font-bold text-slate-800">Select Class</label>
-                      <select
-                        value={formData.targetClassId}
-                        onChange={(e) => setFormData({ ...formData, targetClassId: e.target.value })}
-                        className="w-full p-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 bg-white focus:outline-none focus:border-emerald-500"
-                      >
-                        <option value="">Choose Class...</option>
-                        {classes.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
+                      <label className="font-bold text-slate-800">
+                        Task Title <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.title}
+                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                        placeholder="e.g. Science Fair Research Project 2026"
+                        className="w-full p-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-emerald-500 font-medium"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="font-bold text-slate-800">Category Wing</label>
+                        <select
+                          value={formData.category}
+                          onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                          className="w-full p-2.5 rounded-xl border border-slate-300 bg-white text-slate-900"
+                        >
+                          <option value="ACADEMIC">Academic Studies</option>
+                          <option value="CO_CURRICULAR">Co-Curricular & Stage</option>
+                          <option value="SOCIAL">Social Service & Campus Life</option>
+                          <option value="INSTITUTIONAL">Institutional Missions</option>
+                          <option value="LEADERSHIP">Leadership & Initiative</option>
+                          <option value="CREATIVE">Creative & Literary</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="font-bold text-slate-800">Priority Level</label>
+                        <select
+                          value={formData.priority}
+                          onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                          className="w-full p-2.5 rounded-xl border border-slate-300 bg-white text-slate-900"
+                        >
+                          <option value="LOW">Low</option>
+                          <option value="NORMAL">Normal</option>
+                          <option value="HIGH">High (Urgent)</option>
+                          <option value="CRITICAL">Critical Institutional Priority</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="font-bold text-slate-800">
+                        Task Brief &amp; Objective <span className="text-rose-500">*</span>
+                      </label>
+                      <textarea
+                        required
+                        rows={3}
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        placeholder="Explain the background, core objectives, and required outcomes of this task..."
+                        className="w-full p-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-emerald-500 resize-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="font-bold text-slate-800">
+                        Detailed Student Instructions &amp; Submission Guidelines
+                      </label>
+                      <textarea
+                        rows={4}
+                        value={formData.instructions}
+                        onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
+                        placeholder="Step-by-step instructions: How to structure the report, Google Drive folder link sharing guidelines, required references..."
+                        className="w-full p-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-emerald-500 resize-none font-mono"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="font-bold text-slate-700">Internal Admin Remarks (Optional)</label>
+                      <input
+                        type="text"
+                        value={formData.adminRemarks}
+                        onChange={(e) => setFormData({ ...formData, adminRemarks: e.target.value })}
+                        placeholder="Internal notes for faculty evaluators..."
+                        className="w-full p-2 rounded-xl border border-slate-300 bg-slate-50 text-slate-900"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 2: Target Audience */}
+                {createStep === 2 && (
+                  <div className="space-y-4 animate-fade-in">
+                    <div>
+                      <label className="font-bold text-slate-800 block mb-1">Select Targeting Strategy</label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {[
+                          { id: 'ALL', title: 'Target Type A: All Students', desc: 'Enrolls all eligible students across all classes' },
+                          { id: 'SPECIFIC_CLASS', title: 'Target Type B: Specific Classes', desc: 'Assigns to selected class cohorts' },
+                          { id: 'SPECIFIC_STUDENTS', title: 'Target Type C: Individual Students', desc: 'Custom pick specific students by name / SPR ID' },
+                          { id: 'QUESTIONNAIRE_GROUP', title: 'Target Type D: Intelligence Groups', desc: 'Dynamic group based on questionnaire responses' },
+                        ].map((m) => (
+                          <div
+                            key={m.id}
+                            onClick={() => setFormData({ ...formData, targetAudience: m.id })}
+                            className={`p-3 rounded-2xl border transition-all cursor-pointer ${
+                              formData.targetAudience === m.id
+                                ? 'bg-emerald-50 border-emerald-500 shadow-2xs font-bold text-emerald-950'
+                                : 'bg-slate-50/70 border-slate-200 hover:bg-white text-slate-700'
+                            }`}
+                          >
+                            <div className="text-xs font-bold">{m.title}</div>
+                            <div className="text-[10.5px] text-slate-500 mt-0.5">{m.desc}</div>
+                          </div>
                         ))}
-                      </select>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-slate-800">Publication Status</label>
-                      <select
-                        value={formData.status}
-                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                        className="w-full p-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 bg-white focus:outline-none focus:border-emerald-500"
-                      >
-                        <option value="PUBLISHED">Published</option>
-                        <option value="DRAFT">Draft</option>
-                      </select>
-                    </div>
-                  )}
-                </div>
 
-                <div className="pt-4 border-t border-slate-100 flex items-center justify-end space-x-2">
+                    {/* Class Selector for SPECIFIC_CLASS */}
+                    {formData.targetAudience === 'SPECIFIC_CLASS' && (
+                      <div className="space-y-2 p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                        <label className="font-bold text-slate-800 block">Select Target Academic Classes</label>
+                        <div className="flex flex-wrap gap-2">
+                          {classes.map((c) => {
+                            const isSelected = formData.selectedClassIds.includes(c.id) || formData.targetClassId === c.id;
+                            return (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => {
+                                  const updated = isSelected
+                                    ? formData.selectedClassIds.filter((id) => id !== c.id)
+                                    : [...formData.selectedClassIds, c.id];
+                                  setFormData({
+                                    ...formData,
+                                    selectedClassIds: updated,
+                                    targetClassId: updated[0] || '',
+                                  });
+                                }}
+                                className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition flex items-center space-x-1.5 ${
+                                  isSelected
+                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                                }`}
+                              >
+                                <span>{c.name}</span>
+                                {isSelected && <Check className="w-3.5 h-3.5" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Questionnaire Target Group */}
+                    {formData.targetAudience === 'QUESTIONNAIRE_GROUP' && (
+                      <div className="space-y-2 p-3.5 rounded-2xl bg-purple-50/60 border border-purple-200">
+                        <label className="font-bold text-purple-900 block">Select Intelligence Group</label>
+                        <select
+                          value={formData.questionnaireGroup}
+                          onChange={(e) => setFormData({ ...formData, questionnaireGroup: e.target.value })}
+                          className="w-full p-2.5 rounded-xl border border-purple-300 bg-white text-slate-900"
+                        >
+                          <option value="">Choose Dynamic Group...</option>
+                          <option value="Biology & Medical Enthusiasts">Biology &amp; Medical Enthusiasts (NEET)</option>
+                          <option value="German Language Enthusiasts">German Language Enthusiasts</option>
+                          <option value="Public Speaking & Debate">Public Speaking &amp; Debate Members</option>
+                          <option value="Civil Services & Leadership">Civil Services &amp; Leadership Aspirants</option>
+                          <option value="Arts, Calligraphy & Graphic Design">Arts, Calligraphy &amp; Design Group</option>
+                          <option value="IT & Computer Science">IT &amp; Computer Science Enthusiasts</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* STEP 3: Schedule & Deadlines */}
+                {createStep === 3 && (
+                  <div className="space-y-4 animate-fade-in">
+                    <div className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200 text-blue-900 space-y-1">
+                      <div className="font-bold flex items-center space-x-1.5">
+                        <Calendar className="w-4 h-4 text-blue-600" />
+                        <span>Asia/Kolkata Institutional Timezone Enforcement</span>
+                      </div>
+                      <p className="text-[11px] text-blue-700">
+                        Tasks automatically transition to SCHEDULED before Start Date, ACTIVE during the window, and EXPIRED after 23:59:59 IST of End Date.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="font-bold text-slate-800">
+                          Start Date (Opening) <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={formData.startDate}
+                          onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                          className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-900"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="font-bold text-slate-800">
+                          End Date (Deadline) <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={formData.endDate}
+                          onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                          className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-900"
+                        />
+                      </div>
+                    </div>
+
+                    <label className="flex items-center space-x-2 pt-2 text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.allowLateSubmission}
+                        onChange={(e) => setFormData({ ...formData, allowLateSubmission: e.target.checked })}
+                        className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span className="font-semibold">Allow post-deadline late submissions (marked with late tag)</span>
+                    </label>
+                  </div>
+                )}
+
+                {/* STEP 4: Submission Configuration */}
+                {createStep === 4 && (
+                  <div className="space-y-4 animate-fade-in">
+                    <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 space-y-2">
+                      <div className="font-extrabold text-xs flex items-center space-x-1.5 uppercase tracking-wider text-amber-900">
+                        <ShieldCheck className="w-4 h-4 text-amber-700" />
+                        <span>Institutional Cloud Link Policy (Zero Local Uploads)</span>
+                      </div>
+                      <p className="text-[11px] leading-relaxed text-amber-900/90">
+                        <strong>Absolute Restriction:</strong> To protect server storage and adhere to institutional cybersecurity guidelines, students submit verifiable links (Google Drive, OneDrive, GitHub, or institutional cloud storage). Direct binary file upload controls are permanently suppressed.
+                      </p>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                      <label className="flex items-center space-x-2 text-slate-800 cursor-pointer font-bold">
+                        <input
+                          type="checkbox"
+                          checked={formData.requiresTextResponse}
+                          onChange={(e) => setFormData({ ...formData, requiresTextResponse: e.target.checked })}
+                          className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <span>Require Student Written Reflection / Methodology Notes</span>
+                      </label>
+                      <p className="text-[11px] text-slate-500 pl-6">
+                        Students must provide a concise paragraph explaining their findings alongside the submission link.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 5: Approval & Verification Mode */}
+                {createStep === 5 && (
+                  <div className="space-y-4 animate-fade-in">
+                    <label className="font-bold text-slate-800 block">Select Verification Protocol</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div
+                        onClick={() => setFormData({ ...formData, approvalMode: 'ADMIN_APPROVAL' })}
+                        className={`p-4 rounded-2xl border transition cursor-pointer ${
+                          formData.approvalMode === 'ADMIN_APPROVAL'
+                            ? 'bg-emerald-50 border-emerald-500 shadow-2xs font-bold text-emerald-950'
+                            : 'bg-slate-50 border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        <div className="text-xs font-black">Faculty / Admin Review Required (Default)</div>
+                        <p className="text-[11px] text-slate-500 mt-1">
+                          Submissions enter &ldquo;UNDER_REVIEW&rdquo;. Rewards and SPR points are credited only after administrator manual inspection.
+                        </p>
+                      </div>
+
+                      <div
+                        onClick={() => setFormData({ ...formData, approvalMode: 'AUTOMATIC' })}
+                        className={`p-4 rounded-2xl border transition cursor-pointer ${
+                          formData.approvalMode === 'AUTOMATIC'
+                            ? 'bg-blue-50 border-blue-500 shadow-2xs font-bold text-blue-950'
+                            : 'bg-slate-50 border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        <div className="text-xs font-black">Automatic Instant Credit</div>
+                        <p className="text-[11px] text-slate-500 mt-1">
+                          Instantly approves submission and credits wallet & SPR points upon valid URL verification.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 6: Rewards Configuration */}
+                {createStep === 6 && (
+                  <div className="space-y-4 animate-fade-in">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="font-bold text-slate-800">Maximum Points per Winner</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          required
+                          value={formData.maxPoints}
+                          onChange={(e) => setFormData({ ...formData, maxPoints: e.target.value })}
+                          className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-900 font-mono"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="font-bold text-slate-800">Maximum Monetary Reward (INR ₹)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          required
+                          value={formData.maxFund}
+                          onChange={(e) => setFormData({ ...formData, maxFund: e.target.value })}
+                          className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-900 font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="font-bold text-slate-800">Reward Mode</label>
+                      <select
+                        value={formData.rewardMode}
+                        onChange={(e) => setFormData({ ...formData, rewardMode: e.target.value })}
+                        className="w-full p-2.5 rounded-xl border border-slate-300 bg-white text-slate-900"
+                      >
+                        <option value="EQUAL">Mode 1: Equal Distribution (All approved receive identical rewards)</option>
+                        <option value="RANK_BASED">Mode 2: Rank-Based Multi-Tier Distribution</option>
+                        <option value="TIME_BASED">Mode 3: Time-Based (Early submission speed bonuses)</option>
+                        <option value="COMBINED">Mode 4: Combined Multipliers</option>
+                      </select>
+                    </div>
+
+                    {formData.rewardMode === 'RANK_BASED' && (
+                      <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-2.5">
+                        <div className="flex items-center justify-between font-bold text-amber-950">
+                          <span>Rank Tier Reward Distribution</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const nextRank = formData.rankTiers.length + 1;
+                              setFormData({
+                                ...formData,
+                                rankTiers: [...formData.rankTiers, { rank: nextRank, points: 10, cash: 5 }],
+                              });
+                            }}
+                            className="text-[11px] text-amber-800 hover:text-amber-950 font-bold underline"
+                          >
+                            + Add Rank Tier
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {formData.rankTiers.map((tier, tIdx) => (
+                            <div key={tier.rank} className="flex items-center space-x-2">
+                              <span className="w-14 font-mono font-bold text-slate-700">Rank #{tier.rank}</span>
+                              <input
+                                type="number"
+                                placeholder="Points"
+                                value={tier.points}
+                                onChange={(e) => {
+                                  const updated = [...formData.rankTiers];
+                                  updated[tIdx].points = parseFloat(e.target.value) || 0;
+                                  setFormData({ ...formData, rankTiers: updated });
+                                }}
+                                className="w-24 p-1.5 rounded-lg border border-slate-300 text-xs text-center font-mono"
+                              />
+                              <span className="text-[11px] text-slate-400">pts</span>
+                              <input
+                                type="number"
+                                placeholder="Cash ₹"
+                                value={tier.cash}
+                                onChange={(e) => {
+                                  const updated = [...formData.rankTiers];
+                                  updated[tIdx].cash = parseFloat(e.target.value) || 0;
+                                  setFormData({ ...formData, rankTiers: updated });
+                                }}
+                                className="w-24 p-1.5 rounded-lg border border-slate-300 text-xs text-center font-mono"
+                              />
+                              <span className="text-[11px] text-slate-400">₹</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* STEP 7: Liability & Publication Preview */}
+                {createStep === 7 && (
+                  <div className="space-y-4 animate-fade-in">
+                    {/* Live Budget & Liability Preview */}
+                    <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-900 to-slate-900 text-white space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+                          Institutional Liability &amp; Budget Preview
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-white/20 text-[10px] font-mono">
+                          {formData.rewardMode} Mode
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 pt-1">
+                        <div>
+                          <span className="text-[10px] text-emerald-200 uppercase">Max Potential Cash Liability</span>
+                          <div className="text-xl font-black text-amber-300 font-mono mt-0.5">
+                            ₹{(
+                              (formData.closeWhenSlotsFilled && formData.winnerSlots
+                                ? parseInt(formData.winnerSlots, 10)
+                                : formData.targetAudience === 'SPECIFIC_CLASS'
+                                ? 30
+                                : 110) * (parseFloat(formData.maxFund) || 0)
+                            ).toFixed(2)}
+                          </div>
+                        </div>
+
+                        <div>
+                          <span className="text-[10px] text-emerald-200 uppercase">Max Potential Points Liability</span>
+                          <div className="text-xl font-black text-white font-mono mt-0.5">
+                            {(
+                              (formData.closeWhenSlotsFilled && formData.winnerSlots
+                                ? parseInt(formData.winnerSlots, 10)
+                                : formData.targetAudience === 'SPECIFIC_CLASS'
+                                ? 30
+                                : 110) * (parseFloat(formData.maxPoints) || 0)
+                            ).toFixed(0)} pts
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Early Task Closure Cap */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                      <label className="flex items-center space-x-2 text-slate-800 cursor-pointer font-bold">
+                        <input
+                          type="checkbox"
+                          checked={formData.closeWhenSlotsFilled}
+                          onChange={(e) => setFormData({ ...formData, closeWhenSlotsFilled: e.target.checked })}
+                          className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <span>Cap Winner Slots (Early Closure Policy)</span>
+                      </label>
+                      {formData.closeWhenSlotsFilled && (
+                        <div className="flex items-center space-x-2 pl-6">
+                          <span className="text-slate-600">Close automatically after</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="500"
+                            placeholder="e.g. 5"
+                            value={formData.winnerSlots}
+                            onChange={(e) => setFormData({ ...formData, winnerSlots: e.target.value })}
+                            className="w-20 p-1 rounded-lg border border-slate-300 text-center font-mono font-bold"
+                          />
+                          <span className="text-slate-600">approved winners</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Publication Mode */}
+                    <div className="flex items-center space-x-3 pt-2">
+                      <label className="font-bold text-slate-700">Initial Status:</label>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, status: 'PUBLISHED' })}
+                        className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition ${
+                          formData.status === 'PUBLISHED'
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                            : 'bg-white text-slate-600 border-slate-200'
+                        }`}
+                      >
+                        Publish Immediately
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, status: 'DRAFT' })}
+                        className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition ${
+                          formData.status === 'DRAFT'
+                            ? 'bg-slate-800 text-white border-slate-800 shadow-2xs'
+                            : 'bg-white text-slate-600 border-slate-200'
+                        }`}
+                      >
+                        Save as Draft
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer Controls */}
+              <div className="p-4 sm:p-5 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+                <button
+                  type="button"
+                  disabled={createStep === 1}
+                  onClick={() => setCreateStep((prev) => Math.max(1, prev - 1))}
+                  className="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs disabled:opacity-40 transition cursor-pointer"
+                >
+                  ← Back
+                </button>
+
+                <div className="flex items-center space-x-2">
                   <button
                     type="button"
                     onClick={() => setCreateModalOpen(false)}
-                    className="px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs"
+                    className="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs transition cursor-pointer"
                   >
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    disabled={savingTask}
-                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-md transition-all flex items-center space-x-1.5"
-                  >
-                    {savingTask ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        <span>Saving Task...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-4 h-4" />
-                        <span>Create & Save Task</span>
-                      </>
-                    )}
-                  </button>
+
+                  {createStep < 7 ? (
+                    <button
+                      type="button"
+                      onClick={() => setCreateStep((prev) => Math.min(7, prev + 1))}
+                      className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md transition flex items-center space-x-1 cursor-pointer"
+                    >
+                      <span>Continue</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleCreateTask}
+                      disabled={savingTask}
+                      className="px-6 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-md transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      {savingTask ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Saving Task...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4" />
+                          <span>{formData.status === 'PUBLISHED' ? 'Publish Task' : 'Save Draft'}</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
-              </form>
+              </div>
             </div>
           </div>
         )}

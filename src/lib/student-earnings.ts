@@ -3,8 +3,23 @@ import { prisma } from './prisma';
 import { CategoryEarningItem, WalletSummary, StoreFundSummary } from '@/types';
 import { getCachedSettings } from './spr-engine';
 
-// Default Planned Earnings Start Date: November 1, 2026
-export const DEFAULT_ELIGIBILITY_START_DATE = '2026-11-01T00:00:00.000Z';
+// Default Planned Earnings Start Date: November 1, 2026 00:00:00 IST (2026-10-31T18:30:00.000Z UTC)
+export const DEFAULT_ELIGIBILITY_START_DATE = '2026-10-31T18:30:00.000Z';
+
+// Authoritative list of categories permitted to generate cash earnings
+export const ALLOWED_CASH_CATEGORY_CODES = new Set([
+  'ISLAMIC',
+  'SCHOOL',
+  'QUALIFICATION',
+  'CREATIVE_HUB',
+  'LIBRARY',
+  'KUTHBKHANA',
+  'LITERARY',
+  'PROGRAMS',
+  'COMPETITIONS',
+  'TASKS',
+  'FIELD_COLLECTION',
+]);
 
 /**
  * Retrieves the configured eligibility start date from SystemSettings or fallback.
@@ -137,6 +152,8 @@ export async function syncStudentEarnings(studentId: string): Promise<{
       },
       include: {
         category: true,
+        subcategory: true,
+        exam: true,
       },
     });
 
@@ -175,6 +192,7 @@ export async function syncStudentEarnings(studentId: string): Promise<{
 
     const categoryBreakdown: CategoryEarningItem[] = [];
     let netNewWalletCredit = new Prisma.Decimal(0);
+    const processedLedgerIds = new Set<string>();
 
     const applyEarningItem = async ({
       sourceRecordId,
@@ -199,6 +217,9 @@ export async function syncStudentEarnings(studentId: string): Promise<{
     }) => {
       const earnedAmount = calculateCategoryEarnings(points, multiplier);
       const existingEntry = ledgerBySourceId.get(sourceRecordId) || ledgerBySourceId.get(reference);
+      if (existingEntry) {
+        processedLedgerIds.add(existingEntry.id);
+      }
 
       if (earnedAmount <= 0) {
         // If earned amount is zero and there was previously recognized earning, adjust down to 0
@@ -356,24 +377,27 @@ export async function syncStudentEarnings(studentId: string): Promise<{
 
       let catRecords = performanceRecords.filter((r) => r.categoryId === cat.id);
       if (isLibraryCat) {
-        // In student wallet, value Kuthbkhana records (subcategoryId cmtx_sub_kuthbkhana or remarks)
+        // User rule: Only credit cash to Kuthbkhana subcategory in the main category of Library and Reading.
+        // Not credit for Imthiyaaz library or other non-Kuthbkhana entries.
         catRecords = catRecords.filter(
           (r) =>
             r.subcategoryId === 'cmtx_sub_kuthbkhana' ||
             (r.remarks && (r.remarks.includes('[Muthala]') || r.remarks.includes('[Point picking]') || r.remarks.toLowerCase().includes('kuthbkhana'))) ||
-            !r.subcategoryId
+            (r.subcategory && (r.subcategory.name?.toLowerCase().includes('kuthbkhana') || r.subcategory.code?.toLowerCase().includes('kuthbkhana')))
         );
       }
 
       let eligiblePointsSum = 0;
       let categoryEarningsSum = 0;
+      const isAllowedCashCategory = ALLOWED_CASH_CATEGORY_CODES.has(cat.code) || isLibraryCat;
 
       // 1. Creative Hub Submissions (for CREATIVE_HUB category)
-      if (cat.code === 'CREATIVE_HUB') {
+      if (cat.code === 'CREATIVE_HUB' && isAllowedCashCategory) {
         for (const sub of creativeHubSubmissions) {
-          const recordDate = new Date(sub.date);
-          const recordCreatedAt = new Date(sub.createdAt);
-          const isEligible = recordDate >= eligibilityStartDate || recordCreatedAt >= eligibilityStartDate;
+          const subDate = sub.date ? new Date(sub.date) : null;
+          const subCreatedAt = new Date(sub.createdAt);
+          const isEligible = (subDate && subDate >= eligibilityStartDate) || (subCreatedAt >= eligibilityStartDate);
+          const recordDate = (subDate && subDate >= eligibilityStartDate) ? subDate : subCreatedAt;
 
           if (isEligible) {
             const points = sub.score || 0;
@@ -383,7 +407,7 @@ export async function syncStudentEarnings(studentId: string): Promise<{
                 sourceRecordId: sub.id,
                 reference: `ERN-CH-${sub.id}`,
                 sourceType: 'CREATIVE_HUB_SUBMISSION',
-                activityDate: recordCreatedAt >= eligibilityStartDate ? recordCreatedAt : recordDate,
+                activityDate: recordDate,
                 points,
                 multiplier,
                 metadata: {
@@ -402,21 +426,20 @@ export async function syncStudentEarnings(studentId: string): Promise<{
       }
 
       // 2. Monthly Attendance Records (for ISLAMIC and SCHOOL)
-      if (cat.code === 'ISLAMIC' || cat.code === 'SCHOOL') {
+      if ((cat.code === 'ISLAMIC' || cat.code === 'SCHOOL') && isAllowedCashCategory) {
         const catAttendances = monthlyAttendances.filter((a) => a.categoryCode === cat.code);
         for (const att of catAttendances) {
-          // Explicit exclusion: September attendance was a historical/trial pre-November evaluation, non-cash
-          const isSeptember = att.month === 9 || att.monthName?.toLowerCase().includes('september');
-          if (isSeptember) continue;
+          // Cash rule: Strictly for records on or after November 1st, plus explicit credit for Muhammed Luqman V October attendance
+          const attDate = new Date(Date.UTC(att.year, att.month - 1, 1));
+          const attCreatedAt = new Date(att.createdAt);
+          const isLuqmanOct = att.studentId === 'cmtorfds8002r7v89r0121zat' && att.month === 10 && att.year === 2026;
+          const isEligible = attDate >= eligibilityStartDate || attCreatedAt >= eligibilityStartDate || isLuqmanOct;
+          const activityDate = (attDate >= eligibilityStartDate) ? attDate : attCreatedAt;
 
           // Attendance cash rule: out of mark is 20; credit cash only if rewarded with 15 or more points (>= 15 pts)
           const rawPoints = att.points || 0;
           const meetsAttendanceThreshold = rawPoints >= 15;
-          const cashPoints = meetsAttendanceThreshold ? rawPoints : 0;
-
-          const attDate = new Date(att.year, att.month - 1, 1);
-          const attCreatedAt = new Date(att.createdAt);
-          const isEligible = attCreatedAt >= eligibilityStartDate || attDate >= eligibilityStartDate;
+          const cashPoints = (isEligible && meetsAttendanceThreshold) ? rawPoints : 0;
 
           if (isEligible) {
             if (cashPoints > 0) {
@@ -426,7 +449,7 @@ export async function syncStudentEarnings(studentId: string): Promise<{
               sourceRecordId: att.id,
               reference: `ERN-ATT-${att.id}`,
               sourceType: 'MONTHLY_ATTENDANCE',
-              activityDate: attCreatedAt >= eligibilityStartDate ? attCreatedAt : attDate,
+              activityDate,
               points: cashPoints,
               multiplier,
               metadata: {
@@ -446,74 +469,70 @@ export async function syncStudentEarnings(studentId: string): Promise<{
       }
 
       // 3. Imthiyaaz Library Records (for LIBRARY)
+      // USER RULE: Explicitly do NOT credit cash for Imthiyaaz Library records.
+      // Cash is ONLY credited to Kuthbkhana subcategory in the main category of Library and Reading.
       if (isLibraryCat) {
-        for (const lib of libraryRecords) {
-          const libCreatedAt = new Date(lib.createdAt);
-          const isEligible = libCreatedAt >= eligibilityStartDate;
+        // Imthiyaaz library records yield ₹0 cash per institutional rules
+      }
+
+      // 4. Performance Records (Field Collection, Literary, Qualification, Programs, Islamic/School, Kuthbkhana, etc.)
+      if (isAllowedCashCategory) {
+        for (const record of catRecords) {
+          const recDate = record.date ? new Date(record.date) : null;
+          const recCreatedAt = new Date(record.createdAt);
+          const isEligible = (recDate && recDate >= eligibilityStartDate) || (recCreatedAt >= eligibilityStartDate);
+          const recordDate = (recDate && recDate >= eligibilityStartDate) ? recDate : recCreatedAt;
 
           if (isEligible) {
-            const points = lib.readingScore > 0 ? lib.readingScore : ((lib.booksRead || 0) * 20);
+            const points = record.obtainedScore || 0;
             if (points > 0) {
-              eligiblePointsSum += points;
+              // Cash rule for terms and assessments for exams:
+              // Cash must be credited only when the student obtains at least 70% of the maximum marks:
+              // Eligibility formula: obtainedScore >= (maxScore * 0.70) (or percentage >= 70%)
+              // Rules: 70% and above -> Eligible; Below 70% -> ₹0 cash.
+              // Note: Only applies to actual examinations/assessments (e.g. Exam models, terminal exams, board exams),
+              // and NOT to competitions, literary events (Sahityotsav), or library reading (Kuthbkhana).
+              const isTermOrAssessment = Boolean(
+                (record.examId && (!record.exam || record.exam.name?.toLowerCase() !== 'attendance')) ||
+                (record.category && (record.category.code === 'EXAM' || record.category.code === 'ASSESSMENT')) ||
+                (record.exam && (record.exam.name?.toLowerCase().includes('exam') || record.exam.name?.toLowerCase().includes('assessment') || record.exam.name?.toLowerCase().includes('terminal')))
+              );
+
+              let isEligibleForCash = true;
+              if (isTermOrAssessment) {
+                if (typeof record.percentage === 'number' && !isNaN(record.percentage)) {
+                  isEligibleForCash = record.percentage >= 70;
+                } else if (typeof record.maxScore === 'number' && record.maxScore > 0) {
+                  isEligibleForCash = points >= (record.maxScore * 0.70);
+                }
+              }
+              const cashPoints = isEligibleForCash ? points : 0;
+
+              if (cashPoints > 0) {
+                eligiblePointsSum += cashPoints;
+              }
+
               const earned = await applyEarningItem({
-                sourceRecordId: lib.id,
-                reference: `ERN-LIB-${lib.id}`,
-                sourceType: 'LIBRARY_RECORD',
-                activityDate: libCreatedAt,
-                points,
+                sourceRecordId: record.id,
+                reference: `ERN-${record.id}`,
+                sourceType: 'PERFORMANCE_RECORD',
+                activityDate: recordDate,
+                points: cashPoints,
                 multiplier,
                 metadata: {
-                  readingPeriod: lib.readingPeriod,
-                  booksRead: lib.booksRead,
+                  maxScore: record.maxScore,
+                  percentage: record.percentage,
+                  position: record.position,
                   categoryDisplay: displayName,
+                  isTermOrAssessment,
+                  isEligibleForCash,
+                  isBelow70Percent: !isEligibleForCash,
                 },
-                description: `Earned ₹${calculateCategoryEarnings(points, multiplier).toFixed(2)} from ${displayName} Reading (${points} pts × ${multiplier})`,
+                description: `Earned ₹${calculateCategoryEarnings(cashPoints, multiplier).toFixed(2)} from ${displayName} (${cashPoints} pts × ${multiplier})`,
                 categoryId: cat.id,
               });
               categoryEarningsSum += earned;
             }
-          }
-        }
-      }
-
-      // 4. Performance Records (Field Collection, Literary, Qualification, Programs, Islamic/School, Kuthbkhana, etc.)
-      for (const record of catRecords) {
-        const recordDate = new Date(record.date);
-        const recordCreatedAt = new Date(record.createdAt);
-        const isEligible = recordDate >= eligibilityStartDate || recordCreatedAt >= eligibilityStartDate;
-
-        if (isEligible) {
-          const points = record.obtainedScore || 0;
-          if (points > 0) {
-            // Cash rule for terms and assessments:
-            // Do NOT credit cash if obtained score is less than half of out of mark (maxScore / 2 or percentage < 50)
-            const isTermOrAssessment = Boolean(record.termId || record.examId);
-            const isBelowHalfMark = isTermOrAssessment && record.maxScore > 0 && points < (record.maxScore / 2);
-            const cashPoints = isBelowHalfMark ? 0 : points;
-
-            if (cashPoints > 0) {
-              eligiblePointsSum += cashPoints;
-            }
-
-            const earned = await applyEarningItem({
-              sourceRecordId: record.id,
-              reference: `ERN-${record.id}`,
-              sourceType: 'PERFORMANCE_RECORD',
-              activityDate: recordCreatedAt >= eligibilityStartDate ? recordCreatedAt : recordDate,
-              points: cashPoints,
-              multiplier,
-              metadata: {
-                maxScore: record.maxScore,
-                percentage: record.percentage,
-                position: record.position,
-                categoryDisplay: displayName,
-                isTermOrAssessment,
-                isBelowHalfMark,
-              },
-              description: `Earned ₹${calculateCategoryEarnings(cashPoints, multiplier).toFixed(2)} from ${displayName} (${cashPoints} pts × ${multiplier})`,
-              categoryId: cat.id,
-            });
-            categoryEarningsSum += earned;
           }
         }
       }
@@ -527,6 +546,41 @@ export async function syncStudentEarnings(studentId: string): Promise<{
         multiplier,
         earnings: Math.round(categoryEarningsSum * 100) / 100,
       });
+    }
+
+    // Reconcile and reverse any legacy pre-November or invalid entries in earningLedger
+    for (const entry of existingLedgers) {
+      if (!processedLedgerIds.has(entry.id) && Number(entry.recognizedAmount) > 0) {
+        const previouslyRecognized = Number(entry.recognizedAmount);
+        const delta = -previouslyRecognized;
+        const deltaDecimal = new Prisma.Decimal(delta);
+
+        await tx.earningLedger.update({
+          where: { id: entry.id },
+          data: {
+            eligiblePoints: new Prisma.Decimal(0),
+            calculatedAmount: new Prisma.Decimal(0),
+            recognizedAmount: new Prisma.Decimal(0),
+            status: 'ADJUSTED',
+            updatedAt: new Date(),
+          },
+        });
+
+        await tx.walletTransaction.create({
+          data: {
+            reference: `TXN-REV-${entry.id}-${Date.now()}`,
+            studentId,
+            type: 'ADJUSTMENT',
+            amount: deltaDecimal,
+            balanceBefore: wallet.balance.add(netNewWalletCredit),
+            balanceAfter: wallet.balance.add(netNewWalletCredit).add(deltaDecimal),
+            description: `Adjustment: -₹${previouslyRecognized.toFixed(2)} (Pre-November activity removed from monetization)`,
+            status: 'COMPLETED',
+          },
+        });
+
+        netNewWalletCredit = netNewWalletCredit.add(deltaDecimal);
+      }
     }
 
     // Atomically apply net new wallet credit if any

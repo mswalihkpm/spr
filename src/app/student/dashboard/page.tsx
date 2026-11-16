@@ -5,36 +5,38 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { clearClientCache } from '@/lib/client-cache';
 import {
-  Wallet,
   TrendingUp,
-  Send,
-  Store,
-  PlusCircle,
-  LogOut,
-  KeyRound,
-  History,
-  GraduationCap,
   Award,
+  CheckSquare,
+  Sparkles,
+  Coins,
+  ShieldCheck,
+  ChevronRight,
+  ArrowRight,
+  ExternalLink,
+  Lock,
+  RefreshCw,
+  X,
   CheckCircle2,
   AlertCircle,
-  Search,
-  X,
-  RefreshCw,
-  Sparkles,
   BookOpen,
-  Feather,
-  Library,
+  GraduationCap,
   Trophy,
+  Calendar,
+  Wallet,
+  Store,
   Layers,
-  ChevronRight,
-  ShieldCheck,
-  Check,
-  ArrowRight,
-  CheckSquare,
-  LayoutDashboard,
-  ExternalLink,
-  Coins,
 } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from 'recharts';
 
 export default function StudentDashboardPage() {
   const router = useRouter();
@@ -42,21 +44,7 @@ export default function StudentDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  // Transfer / Share Modal State
-  const [transferModalOpen, setTransferModalOpen] = useState(false);
-  const [transferType, setTransferType] = useState<'STUDENT' | 'STORE'>('STUDENT');
-  const [recipientSearch, setRecipientSearch] = useState('');
-  const [recipientsList, setRecipientsList] = useState<any[]>([]);
-  const [selectedRecipientId, setSelectedRecipientId] = useState('');
-  const [transferAmount, setTransferAmount] = useState<string>('');
-  const [transferRemarks, setTransferRemarks] = useState('');
-  const [transferLoading, setTransferLoading] = useState(false);
-  const [transferStep, setTransferStep] = useState<'INPUT' | 'CONFIRM'>('INPUT');
-  const [transferError, setTransferError] = useState('');
-
-  // Add Funds Info Modal State
-  const [addFundsModalOpen, setAddFundsModalOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
   // Change Password Modal State
   const [pwdModalOpen, setPwdModalOpen] = useState(false);
@@ -64,6 +52,10 @@ export default function StudentDashboardPage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [pwdLoading, setPwdLoading] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const fetchDashboardData = async (isSilent = false) => {
     try {
@@ -96,109 +88,25 @@ export default function StudentDashboardPage() {
     fetchDashboardData();
   }, []);
 
-  // Fetch recipients when transfer modal opens
-  useEffect(() => {
-    if (transferModalOpen && transferType === 'STUDENT') {
-      fetch(`/api/student/recipients?q=${encodeURIComponent(recipientSearch)}`)
-        .then((res) => res.json())
-        .then((json) => {
-          if (json.recipients) setRecipientsList(json.recipients);
-        })
-        .catch(() => {});
-    }
-  }, [transferModalOpen, transferType, recipientSearch]);
-
-  const handleLogout = async () => {
-    try {
-      await fetch('/api/student/auth/logout', { method: 'POST' });
-    } catch {}
-    clearClientCache();
-    router.push('/student/login');
-  };
-
-  const handleExecuteTransfer = async (e: React.FormEvent) => {
+  const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    setTransferError('');
-
-    if (transferStep === 'INPUT') {
-      if (transferType === 'STUDENT' && !selectedRecipientId) {
-        setTransferError('Please select a recipient student.');
-        return;
-      }
-
-      const amt = parseFloat(transferAmount);
-      if (isNaN(amt) || amt <= 0) {
-        setTransferError('Please enter a valid positive amount.');
-        return;
-      }
-
-      if (amt > (data?.wallet?.balance || 0)) {
-        setTransferError(`Insufficient balance. You only have ₹${data?.wallet?.balance?.toFixed(2)}.`);
-        return;
-      }
-
-      setTransferStep('CONFIRM');
-      return;
-    }
-
-    // Step === CONFIRM
-    try {
-      setTransferLoading(true);
-      const res = await fetch('/api/student/transfers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: transferType === 'STUDENT' ? 'TRANSFER_STUDENT' : 'SHARE_STORE',
-          type: transferType,
-          recipientStudentId: transferType === 'STUDENT' ? selectedRecipientId : undefined,
-          recipientId: transferType === 'STUDENT' ? selectedRecipientId : undefined,
-          amount: parseFloat(transferAmount),
-          remarks: transferRemarks,
-        }),
-      });
-
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Transfer failed.');
-
-      const ref = json.reference || json.data?.reference || '';
-      setStatusMsg({
-        type: 'success',
-        text:
-          json.message ||
-          `Successfully transferred ₹${parseFloat(transferAmount).toFixed(2)}!${ref ? ` Ref: ${ref}` : ''}`,
-      });
-      setTransferModalOpen(false);
-      setTransferAmount('');
-      setTransferRemarks('');
-      setSelectedRecipientId('');
-      setTransferStep('INPUT');
-
-      fetchDashboardData(true);
-    } catch (err: any) {
-      setTransferError(err.message || 'Transfer failed. Please try again.');
-    } finally {
-      setTransferLoading(false);
-    }
-  };
-
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newPassword.length < 6) {
-      setStatusMsg({ type: 'error', text: 'New password must be at least 6 characters.' });
-      return;
-    }
     if (newPassword !== confirmPassword) {
-      setStatusMsg({ type: 'error', text: 'Passwords do not match.' });
+      setStatusMsg({ type: 'error', text: 'New passwords do not match.' });
+      return;
+    }
+    if (newPassword.length < 6) {
+      setStatusMsg({ type: 'error', text: 'Password must be at least 6 characters.' });
       return;
     }
 
+    setPwdLoading(true);
+    setStatusMsg(null);
     try {
-      setPwdLoading(true);
       const res = await fetch('/api/student/auth/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          currentPassword: student?.mustChangePassword ? undefined : currentPassword,
+          currentPassword: data?.student?.mustChangePassword ? undefined : currentPassword,
           newPassword,
           confirmPassword,
         }),
@@ -220,172 +128,112 @@ export default function StudentDashboardPage() {
     }
   };
 
-  const getCategoryIcon = (code: string) => {
-    switch (code) {
-      case 'FIELD_COLLECTION':
-        return Coins;
-      case 'TASKS':
-        return CheckSquare;
-      case 'ISLAMIC':
-        return BookOpen;
-      case 'SCHOOL':
-        return GraduationCap;
-      case 'PROGRAMS':
-        return Trophy;
-      case 'CREATIVE_HUB':
-        return Sparkles;
-      case 'LITERARY':
-        return Feather;
-      case 'LIBRARY':
-      case 'KUTHBKHANA':
-        return Library;
-      default:
-        return Layers;
-    }
-  };
-
-  const getCategoryTheme = (code: string) => {
-    switch (code) {
-      case 'FIELD_COLLECTION':
-        return {
-          bg: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-          badge: 'bg-emerald-50 text-emerald-900 border-emerald-300',
-        };
-      case 'TASKS':
-        return {
-          bg: 'bg-amber-100 text-amber-700 border-amber-200',
-          badge: 'bg-amber-50 text-amber-800 border-amber-200',
-        };
-      case 'ISLAMIC':
-        return {
-          bg: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-          badge: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-        };
-      case 'SCHOOL':
-        return {
-          bg: 'bg-blue-100 text-blue-700 border-blue-200',
-          badge: 'bg-blue-50 text-blue-800 border-blue-200',
-        };
-      case 'PROGRAMS':
-        return {
-          bg: 'bg-purple-100 text-purple-700 border-purple-200',
-          badge: 'bg-purple-50 text-purple-800 border-purple-200',
-        };
-      case 'CREATIVE_HUB':
-        return {
-          bg: 'bg-pink-100 text-pink-700 border-pink-200',
-          badge: 'bg-pink-50 text-pink-800 border-pink-200',
-        };
-      case 'LITERARY':
-        return {
-          bg: 'bg-orange-100 text-orange-700 border-orange-200',
-          badge: 'bg-orange-50 text-orange-800 border-orange-200',
-        };
-      case 'LIBRARY':
-      case 'KUTHBKHANA':
-        return {
-          bg: 'bg-teal-100 text-teal-700 border-teal-200',
-          badge: 'bg-teal-50 text-teal-800 border-teal-200',
-        };
-      default:
-        return {
-          bg: 'bg-slate-100 text-slate-700 border-slate-200',
-          badge: 'bg-slate-50 text-slate-800 border-slate-200',
-        };
-    }
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center text-slate-800">
-        <div className="w-12 h-12 border-4 border-amber-200 border-t-amber-600 rounded-full animate-spin mb-4" />
-        <p className="text-sm font-bold tracking-wide text-slate-600">
-          Loading Student Portal &amp; Balances...
-        </p>
+      <div className="space-y-6 max-w-6xl w-full mx-auto p-4 sm:p-6 lg:p-8 animate-pulse">
+        <div className="h-40 bg-slate-200 dark:bg-slate-800 rounded-3xl" />
+        <div className="h-80 bg-slate-200 dark:bg-slate-800 rounded-3xl" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="h-44 bg-slate-200 dark:bg-slate-800 rounded-3xl" />
+          <div className="h-44 bg-slate-200 dark:bg-slate-800 rounded-3xl" />
+        </div>
       </div>
     );
   }
 
   const student = data?.student;
-  const wallet = data?.wallet || { balance: 0, totalEarnings: 0, totalTransferred: 0, totalReceived: 0 };
-  const storeFund = data?.storeFund || { totalContributed: 0, totalUsed: 0, availableFund: 0 };
-  const categories = data?.categoryEarnings || [];
-  const transactions = data?.recentTransactions || [];
+  const sprProfile = data?.sprProfile;
+  const rankInfo = data?.rankInfo;
+  const taskSummary = data?.taskSummary;
+  const questionnairesSummary = data?.questionnairesSummary;
+  const timeline = data?.performanceTimeline || [];
+  const wallet = data?.wallet || { balance: 0, totalEarnings: 0 };
+  const storeFund = data?.storeFund || { availableFund: 0 };
 
-  const selectedRecipientObj = recipientsList.find((r) => r.id === selectedRecipientId);
-  const dossierHref = `/student/${student?.sprStudentId || student?.studentId}`;
+  const currentSprPct = sprProfile?.sprPercentage !== undefined ? Number(sprProfile.sprPercentage.toFixed(2)) : 0;
+  const totalPoints = sprProfile?.totalWeightedScore !== undefined ? Number(sprProfile.totalWeightedScore.toFixed(1)) : 0;
+
+  // Chart Tooltip Component
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const p = payload[0].payload;
+      return (
+        <div className="bg-slate-900/95 text-white p-3 rounded-2xl shadow-xl border border-slate-700 text-xs backdrop-blur-md space-y-1">
+          <div className="font-extrabold text-blue-300 uppercase tracking-wider text-[10px]">
+            Academic Month: {label}
+          </div>
+          {p.sprPercentage !== null ? (
+            <>
+              <div className="font-black text-amber-300 font-mono text-sm">
+                Cumulative SPR: {p.sprPercentage}%
+              </div>
+              <div className="text-slate-300 text-[11px]">
+                Cumulative Points: <span className="font-mono font-bold text-white">{p.cumulativePoints} pts</span>
+              </div>
+              <div className="text-slate-400 text-[10px]">
+                Activities Logged: {p.activityCount} record(s)
+              </div>
+            </>
+          ) : (
+            <div className="text-slate-400 italic">Upcoming Term Period</div>
+          )}
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans selection:bg-amber-500 selection:text-white pb-[calc(max(env(safe-area-inset-bottom,0px),0.75rem)+5rem)] sm:pb-12">
-      {/* Top Navbar */}
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-3.5 sm:px-8 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] flex items-center justify-between shadow-2xs">
-        <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-slate-900 p-1.5 shadow-md flex items-center justify-center shrink-0">
-            <img src="/logo.png" alt="SPR Logo" className="w-full h-full object-contain" />
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-xs sm:text-base font-extrabold text-slate-900 tracking-tight flex items-center space-x-1.5 sm:space-x-2">
-              <span className="truncate">Madin SPR</span>
-              <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
-                Student
-              </span>
-            </h1>
-            <p className="text-[10px] sm:text-[11px] text-slate-500 truncate max-w-[170px] sm:max-w-none">
-              {student?.fullName} ({student?.sprStudentId})
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-1.5 sm:space-x-3 shrink-0">
-          {/* Quick Tasks Link */}
-          <button
-            onClick={() => router.push('/student/tasks')}
-            className="inline-flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 min-h-touch rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold transition-all shadow-2xs cursor-pointer"
-            title="Earn points & rewards in Tasks"
-          >
-            <CheckSquare className="w-3.5 h-3.5 text-amber-600" />
-            <span className="hidden sm:inline">Tasks</span>
-          </button>
-
-          {/* Quick Dossier Link */}
-          <button
-            onClick={() => router.push(dossierHref)}
-            className="hidden sm:inline-flex items-center space-x-1.5 px-3 py-1.5 min-h-touch rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-xs font-bold transition-all shadow-2xs cursor-pointer"
-            title="Open official SPR Dossier"
-          >
-            <Award className="w-3.5 h-3.5 text-blue-600" />
-            <span>My Dossier</span>
-          </button>
-
-          <button
-            onClick={() => fetchDashboardData(true)}
-            disabled={refreshing}
-            className="p-2 min-h-touch min-w-touch rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors flex items-center justify-center cursor-pointer"
-            title="Refresh Balances"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-amber-600' : ''}`} />
-          </button>
-
-          <button
-            onClick={() => setPwdModalOpen(true)}
-            className="p-2 min-h-touch min-w-touch rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors flex items-center justify-center cursor-pointer"
-            title="Change Password"
-          >
-            <KeyRound className="w-4 h-4" />
-          </button>
-
-          <button
-            onClick={handleLogout}
-            className="inline-flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 min-h-touch rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-colors cursor-pointer"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Logout</span>
-          </button>
-        </div>
-      </header>
-
+    <div className="text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-white pb-12">
       {/* Main Content Area */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-3.5 sm:p-6 lg:p-8 space-y-5 sm:space-y-6">
+        {/* Welcome & Performance Hero Banner */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-5 sm:p-7 shadow-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+            <div className="flex items-center space-x-3.5 sm:space-x-4">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center font-black text-xl text-white shadow-md shrink-0">
+                {student?.fullName ? student.fullName.slice(0, 2).toUpperCase() : 'ST'}
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/30 text-blue-200 border border-blue-400/30">
+                    Class {student?.className || 'Student'}
+                  </span>
+                  {student?.isProfileLocked && (
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 flex items-center space-x-1">
+                      <ShieldCheck className="w-3 h-3" />
+                      <span>Verified Profile</span>
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-lg sm:text-2xl font-black text-white tracking-tight mt-1">
+                  Welcome, {student?.fullName}
+                </h2>
+                <p className="text-xs text-blue-200 font-mono mt-0.5">
+                  SPR ID: {student?.sprStudentId || student?.studentId} {student?.academicYear ? `• ${student.academicYear}` : ''}
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Score Dials */}
+            <div className="flex items-center space-x-4 pt-3 sm:pt-0 border-t sm:border-t-0 border-white/10 shrink-0">
+              <div className="text-right">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-blue-200">Official SPR</div>
+                <div className="text-2xl sm:text-3xl font-black text-amber-300 font-mono mt-0.5">
+                  {sprProfile?.sprPercentage !== undefined ? `${sprProfile.sprPercentage.toFixed(2)}%` : '—'}
+                </div>
+              </div>
+              <div className="h-10 w-[1px] bg-white/20" />
+              <div className="text-left">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-blue-200">Overall Rank</div>
+                <div className="text-2xl sm:text-3xl font-black text-emerald-300 font-mono mt-0.5">
+                  {rankInfo?.overallRank ? `#${rankInfo.overallRank}` : '—'}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Status Toast */}
         {statusMsg && (
           <div
@@ -409,669 +257,243 @@ export default function StudentDashboardPage() {
           </div>
         )}
 
-        {/* Financial Highlights Hero Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* 1. Spendable Wallet Balance Card */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-600 via-teal-700 to-emerald-800 text-white p-5 sm:p-6 shadow-lg shadow-emerald-700/15">
-            <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shadow-inner">
-                <Wallet className="w-5 h-5" />
+        {/* =========================================================================
+            ANNUAL ACADEMIC & SPR PERFORMANCE PROGRESSION LINE GRAPH
+            ========================================================================= */}
+        <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 sm:p-7 shadow-xs space-y-5">
+          {/* Chart Header & Statistical Overview Dials */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="p-1.5 rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+                  <TrendingUp className="w-4 h-4" />
+                </span>
+                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                  Annual Performance Rate Progression (SPR %)
+                </h3>
               </div>
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/20 text-emerald-100 border border-white/25">
-                Spendable
-              </span>
-            </div>
-            <div className="mt-4">
-              <p className="text-xs font-semibold text-emerald-100 uppercase tracking-wider">
-                Current Wallet Balance
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Monthly cumulative performance trajectory across the 2025–2026 academic year.
               </p>
-              <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight mt-1">
-                ₹{wallet.balance.toFixed(2)}
-              </h2>
             </div>
-            <div className="mt-5 flex items-center space-x-2 pt-4 border-t border-white/15">
+
+            {/* Micro Dials */}
+            <div className="flex items-center space-x-3 text-xs">
+              <div className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">Class Standing</span>
+                <span className="font-black text-blue-600 dark:text-blue-400 font-mono text-sm">
+                  {rankInfo?.classRank ? `#${rankInfo.classRank}` : '—'}
+                </span>
+              </div>
+              <div className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">Current Benchmark</span>
+                <span className="font-black text-amber-600 dark:text-amber-400 font-mono text-sm">
+                  {currentSprPct}%
+                </span>
+              </div>
+              <div className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">Total Weighted Points</span>
+                <span className="font-black text-emerald-600 dark:text-emerald-400 font-mono text-sm">
+                  {totalPoints} pts
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Line & Area Chart Container */}
+          <div className="w-full h-64 sm:h-72">
+            {isMounted && timeline.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={timeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="sprGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis
+                    dataKey="month"
+                    tickLine={false}
+                    axisLine={{ stroke: '#cbd5e1' }}
+                    tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }}
+                  />
+                  <YAxis
+                    domain={[0, 100]}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(val) => `${val}%`}
+                    tick={{ fill: '#64748b', fontSize: 10 }}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area
+                    type="monotone"
+                    dataKey="sprPercentage"
+                    stroke="#2563eb"
+                    strokeWidth={3}
+                    fillOpacity={1}
+                    fill="url(#sprGradient)"
+                    connectNulls={false}
+                    activeDot={{ r: 6, fill: '#1d4ed8', stroke: '#ffffff', strokeWidth: 2 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                Loading performance chart telemetry...
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* =========================================================================
+            PRIMARY ACTION TILES: DOSSIER, TASKS, ACTIVITIES, CASH
+            ========================================================================= */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Card 1: Official Student Dossier */}
+          <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-xs flex flex-col justify-between space-y-4 hover:border-blue-400 transition-all">
+            <div className="space-y-3">
+              <div className="w-11 h-11 rounded-2xl bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 flex items-center justify-center">
+                <Award className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="text-base font-extrabold text-slate-900 dark:text-white">
+                  Official Student SPR Dossier
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  Inspect your itemized points ledger, exam scorecards, competition honors, attendance evaluations, and reading assessments.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-slate-400">
+                {sprProfile?.categoryScores?.length || 7} Evaluated Wings
+              </span>
               <button
-                onClick={() => {
-                  setTransferType('STUDENT');
-                  setTransferStep('INPUT');
-                  setTransferModalOpen(true);
-                }}
-                className="flex-1 py-2 px-3 rounded-xl bg-white hover:bg-slate-100 text-emerald-900 font-black text-xs flex items-center justify-center space-x-1.5 shadow-md transition-all cursor-pointer"
+                onClick={() => router.push('/student/dossier')}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition flex items-center space-x-1.5 cursor-pointer"
               >
-                <Send className="w-3.5 h-3.5 text-emerald-700" />
-                <span>Share Funds</span>
+                <span>Open Full Dossier</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
+            </div>
+          </div>
+
+          {/* Card 2: Tasks & Assignments */}
+          <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-xs flex flex-col justify-between space-y-4 hover:border-amber-400 transition-all">
+            <div className="space-y-3">
+              <div className="w-11 h-11 rounded-2xl bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 flex items-center justify-center">
+                <CheckSquare className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="text-base font-extrabold text-slate-900 dark:text-white">
+                  Institutional Tasks &amp; Missions
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  Complete assigned projects, submit external verification links (Google Drive / OneDrive), and earn points & rewards.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 font-mono">
+                {taskSummary?.pendingCount || 0} Pending • {taskSummary?.completedCount || 0} Done
+              </span>
               <button
                 onClick={() => router.push('/student/tasks')}
-                className="py-2 px-3 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs flex items-center space-x-1.5 border border-white/25 transition-all shadow-2xs cursor-pointer"
-                title="Earn points and monetary rewards in Tasks"
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-md transition flex items-center space-x-1.5 cursor-pointer"
               >
-                <PlusCircle className="w-3.5 h-3.5 text-amber-300" />
-                <span>Earn (Tasks)</span>
+                <span>View Tasks</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
 
-          {/* 2. Total Lifetime Earnings Card */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-500 via-amber-600 to-yellow-600 text-white p-5 sm:p-6 shadow-lg shadow-amber-600/15">
-            <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shadow-inner">
-                <TrendingUp className="w-5 h-5" />
+          {/* Card 3: Additional Activities & Intelligence */}
+          <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-xs flex flex-col justify-between space-y-4 hover:border-purple-400 transition-all">
+            <div className="space-y-3">
+              <div className="w-11 h-11 rounded-2xl bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 flex items-center justify-center">
+                <Sparkles className="w-6 h-6" />
               </div>
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/20 text-amber-100 border border-white/25">
-                Cumulative
-              </span>
+              <div>
+                <h4 className="text-base font-extrabold text-slate-900 dark:text-white">
+                  Student Intelligence Questionnaires
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  Provide institutional survey responses, personal and family details, talents, and career ambitions across 12 modules.
+                </p>
+              </div>
             </div>
-            <div className="mt-4">
-              <p className="text-xs font-semibold text-amber-100 uppercase tracking-wider">
-                Total Lifetime Earnings
-              </p>
-              <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight mt-1">
-                ₹{wallet.totalEarnings.toFixed(2)}
-              </h2>
-            </div>
-            <div className="mt-5 pt-4 border-t border-white/15 flex items-center justify-between text-xs text-amber-100 font-medium">
-              <span>Transferred: ₹{wallet.totalTransferred.toFixed(2)}</span>
-              <span>Received: ₹{wallet.totalReceived.toFixed(2)}</span>
-            </div>
-          </div>
 
-          {/* 3. School Store Fund Card */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-blue-600 to-indigo-700 text-white p-5 sm:p-6 shadow-lg shadow-indigo-600/15 sm:col-span-2 lg:col-span-1">
-            <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shadow-inner">
-                <Store className="w-5 h-5" />
-              </div>
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/20 text-indigo-100 border border-white/25">
-                Store Account
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-purple-700 dark:text-purple-400">
+                {questionnairesSummary?.completed || 0} of {questionnairesSummary?.total || 12} Completed
               </span>
-            </div>
-            <div className="mt-4">
-              <p className="text-xs font-semibold text-indigo-100 uppercase tracking-wider">
-                Available Store Fund
-              </p>
-              <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight mt-1">
-                ₹{storeFund.availableFund.toFixed(2)}
-              </h2>
-            </div>
-            <div className="mt-5 pt-4 border-t border-white/15 space-y-2.5">
-              <div className="flex items-center justify-between text-xs text-indigo-100 font-medium">
-                <span>Contributed: ₹{storeFund.totalContributed.toFixed(2)}</span>
-                <span>Used: ₹{storeFund.totalUsed.toFixed(2)}</span>
-              </div>
               <button
-                type="button"
-                onClick={() => {
-                  setTransferType('STORE');
-                  setTransferStep('INPUT');
-                  setTransferModalOpen(true);
-                }}
-                className="w-full py-1.5 px-3 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs flex items-center justify-center space-x-1.5 border border-white/25 transition-all shadow-2xs cursor-pointer"
+                onClick={() => router.push('/student/activities')}
+                className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md transition flex items-center space-x-1.5 cursor-pointer"
               >
-                <Store className="w-3.5 h-3.5 text-indigo-200" />
-                <span>Transfer Cash to Store</span>
+                <span>Activities</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
-        </div>
 
-        {/* Quick Link Card: Dossier & Tasks Inspection */}
-        <div className="rounded-3xl bg-white border border-slate-200/80 p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center space-x-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700 shrink-0 shadow-2xs">
-              <Award className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="text-sm sm:text-base font-extrabold text-slate-900">
-                Official Student SPR Dossier
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Inspect your complete academic scorecard, rankings, and itemized task points awarded.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => router.push(dossierHref)}
-              className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition-all flex items-center space-x-1.5 cursor-pointer"
-            >
-              <span>Open My Dossier</span>
-              <ExternalLink className="w-3.5 h-3.5 text-blue-200" />
-            </button>
-            <button
-              onClick={() => router.push('/student/tasks')}
-              className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-md transition-all flex items-center space-x-1.5 cursor-pointer"
-            >
-              <CheckSquare className="w-3.5 h-3.5" />
-              <span>Available Tasks</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Category-Wise Earnings Section */}
-        <div className="bg-white rounded-3xl border border-slate-200/80 p-5 sm:p-6 shadow-xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
-            <div>
-              <h3 className="text-sm sm:text-base font-extrabold text-slate-900 flex items-center space-x-2">
-                <Award className="w-4 h-4 text-amber-600" />
-                <span>Category-Wise SPR Earnings</span>
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Formula: (Eligible Points / 10) × Multiplier. Only activities meeting institutional guidelines are monetized.
-              </p>
-            </div>
-            <span className="text-xs font-semibold text-slate-500">
-              {categories.length} Categories Active
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {categories.map((c: any) => {
-              const Icon = getCategoryIcon(c.categoryCode);
-              const theme = getCategoryTheme(c.categoryCode);
-              return (
-                <div
-                  key={c.categoryId || c.categoryCode}
-                  onClick={() => {
-                    if (c.categoryCode === 'TASKS') {
-                      router.push('/student/tasks');
-                    } else {
-                      router.push(dossierHref);
-                    }
-                  }}
-                  className="p-3.5 sm:p-4 rounded-2xl bg-slate-50/70 border border-slate-200/80 hover:bg-white hover:border-amber-300 hover:shadow-xs transition-all flex items-center justify-between cursor-pointer group"
-                >
-                  <div className="flex items-center space-x-3 min-w-0 pr-2">
-                    <div
-                      className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 shadow-2xs ${theme.bg}`}
-                    >
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <div className="truncate">
-                      <h4 className="text-xs font-bold text-slate-900 group-hover:text-amber-800 transition-colors truncate">
-                        {c.categoryName}
-                      </h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
-                        {c.eligiblePoints} pts • ×{c.multiplier}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className="text-sm font-black text-emerald-700">
-                      ₹{c.earnings.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Transaction History Section */}
-        <div className="bg-white rounded-3xl border border-slate-200/80 p-5 sm:p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <h3 className="text-sm sm:text-base font-extrabold text-slate-900 flex items-center space-x-2">
-              <History className="w-4 h-4 text-slate-500" />
-              <span>Personal Transaction History</span>
-            </h3>
-            <span className="text-xs text-slate-500 font-medium">
-              {transactions.length} record(s)
-            </span>
-          </div>
-
-          {transactions.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 text-xs">
-              No transactions recorded yet. Eligible activities and peer transfers will show here.
-            </div>
-          ) : (
-            <>
-              {/* Mobile View: Clean Card List */}
-              <div className="sm:hidden space-y-2.5">
-                {transactions.map((t: any) => {
-                  const isCredit =
-                    t.type === 'EARNING' ||
-                    t.type === 'TRANSFER_RECEIVED' ||
-                    (t.type === 'ADJUSTMENT' && t.amount > 0);
-                  return (
-                    <div
-                      key={t.id}
-                      className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/70 space-y-2"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                            isCredit
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                              : 'bg-slate-200 text-slate-700 border border-slate-300'
-                          }`}
-                        >
-                          {t.type.replace(/_/g, ' ')}
-                        </span>
-                        <span
-                          className={`text-sm font-black font-mono ${
-                            isCredit ? 'text-emerald-700' : 'text-slate-800'
-                          }`}
-                        >
-                          {isCredit ? '+' : '-'}₹{Math.abs(t.amount).toFixed(2)}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-800 font-medium leading-relaxed">
-                        {t.description}
-                      </p>
-                      <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-200/60 font-mono">
-                        <span>Ref: {t.reference}</span>
-                        <span>
-                          {new Date(t.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+          {/* Card 4: Financial Cash & Store Account */}
+          <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-xs flex flex-col justify-between space-y-4 hover:border-emerald-400 transition-all">
+            <div className="space-y-3">
+              <div className="w-11 h-11 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center">
+                <Wallet className="w-6 h-6" />
               </div>
-
-              {/* Desktop View: Full Table */}
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
-                      <th className="pb-3 pr-4">Reference</th>
-                      <th className="pb-3 pr-4">Type</th>
-                      <th className="pb-3 pr-4">Description</th>
-                      <th className="pb-3 pr-4">Amount</th>
-                      <th className="pb-3 pr-4">Balance After</th>
-                      <th className="pb-3">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {transactions.map((t: any) => {
-                      const isCredit =
-                        t.type === 'EARNING' ||
-                        t.type === 'TRANSFER_RECEIVED' ||
-                        (t.type === 'ADJUSTMENT' && t.amount > 0);
-                      return (
-                        <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-3 pr-4 font-mono text-[11px] text-slate-500 font-semibold">
-                            {t.reference}
-                          </td>
-                          <td className="py-3 pr-4">
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                isCredit
-                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                  : 'bg-slate-100 text-slate-700 border border-slate-200'
-                              }`}
-                            >
-                              {t.type.replace(/_/g, ' ')}
-                            </span>
-                          </td>
-                          <td className="py-3 pr-4 text-slate-800 font-medium max-w-xs truncate">
-                            {t.description}
-                          </td>
-                          <td className="py-3 pr-4 font-black">
-                            <span className={isCredit ? 'text-emerald-700' : 'text-slate-800'}>
-                              {isCredit ? '+' : '-'}₹{Math.abs(t.amount).toFixed(2)}
-                            </span>
-                          </td>
-                          <td className="py-3 pr-4 font-semibold text-slate-600 font-mono">
-                            ₹{t.balanceAfter.toFixed(2)}
-                          </td>
-                          <td className="py-3 text-slate-500 whitespace-nowrap">
-                            {new Date(t.createdAt).toLocaleDateString()} {new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <div>
+                <h4 className="text-base font-extrabold text-slate-900 dark:text-white">
+                  Cash Account &amp; Store Funds
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  View wallet balances, check task earnings, share funds with fellow students, or transfer cash to your School Store account.
+                </p>
               </div>
-            </>
-          )}
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <span className="text-[11px] font-black text-emerald-600 font-mono">
+                Balance: ₹{wallet.balance.toFixed(2)}
+              </span>
+              <button
+                onClick={() => router.push('/student/cash')}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition flex items-center space-x-1.5 cursor-pointer"
+              >
+                <span>Open Cash Account</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
         </div>
       </main>
 
-      {/* Student Portal Legal & Privacy Footer */}
-      <footer className="max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-28 sm:pb-8 text-center text-xs text-slate-500 border-t border-slate-200 mt-8">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center space-x-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>Madin School of Excellence — SPR Verified Student Portal</span>
-          </div>
-          <div className="flex items-center space-x-4">
-            <Link
-              href="/privacy-policy"
-              className="text-slate-500 hover:text-madin-900 underline transition font-medium"
-            >
-              Privacy Policy & Data Rights
-            </Link>
-            <span className="text-slate-300">•</span>
-            <span className="text-slate-400">Support: excellence@madin.edu.in</span>
-          </div>
-        </div>
-      </footer>
-
-      {/* ================= MODALS ================= */}
-
-      {/* 1. Share / Transfer Modal */}
-      {transferModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-scale-in">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-base font-extrabold text-slate-900 flex items-center space-x-2">
-                <Send className="w-4 h-4 text-emerald-600" />
-                <span>Share / Transfer Funds</span>
-              </h3>
-              <button
-                onClick={() => setTransferModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Mode Switcher */}
-            <div className="flex p-1 bg-slate-100 rounded-2xl border border-slate-200">
-              <button
-                type="button"
-                onClick={() => {
-                  setTransferType('STUDENT');
-                  setTransferStep('INPUT');
-                }}
-                className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  transferType === 'STUDENT'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Transfer to Student
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setTransferType('STORE');
-                  setTransferStep('INPUT');
-                }}
-                className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  transferType === 'STORE'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Share to Store
-              </button>
-            </div>
-
-            <form onSubmit={handleExecuteTransfer} className="space-y-4">
-              {transferError && (
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-xs flex items-center space-x-2">
-                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                  <span className="font-semibold">{transferError}</span>
-                </div>
-              )}
-
-              {transferStep === 'INPUT' ? (
-                <>
-                  {transferType === 'STUDENT' && (
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                        <span>Select Recipient Student</span>
-                        {selectedRecipientObj && (
-                          <span className="text-[11px] font-bold text-emerald-700 flex items-center space-x-1">
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Selected</span>
-                          </span>
-                        )}
-                      </label>
-
-                      {selectedRecipientObj ? (
-                        <div className="p-3 bg-emerald-50/80 border-2 border-emerald-500 rounded-2xl flex items-center justify-between shadow-2xs">
-                          <div className="flex items-center space-x-3 overflow-hidden">
-                            <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
-                              <Check className="w-5 h-5" />
-                            </div>
-                            <div className="truncate">
-                              <div className="text-xs font-bold text-slate-900 flex items-center space-x-2 truncate">
-                                <span className="truncate">{selectedRecipientObj.fullName}</span>
-                                <span className="bg-emerald-100 text-emerald-800 font-mono text-[10px] px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">
-                                  {selectedRecipientObj.sprStudentId || 'No ID'}
-                                </span>
-                              </div>
-                              <div className="text-[11px] text-slate-500 mt-0.5">
-                                Class: {selectedRecipientObj.className} {selectedRecipientObj.division ? `(${selectedRecipientObj.division})` : ''}
-                              </div>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedRecipientId('');
-                              setTransferError('');
-                            }}
-                            className="text-xs text-slate-600 hover:text-slate-900 font-semibold px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100 transition-colors shrink-0 ml-2 cursor-pointer"
-                          >
-                            Change
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="relative">
-                            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
-                            <input
-                              type="text"
-                              placeholder="Search student by name or SPR ID (e.g. MT or SPR0122)..."
-                              value={recipientSearch}
-                              onChange={(e) => setRecipientSearch(e.target.value)}
-                              className="block w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                            />
-                          </div>
-
-                          <div className="max-h-48 overflow-y-auto space-y-1.5 border border-slate-200 rounded-xl p-1.5 bg-slate-50">
-                            {recipientsList.length === 0 ? (
-                              <div className="p-3 text-center text-xs text-slate-500">
-                                No matching students found{recipientSearch ? ` for "${recipientSearch}"` : ''}.
-                              </div>
-                            ) : (
-                              recipientsList.map((r) => (
-                                <button
-                                  key={r.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedRecipientId(r.id);
-                                    setTransferError('');
-                                  }}
-                                  className="w-full text-left p-2.5 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 bg-white transition-all flex items-center justify-between group shadow-2xs cursor-pointer"
-                                >
-                                  <div className="pr-2 truncate">
-                                    <div className="text-xs font-bold text-slate-900 group-hover:text-emerald-800 transition-colors truncate">
-                                      {r.fullName}
-                                    </div>
-                                    <div className="text-[11px] text-slate-500 mt-0.5">
-                                      {r.className} {r.division ? `(${r.division})` : ''}
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center space-x-2 shrink-0">
-                                    <span className="font-mono text-[10px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
-                                      {r.sprStudentId || 'No ID'}
-                                    </span>
-                                    <span className="text-[11px] font-bold text-white bg-emerald-600 group-hover:bg-emerald-700 px-2.5 py-1 rounded-lg transition-all flex items-center space-x-1 shadow-2xs">
-                                      <span>Select</span>
-                                      <ArrowRight className="w-3 h-3" />
-                                    </span>
-                                  </div>
-                                </button>
-                              ))
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {transferType === 'STORE' && (
-                    <div className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200 text-xs text-blue-900">
-                      <p className="font-bold flex items-center space-x-1.5">
-                        <Store className="w-4 h-4 text-blue-600" />
-                        <span>Madin School Store</span>
-                      </p>
-                      <p className="mt-1 text-[11px] text-blue-700">
-                        Funds shared to Store will be credited to your School Store account and can be utilized during store purchases.
-                      </p>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                      <span>Amount (₹)</span>
-                      <span className="text-slate-500 font-semibold font-mono">
-                        Available: ₹{wallet.balance.toFixed(2)}
-                      </span>
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="1"
-                      max={wallet.balance}
-                      required
-                      placeholder="e.g. 15.00"
-                      value={transferAmount}
-                      onChange={(e) => setTransferAmount(e.target.value)}
-                      className="block w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                      Remarks / Purpose (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Stationery, Book share, Gift"
-                      value={transferRemarks}
-                      onChange={(e) => setTransferRemarks(e.target.value)}
-                      className="block w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-                </>
-              ) : (
-                /* Confirmation Screen */
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3 text-xs">
-                  <h4 className="font-black text-slate-900 text-sm">Please Confirm Transaction</h4>
-                  <div className="space-y-1.5 text-slate-700">
-                    <p>
-                      <span className="text-slate-500">Destination:</span>{' '}
-                      <span className="font-bold text-slate-900">
-                        {transferType === 'STUDENT'
-                          ? `${selectedRecipientObj?.fullName} (${selectedRecipientObj?.sprStudentId})`
-                          : 'School Store Fund'}
-                      </span>
-                    </p>
-                    <p>
-                      <span className="text-slate-500">Transfer Amount:</span>{' '}
-                      <span className="font-black text-emerald-700 text-sm font-mono">
-                        ₹{parseFloat(transferAmount).toFixed(2)}
-                      </span>
-                    </p>
-                    <p>
-                      <span className="text-slate-500">Wallet Balance After:</span>{' '}
-                      <span className="font-bold text-slate-900 font-mono">
-                        ₹{(wallet.balance - parseFloat(transferAmount)).toFixed(2)}
-                      </span>
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center space-x-2 pt-2">
-                {transferStep === 'CONFIRM' && (
-                  <button
-                    type="button"
-                    onClick={() => setTransferStep('INPUT')}
-                    className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs hover:bg-slate-200 transition-all cursor-pointer"
-                  >
-                    Back
-                  </button>
-                )}
-                <button
-                  type="submit"
-                  disabled={transferLoading}
-                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-md transition-all disabled:opacity-50 flex items-center justify-center space-x-1.5 cursor-pointer"
-                >
-                  {transferLoading ? (
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <span>
-                      {transferStep === 'INPUT' ? 'Review Transfer' : 'Confirm & Send Funds'}
-                    </span>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 2. Add Funds Institutional Info Modal */}
-      {addFundsModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-base font-extrabold text-slate-900 flex items-center space-x-2">
-                <PlusCircle className="w-4 h-4 text-amber-600" />
-                <span>Add Wallet Funds</span>
-              </h3>
-              <button onClick={() => setAddFundsModalOpen(false)} className="text-slate-400 hover:text-slate-700">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="text-xs text-slate-600 space-y-3 leading-relaxed">
-              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900">
-                <p className="font-bold flex items-center space-x-1.5">
-                  <ShieldCheck className="w-4 h-4 text-amber-600" />
-                  <span>Merit-Based Academic Rewards</span>
-                </p>
-                <p className="mt-1 text-[11px] text-amber-800">
-                  SPR Student Wallets are directly earned through your academic, co-curricular, and literary achievements. Every 10 points convert into reward funds based on category multipliers.
-                </p>
-              </div>
-              <p>
-                For authorized institutional top-ups, scholarship disbursements, or approved manual funding, please contact the SPR Administrative Office or your Class Advisor.
-              </p>
-            </div>
-            <button
-              onClick={() => setAddFundsModalOpen(false)}
-              className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors cursor-pointer"
-            >
-              Understood
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 3. Change Password Modal */}
+      {/* Password Update Modal */}
       {pwdModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-base font-extrabold text-slate-900 flex items-center space-x-2">
-                <KeyRound className="w-4 h-4 text-amber-600" />
-                <span>Change Account Password</span>
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 animate-scale-in">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                {student?.mustChangePassword ? 'Mandatory Password Setup' : 'Change Password'}
               </h3>
               {!student?.mustChangePassword && (
-                <button onClick={() => setPwdModalOpen(false)} className="text-slate-400 hover:text-slate-700">
-                  <X className="w-5 h-5" />
+                <button
+                  onClick={() => setPwdModalOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 p-1"
+                >
+                  <X className="w-4 h-4" />
                 </button>
               )}
             </div>
 
-            {student?.mustChangePassword && (
-              <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs">
-                Your account was accessed via an activation code or administrative reset. Please establish your own new private password to continue.
-              </div>
-            )}
-
-            <form onSubmit={handleChangePassword} className="space-y-4">
+            <form onSubmit={handleUpdatePassword} className="space-y-3">
               {!student?.mustChangePassword && (
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
                     Current Password
                   </label>
                   <input
@@ -1079,102 +501,49 @@ export default function StudentDashboardPage() {
                     required
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
-                    className="block w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-600"
                   />
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  New Password (min 6 chars)
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                  New Password
                 </label>
                 <input
                   type="password"
                   required
-                  minLength={6}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="block w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  placeholder="Minimum 6 characters"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-600"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
                   Confirm New Password
                 </label>
                 <input
                   type="password"
                   required
-                  minLength={6}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="block w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-600"
                 />
               </div>
 
-              <div className="flex items-center space-x-2 pt-2">
-                {!student?.mustChangePassword && (
-                  <button
-                    type="button"
-                    onClick={() => setPwdModalOpen(false)}
-                    className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs hover:bg-slate-200 transition-all cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                )}
-                <button
-                  type="submit"
-                  disabled={pwdLoading}
-                  className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs shadow-md transition-all disabled:opacity-50 flex items-center justify-center space-x-1 cursor-pointer"
-                >
-                  {pwdLoading ? (
-                    <div className="w-4 h-4 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin" />
-                  ) : (
-                    <span>Update Password</span>
-                  )}
-                </button>
-              </div>
+              <button
+                type="submit"
+                disabled={pwdLoading}
+                className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-md transition disabled:opacity-50 mt-2"
+              >
+                {pwdLoading ? 'Saving...' : 'Update Password'}
+              </button>
             </form>
           </div>
         </div>
       )}
-
-      {/* ========================================================================= */}
-      {/* Mobile Sticky Bottom Navigation Bar                                       */}
-      {/* ========================================================================= */}
-      <nav className="sm:hidden fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] inset-x-3 bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-2xl p-1.5 flex justify-around items-center z-40 shadow-xl">
-        <button
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="flex flex-col items-center justify-center flex-1 min-h-[44px] py-1 px-2 text-amber-600 font-black text-[10px] cursor-pointer"
-        >
-          <LayoutDashboard className="w-4 h-4 mb-0.5" />
-          <span>Dashboard</span>
-        </button>
-
-        <button
-          onClick={() => router.push('/student/tasks')}
-          className="flex flex-col items-center justify-center flex-1 min-h-[44px] py-1 px-2 text-slate-500 hover:text-slate-900 text-[10px] font-bold cursor-pointer"
-        >
-          <CheckSquare className="w-4 h-4 mb-0.5" />
-          <span>Tasks</span>
-        </button>
-
-        <button
-          onClick={() => router.push(dossierHref)}
-          className="flex flex-col items-center justify-center flex-1 min-h-[44px] py-1 px-2 text-slate-500 hover:text-slate-900 text-[10px] font-bold cursor-pointer"
-        >
-          <Award className="w-4 h-4 mb-0.5" />
-          <span>My Dossier</span>
-        </button>
-
-        <button
-          onClick={handleLogout}
-          className="flex flex-col items-center justify-center flex-1 min-h-[44px] py-1 px-2 text-rose-500 hover:text-rose-700 text-[10px] font-bold cursor-pointer"
-        >
-          <LogOut className="w-4 h-4 mb-0.5" />
-          <span>Logout</span>
-        </button>
-      </nav>
     </div>
   );
 }

@@ -276,3 +276,4 @@ export function useCategoriesData(options?: { forceRefresh?: boolean }) {
 
   return { categories, loading, error, source, refetch };
 }
+

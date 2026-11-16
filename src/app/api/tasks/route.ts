@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/auth';
-import { createTask, getAdminTasks } from '@/lib/tasks';
+import { createTask, getAdminTasks, getAdminTaskOverviewMetrics } from '@/lib/tasks';
 import { getCachedAcademicClasses } from '@/lib/academic-cache';
 
 export async function GET(req: NextRequest) {
@@ -14,12 +14,13 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const filter = (searchParams.get('filter') || 'ALL') as any;
 
-    const [tasks, classes] = await Promise.all([
+    const [tasks, classes, metrics] = await Promise.all([
       getAdminTasks(filter),
       getCachedAcademicClasses(),
+      getAdminTaskOverviewMetrics(),
     ]);
 
-    return NextResponse.json({ tasks, classes });
+    return NextResponse.json({ tasks, classes, metrics });
   } catch (error: any) {
     console.error('Fetch tasks error:', error);
     return NextResponse.json({ error: error.message || 'Failed to fetch tasks.' }, { status: 500 });
@@ -36,13 +37,20 @@ export async function POST(req: NextRequest) {
     const task = await createTask({
       title: body.title,
       description: body.description,
+      instructions: body.instructions,
       maxPoints: parseFloat(body.maxPoints),
       maxFund: parseFloat(body.maxFund),
       startDate: body.startDate,
       endDate: body.endDate,
       targetAudience: body.targetAudience,
+      targetAudienceJson: body.targetAudienceJson,
       targetClassId: body.targetClassId,
       assignedStudentIds: body.assignedStudentIds,
+      rewardMode: body.rewardMode,
+      rewardConfig: body.rewardConfig,
+      closeWhenSlotsFilled: body.closeWhenSlotsFilled,
+      winnerSlots: body.winnerSlots ? parseInt(body.winnerSlots, 10) : null,
+      approvalMode: body.approvalMode,
       status: body.status,
       createdById: user.id,
       createdByEmail: user.email,

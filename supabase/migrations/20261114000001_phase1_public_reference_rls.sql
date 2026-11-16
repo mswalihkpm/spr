@@ -85,3 +85,4 @@ USING ("active" = true);
 -- Standard Vercel API routes and administrative operations remain 100% unaffected.
 
 COMMIT;
+

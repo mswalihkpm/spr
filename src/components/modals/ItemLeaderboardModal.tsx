@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import VideoLoader from '@/components/ui/VideoLoader';
+import { useLeaderboardAnimation } from '@/hooks/useLeaderboardAnimation';
 
 export interface ItemLeaderboardItem {
   id?: string;
@@ -137,10 +138,13 @@ export default function ItemLeaderboardModal({
     return list;
   }, [leaderboardData, filterClass, searchStudent]);
 
+  const itemModalKey = `${isOpen ? 'OPEN' : 'CLOSED'}_${item?.id || item?.name || 'ITEM'}_${filterClass}`;
+  const { animatedEntries } = useLeaderboardAnimation(filteredLeaderboard, false, itemModalKey);
+
   if (!isOpen || !item) return null;
 
   const currentItem = leaderboardData?.item || item;
-  const topThree = filteredLeaderboard.slice(0, 3);
+  const topThree = animatedEntries.slice(0, 3);
 
   const getPositionBadge = (pos: string | null) => {
     if (!pos) return null;
@@ -343,7 +347,7 @@ export default function ItemLeaderboardModal({
                       <div
                         key={st.recordId}
                         onClick={() => onSelectStudent && onSelectStudent(st.studentId)}
-                        className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl border ${cardBg} shadow-2xs relative flex flex-col items-center text-center transition-all hover:scale-[1.02] cursor-pointer group`}
+                        className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl border ${cardBg} shadow-2xs relative flex flex-col items-center text-center transition-all leaderboard-podium-card hover:scale-[1.02] cursor-pointer group`}
                       >
                         {/* Rank Badge */}
                         <div className="flex items-center space-x-1 mb-1">
@@ -413,19 +417,19 @@ export default function ItemLeaderboardModal({
                 </div>
 
                 <div className="divide-y divide-slate-100 dark:divide-slate-800 rounded-xl sm:rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-xs">
-                  {filteredLeaderboard.map((entry) => {
+                  {animatedEntries.map((entry) => {
                     return (
                       <div
                         key={entry.recordId}
                         onClick={() => onSelectStudent && onSelectStudent(entry.studentId)}
-                        className={`p-2 sm:p-3 flex items-center justify-between transition-colors hover:bg-blue-50/70 dark:hover:bg-slate-800/70 cursor-pointer group ${
+                        className={`p-2 sm:p-3 flex items-center justify-between transition-all duration-300 ease-out leaderboard-row-transition hover:bg-blue-50/70 dark:hover:bg-slate-800/70 cursor-pointer group ${
                           entry.rank === 1 ? 'bg-amber-50/30 dark:bg-amber-950/20' : ''
-                        }`}
+                        } ${(entry as any)._isOvertaking ? 'bg-emerald-50/40 dark:bg-emerald-950/30' : ''}`}
                       >
                         <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 pr-2">
                           {/* Rank indicator */}
                           <div
-                            className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg sm:rounded-xl flex items-center justify-center font-black text-[10px] sm:text-xs shrink-0 ${
+                            className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg sm:rounded-xl flex items-center justify-center font-black text-[10px] sm:text-xs shrink-0 rank-badge-transition ${
                               entry.rank === 1
                                 ? 'bg-amber-400 text-amber-950 shadow-2xs font-bold'
                                 : entry.rank === 2

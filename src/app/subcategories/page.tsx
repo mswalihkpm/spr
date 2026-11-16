@@ -37,6 +37,7 @@ import {
   Copy,
   RotateCcw,
   Image as ImageIcon,
+  Users,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
@@ -46,6 +47,8 @@ import CustomSelect from '@/components/ui/CustomSelect';
 import { invalidateClientCache } from '@/lib/client-cache';
 import { getSubcategoryFallbackLogo } from '@/lib/logo-utils';
 import { validateImageUrl } from '@/lib/url-validator';
+import MultiStudentRecordModal from '@/components/modals/MultiStudentRecordModal';
+import MultiProgrammeRecordModal from '@/components/modals/MultiProgrammeRecordModal';
 
 const LEVEL_PRESETS = [
   {
@@ -105,6 +108,7 @@ export default function OtherSubcategoriesPage() {
   const [activeTab, setActiveTab] = useState<'RECORD' | 'BUILDER' | 'LOGOS'>('RECORD');
   const [subcategories, setSubcategories] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [classes, setClasses] = useState<any[]>([]);
   const [levels, setLevels] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [recentRecords, setRecentRecords] = useState<any[]>([]);
@@ -141,6 +145,10 @@ export default function OtherSubcategoriesPage() {
   const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null);
   const [deletingSubId, setDeletingSubId] = useState<string | null>(null);
 
+  // Bulk Entry Modals
+  const [multiStudentModalOpen, setMultiStudentModalOpen] = useState(false);
+  const [multiProgrammeModalOpen, setMultiProgrammeModalOpen] = useState(false);
+
   // Builder Modal State
   const [builderModalOpen, setBuilderModalOpen] = useState(false);
   const [editingSubId, setEditingSubId] = useState<string | null>(null);
@@ -169,24 +177,27 @@ export default function OtherSubcategoriesPage() {
   const [logoSearchQuery, setLogoSearchQuery] = useState('');
   const [logoCopiedId, setLogoCopiedId] = useState<string | null>(null);
 
-  const fetchData = async (silent = false) => {
+  const fetchData = async (silent = false, refreshScores = true) => {
     try {
       if (!silent) setLoading(true);
 
       if (silent) {
         // Fast lightweight refresh
-        const [resSubs, resScores] = await Promise.all([
-          fetch('/api/subcategories'),
-          fetch('/api/scores?limit=500'),
-        ]);
+        const fetchPromises: Promise<any>[] = [fetch('/api/subcategories?fresh=true')];
+        if (refreshScores) {
+          fetchPromises.push(fetch('/api/scores?limit=200'));
+        }
+        const [resSubs, resScores] = await Promise.all(fetchPromises);
         const dataSubs = await resSubs.json();
-        const dataScores = await resScores.json();
         if (dataSubs.subcategories) {
           setSubcategories(dataSubs.subcategories);
         }
-        if (dataScores.records) {
-          const subRecords = dataScores.records.filter((r: any) => r.subcategoryId);
-          setRecentRecords(subRecords);
+        if (resScores) {
+          const dataScores = await resScores.json();
+          if (dataScores.records) {
+            const subRecords = dataScores.records.filter((r: any) => r.subcategoryId);
+            setRecentRecords(subRecords);
+          }
         }
         return;
       }
@@ -194,9 +205,9 @@ export default function OtherSubcategoriesPage() {
       // Initial full data load
       const [dataMaster, resSubs, resStudents, resScores] = await Promise.all([
         getAcademicMasterData(true),
-        fetch('/api/subcategories'),
+        fetch('/api/subcategories?fresh=true'),
         fetch('/api/students?all=true&minimal=true'),
-        fetch('/api/scores?limit=500'),
+        fetch('/api/scores?limit=300'),
       ]);
 
       const dataSubs = await resSubs.json();
@@ -205,6 +216,9 @@ export default function OtherSubcategoriesPage() {
 
       if (dataMaster.categories) {
         setCategories(dataMaster.categories);
+      }
+      if (dataMaster.classes) {
+        setClasses(dataMaster.classes);
       }
       if (dataMaster.levels) {
         setLevels(dataMaster.levels);
@@ -521,9 +535,15 @@ export default function OtherSubcategoriesPage() {
 
     try {
       const method = editingSubId ? 'PUT' : 'POST';
+      const targetCatId =
+        builderForm.categoryId ||
+        categories.find((c) => c.code === 'QUALIFICATION')?.id ||
+        categories[0]?.id ||
+        '';
+
       const payload = {
         name: builderForm.name,
-        categoryId: builderForm.categoryId,
+        categoryId: targetCatId,
         logoUrl: builderForm.logoUrl,
         hasLevels: builderForm.hasLevels,
         levelGroup: builderForm.levelGroup,
@@ -545,12 +565,24 @@ export default function OtherSubcategoriesPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to save subcategory.');
 
+      // Instant optimistic state update
+      if (data.subcategory) {
+        setSubcategories((prev) => {
+          if (editingSubId) {
+            return prev.map((s) => (s.id === editingSubId ? data.subcategory : s));
+          }
+          return [data.subcategory, ...prev];
+        });
+        setSelectedSubcategoryId(data.subcategory.id);
+      }
+
       setStatusMsg({
         type: 'success',
         text: `Subcategory "${builderForm.name}" ${editingSubId ? 'updated' : 'created'} with customized features!`,
       });
       setBuilderModalOpen(false);
-      fetchData(true);
+      // Fast silent background sync without heavy score queries
+      fetchData(true, false);
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
     } finally {
@@ -835,6 +867,22 @@ export default function OtherSubcategoriesPage() {
               <Palette className="w-3.5 h-3.5 text-indigo-400" />
               <span>Logo Management ({subcategories.filter(s => s.logoUrl).length}/{subcategories.length})</span>
             </button>
+            <button
+              onClick={() => setMultiStudentModalOpen(true)}
+              className="px-3 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow hover:scale-105 active:scale-95 cursor-pointer"
+              title="Add score records for multiple students in this subcategory"
+            >
+              <Users className="w-3.5 h-3.5 text-amber-300" />
+              <span>Bulk Students</span>
+            </button>
+            <button
+              onClick={() => setMultiProgrammeModalOpen(true)}
+              className="px-3 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow hover:scale-105 active:scale-95 cursor-pointer"
+              title="Add multiple subcategory/programme records for a student"
+            >
+              <Trophy className="w-3.5 h-3.5 text-amber-300" />
+              <span>Bulk Programmes</span>
+            </button>
           </div>
         </div>
 
@@ -983,9 +1031,30 @@ export default function OtherSubcategoriesPage() {
                     Weight: {activeSubcategory.weight || 1.0}x
                   </span>
                 </div>
-                <h3 className="text-base font-black text-slate-900 mt-0.5">
-                  Record Score: {activeSubcategory.name}
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-black text-slate-900 mt-0.5">
+                    Record Score: {activeSubcategory.name}
+                  </h3>
+                </div>
+                {/* Bulk Entry Shortcut Buttons */}
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setMultiStudentModalOpen(true)}
+                    className="flex-1 py-1.5 px-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[11px] font-bold flex items-center justify-center space-x-1.5 transition active:scale-95 cursor-pointer shadow-2xs"
+                  >
+                    <Users className="w-3.5 h-3.5 text-blue-600" />
+                    <span>+ Bulk Students</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMultiProgrammeModalOpen(true)}
+                    className="flex-1 py-1.5 px-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[11px] font-bold flex items-center justify-center space-x-1.5 transition active:scale-95 cursor-pointer shadow-2xs"
+                  >
+                    <Trophy className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>+ Bulk Programmes</span>
+                  </button>
+                </div>
               </div>
 
               <form onSubmit={handleSaveScore} className="space-y-3.5">
@@ -2339,6 +2408,44 @@ export default function OtherSubcategoriesPage() {
             </div>
           </div>
         )}
+        {/* Bulk Student Entry Modal for Subcategory */}
+        <MultiStudentRecordModal
+          isOpen={multiStudentModalOpen}
+          onClose={() => setMultiStudentModalOpen(false)}
+          categoryType="SUBCATEGORY"
+          categoryTitle={`Subcategory: ${activeSubcategory?.name || 'Bulk Record'}`}
+          categoryId={
+            activeSubcategory?.categoryId ||
+            categories.find((c) => c.code === 'QUALIFICATION')?.id ||
+            categories[0]?.id ||
+            ''
+          }
+          levels={levels}
+          classes={classes}
+          students={students}
+          subcategories={subcategories}
+          defaultSubcategoryId={activeSubcategory?.id}
+          onSuccess={() => fetchData(true)}
+        />
+
+        {/* Bulk Programme Entry Modal for Subcategory */}
+        <MultiProgrammeRecordModal
+          isOpen={multiProgrammeModalOpen}
+          onClose={() => setMultiProgrammeModalOpen(false)}
+          categoryType="SUBCATEGORY"
+          categoryTitle={`Subcategory: ${activeSubcategory?.name || 'Bulk Record'}`}
+          categoryId={
+            activeSubcategory?.categoryId ||
+            categories.find((c) => c.code === 'QUALIFICATION')?.id ||
+            categories[0]?.id ||
+            ''
+          }
+          levels={levels}
+          students={students}
+          subcategories={subcategories}
+          defaultSubcategoryId={activeSubcategory?.id}
+          onSuccess={() => fetchData(true)}
+        />
       </div>
     </AdminLayout>
   );
