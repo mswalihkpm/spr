@@ -395,9 +395,18 @@ export async function syncStudentEarnings(studentId: string): Promise<{
       if (cat.code === 'CREATIVE_HUB' && isAllowedCashCategory) {
         for (const sub of creativeHubSubmissions) {
           const subDate = sub.date ? new Date(sub.date) : null;
-          const subCreatedAt = new Date(sub.createdAt);
-          const isEligible = (subDate && subDate >= eligibilityStartDate) || (subCreatedAt >= eligibilityStartDate);
-          const recordDate = (subDate && subDate >= eligibilityStartDate) ? subDate : subCreatedAt;
+          const subCreatedAt = sub.createdAt ? new Date(sub.createdAt) : null;
+          const subUpdatedAt = sub.updatedAt ? new Date(sub.updatedAt) : null;
+          const isEligible =
+            (subDate && subDate >= eligibilityStartDate) ||
+            (subCreatedAt && subCreatedAt >= eligibilityStartDate) ||
+            (subUpdatedAt && subUpdatedAt >= eligibilityStartDate);
+          const recordDate =
+            subDate && subDate >= eligibilityStartDate
+              ? subDate
+              : subCreatedAt && subCreatedAt >= eligibilityStartDate
+              ? subCreatedAt
+              : subUpdatedAt || new Date();
 
           if (isEligible) {
             const points = sub.score || 0;
@@ -431,10 +440,20 @@ export async function syncStudentEarnings(studentId: string): Promise<{
         for (const att of catAttendances) {
           // Cash rule: Strictly for records on or after November 1st, plus explicit credit for Muhammed Luqman V October attendance
           const attDate = new Date(Date.UTC(att.year, att.month - 1, 1));
-          const attCreatedAt = new Date(att.createdAt);
+          const attCreatedAt = att.createdAt ? new Date(att.createdAt) : null;
+          const attUpdatedAt = att.updatedAt ? new Date(att.updatedAt) : null;
           const isLuqmanOct = att.studentId === 'cmtorfds8002r7v89r0121zat' && att.month === 10 && att.year === 2026;
-          const isEligible = attDate >= eligibilityStartDate || attCreatedAt >= eligibilityStartDate || isLuqmanOct;
-          const activityDate = (attDate >= eligibilityStartDate) ? attDate : attCreatedAt;
+          const isEligible =
+            attDate >= eligibilityStartDate ||
+            (attCreatedAt && attCreatedAt >= eligibilityStartDate) ||
+            (attUpdatedAt && attUpdatedAt >= eligibilityStartDate) ||
+            isLuqmanOct;
+          const activityDate =
+            attDate >= eligibilityStartDate
+              ? attDate
+              : attCreatedAt && attCreatedAt >= eligibilityStartDate
+              ? attCreatedAt
+              : attUpdatedAt || new Date();
 
           // Attendance cash rule: out of mark is 20; credit cash only if rewarded with 15 or more points (>= 15 pts)
           const rawPoints = att.points || 0;
@@ -479,9 +498,18 @@ export async function syncStudentEarnings(studentId: string): Promise<{
       if (isAllowedCashCategory) {
         for (const record of catRecords) {
           const recDate = record.date ? new Date(record.date) : null;
-          const recCreatedAt = new Date(record.createdAt);
-          const isEligible = (recDate && recDate >= eligibilityStartDate) || (recCreatedAt >= eligibilityStartDate);
-          const recordDate = (recDate && recDate >= eligibilityStartDate) ? recDate : recCreatedAt;
+          const recCreatedAt = record.createdAt ? new Date(record.createdAt) : null;
+          const recUpdatedAt = record.updatedAt ? new Date(record.updatedAt) : null;
+          const isEligible =
+            (recDate && recDate >= eligibilityStartDate) ||
+            (recCreatedAt && recCreatedAt >= eligibilityStartDate) ||
+            (recUpdatedAt && recUpdatedAt >= eligibilityStartDate);
+          const recordDate =
+            recDate && recDate >= eligibilityStartDate
+              ? recDate
+              : recCreatedAt && recCreatedAt >= eligibilityStartDate
+              ? recCreatedAt
+              : recUpdatedAt || new Date();
 
           if (isEligible) {
             const points = record.obtainedScore || 0;
@@ -508,27 +536,38 @@ export async function syncStudentEarnings(studentId: string): Promise<{
               }
               const cashPoints = isEligibleForCash ? points : 0;
 
+              // Resolve subcategory-specific weight if higher/configured
+              const recordMultiplier =
+                record.subcategory &&
+                typeof record.subcategory.weight === 'number' &&
+                record.subcategory.weight > 1.0
+                  ? record.subcategory.weight
+                  : multiplier;
+
               if (cashPoints > 0) {
                 eligiblePointsSum += cashPoints;
               }
 
+              const subcategoryName = record.subcategory?.name || null;
               const earned = await applyEarningItem({
                 sourceRecordId: record.id,
                 reference: `ERN-${record.id}`,
                 sourceType: 'PERFORMANCE_RECORD',
                 activityDate: recordDate,
                 points: cashPoints,
-                multiplier,
+                multiplier: recordMultiplier,
                 metadata: {
                   maxScore: record.maxScore,
                   percentage: record.percentage,
                   position: record.position,
                   categoryDisplay: displayName,
+                  subcategoryName,
+                  subcategoryId: record.subcategoryId || null,
                   isTermOrAssessment,
                   isEligibleForCash,
                   isBelow70Percent: !isEligibleForCash,
                 },
-                description: `Earned ₹${calculateCategoryEarnings(cashPoints, multiplier).toFixed(2)} from ${displayName} (${cashPoints} pts × ${multiplier})`,
+                description: `Earned ₹${calculateCategoryEarnings(cashPoints, recordMultiplier).toFixed(2)} from ${displayName}${subcategoryName ? ` - ${subcategoryName}` : ''} (${cashPoints} pts × ${recordMultiplier})`,
                 categoryId: cat.id,
               });
               categoryEarningsSum += earned;

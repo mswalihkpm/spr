@@ -81,10 +81,16 @@ export async function getCurrentUser(): Promise<UserSession | null> {
   }
 }
 
+const isCookieSecure =
+  process.env.NODE_ENV === 'production' &&
+  (Boolean(process.env.NEXT_PUBLIC_APP_URL?.startsWith('https://')) ||
+    Boolean(process.env.VERCEL_URL) ||
+    process.env.COOKIE_SECURE === 'true');
+
 export function setAuthCookie(response: NextResponse, token: string) {
   response.cookies.set(AUTH_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isCookieSecure,
     sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 7, // 7 days
     path: '/',
@@ -94,7 +100,7 @@ export function setAuthCookie(response: NextResponse, token: string) {
 export function clearAuthCookie(response: NextResponse) {
   response.cookies.set(AUTH_COOKIE_NAME, '', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isCookieSecure,
     sameSite: 'lax',
     maxAge: 0,
     path: '/',
@@ -224,7 +230,7 @@ export function verifyStudentToken(token: string): StudentSession | null {
 export function setStudentCookie(response: NextResponse, token: string) {
   response.cookies.set(STUDENT_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isCookieSecure,
     sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 7, // 7 days
     path: '/',
@@ -234,7 +240,7 @@ export function setStudentCookie(response: NextResponse, token: string) {
 export function clearStudentCookie(response: NextResponse) {
   response.cookies.set(STUDENT_COOKIE_NAME, '', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isCookieSecure,
     sameSite: 'lax',
     maxAge: 0,
     path: '/',

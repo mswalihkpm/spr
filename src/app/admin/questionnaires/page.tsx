@@ -533,18 +533,30 @@ export default function AdminQuestionnairesPage() {
                   }
                   return (
                     <div key={q.id} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                      <p className="font-bold text-xs text-slate-900">
-                        {i + 1}. {q.title} {q.isRequired && <span className="text-rose-500">*</span>}
-                      </p>
-                      {opts.length > 0 && (
+                      <div className="flex items-start justify-between">
+                        <p className="font-bold text-xs text-slate-900">
+                          {i + 1}. {q.title} {q.isRequired && <span className="text-rose-500">*</span>}
+                        </p>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-200/80 text-slate-600">
+                          {q.questionType}
+                        </span>
+                      </div>
+                      {q.description && (
+                        <p className="text-[11px] text-slate-500">{q.description}</p>
+                      )}
+                      {opts.length > 0 ? (
                         <div className="space-y-1.5 pt-1">
                           {opts.map((opt, oi) => (
-                            <label key={oi} className="flex items-center space-x-2 text-xs text-slate-700 cursor-pointer">
-                              <input type={q.questionType === 'MULTIPLE_CHOICE' ? 'checkbox' : 'radio'} disabled />
+                            <label key={oi} className="flex items-center space-x-2 text-xs text-slate-700">
+                              <input type={q.questionType === 'MULTIPLE_CHOICE' || q.questionType === 'MULTI_SELECT' ? 'checkbox' : 'radio'} disabled />
                               <span>{opt}</span>
                             </label>
                           ))}
                         </div>
+                      ) : q.questionType === 'TEXTAREA' || q.questionType === 'LONG_TEXT' ? (
+                        <textarea rows={2} disabled placeholder="Type answer here..." className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white" />
+                      ) : (
+                        <input type="text" disabled placeholder="Type answer here..." className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white" />
                       )}
                     </div>
                   );
