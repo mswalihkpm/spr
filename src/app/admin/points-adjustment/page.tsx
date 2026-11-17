@@ -69,9 +69,11 @@ export default function PointsAdjustmentPage() {
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [walletStudent, setWalletStudent] = useState<StudentItem | null>(null);
   const [walletCurrentBalance, setWalletCurrentBalance] = useState<number>(0);
+  const [walletCurrentEarnings, setWalletCurrentEarnings] = useState<number>(0);
   const [walletLoadingBalance, setWalletLoadingBalance] = useState(false);
   const [walletAmount, setWalletAmount] = useState<string>('50');
   const [walletAction, setWalletAction] = useState<'ADD' | 'REDUCE'>('ADD');
+  const [walletUpdateLifetimeEarnings, setWalletUpdateLifetimeEarnings] = useState<boolean>(true);
   const [walletNote, setWalletNote] = useState('');
   const [walletSubmitting, setWalletSubmitting] = useState(false);
 
@@ -104,7 +106,7 @@ export default function PointsAdjustmentPage() {
     fetchReasons();
   }, [fetchReasons]);
 
-  // Fetch students for selected reason and filters
+  // Fetch students for selected reason and class cohort
   const fetchStudents = useCallback(async () => {
     if (!selectedReasonId) return;
     try {
@@ -112,7 +114,6 @@ export default function PointsAdjustmentPage() {
       const params = new URLSearchParams({
         reasonId: selectedReasonId,
         classId: selectedClassId,
-        search: searchQuery,
       });
       const res = await fetch(`/api/admin/point-corrections/students?${params.toString()}`);
       const data = await res.json();
@@ -128,11 +129,23 @@ export default function PointsAdjustmentPage() {
     } finally {
       setLoadingStudents(false);
     }
-  }, [selectedReasonId, selectedClassId, searchQuery, classes.length]);
+  }, [selectedReasonId, selectedClassId, classes.length]);
 
   useEffect(() => {
     fetchStudents();
   }, [fetchStudents]);
+
+  // Zero-latency instant search filtering on client
+  const filteredStudents = useMemo(() => {
+    if (!searchQuery.trim()) return students;
+    const q = searchQuery.toLowerCase().trim();
+    return students.filter((s) => {
+      const nameMatch = (s.fullName || '').toLowerCase().includes(q);
+      const idMatch = (s.sprStudentId || s.studentId || '').toLowerCase().includes(q);
+      const classMatch = (s.className || '').toLowerCase().includes(q);
+      return nameMatch || idMatch || classMatch;
+    });
+  }, [students, searchQuery]);
 
   const activeReason = useMemo(() => {
     return reasons.find((r) => r.id === selectedReasonId) || null;
@@ -268,6 +281,7 @@ export default function PointsAdjustmentPage() {
     setWalletModalOpen(true);
     setWalletAmount('50');
     setWalletAction('ADD');
+    setWalletUpdateLifetimeEarnings(true);
     setWalletNote('Administrative cash update');
     try {
       setWalletLoadingBalance(true);
@@ -275,6 +289,7 @@ export default function PointsAdjustmentPage() {
       const data = await res.json();
       if (data.wallet) {
         setWalletCurrentBalance(Number(data.wallet.balance || 0));
+        setWalletCurrentEarnings(Number(data.wallet.totalEarnings || 0));
       }
     } catch (e) {
       console.error(e);
@@ -303,6 +318,7 @@ export default function PointsAdjustmentPage() {
           action: walletAction,
           amount: num,
           note: walletNote.trim() || 'Direct administrative cash adjustment',
+          updateTotalEarnings: walletUpdateLifetimeEarnings,
         }),
       });
       const data = await res.json();
@@ -311,7 +327,7 @@ export default function PointsAdjustmentPage() {
       }
 
       showToast(
-        `Wallet cash successfully updated for ${walletStudent.fullName}. Direct balance adjusted without student transaction history.`,
+        `Wallet cash successfully updated for ${walletStudent.fullName}.${walletUpdateLifetimeEarnings ? ' Total Lifetime Earnings also updated.' : ''} (No transaction record created)`,
         'success'
       );
       setWalletModalOpen(false);
@@ -475,33 +491,33 @@ export default function PointsAdjustmentPage() {
             SECTION 2: SELECTED REASON STUDENT ENTRIES WITH STRICT 3-COLUMN TABLE
             ========================================================================= */}
         {activeReason && (
-          <div className="bg-white rounded-3xl border border-slate-200 p-4 sm:p-6 shadow-xs space-y-4">
+          <div className="bg-white rounded-3xl border border-slate-200 p-3 sm:p-6 shadow-xs space-y-3 sm:space-y-4">
             {/* Active Reason Banner */}
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-slate-900 to-blue-950 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="p-3 sm:p-4 rounded-2xl bg-gradient-to-r from-slate-900 to-blue-950 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-blue-300">
+                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-blue-300">
                   Active Reason Box
                 </span>
-                <h3 className="text-base sm:text-lg font-black text-white">{activeReason.title}</h3>
-                <p className="text-xs text-blue-200/80 mt-0.5">
-                  Base Point Increment / Decrement: <strong className="text-amber-300">{activeReason.basePoint} points</strong> per click.
+                <h3 className="text-sm sm:text-lg font-black text-white">{activeReason.title}</h3>
+                <p className="text-[11px] sm:text-xs text-blue-200/90 mt-0.5">
+                  Base Point: <strong className="text-amber-300 font-mono font-bold">{activeReason.basePoint} points</strong> per click.
                 </p>
               </div>
 
-              <div className="flex items-center space-x-2 text-xs">
-                <span className="px-3 py-1 rounded-xl bg-white/10 border border-white/20 font-bold">
-                  Click (-) to reduce {activeReason.basePoint} pts
+              <div className="flex items-center space-x-1.5 sm:space-x-2 text-[10px] sm:text-xs">
+                <span className="px-2.5 py-1 rounded-xl bg-white/10 border border-white/20 font-bold">
+                  (-) reduces {activeReason.basePoint} pts
                 </span>
-                <span className="px-3 py-1 rounded-xl bg-white/10 border border-white/20 font-bold">
-                  Click (+) to add {activeReason.basePoint} pts
+                <span className="px-2.5 py-1 rounded-xl bg-white/10 border border-white/20 font-bold">
+                  (+) adds {activeReason.basePoint} pts
                 </span>
               </div>
             </div>
 
             {/* Filter & Search Bar */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3 pt-1">
               {/* Class Filter */}
-              <div className="flex items-center space-x-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+              <div className="flex items-center space-x-1.5 sm:space-x-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none max-w-full">
                 <button
                   onClick={() => setSelectedClassId('ALL')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
@@ -527,93 +543,101 @@ export default function PointsAdjustmentPage() {
                 ))}
               </div>
 
-              {/* Global Search Option */}
+              {/* Instant Search Option */}
               <div className="relative shrink-0 w-full sm:w-72">
                 <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search student name or SPR ID..."
+                  placeholder="Instant search student or SPR ID..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 outline-none focus:ring-2 focus:ring-blue-600 transition"
+                  className="w-full pl-8 pr-3 py-1.5 sm:py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 outline-none focus:ring-2 focus:ring-blue-600 transition"
                 />
               </div>
             </div>
 
-            {/* Strict 3-Column Table */}
-            <div className="overflow-hidden rounded-2xl border border-slate-200">
-              <div className="grid grid-cols-[80px_1fr_80px] sm:grid-cols-[100px_1fr_100px] bg-slate-100/80 px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-600 border-b border-slate-200 text-center">
-                <div className="text-center font-bold text-rose-700">Reduce (-)</div>
-                <div className="text-left pl-3 sm:pl-6 font-bold text-slate-700">Student Name &amp; Class</div>
-                <div className="text-center font-bold text-emerald-700">Add (+)</div>
+            {/* Strict 3-Column Table - Mobile Optimized */}
+            <div className="overflow-hidden rounded-2xl border border-slate-200 w-full">
+              <div className="grid grid-cols-[48px_1fr_48px] sm:grid-cols-[90px_1fr_90px] bg-slate-100/90 px-2 sm:px-4 py-2.5 sm:py-3 text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-600 border-b border-slate-200 text-center">
+                <div className="text-center font-bold text-rose-700">
+                  <span className="sm:hidden">(-)</span>
+                  <span className="hidden sm:inline">Reduce (-)</span>
+                </div>
+                <div className="text-left pl-2 sm:pl-4 font-bold text-slate-700 truncate">
+                  Student Name &amp; Class
+                </div>
+                <div className="text-center font-bold text-emerald-700">
+                  <span className="sm:hidden">(+)</span>
+                  <span className="hidden sm:inline">Add (+)</span>
+                </div>
               </div>
 
               {loadingStudents ? (
                 <div className="p-8 text-center text-xs text-slate-400">Loading student records...</div>
-              ) : students.length === 0 ? (
+              ) : filteredStudents.length === 0 ? (
                 <div className="p-8 text-center text-xs text-slate-400">
-                  No students found matching current filters.
+                  {searchQuery.trim()
+                    ? `No students found matching "${searchQuery}".`
+                    : 'No students found matching current filters.'}
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
-                  {students.map((student) => {
+                  {filteredStudents.map((student) => {
                     const isReducing = actionInProgress === `${student.id}_REDUCE`;
                     const isAdding = actionInProgress === `${student.id}_ADD`;
 
                     return (
                       <div
                         key={student.id}
-                        className="grid grid-cols-[80px_1fr_80px] sm:grid-cols-[100px_1fr_100px] items-center px-4 py-3 hover:bg-blue-50/40 transition-colors"
+                        className="grid grid-cols-[48px_1fr_48px] sm:grid-cols-[90px_1fr_90px] items-center px-2 sm:px-4 py-2 sm:py-3 hover:bg-blue-50/40 transition-colors"
                       >
                         {/* COLUMN 1: REDUCE (-) IN RED CIRCLE */}
                         <div className="flex items-center justify-center">
                           <button
                             disabled={isReducing || isAdding}
                             onClick={() => handleApplyPoints(student.id, 'REDUCE')}
-                            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-rose-100 text-rose-700 hover:bg-rose-200 active:scale-95 border-2 border-rose-300 flex items-center justify-center font-black text-xl transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-rose-100 text-rose-700 hover:bg-rose-200 active:scale-90 border-2 border-rose-300 flex items-center justify-center font-black transition-all shadow-xs cursor-pointer disabled:opacity-50"
                             title={`Reduce ${activeReason.basePoint} points from ${student.fullName}`}
                           >
-                            <Minus className="w-5 h-5 stroke-[3]" />
+                            <Minus className="w-4 h-4 sm:w-5 sm:h-5 stroke-[3]" />
                           </button>
                         </div>
 
                         {/* COLUMN 2: STUDENT NAME WITH CLASS */}
-                        <div className="px-3 sm:px-6 min-w-0">
-                          <div className="flex items-center space-x-3">
+                        <div className="px-2 sm:px-4 min-w-0">
+                          <div className="flex items-center space-x-2 sm:space-x-3">
                             <StudentAvatar
                               photoUrl={student.photoUrl}
                               name={student.fullName}
                               size="sm"
                               studentId={student.sprStudentId || student.id}
-                              className="w-9 h-9 shrink-0 ring-1 ring-slate-200"
+                              className="w-7 h-7 sm:w-9 sm:h-9 shrink-0 ring-1 ring-slate-200"
                             />
                             <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-1.5">
+                              <div className="flex items-center space-x-1.5 truncate">
                                 <span className="font-extrabold text-xs sm:text-sm text-slate-900 truncate">
                                   {student.fullName}
                                 </span>
-                                <span className="text-[10px] font-mono text-blue-700 px-1.5 py-0.2 rounded bg-blue-50 border border-blue-200">
+                                <span className="text-[9px] sm:text-[10px] font-mono text-blue-700 px-1 py-0.2 rounded bg-blue-50 border border-blue-200 shrink-0">
                                   {student.sprStudentId}
                                 </span>
                               </div>
-                              <div className="text-[11px] text-slate-500 flex flex-wrap items-center gap-2 mt-0.5">
-                                <span>
+                              <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-0.5 text-[10px] sm:text-[11px] text-slate-500">
+                                <span className="truncate">
                                   {student.className} {student.division ? `(${student.division})` : ''}
                                 </span>
                                 <span>•</span>
-                                <span className="font-mono font-bold text-slate-700">
-                                  Reason Net: {student.pointsForReason > 0 ? `+${student.pointsForReason}` : student.pointsForReason} pts
-                                </span>
-                                <span>•</span>
-                                <span className="font-mono text-slate-500">
-                                  Total Adjustments: {student.totalAdjustment > 0 ? `+${student.totalAdjustment}` : student.totalAdjustment} pts
+                                <span className="font-mono font-bold text-slate-700 shrink-0">
+                                  Net: {student.pointsForReason > 0 ? `+${student.pointsForReason}` : student.pointsForReason} pts
                                 </span>
                                 <button
+                                  type="button"
                                   onClick={() => openWalletModal(student)}
-                                  className="inline-flex items-center space-x-1 text-[10.5px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 cursor-pointer ml-1"
+                                  className="inline-flex items-center space-x-1 text-[9px] sm:text-[10.5px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 cursor-pointer ml-auto sm:ml-1 shrink-0"
+                                  title="Adjust Wallet Cash Balance"
                                 >
-                                  <Wallet className="w-3 h-3" />
-                                  <span>Adjust Cash</span>
+                                  <Wallet className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-600" />
+                                  <span>Cash</span>
                                 </button>
                               </div>
                             </div>
@@ -625,10 +649,10 @@ export default function PointsAdjustmentPage() {
                           <button
                             disabled={isReducing || isAdding}
                             onClick={() => handleApplyPoints(student.id, 'ADD')}
-                            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-emerald-100 text-emerald-700 hover:bg-emerald-200 active:scale-95 border-2 border-emerald-300 flex items-center justify-center font-black text-xl transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-emerald-100 text-emerald-700 hover:bg-emerald-200 active:scale-90 border-2 border-emerald-300 flex items-center justify-center font-black transition-all shadow-xs cursor-pointer disabled:opacity-50"
                             title={`Add ${activeReason.basePoint} points to ${student.fullName}`}
                           >
-                            <Plus className="w-5 h-5 stroke-[3]" />
+                            <Plus className="w-4 h-4 sm:w-5 sm:h-5 stroke-[3]" />
                           </button>
                         </div>
                       </div>
@@ -645,7 +669,7 @@ export default function PointsAdjustmentPage() {
             ========================================================================= */}
         {reasonModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-            <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <h3 className="text-base font-black text-slate-900">
                   {editingReason ? 'Edit Correction Reason' : 'Create Point Correction Reason'}
@@ -677,16 +701,16 @@ export default function PointsAdjustmentPage() {
                   </label>
                   <input
                     type="number"
-                    step="0.5"
-                    min="0.5"
+                    step="0.01"
+                    min="0.01"
                     required
-                    placeholder="5"
+                    placeholder="e.g. 5, 1.51, or 8.75"
                     value={reasonBasePoint}
                     onChange={(e) => setReasonBasePoint(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-600 outline-none font-mono"
                   />
-                  <p className="text-[10.5px] text-slate-400 mt-1">
-                    Clicking (+) adds this base amount; clicking (-) subtracts this base amount.
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Supports decimal values (e.g. +8.75 or -1.51). Clicking (+) adds this amount; clicking (-) subtracts this amount.
                   </p>
                 </div>
 
@@ -727,7 +751,7 @@ export default function PointsAdjustmentPage() {
             ========================================================================= */}
         {walletModalOpen && walletStudent && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-            <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div className="flex items-center space-x-2">
                   <span className="p-1.5 rounded-xl bg-emerald-100 text-emerald-700">
@@ -747,9 +771,9 @@ export default function PointsAdjustmentPage() {
                 <strong>Administrative Rule:</strong> This direct cash adjustment will <u>NOT</u> create any entry in the student&apos;s transaction history. It only adjusts the student&apos;s wallet balance directly.
               </div>
 
-              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 grid grid-cols-2 gap-2 text-xs">
                 <div>
-                  <div className="font-bold text-slate-900">{walletStudent.fullName}</div>
+                  <div className="font-bold text-slate-900 truncate">{walletStudent.fullName}</div>
                   <div className="text-[10px] text-slate-500 font-mono">{walletStudent.sprStudentId} • {walletStudent.className}</div>
                 </div>
                 <div className="text-right">
@@ -757,6 +781,11 @@ export default function PointsAdjustmentPage() {
                   <span className="font-mono font-black text-emerald-700 text-sm">
                     {walletLoadingBalance ? '...' : `₹${walletCurrentBalance.toFixed(2)}`}
                   </span>
+                  {walletCurrentEarnings > 0 && (
+                    <span className="text-[9.5px] text-slate-500 font-mono block">
+                      Earnings: ₹{walletCurrentEarnings.toFixed(2)}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -795,13 +824,50 @@ export default function PointsAdjustmentPage() {
                   <label className="font-bold text-slate-700 block mb-1">Amount (₹) *</label>
                   <input
                     type="number"
-                    step="1"
-                    min="1"
+                    step="0.01"
+                    min="0.01"
                     required
+                    placeholder="e.g. 50, 8.75 or 1.51"
                     value={walletAmount}
                     onChange={(e) => setWalletAmount(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-emerald-600 outline-none font-mono text-sm font-bold"
                   />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Supports decimal cash amounts (e.g. ₹1.51 or ₹8.75).
+                  </p>
+                </div>
+
+                {/* Option to also adjust Total Lifetime Earnings */}
+                <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200">
+                  <label className="flex items-start space-x-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={walletUpdateLifetimeEarnings}
+                      onChange={(e) => setWalletUpdateLifetimeEarnings(e.target.checked)}
+                      className="mt-0.5 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                    />
+                    <div className="text-xs">
+                      <span className="font-bold text-slate-900 block leading-tight">
+                        Also {walletAction === 'ADD' ? 'add to' : 'reduce from'} Total Lifetime Earnings
+                      </span>
+                      <span className="text-[10px] text-slate-600 mt-0.5 block leading-normal">
+                        Updates student lifetime earnings and automatically recalculates the <strong className="text-amber-800">Total Cash Offered</strong> card in Fund Analytics.
+                      </span>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Projected Result Box */}
+                <div className="p-2.5 rounded-xl bg-slate-100 border border-slate-200 text-xs flex items-center justify-between font-mono">
+                  <span className="text-slate-600 font-bold">New Cash Balance:</span>
+                  <span className="font-black text-slate-900">
+                    ₹
+                    {(
+                      walletAction === 'ADD'
+                        ? walletCurrentBalance + (parseFloat(walletAmount) || 0)
+                        : Math.max(0, walletCurrentBalance - (parseFloat(walletAmount) || 0))
+                    ).toFixed(2)}
+                  </span>
                 </div>
 
                 <div>

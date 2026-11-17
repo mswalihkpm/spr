@@ -165,53 +165,59 @@ export default function StudentDossierPage() {
                   </span>
                 )}
               </div>
-              <h1 className="text-base sm:text-2xl font-black text-white tracking-tight mt-1 truncate">
+              <h1 className="text-sm sm:text-2xl font-black text-white tracking-tight mt-1 truncate">
                 {student?.fullName}
               </h1>
-              <p className="text-[10.5px] sm:text-xs text-blue-200 font-mono mt-0.5 truncate">
-                SPR ID: {student?.sprStudentId || student?.studentId} • Class {student?.className || student?.class?.name} • Year {student?.academicYear || '2025-2026'}
+              <p className="text-[10px] sm:text-xs text-blue-200 font-mono mt-0.5 truncate">
+                SPR ID: <span className="font-bold text-white">{student?.sprStudentId || student?.studentId}</span> • Class {student?.className || student?.class?.name}
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:space-x-3 w-full sm:w-auto shrink-0 print:hidden">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:space-x-3 w-full sm:w-auto shrink-0 print:hidden min-w-0">
             <button
               onClick={handlePrint}
-              className="w-full sm:w-auto px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[11px] sm:text-xs font-bold border border-white/20 transition flex items-center justify-center space-x-1.5 shadow-xs cursor-pointer truncate"
+              className="w-full sm:w-auto px-2 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[10.5px] sm:text-xs font-bold border border-white/20 transition flex items-center justify-center space-x-1 shadow-xs cursor-pointer truncate"
             >
               <Printer className="w-3.5 h-3.5 shrink-0" />
-              <span>Print Scorecard</span>
+              <span className="truncate">Print Scorecard</span>
             </button>
             <button
               onClick={() => router.push(`/student/${encodeURIComponent(student?.sprStudentId || student?.studentId)}`)}
-              className="w-full sm:w-auto px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-[11px] sm:text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-md cursor-pointer truncate"
+              className="w-full sm:w-auto px-2 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-[10.5px] sm:text-xs font-bold transition flex items-center justify-center space-x-1 shadow-md cursor-pointer truncate"
             >
               <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-              <span>Public View</span>
+              <span className="truncate">Public View</span>
             </button>
           </div>
         </div>
 
         {/* Quick Metrics Bar */}
         <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 text-center">
-          <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-white/5 border border-white/10">
-            <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-blue-200">Official SPR</div>
+          <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-white/5 border border-white/10 min-w-0">
+            <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-blue-200 truncate">Official SPR</div>
             <div className="text-sm sm:text-2xl font-black text-amber-300 font-mono mt-0.5 truncate">
-              {sprProfile?.overallSPR !== undefined
+              {sprProfile?.overallSPR !== undefined && sprProfile?.overallSPR !== null
                 ? Number(sprProfile.overallSPR).toFixed(2)
-                : sprProfile?.overallScore !== undefined
+                : sprProfile?.overallScore !== undefined && sprProfile?.overallScore !== null
                 ? Number(sprProfile.overallScore).toFixed(2)
+                : sprProfile?.totalPoints !== undefined && sprProfile?.totalPoints !== null
+                ? Number(sprProfile.totalPoints).toFixed(2)
+                : totalFilteredPoints > 0
+                ? Number(totalFilteredPoints).toFixed(2)
                 : '—'}
             </div>
           </div>
-          <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-white/5 border border-white/10">
-            <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-blue-200">Total SPR Points</div>
+          <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-white/5 border border-white/10 min-w-0">
+            <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-blue-200 truncate">Total SPR Points</div>
             <div className="text-sm sm:text-2xl font-black text-white font-mono mt-0.5 flex items-center justify-center gap-1 flex-wrap">
               <span>
-                {sprProfile?.totalPoints !== undefined
+                {sprProfile?.totalPoints !== undefined && sprProfile?.totalPoints !== null
                   ? Number(sprProfile.totalPoints).toFixed(2)
-                  : sprProfile?.overallScore !== undefined
+                  : sprProfile?.overallScore !== undefined && sprProfile?.overallScore !== null
                   ? Number(sprProfile.overallScore).toFixed(2)
+                  : totalFilteredPoints > 0
+                  ? Number(totalFilteredPoints).toFixed(2)
                   : '—'}
               </span>
               {/* Show point corrections strictly as small numeric badge icons (+3 or -6) */}
@@ -227,14 +233,14 @@ export default function StudentDossierPage() {
               )}
             </div>
           </div>
-          <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-white/5 border border-white/10">
-            <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-blue-200">Overall Rank</div>
+          <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-white/5 border border-white/10 min-w-0">
+            <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-blue-200 truncate">Overall Rank</div>
             <div className="text-sm sm:text-2xl font-black text-emerald-300 font-mono mt-0.5 truncate">
               {rankInfo?.overallRank ? `#${rankInfo.overallRank}` : '—'}
             </div>
           </div>
-          <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-white/5 border border-white/10">
-            <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-blue-200">Class Rank</div>
+          <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-white/5 border border-white/10 min-w-0">
+            <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-blue-200 truncate">Class Rank</div>
             <div className="text-sm sm:text-2xl font-black text-indigo-300 font-mono mt-0.5 truncate">
               {rankInfo?.classRank ? `#${rankInfo.classRank}` : '—'}
             </div>

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
 import { Decimal } from '@prisma/client/runtime/library';
+import { invalidateEngineCache } from '@/lib/spr-engine';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
-    const { studentId, action, amount, note } = body;
+    const { studentId, action, amount, note, updateTotalEarnings } = body;
 
     if (!studentId || !action || amount === undefined || isNaN(Number(amount))) {
       return NextResponse.json(
@@ -37,18 +38,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Student not found.' }, { status: 404 });
     }
 
-    let currentBalance = student.wallet ? Number(student.wallet.balance) : 0;
+    const currentBalance = student.wallet ? Number(student.wallet.balance) : 0;
+    const currentEarnings = student.wallet ? Number(student.wallet.totalEarnings) : 0;
     let newBalance = currentBalance;
+    let newEarnings = currentEarnings;
 
     if (action === 'ADD') {
       newBalance = currentBalance + numAmount;
+      newEarnings = currentEarnings + numAmount;
     } else if (action === 'REDUCE') {
       newBalance = Math.max(0, currentBalance - numAmount);
+      newEarnings = Math.max(0, currentEarnings - numAmount);
     } else if (action === 'SET') {
       newBalance = Math.max(0, numAmount);
+      newEarnings = Math.max(0, numAmount);
     } else {
       return NextResponse.json({ error: 'Invalid action. Choose ADD, REDUCE, or SET.' }, { status: 400 });
     }
+
+    const shouldUpdateEarnings = Boolean(updateTotalEarnings);
 
     // Direct wallet balance update without creating any WalletTransaction
     const updatedWallet = await prisma.studentWallet.upsert({
@@ -56,12 +64,18 @@ export async function POST(req: NextRequest) {
       create: {
         studentId: student.id,
         balance: new Decimal(newBalance.toFixed(2)),
-        totalEarnings: new Decimal(newBalance.toFixed(2)),
+        totalEarnings: new Decimal((shouldUpdateEarnings ? newEarnings : newBalance).toFixed(2)),
       },
       update: {
         balance: new Decimal(newBalance.toFixed(2)),
+        ...(shouldUpdateEarnings
+          ? { totalEarnings: new Decimal(newEarnings.toFixed(2)) }
+          : {}),
       },
     });
+
+    // Invalidate caches so Fund Analytics and SPR Engine reflect the change immediately
+    invalidateEngineCache();
 
     // Record internal administrator audit log (visible only in Admin Audit Logs, not Student Transaction History)
     await logAuditAction({
@@ -78,6 +92,9 @@ export async function POST(req: NextRequest) {
         amount: numAmount,
         previousBalance: currentBalance,
         newBalance: Number(updatedWallet.balance),
+        previousTotalEarnings: currentEarnings,
+        newTotalEarnings: Number(updatedWallet.totalEarnings),
+        updatedTotalEarnings: shouldUpdateEarnings,
         adminNote: note || 'Administrative balance adjustment',
       },
       ipAddress: req.headers.get('x-forwarded-for') || req.ip,
@@ -86,10 +103,12 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Wallet cash successfully ${action === 'ADD' ? 'added to' : action === 'REDUCE' ? 'reduced from' : 'updated for'} ${student.fullName}.`,
+      message: `Wallet cash successfully ${action === 'ADD' ? 'added to' : action === 'REDUCE' ? 'reduced from' : 'updated for'} ${student.fullName}.${shouldUpdateEarnings ? ' Lifetime earnings also updated.' : ''}`,
       wallet: {
         balance: Number(updatedWallet.balance),
+        totalEarnings: Number(updatedWallet.totalEarnings),
         previousBalance: currentBalance,
+        previousTotalEarnings: currentEarnings,
       },
       student: {
         id: student.id,

@@ -10,6 +10,7 @@ import {
   Trash2,
   Edit2,
   Eye,
+  EyeOff,
   CheckCircle2,
   AlertCircle,
   HelpCircle,
@@ -105,6 +106,36 @@ export default function AdminQuestionnairesPage() {
       setStatusMsg({ type: 'error', text: err.message || 'Error updating questionnaire visibility' });
     } finally {
       setTogglingVisibility(false);
+    }
+  };
+
+  const handleToggleQuestionnaireActive = async (qId: string, currentActive: boolean) => {
+    try {
+      const res = await fetch('/api/admin/questionnaires', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'UPDATE_QUESTIONNAIRE',
+          questionnaireData: {
+            id: qId,
+            isActive: !currentActive,
+          },
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to update questionnaire');
+      setQuestionnaires((prev) =>
+        prev.map((q) => (q.id === qId ? { ...q, isActive: !currentActive } : q))
+      );
+      setStatusMsg({
+        type: 'success',
+        text: `Questionnaire "${json.questionnaire?.title || 'Section'}" is now ${
+          !currentActive ? 'VISIBLE' : 'HIDDEN'
+        } for students.`,
+      });
+    } catch (err: any) {
+      console.error(err);
+      setStatusMsg({ type: 'error', text: err.message || 'Error updating questionnaire visibility' });
     }
   };
 
@@ -314,13 +345,37 @@ export default function AdminQuestionnairesPage() {
                         : 'hover:bg-slate-50 text-slate-700 font-medium'
                     }`}
                   >
-                    <div className="truncate pr-2">
-                      <div className="truncate">{q.title}</div>
-                      <div className={`text-[10px] mt-0.5 ${isSelected ? 'text-purple-200' : 'text-slate-400'}`}>
-                        {q.questions?.length || 0} questions • {q._count?.responses || 0} submissions
+                    <div className="truncate pr-2 min-w-0 flex-1">
+                      <div className="truncate font-semibold">{q.title}</div>
+                      <div className={`text-[10px] mt-1 flex items-center justify-between ${isSelected ? 'text-purple-200' : 'text-slate-400'}`}>
+                        <span>{q.questions?.length || 0} Qs</span>
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleQuestionnaireActive(q.id, q.isActive !== false);
+                          }}
+                          className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold flex items-center space-x-0.5 transition cursor-pointer ${
+                            q.isActive !== false
+                              ? isSelected ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                              : isSelected ? 'bg-amber-400 text-amber-950' : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                          }`}
+                          title={`Click to ${q.isActive !== false ? 'hide from' : 'show to'} students`}
+                        >
+                          {q.isActive !== false ? (
+                            <>
+                              <Eye className="w-2.5 h-2.5" />
+                              <span>Show</span>
+                            </>
+                          ) : (
+                            <>
+                              <EyeOff className="w-2.5 h-2.5" />
+                              <span>Hide</span>
+                            </>
+                          )}
+                        </span>
                       </div>
                     </div>
-                    <ChevronRight className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-white' : 'text-slate-400'}`} />
+                    <ChevronRight className={`w-3.5 h-3.5 shrink-0 ml-1 ${isSelected ? 'text-white' : 'text-slate-400'}`} />
                   </button>
                 );
               })}
@@ -340,13 +395,39 @@ export default function AdminQuestionnairesPage() {
                       {activeQuestionnaire.description || 'Configured questions for this section.'}
                     </p>
                   </div>
-                  <div className="flex items-center space-x-2 text-xs font-mono">
-                    <span className="px-2.5 py-1 rounded-xl bg-purple-50 text-purple-700 border border-purple-200 font-bold">
-                      {activeQuestionnaire.questions?.length || 0} Questions
-                    </span>
-                    <span className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 font-bold">
-                      {activeQuestionnaire._count?.responses || 0} Submissions
-                    </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Individual Questionnaire Visibility Toggle Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleToggleQuestionnaireActive(activeQuestionnaire.id, activeQuestionnaire.isActive !== false)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 border cursor-pointer transition ${
+                        activeQuestionnaire.isActive !== false
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                          : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+                      }`}
+                      title="Toggle student visibility for this specific questionnaire section"
+                    >
+                      {activeQuestionnaire.isActive !== false ? (
+                        <>
+                          <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Visible to Students (Click to Hide)</span>
+                        </>
+                      ) : (
+                        <>
+                          <EyeOff className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Hidden from Students (Click to Show)</span>
+                        </>
+                      )}
+                    </button>
+
+                    <div className="flex items-center space-x-1.5 text-xs font-mono">
+                      <span className="px-2.5 py-1 rounded-xl bg-purple-50 text-purple-700 border border-purple-200 font-bold">
+                        {activeQuestionnaire.questions?.length || 0} Questions
+                      </span>
+                      <span className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 font-bold">
+                        {activeQuestionnaire._count?.responses || 0} Submissions
+                      </span>
+                    </div>
                   </div>
                 </div>
 
