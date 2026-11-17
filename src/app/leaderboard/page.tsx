@@ -32,7 +32,6 @@ import {
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import StudentReportModal from '@/components/modals/StudentReportModal';
-import ActiveLeaderboardSettingsModal from '@/components/modals/ActiveLeaderboardSettingsModal';
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
 import MobileHeaderMenu from '@/components/layout/MobileHeaderMenu';
@@ -108,7 +107,6 @@ function LeaderboardContent() {
 
   // Active Leaderboard Settings State
   const [activeSettings, setActiveSettings] = useState<ActiveLeaderboardSettings | null>(null);
-  const [showActiveSettingsModal, setShowActiveSettingsModal] = useState(false);
 
   // Sync state from bootstrap context
   useEffect(() => {
@@ -1457,17 +1455,6 @@ function deriveCategoryLeaderboard(
 
             {/* Quick Switcher Dropdown & Live Library Sync Button */}
             <div className="flex items-center space-x-2 shrink-0 flex-wrap gap-y-2 w-full lg:w-auto">
-              {isActiveActive && (
-                <button
-                  type="button"
-                  onClick={() => setShowActiveSettingsModal(true)}
-                  className="px-3 py-1.5 sm:px-3.5 sm:py-2.5 rounded-xl sm:rounded-2xl bg-white/20 hover:bg-white/30 text-white text-[11px] sm:text-xs font-bold transition flex items-center space-x-1.5 border border-white/30 shadow-md active:scale-95"
-                  title="Customize Active Leaderboard Window / Days"
-                >
-                  <Sliders className="w-3.5 h-3.5" />
-                  <span>Customize Days</span>
-                </button>
-              )}
               {isLibraryActive && (
                 <button
                   type="button"
@@ -2413,19 +2400,6 @@ function deriveCategoryLeaderboard(
           setReportingStudent(null);
         }}
         student={reportingStudent}
-      />
-
-      {/* Active Leaderboard Admin Settings Modal */}
-      <ActiveLeaderboardSettingsModal
-        isOpen={showActiveSettingsModal}
-        onClose={() => setShowActiveSettingsModal(false)}
-        currentSettings={activeSettings}
-        onSaved={(updated) => {
-          setActiveSettings(updated);
-          clientLeaderboardMemory.clear();
-          invalidateClientCache('/api/leaderboard');
-          fetchLeaderboard();
-        }}
       />
 
       {/* Permanent Public Footer */}
