@@ -366,6 +366,7 @@ export async function calculateStudentSPR(
       },
     },
     monthlyAttendances: true,
+    pointAdjustments: true,
   };
 
   let student = await prisma.student.findFirst({
@@ -1000,10 +1001,19 @@ export async function calculateStudentSPR(
     });
   }
 
-  // OVERALL SPR POINTS = Direct SUM of all valid earned numerical points across included categories
-  const finalSPR = Number(
-    categorySummaries.reduce((sum, cs) => sum + (cs.isIncluded ? cs.earnedPoints : 0), 0).toFixed(2)
-  );
+  // Calculate discretionary administrative point adjustments
+  let addedCorrectionPoints = 0;
+  let reducedCorrectionPoints = 0;
+  for (const adj of (student as any).pointAdjustments || []) {
+    const p = Number(adj.points) || 0;
+    if (p > 0) addedCorrectionPoints += p;
+    else if (p < 0) reducedCorrectionPoints += Math.abs(p);
+  }
+  const netPointCorrection = Number((addedCorrectionPoints - reducedCorrectionPoints).toFixed(2));
+
+  // OVERALL SPR POINTS = Direct SUM of all valid earned numerical points across included categories + Administrative Point Adjustments
+  const baseCategoriesSum = categorySummaries.reduce((sum, cs) => sum + (cs.isIncluded ? cs.earnedPoints : 0), 0);
+  const finalSPR = Number((baseCategoriesSum + netPointCorrection).toFixed(2));
 
   const recentRecords = student.performanceRecords
     .slice(0, 20)
@@ -1091,6 +1101,13 @@ export async function calculateStudentSPR(
     overallSPR: finalSPR,
     overallScore: finalSPR,
     totalPoints: finalSPR,
+    sprPercentage: finalSPR,
+    totalWeightedScore: finalSPR,
+    pointCorrections: {
+      added: addedCorrectionPoints,
+      reduced: reducedCorrectionPoints,
+      net: netPointCorrection,
+    },
     rawWeightedTotal: finalSPR,
     maxWeightedTotal: finalSPR,
     normalizedScore: `${formatPoints(finalSPR)} Points`,
@@ -1218,6 +1235,11 @@ async function getActiveStudentsSnapshot(): Promise<any[]> {
             where: { status: 'APPROVED' },
             select: {
               awardedPoints: true,
+            },
+          },
+          pointAdjustments: {
+            select: {
+              points: true,
             },
           },
         },
@@ -1685,7 +1707,11 @@ export async function calculateAllLeaderboards(filters?: {
         totalRecords = student.performanceRecords.filter((r: any) => r.categoryId === matchedCategory.id).length;
       }
     } else {
-      finalScore = Number(totalPoints.toFixed(2));
+      const netAdjustment = ((student as any).pointAdjustments || []).reduce(
+        (sum: number, adj: any) => sum + (Number(adj.points) || 0),
+        0
+      );
+      finalScore = Number((totalPoints + netAdjustment).toFixed(2));
     }
 
     entries.push({

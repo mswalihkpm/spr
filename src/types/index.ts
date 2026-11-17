@@ -100,6 +100,13 @@ export interface StudentSPRProfile {
   overallSPR: number; // e.g. 5650 (pure numerical points)
   totalPoints?: number;
   overallScore?: number;
+  sprPercentage?: number;
+  totalWeightedScore?: number;
+  pointCorrections?: {
+    added: number;
+    reduced: number;
+    net: number;
+  };
   rank: number;
   overallRank?: number;
   classRank: number;

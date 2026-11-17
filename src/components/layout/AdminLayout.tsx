@@ -123,7 +123,7 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
   const allNavItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Students', href: '/students', icon: Users },
-    { name: 'Student Details & Intelligence', href: '/admin/student-details', icon: Users, adminOnly: true },
+    { name: 'Points Adjustment', href: '/admin/points-adjustment', icon: Award, adminOnly: true },
     {
       name: 'Academics',
       icon: BookOpen,

@@ -15,6 +15,7 @@ export interface AuditActionParams {
   entityId?: string | null;
   previousValue?: any;
   newValue?: any;
+  details?: any;
   ipAddress?: string | null;
   userAgent?: string | null;
 }

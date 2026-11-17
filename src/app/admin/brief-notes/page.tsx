@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import {
   FileSpreadsheet,
@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Layers,
+  Search,
 } from 'lucide-react';
 
 export default function AdminBriefNotesPage() {
@@ -54,9 +55,22 @@ export default function AdminBriefNotesPage() {
   // Preview / Print Modal
   const [previewOpen, setPreviewOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [studentSearchQuery, setStudentSearchQuery] = useState('');
   const [selectedTemplateForPreview, setSelectedTemplateForPreview] = useState<any | null>(null);
   const [generatedNote, setGeneratedNote] = useState<any | null>(null);
   const [generating, setGenerating] = useState(false);
+
+  const filteredStudents = useMemo(() => {
+    if (!studentSearchQuery.trim()) return students;
+    const q = studentSearchQuery.toLowerCase();
+    return students.filter(
+      (s: any) =>
+        (s.fullName || '').toLowerCase().includes(q) ||
+        (s.sprStudentId || '').toLowerCase().includes(q) ||
+        (s.studentId || '').toLowerCase().includes(q) ||
+        (s.class?.name || '').toLowerCase().includes(q)
+    );
+  }, [students, studentSearchQuery]);
 
   const fetchTemplatesData = async () => {
     try {
@@ -490,22 +504,36 @@ export default function AdminBriefNotesPage() {
                 </div>
               </div>
 
-              {/* Select Student to Generate for */}
-              <div className="flex items-center space-x-3 bg-slate-50 p-3 rounded-2xl border border-slate-200 text-xs">
+              {/* Select Student to Generate for with Search Option */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200 text-xs">
                 <span className="font-bold text-slate-700 shrink-0">Preview for Student:</span>
+                <div className="relative shrink-0 sm:w-48">
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search student..."
+                    value={studentSearchQuery}
+                    onChange={(e) => setStudentSearchQuery(e.target.value)}
+                    className="w-full pl-7 pr-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-slate-900 outline-none text-xs focus:ring-1 focus:ring-blue-600"
+                  />
+                </div>
                 <select
                   value={selectedStudentId}
                   onChange={(e) => {
                     setSelectedStudentId(e.target.value);
                     generateNoteForStudent(selectedTemplateForPreview.id, e.target.value);
                   }}
-                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-slate-900 outline-none font-medium"
+                  className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-slate-900 outline-none font-medium"
                 >
-                  {students.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.fullName} ({s.sprStudentId || s.studentId}) • {s.class?.name || 'Class'}
-                    </option>
-                  ))}
+                  {filteredStudents.length === 0 ? (
+                    <option value="">No matching students found</option>
+                  ) : (
+                    filteredStudents.map((s: any) => (
+                      <option key={s.id} value={s.id}>
+                        {s.fullName} ({s.sprStudentId || s.studentId}) • {s.class?.name || 'Class'}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 

@@ -204,6 +204,9 @@ export default function AdminTasksPage() {
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
   const [candidateStudents, setCandidateStudents] = useState<any[]>([]);
   const [searchingCandidates, setSearchingCandidates] = useState(false);
+  const [createTaskStudentSearch, setCreateTaskStudentSearch] = useState('');
+  const [createTaskCandidateStudents, setCreateTaskCandidateStudents] = useState<any[]>([]);
+  const [loadingCreateCandidates, setLoadingCreateCandidates] = useState(false);
 
   // Bulk Operations State
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
@@ -291,6 +294,32 @@ export default function AdminTasksPage() {
     return () => clearTimeout(timer);
   }, [studentSearchQuery, manageTaskModalOpen, selectedTaskDetail]);
 
+  // Debounced search for candidate students in task creation wizard
+  useEffect(() => {
+    const q = createTaskStudentSearch.trim();
+    if (q.length < 1) {
+      setCreateTaskCandidateStudents([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setLoadingCreateCandidates(true);
+      try {
+        const res = await fetch(`/api/admin/point-corrections/students?search=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        if (data.students) {
+          setCreateTaskCandidateStudents(data.students);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingCreateCandidates(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [createTaskStudentSearch]);
+
   // Filter associated student records in table
   const filteredAssociatedRecords = useMemo(() => {
     if (!selectedTaskDetail) return [];
@@ -358,6 +387,10 @@ export default function AdminTasksPage() {
       if (formData.targetAudience === 'SPECIFIC_CLASS') {
         payload.targetAudienceJson = {
           classIds: formData.selectedClassIds.length > 0 ? formData.selectedClassIds : [formData.targetClassId],
+        };
+      } else if (formData.targetAudience === 'SPECIFIC_STUDENTS') {
+        payload.targetAudienceJson = {
+          studentIds: formData.selectedStudentIds,
         };
       } else if (formData.targetAudience === 'QUESTIONNAIRE_GROUP') {
         payload.targetAudienceJson = {
@@ -1777,6 +1810,84 @@ export default function AdminTasksPage() {
                             );
                           })}
                         </div>
+                      </div>
+                    )}
+
+                    {/* Specific Students Search & Selection */}
+                    {formData.targetAudience === 'SPECIFIC_STUDENTS' && (
+                      <div className="space-y-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                        <div className="flex items-center justify-between">
+                          <label className="font-bold text-slate-800 block text-xs">
+                            Select Specific Target Students ({formData.selectedStudentIds.length} Selected)
+                          </label>
+                          {formData.selectedStudentIds.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, selectedStudentIds: [] })}
+                              className="text-[10px] text-rose-600 hover:underline font-bold"
+                            >
+                              Clear All
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Search Input with Search Icon */}
+                        <div className="relative">
+                          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <input
+                            type="text"
+                            placeholder="Type student name or SPR ID to search..."
+                            value={createTaskStudentSearch}
+                            onChange={(e) => setCreateTaskStudentSearch(e.target.value)}
+                            className="w-full pl-8 pr-3 py-2 bg-white rounded-xl border border-slate-200 text-xs text-slate-900 outline-none focus:ring-2 focus:ring-emerald-600"
+                          />
+                        </div>
+
+                        {/* Candidates List */}
+                        {loadingCreateCandidates ? (
+                          <div className="p-3 text-center text-xs text-slate-400">Searching students...</div>
+                        ) : createTaskCandidateStudents.length > 0 ? (
+                          <div className="rounded-xl border border-slate-200 bg-white divide-y divide-slate-100 max-h-48 overflow-y-auto">
+                            {createTaskCandidateStudents.map((st) => {
+                              const isChecked = formData.selectedStudentIds.includes(st.id);
+                              return (
+                                <div
+                                  key={st.id}
+                                  onClick={() => {
+                                    const updated = isChecked
+                                      ? formData.selectedStudentIds.filter((id) => id !== st.id)
+                                      : [...formData.selectedStudentIds, st.id];
+                                    setFormData({ ...formData, selectedStudentIds: updated });
+                                  }}
+                                  className={`p-2 px-3 flex items-center justify-between text-xs cursor-pointer hover:bg-slate-50 ${
+                                    isChecked ? 'bg-emerald-50/60 font-bold text-emerald-950' : 'text-slate-700'
+                                  }`}
+                                >
+                                  <div>
+                                    <span>{st.fullName}</span>
+                                    <span className="text-[10px] text-slate-400 ml-1.5 font-mono">
+                                      ({st.sprStudentId || st.studentId}) • {st.className || st.class?.name}
+                                    </span>
+                                  </div>
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    readOnly
+                                    className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : createTaskStudentSearch.trim() ? (
+                          <div className="p-2.5 text-center text-xs text-slate-400">
+                            No students match &ldquo;{createTaskStudentSearch}&rdquo;
+                          </div>
+                        ) : (
+                          <div className="p-2.5 text-center text-xs text-slate-400">
+                            Search above to pick specific target students for this task.
+                          </div>
+                        )}
                       </div>
                     )}
 

@@ -53,6 +53,9 @@ export default function AdminQuestionnairesPage() {
   // Preview Mode
   const [previewOpen, setPreviewOpen] = useState(false);
 
+  const [studentVisibility, setStudentVisibility] = useState<'VISIBLE' | 'HIDDEN'>('VISIBLE');
+  const [togglingVisibility, setTogglingVisibility] = useState(false);
+
   const fetchQuestionnaires = async () => {
     try {
       setLoading(true);
@@ -64,6 +67,9 @@ export default function AdminQuestionnairesPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Failed to load questionnaires');
       setQuestionnaires(json.questionnaires || []);
+      if (json.studentVisibility) {
+        setStudentVisibility(json.studentVisibility);
+      }
       if (json.questionnaires?.length > 0 && !selectedQId) {
         setSelectedQId(json.questionnaires[0].id);
       }
@@ -72,6 +78,33 @@ export default function AdminQuestionnairesPage() {
       setStatusMsg({ type: 'error', text: err.message || 'Error loading questionnaires' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleStudentVisibility = async () => {
+    const newVisibility = studentVisibility === 'VISIBLE' ? 'HIDDEN' : 'VISIBLE';
+    try {
+      setTogglingVisibility(true);
+      const res = await fetch('/api/admin/questionnaires', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'TOGGLE_STUDENT_VISIBILITY',
+          visibility: newVisibility,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to toggle visibility');
+      setStudentVisibility(newVisibility);
+      setStatusMsg({
+        type: 'success',
+        text: `Student Questionnaires are now ${newVisibility === 'VISIBLE' ? 'VISIBLE' : 'HIDDEN'} to all students.`,
+      });
+    } catch (err: any) {
+      console.error(err);
+      setStatusMsg({ type: 'error', text: err.message || 'Error updating questionnaire visibility' });
+    } finally {
+      setTogglingVisibility(false);
     }
   };
 
@@ -203,17 +236,41 @@ export default function AdminQuestionnairesPage() {
             </p>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Student Visibility Toggle Switch */}
+            <button
+              disabled={togglingVisibility}
+              onClick={handleToggleStudentVisibility}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 border shadow-xs cursor-pointer ${
+                studentVisibility === 'VISIBLE'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                  : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+              }`}
+              title="Click to toggle questionnaire visibility for students"
+            >
+              {studentVisibility === 'VISIBLE' ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Student Visibility: Visible</span>
+                </>
+              ) : (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  <span>Student Visibility: Hidden</span>
+                </>
+              )}
+            </button>
+
             <button
               onClick={() => setPreviewOpen(true)}
-              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition flex items-center space-x-1.5 shadow-2xs"
+              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition flex items-center space-x-1.5 shadow-2xs cursor-pointer"
             >
               <Eye className="w-3.5 h-3.5 text-slate-600" />
               <span>Live Preview</span>
             </button>
             <button
               onClick={handleOpenAdd}
-              className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md"
+              className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add Question</span>

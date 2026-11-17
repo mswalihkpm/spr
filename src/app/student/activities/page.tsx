@@ -29,6 +29,7 @@ export default function StudentActivitiesPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isProfileLocked, setIsProfileLocked] = useState(false);
+  const [isHidden, setIsHidden] = useState(false);
 
   const fetchActivities = async (silent = false) => {
     try {
@@ -41,7 +42,11 @@ export default function StudentActivitiesPage() {
         return;
       }
       const json = await res.json();
-      if (res.ok && json.activities) {
+      if (json.isHidden) {
+        setIsHidden(true);
+        setActivities([]);
+      } else if (res.ok && json.activities) {
+        setIsHidden(false);
         setActivities(json.activities);
         setIsProfileLocked(json.isProfileLocked ?? false);
       }
@@ -132,6 +137,28 @@ export default function StudentActivitiesPage() {
           subtext="Accessing SPR Institutional Collection Framework"
           showProgress={true}
         />
+      </div>
+    );
+  }
+
+  if (isHidden) {
+    return (
+      <div className="flex-1 p-4 sm:p-8 max-w-4xl mx-auto flex items-center justify-center min-h-[60vh]">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 text-center max-w-md shadow-lg space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+            <Lock className="w-7 h-7" />
+          </div>
+          <h2 className="text-lg font-black text-slate-900 dark:text-white">Questionnaires Currently Hidden</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            Questionnaires are currently hidden by administration. Please check back later or contact your class teacher.
+          </p>
+          <Link
+            href="/student/dashboard"
+            className="inline-block px-5 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs shadow-md hover:bg-blue-500 transition"
+          >
+            ← Return to Dashboard
+          </Link>
+        </div>
       </div>
     );
   }

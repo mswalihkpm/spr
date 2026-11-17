@@ -140,6 +140,7 @@ model Student {
   isProfileLocked    Boolean                 @default(false)
   profileCorrections ProfileCorrectionLog[]
   questionnaireResponses QuestionnaireResponse[]
+  pointAdjustments   StudentPointAdjustment[]
 
   @@index([classId])
   @@index([schoolId])
@@ -947,6 +948,32 @@ model StudentBriefNoteTemplate {
   updatedAt   DateTime @updatedAt
 
   @@index([createdById])
+}
+
+model PointCorrectionReason {
+  id          String                   @id @default(cuid())
+  title       String
+  basePoint   Decimal                  @default(1.00) @db.Decimal(6, 2)
+  description String?
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+  adjustments StudentPointAdjustment[]
+}
+
+model StudentPointAdjustment {
+  id          String                @id @default(cuid())
+  studentId   String
+  student     Student               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  reasonId    String
+  reason      PointCorrectionReason @relation(fields: [reasonId], references: [id], onDelete: Cascade)
+  points      Decimal               @db.Decimal(6, 2)
+  notes       String?
+  createdById String?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  @@index([studentId])
+  @@index([reasonId])
 }
 
 

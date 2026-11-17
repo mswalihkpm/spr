@@ -9,6 +9,26 @@ export async function GET(req: NextRequest) {
   if (errorResponse || !student) return errorResponse;
 
   try {
+    const visibilitySetting = await prisma.systemSetting.findUnique({
+      where: { key: 'QUESTIONNAIRES_STUDENT_VISIBILITY' },
+    });
+    const isHidden = visibilitySetting?.value === 'HIDDEN';
+
+    const studentRecord = await prisma.student.findUnique({
+      where: { id: student.studentId },
+      select: { isProfileLocked: true },
+    });
+
+    if (isHidden) {
+      return NextResponse.json({
+        success: true,
+        isHidden: true,
+        message: 'Questionnaires are currently hidden by administration.',
+        activities: [],
+        isProfileLocked: studentRecord?.isProfileLocked ?? false,
+      });
+    }
+
     const questionnaires = await prisma.questionnaire.findMany({
       where: { isActive: true },
       orderBy: { displayOrder: 'asc' },
@@ -20,11 +40,6 @@ export async function GET(req: NextRequest) {
           where: { studentId: student.studentId },
         },
       },
-    });
-
-    const studentRecord = await prisma.student.findUnique({
-      where: { id: student.studentId },
-      select: { isProfileLocked: true },
     });
 
     const activities = questionnaires.map((q) => {

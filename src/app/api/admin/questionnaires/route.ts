@@ -22,7 +22,14 @@ export async function GET(req: NextRequest) {
       orderBy: { displayOrder: 'asc' },
     });
 
-    return NextResponse.json({ questionnaires });
+    const visibilitySetting = await prisma.systemSetting.findUnique({
+      where: { key: 'QUESTIONNAIRES_STUDENT_VISIBILITY' },
+    });
+
+    return NextResponse.json({
+      questionnaires,
+      studentVisibility: visibilitySetting?.value || 'VISIBLE',
+    });
   } catch (error: any) {
     console.error('Admin questionnaires GET error:', error);
     return NextResponse.json({ error: error.message || 'Failed to fetch questionnaires' }, { status: 500 });
@@ -161,6 +168,33 @@ export async function POST(req: NextRequest) {
       });
 
       return NextResponse.json({ success: true, questionnaire: updatedQ });
+    }
+
+    // Action 5: Toggle student questionnaires visibility
+    if (action === 'TOGGLE_STUDENT_VISIBILITY') {
+      const { visibility } = body;
+      const validVisibility = visibility === 'HIDDEN' ? 'HIDDEN' : 'VISIBLE';
+      await prisma.systemSetting.upsert({
+        where: { key: 'QUESTIONNAIRES_STUDENT_VISIBILITY' },
+        create: {
+          key: 'QUESTIONNAIRES_STUDENT_VISIBILITY',
+          value: validVisibility,
+          description: 'Controls whether questionnaires are visible to students in the student portal',
+        },
+        update: {
+          value: validVisibility,
+        },
+      });
+
+      await logAuditAction({
+        userId: user?.id,
+        userName: user?.name,
+        action: 'TOGGLE_QUESTIONNAIRE_VISIBILITY',
+        entity: 'SystemSetting',
+        newValue: { visibility: validVisibility },
+      });
+
+      return NextResponse.json({ success: true, studentVisibility: validVisibility });
     }
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
