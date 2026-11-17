@@ -32,6 +32,14 @@ import {
   Plus,
   Minus,
   CheckSquare,
+  Trash2,
+  AlertTriangle,
+  Check,
+  CreditCard,
+  Sliders,
+  ArrowDownLeft,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import {
   BarChart,
@@ -84,6 +92,30 @@ export default function AnalyticsPage() {
   const [walletNote, setWalletNote] = useState('');
   const [walletSubmitting, setWalletSubmitting] = useState(false);
   const [walletToast, setWalletToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Sub-tab under FUNDS: 'REGISTRY' (Student Fund Registry) | 'TRANSACTIONS' (Credited Transactions Ledger)
+  const [fundSubTab, setFundSubTab] = useState<'REGISTRY' | 'TRANSACTIONS'>('REGISTRY');
+
+  // Credited Transactions Ledger State
+  const [creditedTransactions, setCreditedTransactions] = useState<any[]>([]);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [txSearchQuery, setTxSearchQuery] = useState('');
+  const [txClassId, setTxClassId] = useState<string>('ALL');
+  const [txType, setTxType] = useState<string>('ALL');
+  const [txPage, setTxPage] = useState<number>(1);
+  const [txLimit, setTxLimit] = useState<number>(50);
+  const [txTotal, setTxTotal] = useState<number>(0);
+  const [txTotalCreditedAmount, setTxTotalCreditedAmount] = useState<number>(0);
+  const [txTotalPages, setTxTotalPages] = useState<number>(1);
+
+  // Bulk Selection State
+  const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
+
+  // Deletion Modal State
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [txToDelete, setTxToDelete] = useState<any | null>(null); // null when bulk deleting selectedTxIds
+  const [deletingTx, setDeletingTx] = useState(false);
+  const [deleteToast, setDeleteToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const openCashModalForStudent = async (student: any) => {
     setWalletStudent(student);
@@ -174,19 +206,157 @@ export default function AnalyticsPage() {
       .finally(() => setLoadingAcademic(false));
   }, []);
 
-  // Fetch Fund Analytics
-  const fetchFundData = () => {
+  // Fetch Fund Analytics (with fresh parameter to bypass cache after updates)
+  const fetchFundData = async () => {
     setLoadingFunds(true);
-    fetch('/api/analytics/funds')
-      .then((res) => res.json())
-      .then((json) => setFundData(json))
-      .catch((err) => console.error('Fund analytics fetch error:', err))
-      .finally(() => setLoadingFunds(false));
+    try {
+      const res = await fetch('/api/analytics/funds?fresh=true');
+      const json = await res.json();
+      setFundData(json);
+      return json;
+    } catch (err) {
+      console.error('Fund analytics fetch error:', err);
+      return null;
+    } finally {
+      setLoadingFunds(false);
+    }
   };
 
   useEffect(() => {
     fetchFundData();
   }, []);
+
+  // Fetch Credited Transactions with filters & pagination
+  const fetchCreditedTransactions = async () => {
+    try {
+      setLoadingTransactions(true);
+      const params = new URLSearchParams({
+        q: txSearchQuery,
+        classId: txClassId,
+        type: txType,
+        page: txPage.toString(),
+        limit: txLimit.toString(),
+      });
+      const res = await fetch(`/api/admin/wallet/transactions?${params.toString()}`);
+      const data = await res.json();
+      if (data.transactions) {
+        setCreditedTransactions(data.transactions);
+        setTxTotal(data.total || 0);
+        setTxTotalCreditedAmount(data.totalCreditedAmount || 0);
+        setTxTotalPages(data.totalPages || 1);
+      }
+    } catch (err) {
+      console.error('Error fetching credited transactions:', err);
+    } finally {
+      setLoadingTransactions(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'FUNDS') {
+      fetchCreditedTransactions();
+    }
+  }, [activeTab, txClassId, txType, txPage, txLimit]);
+
+  useEffect(() => {
+    if (activeTab === 'FUNDS') {
+      const handler = setTimeout(() => {
+        setTxPage(1);
+        fetchCreditedTransactions();
+      }, 300);
+      return () => clearTimeout(handler);
+    }
+  }, [txSearchQuery]);
+
+  // Bulk selection helper memos
+  const selectedTransactions = useMemo(() => {
+    return creditedTransactions.filter((tx) => selectedTxIds.includes(tx.id));
+  }, [creditedTransactions, selectedTxIds]);
+
+  const selectedTotalAmount = useMemo(() => {
+    return selectedTransactions.reduce((acc, tx) => acc + (Number(tx.amount) || 0), 0);
+  }, [selectedTransactions]);
+
+  const selectedStudentsMap = useMemo(() => {
+    const map = new Map<string, { student: any; totalAmount: number; count: number }>();
+    selectedTransactions.forEach((tx) => {
+      const sId = tx.studentId;
+      if (!map.has(sId)) {
+        map.set(sId, {
+          student: tx.student,
+          totalAmount: 0,
+          count: 0,
+        });
+      }
+      const entry = map.get(sId)!;
+      entry.totalAmount = Number((entry.totalAmount + (Number(tx.amount) || 0)).toFixed(2));
+      entry.count += 1;
+    });
+    return map;
+  }, [selectedTransactions]);
+
+  const isAllPageSelected =
+    creditedTransactions.length > 0 &&
+    creditedTransactions.every((tx) => selectedTxIds.includes(tx.id));
+
+  const toggleSelectAllPage = () => {
+    if (isAllPageSelected) {
+      const pageIds = new Set(creditedTransactions.map((tx) => tx.id));
+      setSelectedTxIds((prev) => prev.filter((id) => !pageIds.has(id)));
+    } else {
+      const newIds = new Set([...selectedTxIds, ...creditedTransactions.map((tx) => tx.id)]);
+      setSelectedTxIds(Array.from(newIds));
+    }
+  };
+
+  const toggleSelectTx = (id: string) => {
+    setSelectedTxIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleConfirmDeleteTransactions = async () => {
+    try {
+      setDeletingTx(true);
+      const idsToDelete = txToDelete ? [txToDelete.id] : selectedTxIds;
+      if (idsToDelete.length === 0) return;
+
+      const res = await fetch('/api/admin/wallet/transactions', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactionIds: idsToDelete }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to delete transaction(s)');
+      }
+
+      setDeleteModalOpen(false);
+      setTxToDelete(null);
+      setSelectedTxIds((prev) => prev.filter((id) => !idsToDelete.includes(id)));
+
+      setDeleteToast({
+        type: 'success',
+        text: `Deleted ${data.deletedCount} transaction(s). ₹${Number(data.totalDeductedAmount || 0).toFixed(2)} deducted from wallet balances and lifetime earnings.`,
+      });
+      setTimeout(() => setDeleteToast(null), 5000);
+
+      // Refresh both transactions and fund analytics
+      await Promise.all([
+        fetchCreditedTransactions(),
+        fetchFundData(),
+      ]);
+
+      if (selectedStudentForBreakdown) {
+        setSelectedStudentForBreakdown(null);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Error deleting transactions');
+    } finally {
+      setDeletingTx(false);
+    }
+  };
 
   // Filter and Sort Student Fund List
   const filteredAndSortedStudents = useMemo(() => {
@@ -614,239 +784,645 @@ export default function AnalyticsPage() {
                   </div>
                 </div>
 
-                {/* ============================================================== */}
-                {/* RANKED STUDENT FUND LIST (MORE CASH TO LESS)                  */}
-                {/* ============================================================== */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden">
-                  {/* Header & Controls Bar */}
-                  <div className="p-5 border-b border-slate-100 space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
-                          <Coins className="w-5 h-5 text-emerald-600" />
-                          <span>Student Fund Registry &amp; Wallet Breakdown</span>
-                        </h3>
-                        <p className="text-xs text-slate-500">
-                          Arrangement of students with <strong className="text-emerald-700">more cash to less</strong>. Click any student for detailed activity ledger.
-                        </p>
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                          {filteredAndSortedStudents.length} Students Listed
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Filter & Sort Bar */}
-                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-2">
-                      {/* Search Bar */}
-                      <div className="sm:col-span-5 relative">
-                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        <input
-                          type="text"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          placeholder="Search student by name, SPR ID (e.g. SPR0102)..."
-                          className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500"
-                        />
-                        {searchQuery && (
-                          <button
-                            type="button"
-                            onClick={() => setSearchQuery('')}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Class Filter Dropdown */}
-                      <div className="sm:col-span-3">
-                        <select
-                          value={selectedClassId}
-                          onChange={(e) => setSelectedClassId(e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                        >
-                          <option value="ALL">All Classes (8 to +2)</option>
-                          {fundData?.classes?.map((cls: any) => (
-                            <option key={cls.id} value={cls.id}>
-                              {cls.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Sort Selector */}
-                      <div className="sm:col-span-4">
-                        <select
-                          value={sortBy}
-                          onChange={(e: any) => setSortBy(e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                        >
-                          <option value="OFFERED_DESC">More Cash Offered to Less (Default)</option>
-                          <option value="OFFERED_ASC">Less Cash Offered to More</option>
-                          <option value="BALANCE_DESC">Highest Current Wallet Balance</option>
-                          <option value="STORE_DESC">Highest Cash to Store</option>
-                          <option value="NAME_ASC">Student Name (A to Z)</option>
-                        </select>
-                      </div>
-                    </div>
+                {/* Sub-tab Navigation: Registry vs Transactions Management */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-2.5 rounded-2xl border border-slate-200 shadow-subtle">
+                  <div className="flex items-center space-x-1 p-1 bg-slate-100 rounded-xl w-full sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={() => setFundSubTab('REGISTRY')}
+                      className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg font-bold text-xs transition cursor-pointer flex items-center justify-center space-x-2 ${
+                        fundSubTab === 'REGISTRY'
+                          ? 'bg-white text-emerald-800 shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <Users className="w-4 h-4 text-emerald-600" />
+                      <span>Student Fund Registry</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800">
+                        {filteredAndSortedStudents.length}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFundSubTab('TRANSACTIONS');
+                        fetchCreditedTransactions();
+                      }}
+                      className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg font-bold text-xs transition cursor-pointer flex items-center justify-center space-x-2 ${
+                        fundSubTab === 'TRANSACTIONS'
+                          ? 'bg-white text-rose-800 shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <Receipt className="w-4 h-4 text-rose-600" />
+                      <span>Credited Transactions Ledger</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800">
+                        {txTotal}
+                      </span>
+                    </button>
                   </div>
 
-                  {/* List of Students */}
-                  {filteredAndSortedStudents.length === 0 ? (
-                    <div className="py-16 text-center space-y-2">
-                      <HelpCircle className="w-8 h-8 text-slate-300 mx-auto" />
-                      <div className="text-sm font-bold text-slate-700">No students matched the filter</div>
-                      <div className="text-xs text-slate-400">Try clearing the search query or class filter.</div>
+                  {/* Quick Context Summary */}
+                  <div className="text-xs text-slate-500 px-2 flex items-center space-x-2">
+                    {fundSubTab === 'REGISTRY' ? (
+                      <span>Arranged by cash offered (more to less)</span>
+                    ) : (
+                      <span className="text-rose-700 font-semibold flex items-center space-x-1">
+                        <Sparkles className="w-3.5 h-3.5 text-rose-500" />
+                        <span>Manage, search &amp; bulk delete credited earnings</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* VIEW A: RANKED STUDENT FUND LIST (MORE CASH TO LESS) */}
+                {fundSubTab === 'REGISTRY' ? (
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden">
+                    {/* Header & Controls Bar */}
+                    <div className="p-5 border-b border-slate-100 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
+                            <Coins className="w-5 h-5 text-emerald-600" />
+                            <span>Student Fund Registry &amp; Wallet Breakdown</span>
+                          </h3>
+                          <p className="text-xs text-slate-500">
+                            Arrangement of students with <strong className="text-emerald-700">more cash to less</strong>. Click any student for detailed activity ledger.
+                          </p>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            {filteredAndSortedStudents.length} Students Listed
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Filter & Sort Bar */}
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-2">
+                        {/* Search Bar */}
+                        <div className="sm:col-span-5 relative">
+                          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search student by name, SPR ID (e.g. SPR0102)..."
+                            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500"
+                          />
+                          {searchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setSearchQuery('')}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Class Filter Dropdown */}
+                        <div className="sm:col-span-3">
+                          <select
+                            value={selectedClassId}
+                            onChange={(e) => setSelectedClassId(e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                          >
+                            <option value="ALL">All Classes (8 to +2)</option>
+                            {fundData?.classes?.map((cls: any) => (
+                              <option key={cls.id} value={cls.id}>
+                                {cls.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Sort Selector */}
+                        <div className="sm:col-span-4">
+                          <select
+                            value={sortBy}
+                            onChange={(e: any) => setSortBy(e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                          >
+                            <option value="OFFERED_DESC">More Cash Offered to Less (Default)</option>
+                            <option value="OFFERED_ASC">Less Cash Offered to More</option>
+                            <option value="BALANCE_DESC">Highest Current Wallet Balance</option>
+                            <option value="STORE_DESC">Highest Cash to Store</option>
+                            <option value="NAME_ASC">Student Name (A to Z)</option>
+                          </select>
+                        </div>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
-                            <th className="py-3 px-4 w-12 text-center">Rank</th>
-                            <th className="py-3 px-4">Student</th>
-                            <th className="py-3 px-4 text-right">Cash Offered (Total)</th>
-                            <th className="py-3 px-4 text-right">Wallet Balance</th>
-                            <th className="py-3 px-4 text-right">Cash to Store</th>
-                            <th className="py-3 px-4 text-right">Store Available</th>
-                            <th className="py-3 px-4 text-center">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {filteredAndSortedStudents.map((s: any, idx: number) => {
-                            const isTop1 = idx === 0 && sortBy === 'OFFERED_DESC';
-                            const isTop2 = idx === 1 && sortBy === 'OFFERED_DESC';
-                            const isTop3 = idx === 2 && sortBy === 'OFFERED_DESC';
 
-                            return (
-                              <tr
-                                key={s.id}
-                                className={`hover:bg-emerald-50/40 transition group cursor-pointer ${
-                                  isTop1 ? 'bg-amber-50/20' : ''
-                                }`}
-                                onClick={() => setSelectedStudentForBreakdown(s)}
-                              >
-                                {/* Rank */}
-                                <td className="py-3.5 px-4 text-center">
-                                  {isTop1 ? (
-                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black text-xs shadow-sm">
-                                      1
-                                    </span>
-                                  ) : isTop2 ? (
-                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-300 text-slate-800 font-black text-xs">
-                                      2
-                                    </span>
-                                  ) : isTop3 ? (
-                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-700/70 text-white font-black text-xs">
-                                      3
-                                    </span>
-                                  ) : (
-                                    <span className="font-mono font-bold text-slate-400 text-xs">
-                                      #{idx + 1}
-                                    </span>
-                                  )}
-                                </td>
+                    {/* List of Students */}
+                    {filteredAndSortedStudents.length === 0 ? (
+                      <div className="py-16 text-center space-y-2">
+                        <HelpCircle className="w-8 h-8 text-slate-300 mx-auto" />
+                        <div className="text-sm font-bold text-slate-700">No students matched the filter</div>
+                        <div className="text-xs text-slate-400">Try clearing the search query or class filter.</div>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
+                              <th className="py-3 px-4 w-12 text-center">Rank</th>
+                              <th className="py-3 px-4">Student</th>
+                              <th className="py-3 px-4 text-right">Cash Offered (Total)</th>
+                              <th className="py-3 px-4 text-right">Wallet Balance</th>
+                              <th className="py-3 px-4 text-right">Cash to Store</th>
+                              <th className="py-3 px-4 text-right">Store Available</th>
+                              <th className="py-3 px-4 text-center">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {filteredAndSortedStudents.map((s: any, idx: number) => {
+                              const isTop1 = idx === 0 && sortBy === 'OFFERED_DESC';
+                              const isTop2 = idx === 1 && sortBy === 'OFFERED_DESC';
+                              const isTop3 = idx === 2 && sortBy === 'OFFERED_DESC';
 
-                                {/* Student Info */}
-                                <td className="py-3.5 px-4">
-                                  <div className="flex items-center space-x-3">
-                                    <StudentAvatar photoUrl={s.photoUrl} name={s.fullName} size="sm" className="w-9 h-9 border border-slate-300" />
-                                    <div className="min-w-0">
-                                      <div className="font-bold text-slate-900 group-hover:text-emerald-700 transition truncate text-xs sm:text-sm">
-                                        {s.fullName}
-                                      </div>
-                                      <div className="text-[10px] text-slate-500 flex items-center space-x-1.5 font-mono">
-                                        <span className="font-bold text-slate-700">{s.sprStudentId}</span>
-                                        <span>•</span>
-                                        <span>{s.className}</span>
-                                        {s.division && <span>({s.division})</span>}
+                              return (
+                                <tr
+                                  key={s.id}
+                                  className={`hover:bg-emerald-50/40 transition group cursor-pointer ${
+                                    isTop1 ? 'bg-amber-50/20' : ''
+                                  }`}
+                                  onClick={() => setSelectedStudentForBreakdown(s)}
+                                >
+                                  {/* Rank */}
+                                  <td className="py-3.5 px-4 text-center">
+                                    {isTop1 ? (
+                                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black text-xs shadow-sm">
+                                        1
+                                      </span>
+                                    ) : isTop2 ? (
+                                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-300 text-slate-800 font-black text-xs">
+                                        2
+                                      </span>
+                                    ) : isTop3 ? (
+                                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-700/70 text-white font-black text-xs">
+                                        3
+                                      </span>
+                                    ) : (
+                                      <span className="font-mono font-bold text-slate-400 text-xs">
+                                        #{idx + 1}
+                                      </span>
+                                    )}
+                                  </td>
+
+                                  {/* Student Info */}
+                                  <td className="py-3.5 px-4">
+                                    <div className="flex items-center space-x-3">
+                                      <StudentAvatar photoUrl={s.photoUrl} name={s.fullName} size="sm" className="w-9 h-9 border border-slate-300" />
+                                      <div className="min-w-0">
+                                        <div className="font-bold text-slate-900 group-hover:text-emerald-700 transition truncate text-xs sm:text-sm">
+                                          {s.fullName}
+                                        </div>
+                                        <div className="text-[10px] text-slate-500 flex items-center space-x-1.5 font-mono">
+                                          <span className="font-bold text-slate-700">{s.sprStudentId}</span>
+                                          <span>•</span>
+                                          <span>{s.className}</span>
+                                          {s.division && <span>({s.division})</span>}
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                </td>
+                                  </td>
 
-                                {/* Cash Offered (Total Earnings) */}
-                                <td className="py-3.5 px-4 text-right">
-                                  <div className="font-mono font-black text-sm text-emerald-700">
-                                    ₹{s.totalCashOffered.toFixed(2)}
-                                  </div>
-                                  <span className="text-[9.5px] font-semibold text-slate-400">
-                                    {s.categoryBreakdown?.length || 0} categories
-                                  </span>
-                                </td>
-
-                                {/* Wallet Balance */}
-                                <td className="py-3.5 px-4 text-right">
-                                  <div className="font-mono font-bold text-xs text-blue-700">
-                                    ₹{s.currentWalletBalance.toFixed(2)}
-                                  </div>
-                                  <span className="text-[9.5px] text-slate-400">Liquid</span>
-                                </td>
-
-                                {/* Cash to Store */}
-                                <td className="py-3.5 px-4 text-right">
-                                  <span
-                                    className={`px-2 py-0.5 rounded font-mono font-bold text-xs inline-block ${
-                                      s.cashToStore > 0
-                                        ? 'bg-indigo-100 text-indigo-900 border border-indigo-200'
-                                        : 'text-slate-400'
-                                    }`}
-                                  >
-                                    ₹{s.cashToStore.toFixed(2)}
-                                  </span>
-                                </td>
-
-                                {/* Available Store Fund */}
-                                <td className="py-3.5 px-4 text-right">
-                                  <div className="font-mono font-semibold text-xs text-slate-700">
-                                    ₹{s.availableStoreFund.toFixed(2)}
-                                  </div>
-                                  {s.storeFundUsed > 0 && (
-                                    <span className="text-[9px] text-amber-600 font-mono block">
-                                      Used: ₹{s.storeFundUsed.toFixed(2)}
+                                  {/* Cash Offered (Total Earnings) */}
+                                  <td className="py-3.5 px-4 text-right">
+                                    <div className="font-mono font-black text-sm text-emerald-700">
+                                      ₹{s.totalCashOffered.toFixed(2)}
+                                    </div>
+                                    <span className="text-[9.5px] font-semibold text-slate-400">
+                                      {s.categoryBreakdown?.length || 0} categories
                                     </span>
-                                  )}
-                                </td>
+                                  </td>
 
-                                {/* Action */}
-                                <td className="py-3.5 px-4 text-center">
-                                  <div className="flex items-center justify-center space-x-1.5">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        openCashModalForStudent(s);
-                                      }}
-                                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition cursor-pointer flex items-center space-x-1"
-                                      title="Add or Reduce Cash Balance"
+                                  {/* Wallet Balance */}
+                                  <td className="py-3.5 px-4 text-right">
+                                    <div className="font-mono font-bold text-xs text-blue-700">
+                                      ₹{s.currentWalletBalance.toFixed(2)}
+                                    </div>
+                                    <span className="text-[9.5px] text-slate-400">Liquid</span>
+                                  </td>
+
+                                  {/* Cash to Store */}
+                                  <td className="py-3.5 px-4 text-right">
+                                    <span
+                                      className={`px-2 py-0.5 rounded font-mono font-bold text-xs inline-block ${
+                                        s.cashToStore > 0
+                                          ? 'bg-indigo-100 text-indigo-900 border border-indigo-200'
+                                          : 'text-slate-400'
+                                      }`}
                                     >
-                                      <Wallet className="w-3.5 h-3.5 text-amber-600" />
-                                      <span>Adjust Cash</span>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedStudentForBreakdown(s);
-                                      }}
-                                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition cursor-pointer flex items-center space-x-1"
-                                    >
-                                      <Eye className="w-3.5 h-3.5" />
-                                      <span>Details</span>
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                                      ₹{s.cashToStore.toFixed(2)}
+                                    </span>
+                                  </td>
+
+                                  {/* Available Store Fund */}
+                                  <td className="py-3.5 px-4 text-right">
+                                    <div className="font-mono font-semibold text-xs text-slate-700">
+                                      ₹{s.availableStoreFund.toFixed(2)}
+                                    </div>
+                                    {s.storeFundUsed > 0 && (
+                                      <span className="text-[9px] text-amber-600 font-mono block">
+                                        Used: ₹{s.storeFundUsed.toFixed(2)}
+                                      </span>
+                                    )}
+                                  </td>
+
+                                  {/* Action */}
+                                  <td className="py-3.5 px-4 text-center">
+                                    <div className="flex items-center justify-center space-x-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          openCashModalForStudent(s);
+                                        }}
+                                        className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition cursor-pointer flex items-center space-x-1"
+                                        title="Add or Reduce Cash Balance"
+                                      >
+                                        <Wallet className="w-3.5 h-3.5 text-amber-600" />
+                                        <span>Adjust Cash</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedStudentForBreakdown(s);
+                                        }}
+                                        className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition cursor-pointer flex items-center space-x-1"
+                                      >
+                                        <Eye className="w-3.5 h-3.5" />
+                                        <span>Details</span>
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* VIEW B: CREDITED TRANSACTIONS LEDGER & BULK DELETE */
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden space-y-0">
+                    {/* Header & Controls Bar */}
+                    <div className="p-5 border-b border-slate-100 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
+                            <Receipt className="w-5 h-5 text-rose-600" />
+                            <span>Credited Transactions Ledger &amp; Management</span>
+                          </h3>
+                          <p className="text-xs text-slate-500">
+                            Search, audit, and delete individual or bulk credited transactions. Deleting removes the cash from wallet balance &amp; total lifetime earnings.
+                          </p>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200 flex items-center space-x-1.5">
+                            <span>{txTotal} Credited Records</span>
+                            <span>•</span>
+                            <span className="font-mono font-black text-rose-700">₹{txTotalCreditedAmount.toFixed(2)}</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={fetchCreditedTransactions}
+                            disabled={loadingTransactions}
+                            title="Refresh transactions"
+                            className="p-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 transition cursor-pointer"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${loadingTransactions ? 'animate-spin' : ''}`} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Filter & Advanced Search Bar */}
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-2">
+                        {/* Search Bar */}
+                        <div className="sm:col-span-5 relative">
+                          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          <input
+                            type="text"
+                            value={txSearchQuery}
+                            onChange={(e) => setTxSearchQuery(e.target.value)}
+                            placeholder="Search by transaction name, task, note, student name, SPR ID..."
+                            className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:ring-2 focus:ring-rose-500"
+                          />
+                          {txSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setTxSearchQuery('')}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Class Filter */}
+                        <div className="sm:col-span-3">
+                          <select
+                            value={txClassId}
+                            onChange={(e) => {
+                              setTxClassId(e.target.value);
+                              setTxPage(1);
+                            }}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
+                          >
+                            <option value="ALL">All Classes (8 to +2)</option>
+                            {fundData?.classes?.map((cls: any) => (
+                              <option key={cls.id} value={cls.id}>
+                                {cls.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Transaction Type Filter */}
+                        <div className="sm:col-span-2">
+                          <select
+                            value={txType}
+                            onChange={(e) => {
+                              setTxType(e.target.value);
+                              setTxPage(1);
+                            }}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
+                          >
+                            <option value="ALL">All Credited Types</option>
+                            <option value="TASK">Task Rewards</option>
+                            <option value="EARNING">Earnings</option>
+                            <option value="ADJUSTMENT">Adjustments</option>
+                            <option value="TRANSFER_RECEIVED">Transfers In</option>
+                          </select>
+                        </div>
+
+                        {/* Limit per page */}
+                        <div className="sm:col-span-2">
+                          <select
+                            value={txLimit}
+                            onChange={(e) => {
+                              setTxLimit(Number(e.target.value));
+                              setTxPage(1);
+                            }}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
+                          >
+                            <option value={25}>25 per page</option>
+                            <option value={50}>50 per page</option>
+                            <option value={100}>100 per page</option>
+                          </select>
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </div>
+
+                    {/* Bulk Action Sticky Bar (when transactions are selected) */}
+                    {selectedTxIds.length > 0 && (
+                      <div className="bg-gradient-to-r from-rose-50 via-amber-50 to-rose-50 border-y border-rose-200 px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in">
+                        <div className="flex items-center space-x-3">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-rose-600 text-white font-black text-xs">
+                            {selectedTxIds.length}
+                          </span>
+                          <div className="text-xs text-rose-950 font-medium">
+                            <strong className="font-bold text-rose-900">{selectedTxIds.length} transactions selected</strong>
+                            <span className="mx-1.5">•</span>
+                            <span>Total deduction: <strong className="font-mono font-black text-rose-700">₹{selectedTotalAmount.toFixed(2)}</strong></span>
+                            <span className="mx-1.5">•</span>
+                            <span className="text-slate-600">{selectedStudentsMap.size} student(s) affected</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTxIds([])}
+                            className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition cursor-pointer"
+                          >
+                            Deselect All
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTxToDelete(null);
+                              setDeleteModalOpen(true);
+                            }}
+                            className="px-4 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-sm hover:shadow transition cursor-pointer flex items-center space-x-1.5"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete Selected ({selectedTxIds.length})</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Transactions Table */}
+                    {loadingTransactions ? (
+                      <div className="py-20 flex flex-col items-center justify-center space-y-3">
+                        <RefreshCw className="w-6 h-6 text-rose-600 animate-spin" />
+                        <span className="text-xs font-semibold text-slate-500">Loading credited transactions...</span>
+                      </div>
+                    ) : creditedTransactions.length === 0 ? (
+                      <div className="py-16 text-center space-y-2">
+                        <Receipt className="w-8 h-8 text-slate-300 mx-auto" />
+                        <div className="text-sm font-bold text-slate-700">No credited transactions found</div>
+                        <div className="text-xs text-slate-400">
+                          Try adjusting your search query, class filter, or transaction type.
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
+                              <th className="py-3 px-3 w-10 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={isAllPageSelected}
+                                  onChange={toggleSelectAllPage}
+                                  className="w-4 h-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                                  title="Select all on this page"
+                                />
+                              </th>
+                              <th className="py-3 px-4">Student</th>
+                              <th className="py-3 px-4">Transaction Name / Reason</th>
+                              <th className="py-3 px-3 text-center">Type</th>
+                              <th className="py-3 px-4 text-right">Credited Cash</th>
+                              <th className="py-3 px-4 text-center">Wallet Delta</th>
+                              <th className="py-3 px-4 text-right">Date &amp; Time</th>
+                              <th className="py-3 px-3 text-center">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {creditedTransactions.map((tx: any) => {
+                              const isSelected = selectedTxIds.includes(tx.id);
+                              const isTask = tx.type === 'EARNING' && (tx.reference?.startsWith('TXN-TASK') || tx.description?.toLowerCase().includes('task'));
+                              const isAdjustment = tx.type === 'ADJUSTMENT';
+                              const isTransfer = tx.type === 'TRANSFER_RECEIVED';
+                              const d = new Date(tx.createdAt);
+                              const formattedDate = !isNaN(d.getTime())
+                                ? d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                                : '';
+                              const formattedTime = !isNaN(d.getTime())
+                                ? d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+                                : '';
+
+                              return (
+                                <tr
+                                  key={tx.id}
+                                  className={`transition cursor-pointer ${
+                                    isSelected ? 'bg-rose-50/50 hover:bg-rose-50/80' : 'hover:bg-slate-50/80'
+                                  }`}
+                                  onClick={() => toggleSelectTx(tx.id)}
+                                >
+                                  {/* Checkbox */}
+                                  <td className="py-3.5 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={() => toggleSelectTx(tx.id)}
+                                      className="w-4 h-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                                    />
+                                  </td>
+
+                                  {/* Student Info */}
+                                  <td className="py-3.5 px-4">
+                                    <div className="flex items-center space-x-3">
+                                      <StudentAvatar
+                                        photoUrl={tx.student?.photoUrl}
+                                        name={tx.student?.fullName || 'Student'}
+                                        size="sm"
+                                        className="w-9 h-9 border border-slate-200"
+                                      />
+                                      <div className="min-w-0">
+                                        <div className="font-bold text-slate-900 truncate text-xs sm:text-sm">
+                                          {tx.student?.fullName || 'Unknown Student'}
+                                        </div>
+                                        <div className="text-[10px] text-slate-500 flex items-center space-x-1.5 font-mono">
+                                          <span className="font-bold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
+                                            {tx.student?.sprStudentId}
+                                          </span>
+                                          <span>•</span>
+                                          <span>{tx.student?.className}</span>
+                                          {tx.student?.division && <span>({tx.student.division})</span>}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  {/* Transaction Name / Description & Reference */}
+                                  <td className="py-3.5 px-4 max-w-xs">
+                                    <div className="font-semibold text-slate-900 truncate text-xs" title={tx.description}>
+                                      {tx.description}
+                                    </div>
+                                    <div className="text-[9.5px] text-slate-400 font-mono truncate mt-0.5" title={tx.reference}>
+                                      Ref: {tx.reference}
+                                    </div>
+                                  </td>
+
+                                  {/* Type Badge */}
+                                  <td className="py-3.5 px-3 text-center whitespace-nowrap">
+                                    {isTask ? (
+                                      <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300">
+                                        <CheckSquare className="w-2.5 h-2.5" />
+                                        <span>Task Reward</span>
+                                      </span>
+                                    ) : isAdjustment ? (
+                                      <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-blue-100 text-blue-800 border border-blue-300">
+                                        <Sliders className="w-2.5 h-2.5" />
+                                        <span>Adjustment</span>
+                                      </span>
+                                    ) : isTransfer ? (
+                                      <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-800 border border-indigo-300">
+                                        <ArrowDownLeft className="w-2.5 h-2.5" />
+                                        <span>Transfer In</span>
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                        <Award className="w-2.5 h-2.5" />
+                                        <span>Earning</span>
+                                      </span>
+                                    )}
+                                  </td>
+
+                                  {/* Credited Cash Amount */}
+                                  <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                                    <div className="font-mono font-black text-sm text-emerald-700">
+                                      +₹{Number(tx.amount).toFixed(2)}
+                                    </div>
+                                    <span className="text-[9px] text-emerald-600 font-semibold uppercase">Credited</span>
+                                  </td>
+
+                                  {/* Wallet Balance Delta */}
+                                  <td className="py-3.5 px-4 text-center font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                                    <span>₹{Number(tx.balanceBefore).toFixed(2)}</span>
+                                    <span className="mx-1 text-slate-300">→</span>
+                                    <span className="font-bold text-slate-800">₹{Number(tx.balanceAfter).toFixed(2)}</span>
+                                  </td>
+
+                                  {/* Date & Time */}
+                                  <td className="py-3.5 px-4 text-right whitespace-nowrap text-slate-500 font-mono text-[11px]">
+                                    <div>{formattedDate}</div>
+                                    <div className="text-[9.5px] text-slate-400">{formattedTime}</div>
+                                  </td>
+
+                                  {/* Action: Delete */}
+                                  <td className="py-3.5 px-3 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setTxToDelete(tx);
+                                        setDeleteModalOpen(true);
+                                      }}
+                                      className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition cursor-pointer"
+                                      title="Delete this transaction & deduct cash"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* Pagination Bar */}
+                    {txTotalPages > 1 && (
+                      <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="text-xs text-slate-500">
+                          Showing {(txPage - 1) * txLimit + 1} to {Math.min(txPage * txLimit, txTotal)} of {txTotal} credited transactions
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            type="button"
+                            disabled={txPage <= 1 || loadingTransactions}
+                            onClick={() => setTxPage((p) => Math.max(1, p - 1))}
+                            className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer flex items-center space-x-1"
+                          >
+                            <ChevronLeft className="w-3.5 h-3.5" />
+                            <span>Previous</span>
+                          </button>
+                          <span className="text-xs font-bold text-slate-700 px-2 font-mono">
+                            Page {txPage} of {txTotalPages}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={txPage >= txTotalPages || loadingTransactions}
+                            onClick={() => setTxPage((p) => Math.min(txTotalPages, p + 1))}
+                            className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer flex items-center space-x-1"
+                          >
+                            <span>Next</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </>
@@ -1044,6 +1620,7 @@ export default function AnalyticsPage() {
                   <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
                     {selectedStudentForBreakdown.transactions.map((tx: any) => {
                       const isTaskTx = tx.type === 'EARNING' && (tx.reference?.startsWith('TXN-TASK') || tx.description?.toLowerCase().includes('task'));
+                      const isCredited = Number(tx.amount) > 0 && tx.type !== 'TRANSFER_SENT' && tx.type !== 'STORE_CONTRIBUTION';
                       return (
                         <div key={tx.id || tx.reference} className="p-2 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-between text-[11px]">
                           <div className="min-w-0 pr-2">
@@ -1059,8 +1636,27 @@ export default function AnalyticsPage() {
                               {new Date(tx.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} • Ref: {tx.reference}
                             </div>
                           </div>
-                          <div className={`font-mono font-bold text-xs shrink-0 ${Number(tx.amount) >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
-                            {Number(tx.amount) >= 0 ? '+' : ''}₹{Math.abs(Number(tx.amount)).toFixed(2)}
+                          <div className="flex items-center space-x-2 shrink-0">
+                            <div className={`font-mono font-bold text-xs ${Number(tx.amount) >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                              {Number(tx.amount) >= 0 ? '+' : ''}₹{Math.abs(Number(tx.amount)).toFixed(2)}
+                            </div>
+                            {isCredited && tx.id && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setTxToDelete({
+                                    ...tx,
+                                    student: selectedStudentForBreakdown,
+                                  });
+                                  setDeleteModalOpen(true);
+                                }}
+                                className="p-1 rounded text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition cursor-pointer"
+                                title="Delete this credited transaction and deduct cash"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         </div>
                       );
@@ -1298,7 +1894,183 @@ export default function AnalyticsPage() {
           </div>
         )}
 
+        {/* ============================================================== */}
+        {/* CREDITED TRANSACTION DELETION CONFIRMATION MODAL               */}
+        {/* ============================================================== */}
+        {deleteModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 animate-zoom-up p-6 space-y-5">
+              {/* Modal Header */}
+              <div className="flex items-start justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-600">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 leading-tight">
+                      {txToDelete
+                        ? 'Delete Credited Transaction'
+                        : `Bulk Delete ${selectedTxIds.length} Transactions`}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Confirm deduction from wallet balance and total lifetime earnings
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={deletingTx}
+                  onClick={() => {
+                    setDeleteModalOpen(false);
+                    setTxToDelete(null);
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Details breakdown */}
+              {txToDelete ? (
+                <div className="space-y-3">
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Student:</span>
+                      <span className="font-bold text-slate-900">
+                        {txToDelete.student?.fullName} ({txToDelete.student?.sprStudentId})
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Transaction:</span>
+                      <span className="font-semibold text-slate-800 text-right max-w-xs truncate">
+                        {txToDelete.description}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Reference:</span>
+                      <span className="font-mono text-slate-600">{txToDelete.reference}</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                      <span className="text-rose-700 font-bold">Amount to Deduct:</span>
+                      <span className="font-mono font-black text-sm text-rose-600">
+                        -₹{Number(txToDelete.amount).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1">
+                    <div className="font-bold flex items-center space-x-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Financial Impact on Student:</span>
+                    </div>
+                    <p className="text-[11px] text-amber-800 leading-relaxed">
+                      ₹{Number(txToDelete.amount).toFixed(2)} will be permanently removed from this student&apos;s active wallet balance AND lifetime earnings. Fund Analytics status cards (Total Cash Offered) will automatically recalculate.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-600 font-medium">Transactions Selected:</span>
+                      <span className="font-bold text-slate-900">{selectedTxIds.length} records</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-600 font-medium">Students Affected:</span>
+                      <span className="font-bold text-slate-900">{selectedStudentsMap.size} students</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-rose-200">
+                      <span className="text-rose-800 font-black">Total Cash to Deduct:</span>
+                      <span className="font-mono font-black text-base text-rose-700">
+                        -₹{selectedTotalAmount.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* List of affected students */}
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Impact by Student:
+                    </span>
+                    {Array.from(selectedStudentsMap.entries()).map(([studentId, data]) => (
+                      <div
+                        key={studentId}
+                        className="p-2 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-between text-xs"
+                      >
+                        <div className="min-w-0 pr-2">
+                          <div className="font-bold text-slate-900 truncate">
+                            {data.student?.fullName || 'Student'}
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            {data.student?.sprStudentId} • {data.count} transaction(s)
+                          </div>
+                        </div>
+                        <div className="font-mono font-bold text-xs text-rose-600 shrink-0">
+                          -₹{data.totalAmount.toFixed(2)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs">
+                    <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
+                      Are you sure? This will delete all {selectedTxIds.length} transactions and reduce wallet balances and lifetime earnings across all {selectedStudentsMap.size} students.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Modal Actions */}
+              <div className="pt-2 flex items-center justify-end space-x-2">
+                <button
+                  type="button"
+                  disabled={deletingTx}
+                  onClick={() => {
+                    setDeleteModalOpen(false);
+                    setTxToDelete(null);
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={deletingTx}
+                  onClick={handleConfirmDeleteTransactions}
+                  className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 transition cursor-pointer flex items-center space-x-1.5 shadow-sm"
+                >
+                  {deletingTx ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Deducting &amp; Deleting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Confirm &amp; Deduct Cash</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Toast Feedback */}
+        {deleteToast && (
+          <div className="fixed bottom-6 left-6 z-50 flex items-center space-x-2 px-4 py-3 rounded-2xl shadow-xl border bg-slate-900 text-white text-xs font-medium animate-fade-in">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{deleteToast.text}</span>
+            <button
+              type="button"
+              onClick={() => setDeleteToast(null)}
+              className="ml-2 text-slate-400 hover:text-white cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         {walletToast && (
           <div className="fixed bottom-6 right-6 z-50 flex items-center space-x-2 px-4 py-3 rounded-2xl shadow-xl border bg-slate-900 text-white text-xs font-medium animate-fade-in">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
