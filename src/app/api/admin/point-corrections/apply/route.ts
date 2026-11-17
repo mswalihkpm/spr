@@ -32,6 +32,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Reason not found.' }, { status: 404 });
     }
 
+    // Verify permission: if user is not SUPER_ADMIN, they can only adjust reasons assigned to them
+    if (user.role !== 'SUPER_ADMIN') {
+      let isAssigned = false;
+      if (reason.assignedAdminIds) {
+        try {
+          const parsed = JSON.parse(reason.assignedAdminIds);
+          if (Array.isArray(parsed) && (parsed.includes(user.id) || parsed.includes(user.email))) {
+            isAssigned = true;
+          }
+        } catch {
+          if (reason.assignedAdminIds.includes(user.id) || reason.assignedAdminIds.includes(user.email)) {
+            isAssigned = true;
+          }
+        }
+      }
+
+      if (!isAssigned) {
+        return NextResponse.json(
+          { error: 'You are not authorized to adjust points for this reason card.' },
+          { status: 403 }
+        );
+      }
+    }
+
     // 2. Fetch student
     const student = await prisma.student.findUnique({
       where: { id: studentId },

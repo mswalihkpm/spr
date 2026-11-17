@@ -27,6 +27,7 @@ interface Reason {
   title: string;
   basePoint: number;
   description?: string | null;
+  assignedAdminIds?: string[];
   adjustmentsCount?: number;
 }
 
@@ -63,7 +64,12 @@ export default function PointsAdjustmentPage() {
   const [reasonTitle, setReasonTitle] = useState('');
   const [reasonBasePoint, setReasonBasePoint] = useState<number | string>(5);
   const [reasonDescription, setReasonDescription] = useState('');
+  const [reasonAssignedAdmins, setReasonAssignedAdmins] = useState<string[]>([]);
   const [submittingReason, setSubmittingReason] = useState(false);
+
+  // Role permissions & admin users list
+  const [isSuperAdmin, setIsSuperAdmin] = useState(true);
+  const [adminUsers, setAdminUsers] = useState<{ id: string; name: string; email: string; role: string }[]>([]);
 
   // Wallet Direct Cash Adjustment Modal state
   const [walletModalOpen, setWalletModalOpen] = useState(false);
@@ -88,10 +94,23 @@ export default function PointsAdjustmentPage() {
       setLoadingReasons(true);
       const res = await fetch('/api/admin/point-corrections/reasons');
       const data = await res.json();
+      if (data.isSuperAdmin !== undefined) {
+        setIsSuperAdmin(Boolean(data.isSuperAdmin));
+      }
+      if (data.adminUsers) {
+        setAdminUsers(data.adminUsers);
+      }
       if (data.reasons) {
         setReasons(data.reasons);
-        if (data.reasons.length > 0 && !selectedReasonId) {
-          setSelectedReasonId(data.reasons[0].id);
+        if (data.reasons.length > 0) {
+          setSelectedReasonId((prev) => {
+            if (prev && data.reasons.some((r: Reason) => r.id === prev)) {
+              return prev;
+            }
+            return data.reasons[0].id;
+          });
+        } else {
+          setSelectedReasonId(null);
         }
       }
     } catch (e) {
@@ -100,7 +119,7 @@ export default function PointsAdjustmentPage() {
     } finally {
       setLoadingReasons(false);
     }
-  }, [selectedReasonId]);
+  }, []);
 
   useEffect(() => {
     fetchReasons();
@@ -223,6 +242,7 @@ export default function PointsAdjustmentPage() {
         title: reasonTitle.trim(),
         basePoint: numBase,
         description: reasonDescription.trim() || null,
+        assignedAdminIds: reasonAssignedAdmins,
       };
 
       const res = await fetch(url, {
@@ -241,6 +261,7 @@ export default function PointsAdjustmentPage() {
       setReasonTitle('');
       setReasonBasePoint(5);
       setReasonDescription('');
+      setReasonAssignedAdmins([]);
       await fetchReasons();
       if (!isEdit && data.reason?.id) {
         setSelectedReasonId(data.reason.id);
@@ -377,20 +398,36 @@ export default function PointsAdjustmentPage() {
             </p>
           </div>
 
-          <button
-            onClick={() => {
-              setEditingReason(null);
-              setReasonTitle('');
-              setReasonBasePoint(5);
-              setReasonDescription('');
-              setReasonModalOpen(true);
-            }}
-            className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-600/20 transition cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Create New Reason</span>
-          </button>
+          {isSuperAdmin && (
+            <button
+              onClick={() => {
+                setEditingReason(null);
+                setReasonTitle('');
+                setReasonBasePoint(5);
+                setReasonDescription('');
+                setReasonAssignedAdmins([]);
+                setReasonModalOpen(true);
+              }}
+              className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-600/20 transition cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create New Reason</span>
+            </button>
+          )}
         </div>
+
+        {/* Scoped Admin Notification Banner */}
+        {!isSuperAdmin && (
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-50 border border-amber-200/90 flex items-start sm:items-center space-x-3 text-amber-900">
+            <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
+            <div className="text-xs">
+              <span className="font-extrabold block">Assigned Reason Workspace</span>
+              <span className="text-[11px] text-amber-800">
+                You are functioning in assigned reason mode. You have access to view and adjust student SPR points exclusively for the reason cards authorized to you by the Super Administrator.
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* =========================================================================
             SECTION 1: REASONS CARD BOX GRID
@@ -451,34 +488,47 @@ export default function PointsAdjustmentPage() {
                       {r.description && (
                         <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">{r.description}</p>
                       )}
+
+                      {/* Super Admin Assigned Admins Badge */}
+                      {isSuperAdmin && r.assignedAdminIds && r.assignedAdminIds.length > 0 && (
+                        <div className="mt-2 flex items-center space-x-1.5 text-[10px] text-blue-700 bg-blue-50/70 rounded-lg px-2 py-0.5 border border-blue-200/60 w-fit">
+                          <Users className="w-3 h-3 text-blue-600 shrink-0" />
+                          <span className="font-semibold">
+                            Assigned to {r.assignedAdminIds.length} admin{r.assignedAdminIds.length > 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
                       <span className="font-bold text-slate-400">
                         {r.adjustmentsCount || 0} applications
                       </span>
-                      <div className="flex items-center space-x-1" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => {
-                            setEditingReason(r);
-                            setReasonTitle(r.title);
-                            setReasonBasePoint(r.basePoint);
-                            setReasonDescription(r.description || '');
-                            setReasonModalOpen(true);
-                          }}
-                          className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition cursor-pointer"
-                          title="Edit Reason"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteReason(r)}
-                          className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                          title="Delete Reason"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                      {isSuperAdmin && (
+                        <div className="flex items-center space-x-1" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => {
+                              setEditingReason(r);
+                              setReasonTitle(r.title);
+                              setReasonBasePoint(r.basePoint);
+                              setReasonDescription(r.description || '');
+                              setReasonAssignedAdmins(r.assignedAdminIds || []);
+                              setReasonModalOpen(true);
+                            }}
+                            className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition cursor-pointer"
+                            title="Edit Reason & Assigned Admins"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteReason(r)}
+                            className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                            title="Delete Reason"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -630,15 +680,17 @@ export default function PointsAdjustmentPage() {
                                 <span className="font-mono font-bold text-slate-700 shrink-0">
                                   Net: {student.pointsForReason > 0 ? `+${student.pointsForReason}` : student.pointsForReason} pts
                                 </span>
-                                <button
-                                  type="button"
-                                  onClick={() => openWalletModal(student)}
-                                  className="inline-flex items-center space-x-1 text-[9px] sm:text-[10.5px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 cursor-pointer ml-auto sm:ml-1 shrink-0"
-                                  title="Adjust Wallet Cash Balance"
-                                >
-                                  <Wallet className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-600" />
-                                  <span>Cash</span>
-                                </button>
+                                {isSuperAdmin && (
+                                  <button
+                                    type="button"
+                                    onClick={() => openWalletModal(student)}
+                                    className="inline-flex items-center space-x-1 text-[9px] sm:text-[10.5px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 cursor-pointer ml-auto sm:ml-1 shrink-0"
+                                    title="Adjust Wallet Cash Balance"
+                                  >
+                                    <Wallet className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-600" />
+                                    <span>Cash</span>
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -724,6 +776,91 @@ export default function PointsAdjustmentPage() {
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-600 outline-none"
                   />
                 </div>
+
+                {/* Select Admins to Functioning (Super Admin Only) */}
+                {isSuperAdmin && (
+                  <div className="space-y-2 pt-2 border-t border-slate-100">
+                    <div className="flex items-center justify-between">
+                      <label className="font-bold text-slate-700 flex items-center space-x-1.5">
+                        <Users className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Select Admins to Functioning</span>
+                      </label>
+                      {adminUsers.length > 0 && (
+                        <div className="flex items-center space-x-2 text-[10px]">
+                          <button
+                            type="button"
+                            onClick={() => setReasonAssignedAdmins(adminUsers.map((u) => u.id))}
+                            className="text-blue-600 hover:underline font-bold"
+                          >
+                            Select All
+                          </button>
+                          <span>•</span>
+                          <button
+                            type="button"
+                            onClick={() => setReasonAssignedAdmins([])}
+                            className="text-slate-400 hover:underline font-bold"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-slate-500 leading-relaxed">
+                      Select which admin user(s) (e.g. <strong>Samajam</strong>) are authorized to access and adjust student points using this reason card in their administrative panel.
+                    </p>
+
+                    <div className="max-h-44 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/70 p-2 space-y-1 divide-y divide-slate-100">
+                      {adminUsers.length === 0 ? (
+                        <div className="text-[11px] text-slate-400 p-2 text-center">No other admin accounts found.</div>
+                      ) : (
+                        adminUsers.map((admin) => {
+                          const isChecked = reasonAssignedAdmins.includes(admin.id);
+                          return (
+                            <label
+                              key={admin.id}
+                              className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition ${
+                                isChecked ? 'bg-blue-50/80 border border-blue-200/80' : 'hover:bg-slate-100/70'
+                              }`}
+                            >
+                              <div className="flex items-center space-x-2.5 min-w-0 pr-2">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setReasonAssignedAdmins((prev) => [...prev, admin.id]);
+                                    } else {
+                                      setReasonAssignedAdmins((prev) => prev.filter((id) => id !== admin.id));
+                                    }
+                                  }}
+                                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                />
+                                <div className="truncate">
+                                  <div className="font-bold text-slate-800 text-[11px] truncate flex items-center space-x-1.5">
+                                    <span>{admin.name || admin.email}</span>
+                                    {admin.role === 'SUPER_ADMIN' && (
+                                      <span className="text-[9px] px-1 py-0.2 rounded bg-purple-100 text-purple-700 font-mono font-bold">
+                                        Super
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 truncate font-mono">{admin.email}</div>
+                                </div>
+                              </div>
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                  isChecked ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'
+                                }`}
+                              >
+                                {isChecked ? 'Assigned' : 'Excluded'}
+                              </span>
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
                   <button

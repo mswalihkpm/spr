@@ -951,13 +951,14 @@ model StudentBriefNoteTemplate {
 }
 
 model PointCorrectionReason {
-  id          String                   @id @default(cuid())
-  title       String
-  basePoint   Decimal                  @default(1.00) @db.Decimal(6, 2)
-  description String?
-  createdAt   DateTime                 @default(now())
-  updatedAt   DateTime                 @updatedAt
-  adjustments StudentPointAdjustment[]
+  id               String                   @id @default(cuid())
+  title            String
+  basePoint        Decimal                  @default(1.00) @db.Decimal(6, 2)
+  description      String?
+  assignedAdminIds String?                  // JSON array string of user IDs: e.g. ["usr_123", "usr_456"]
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  adjustments      StudentPointAdjustment[]
 }
 
 model StudentPointAdjustment {

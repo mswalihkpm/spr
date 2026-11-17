@@ -27,6 +27,31 @@ export async function GET(req: NextRequest) {
       selectedReason = await prisma.pointCorrectionReason.findUnique({
         where: { id: reasonId },
       });
+
+      // Authorization check for non-super admins
+      if (selectedReason && user.role !== 'SUPER_ADMIN') {
+        let isAssigned = false;
+        if (selectedReason.assignedAdminIds) {
+          try {
+            const parsed = JSON.parse(selectedReason.assignedAdminIds);
+            if (Array.isArray(parsed) && (parsed.includes(user.id) || parsed.includes(user.email))) {
+              isAssigned = true;
+            }
+          } catch {
+            if (selectedReason.assignedAdminIds.includes(user.id) || selectedReason.assignedAdminIds.includes(user.email)) {
+              isAssigned = true;
+            }
+          }
+        }
+        if (!isAssigned) {
+          return NextResponse.json({
+            classes,
+            students: [],
+            reason: null,
+            error: 'Not authorized for this reason card.',
+          });
+        }
+      }
     }
 
     // Build student query filter

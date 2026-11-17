@@ -101,6 +101,27 @@ async function main() {
   });
   console.log('Creative Hub Admin provisioned:', creativeHubAdmin.email);
 
+  const samajamPasswordHash = await bcrypt.hash('samajam123', 10);
+  const samajamAdmin = await prisma.user.upsert({
+    where: { email: 'samajam@gmail.com' },
+    update: {
+      passwordHash: samajamPasswordHash,
+      mustChangePassword: false,
+      status: 'ACTIVE',
+      role: 'ADMIN',
+      name: 'Samajam',
+    },
+    create: {
+      email: 'samajam@gmail.com',
+      name: 'Samajam',
+      passwordHash: samajamPasswordHash,
+      role: 'ADMIN',
+      mustChangePassword: false,
+      status: 'ACTIVE',
+    },
+  });
+  console.log('Samajam Admin provisioned:', samajamAdmin.email);
+
   // 3. Academic Year & Terms
   const academicYear = await prisma.academicYear.upsert({
     where: { name: '2025-2026' },

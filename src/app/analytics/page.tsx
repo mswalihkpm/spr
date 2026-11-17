@@ -815,7 +815,7 @@ export default function AnalyticsPage() {
                       }`}
                     >
                       <Receipt className="w-4 h-4 text-rose-600" />
-                      <span>Credited Transactions Ledger</span>
+                      <span>Wallet Transactions Ledger</span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800">
                         {txTotal}
                       </span>
@@ -829,7 +829,7 @@ export default function AnalyticsPage() {
                     ) : (
                       <span className="text-rose-700 font-semibold flex items-center space-x-1">
                         <Sparkles className="w-3.5 h-3.5 text-rose-500" />
-                        <span>Manage, search &amp; bulk delete credited earnings</span>
+                        <span>Audit and delete any transaction from wallet history</span>
                       </span>
                     )}
                   </div>
@@ -1068,7 +1068,7 @@ export default function AnalyticsPage() {
                     )}
                   </div>
                 ) : (
-                  /* VIEW B: CREDITED TRANSACTIONS LEDGER & BULK DELETE */
+                  /* VIEW B: ALL WALLET TRANSACTIONS LEDGER & BULK DELETE */
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden space-y-0">
                     {/* Header & Controls Bar */}
                     <div className="p-5 border-b border-slate-100 space-y-4">
@@ -1076,18 +1076,16 @@ export default function AnalyticsPage() {
                         <div>
                           <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
                             <Receipt className="w-5 h-5 text-rose-600" />
-                            <span>Credited Transactions Ledger &amp; Management</span>
+                            <span>Wallet Transactions Ledger &amp; Management</span>
                           </h3>
                           <p className="text-xs text-slate-500">
-                            Search, audit, and delete individual or bulk credited transactions. Deleting removes the cash from wallet balance &amp; total lifetime earnings.
+                            Search, audit, and delete individual or bulk transactions across entire wallet history. Deletions accurately reverse balances, lifetime earnings, or store transfers.
                           </p>
                         </div>
 
                         <div className="flex items-center space-x-2">
                           <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200 flex items-center space-x-1.5">
-                            <span>{txTotal} Credited Records</span>
-                            <span>•</span>
-                            <span className="font-mono font-black text-rose-700">₹{txTotalCreditedAmount.toFixed(2)}</span>
+                            <span>{txTotal} Total Records</span>
                           </span>
                           <button
                             type="button"
@@ -1153,11 +1151,15 @@ export default function AnalyticsPage() {
                             }}
                             className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
                           >
-                            <option value="ALL">All Credited Types</option>
+                            <option value="ALL">All Transaction Types</option>
                             <option value="TASK">Task Rewards</option>
                             <option value="EARNING">Earnings</option>
                             <option value="ADJUSTMENT">Adjustments</option>
-                            <option value="TRANSFER_RECEIVED">Transfers In</option>
+                            <option value="TRANSFER_SENT">Transfers Sent (Debit)</option>
+                            <option value="TRANSFER_RECEIVED">Transfers Received (Credit)</option>
+                            <option value="STORE_CONTRIBUTION">Store Contributions (Debit)</option>
+                            <option value="CREDIT">All Credits (+₹)</option>
+                            <option value="DEBIT">All Debits (-₹)</option>
                           </select>
                         </div>
 
@@ -1189,7 +1191,7 @@ export default function AnalyticsPage() {
                           <div className="text-xs text-rose-950 font-medium">
                             <strong className="font-bold text-rose-900">{selectedTxIds.length} transactions selected</strong>
                             <span className="mx-1.5">•</span>
-                            <span>Total deduction: <strong className="font-mono font-black text-rose-700">₹{selectedTotalAmount.toFixed(2)}</strong></span>
+                            <span>Total value: <strong className="font-mono font-black text-rose-700">₹{selectedTotalAmount.toFixed(2)}</strong></span>
                             <span className="mx-1.5">•</span>
                             <span className="text-slate-600">{selectedStudentsMap.size} student(s) affected</span>
                           </div>
@@ -1222,12 +1224,12 @@ export default function AnalyticsPage() {
                     {loadingTransactions ? (
                       <div className="py-20 flex flex-col items-center justify-center space-y-3">
                         <RefreshCw className="w-6 h-6 text-rose-600 animate-spin" />
-                        <span className="text-xs font-semibold text-slate-500">Loading credited transactions...</span>
+                        <span className="text-xs font-semibold text-slate-500">Loading transactions history...</span>
                       </div>
                     ) : creditedTransactions.length === 0 ? (
                       <div className="py-16 text-center space-y-2">
                         <Receipt className="w-8 h-8 text-slate-300 mx-auto" />
-                        <div className="text-sm font-bold text-slate-700">No credited transactions found</div>
+                        <div className="text-sm font-bold text-slate-700">No transactions found</div>
                         <div className="text-xs text-slate-400">
                           Try adjusting your search query, class filter, or transaction type.
                         </div>
@@ -1247,9 +1249,9 @@ export default function AnalyticsPage() {
                                 />
                               </th>
                               <th className="py-3 px-4">Student</th>
-                              <th className="py-3 px-4">Transaction Name / Reason</th>
+                              <th className="py-3 px-4">Transaction Details</th>
                               <th className="py-3 px-3 text-center">Type</th>
-                              <th className="py-3 px-4 text-right">Credited Cash</th>
+                              <th className="py-3 px-4 text-right">Amount</th>
                               <th className="py-3 px-4 text-center">Wallet Delta</th>
                               <th className="py-3 px-4 text-right">Date &amp; Time</th>
                               <th className="py-3 px-3 text-center">Action</th>
@@ -1260,7 +1262,9 @@ export default function AnalyticsPage() {
                               const isSelected = selectedTxIds.includes(tx.id);
                               const isTask = tx.type === 'EARNING' && (tx.reference?.startsWith('TXN-TASK') || tx.description?.toLowerCase().includes('task'));
                               const isAdjustment = tx.type === 'ADJUSTMENT';
-                              const isTransfer = tx.type === 'TRANSFER_RECEIVED';
+                              const isTransferRecv = tx.type === 'TRANSFER_RECEIVED';
+                              const isTransferSent = tx.type === 'TRANSFER_SENT';
+                              const isStore = tx.type === 'STORE_CONTRIBUTION';
                               const d = new Date(tx.createdAt);
                               const formattedDate = !isNaN(d.getTime())
                                 ? d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -1334,10 +1338,20 @@ export default function AnalyticsPage() {
                                         <Sliders className="w-2.5 h-2.5" />
                                         <span>Adjustment</span>
                                       </span>
-                                    ) : isTransfer ? (
+                                    ) : isTransferRecv ? (
                                       <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-800 border border-indigo-300">
                                         <ArrowDownLeft className="w-2.5 h-2.5" />
                                         <span>Transfer In</span>
+                                      </span>
+                                    ) : isTransferSent ? (
+                                      <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300">
+                                        <ArrowUpRight className="w-2.5 h-2.5" />
+                                        <span>Transfer Out</span>
+                                      </span>
+                                    ) : isStore ? (
+                                      <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 border border-purple-300">
+                                        <ShoppingBag className="w-2.5 h-2.5" />
+                                        <span>Store Contribution</span>
                                       </span>
                                     ) : (
                                       <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
@@ -1347,12 +1361,14 @@ export default function AnalyticsPage() {
                                     )}
                                   </td>
 
-                                  {/* Credited Cash Amount */}
+                                  {/* Cash Amount */}
                                   <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                                    <div className="font-mono font-black text-sm text-emerald-700">
-                                      +₹{Number(tx.amount).toFixed(2)}
+                                    <div className={`font-mono font-black text-sm ${tx.isDebit ? 'text-rose-600' : 'text-emerald-700'}`}>
+                                      {tx.isDebit ? '-' : '+'}₹{Number(tx.amount).toFixed(2)}
                                     </div>
-                                    <span className="text-[9px] text-emerald-600 font-semibold uppercase">Credited</span>
+                                    <span className={`text-[9px] font-semibold uppercase ${tx.isDebit ? 'text-rose-500' : 'text-emerald-600'}`}>
+                                      {tx.isDebit ? 'Debit' : 'Credit'}
+                                    </span>
                                   </td>
 
                                   {/* Wallet Balance Delta */}
@@ -1377,7 +1393,7 @@ export default function AnalyticsPage() {
                                         setDeleteModalOpen(true);
                                       }}
                                       className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition cursor-pointer"
-                                      title="Delete this transaction & deduct cash"
+                                      title="Delete this transaction and reverse its wallet impact"
                                     >
                                       <Trash2 className="w-4 h-4" />
                                     </button>

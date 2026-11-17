@@ -93,14 +93,19 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
 
   // Enforce role-based route protection
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
-  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
+  const isPointAdjustmentAdmin = (user?.role === 'ADMIN' && !isSuperAdmin) || user?.email === 'samajam@gmail.com';
+  const isAdmin = isSuperAdmin || (user?.role === 'ADMIN' && !isPointAdjustmentAdmin);
   const isStoreAdmin = user?.role === 'STORE_ADMIN';
   const isCreativeHubAdmin = user?.role === 'CREATIVE_HUB_ADMIN';
   const isKuthbkhanaAdmin = user?.role === 'KUTHBKHANA_ADMIN';
 
   useEffect(() => {
     if (user) {
-      if (isStoreAdmin) {
+      if (isPointAdjustmentAdmin) {
+        if (pathname !== '/admin/points-adjustment' && pathname !== '/auth/change-password') {
+          router.push('/admin/points-adjustment');
+        }
+      } else if (isStoreAdmin) {
         if (pathname !== '/store' && pathname !== '/auth/change-password') {
           router.push('/store');
         }
@@ -112,13 +117,13 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
         if (pathname !== '/kuthbkhana' && pathname !== '/auth/change-password' && !pathname.startsWith('/leaderboard')) {
           router.push('/kuthbkhana');
         }
-      } else if (!isAdmin) {
+      } else if (!isAdmin && !isSuperAdmin) {
         if (pathname.startsWith('/settings') || pathname.startsWith('/weights') || pathname.startsWith('/categories') || pathname.startsWith('/updates/manage') || pathname.startsWith('/store') || pathname.startsWith('/admin/deletion-requests') || pathname.startsWith('/attendance') || pathname.startsWith('/field-collection')) {
           router.push('/dashboard');
         }
       }
     }
-  }, [user, isAdmin, isStoreAdmin, isCreativeHubAdmin, isKuthbkhanaAdmin, pathname, router]);
+  }, [user, isAdmin, isSuperAdmin, isPointAdjustmentAdmin, isStoreAdmin, isCreativeHubAdmin, isKuthbkhanaAdmin, pathname, router]);
 
   const allNavItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -162,7 +167,11 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
         { name: 'Creative Hub', href: '/creative-hub', icon: Sparkles },
         { name: 'Leaderboards', href: '/leaderboard', icon: Award },
       ]
-    : allNavItems.filter((item) => !item.adminOnly || isAdmin);
+    : isPointAdjustmentAdmin
+    ? [
+        { name: 'Points Adjustment', href: '/admin/points-adjustment', icon: Award },
+      ]
+    : allNavItems.filter((item) => !item.adminOnly || isAdmin || isSuperAdmin);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row text-slate-900 selection:bg-madin-900 selection:text-white">
