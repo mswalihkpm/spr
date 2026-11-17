@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     if (errorResponse) return errorResponse;
 
     const now = Date.now();
-    const isFresh = req.nextUrl.searchParams.get('fresh') === 'true' || req.nextUrl.searchParams.has('t') || req.headers.get('cache-control') === 'no-cache';
+    const isFresh = req.nextUrl.searchParams.get('fresh') === 'true' || req.nextUrl.searchParams.has('t');
 
     if (!isFresh && cachedAnalytics && now - cachedAnalytics.timestamp < ANALYTICS_CACHE_TTL) {
       return NextResponse.json(cachedAnalytics.data, {

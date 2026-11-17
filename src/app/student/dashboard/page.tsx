@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { clearClientCache } from '@/lib/client-cache';
+import { clearClientCache, getCachedStudentDashboard, setCachedStudentDashboard } from '@/lib/client-cache';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import VideoLoader from '@/components/ui/VideoLoader';
+import WeeklyPerformanceChart from '@/components/student/WeeklyPerformanceChart';
 import {
   TrendingUp,
   Award,
@@ -29,16 +30,7 @@ import {
   Store,
   Layers,
 } from 'lucide-react';
-import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-} from 'recharts';
+
 
 export default function StudentDashboardPage() {
   const router = useRouter();
@@ -59,9 +51,19 @@ export default function StudentDashboardPage() {
     setIsMounted(true);
   }, []);
 
-  const fetchDashboardData = async (isSilent = false) => {
+  const fetchDashboardData = async (forceFresh = false) => {
     try {
-      if (!isSilent) setLoading(true);
+      // Instant client render from memory cache
+      const cached = getCachedStudentDashboard();
+      if (cached && !forceFresh) {
+        setData(cached);
+        setLoading(false);
+        // Silent background revalidation
+        fetchSilentUpdate();
+        return;
+      }
+
+      if (!data) setLoading(true);
       else setRefreshing(true);
 
       const res = await fetch('/api/student/auth/me');
@@ -73,6 +75,7 @@ export default function StudentDashboardPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Failed to load dashboard.');
 
+      setCachedStudentDashboard(json);
       setData(json);
       if (json.student?.mustChangePassword) {
         setPwdModalOpen(true);
@@ -82,6 +85,22 @@ export default function StudentDashboardPage() {
       setStatusMsg({ type: 'error', text: err.message || 'Error loading dashboard.' });
     } finally {
       setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const fetchSilentUpdate = async () => {
+    try {
+      setRefreshing(true);
+      const res = await fetch('/api/student/auth/me');
+      if (res.ok) {
+        const json = await res.json();
+        setCachedStudentDashboard(json);
+        setData(json);
+      }
+    } catch {
+      // Silent error suppression
+    } finally {
       setRefreshing(false);
     }
   };
@@ -155,35 +174,7 @@ export default function StudentDashboardPage() {
   const currentSprPct = sprProfile?.sprPercentage !== undefined ? Number(sprProfile.sprPercentage.toFixed(2)) : 0;
   const totalPoints = sprProfile?.totalWeightedScore !== undefined ? Number(sprProfile.totalWeightedScore.toFixed(1)) : 0;
 
-  // Chart Tooltip Component
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const p = payload[0].payload;
-      return (
-        <div className="bg-slate-900/95 text-white p-3 rounded-2xl shadow-xl border border-slate-700 text-xs backdrop-blur-md space-y-1">
-          <div className="font-extrabold text-blue-300 uppercase tracking-wider text-[10px]">
-            Academic Month: {label}
-          </div>
-          {p.sprPercentage !== null ? (
-            <>
-              <div className="font-black text-amber-300 font-mono text-sm">
-                Cumulative SPR: {p.sprPercentage}%
-              </div>
-              <div className="text-slate-300 text-[11px]">
-                Cumulative Points: <span className="font-mono font-bold text-white">{p.cumulativePoints} pts</span>
-              </div>
-              <div className="text-slate-400 text-[10px]">
-                Activities Logged: {p.activityCount} record(s)
-              </div>
-            </>
-          ) : (
-            <div className="text-slate-400 italic">Upcoming Term Period</div>
-          )}
-        </div>
-      );
-    }
-    return null;
-  };
+
 
   return (
     <div className="text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-white pb-12">
@@ -264,93 +255,14 @@ export default function StudentDashboardPage() {
         )}
 
         {/* =========================================================================
-            ANNUAL ACADEMIC & SPR PERFORMANCE PROGRESSION LINE GRAPH
+            WEEKLY STUDENT PERFORMANCE GRAPH (AREA LINE CHART WITH SUBTLE GRADIENT)
             ========================================================================= */}
-        <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 sm:p-7 shadow-xs space-y-5">
-          {/* Chart Header & Statistical Overview Dials */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="p-1.5 rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
-                  <TrendingUp className="w-4 h-4" />
-                </span>
-                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                  Annual Performance Rate Progression (SPR %)
-                </h3>
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Monthly cumulative performance trajectory across the 2025–2026 academic year.
-              </p>
-            </div>
-
-            {/* Micro Dials */}
-            <div className="flex items-center space-x-3 text-xs">
-              <div className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">Class Standing</span>
-                <span className="font-black text-blue-600 dark:text-blue-400 font-mono text-sm">
-                  {rankInfo?.classRank ? `#${rankInfo.classRank}` : '—'}
-                </span>
-              </div>
-              <div className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">Current Benchmark</span>
-                <span className="font-black text-amber-600 dark:text-amber-400 font-mono text-sm">
-                  {currentSprPct}%
-                </span>
-              </div>
-              <div className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">Total Weighted Points</span>
-                <span className="font-black text-emerald-600 dark:text-emerald-400 font-mono text-sm">
-                  {totalPoints} pts
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Line & Area Chart Container */}
-          <div className="w-full h-64 sm:h-72">
-            {isMounted && timeline.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={timeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="sprGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                  <XAxis
-                    dataKey="month"
-                    tickLine={false}
-                    axisLine={{ stroke: '#cbd5e1' }}
-                    tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }}
-                  />
-                  <YAxis
-                    domain={[0, 100]}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(val) => `${val}%`}
-                    tick={{ fill: '#64748b', fontSize: 10 }}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Area
-                    type="monotone"
-                    dataKey="sprPercentage"
-                    stroke="#2563eb"
-                    strokeWidth={3}
-                    fillOpacity={1}
-                    fill="url(#sprGradient)"
-                    connectNulls={false}
-                    activeDot={{ r: 6, fill: '#1d4ed8', stroke: '#ffffff', strokeWidth: 2 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                Loading performance chart telemetry...
-              </div>
-            )}
-          </div>
-        </div>
+        <WeeklyPerformanceChart
+          timeline={data?.weeklyPerformanceTimeline || []}
+          currentSprPct={currentSprPct}
+          totalPoints={totalPoints}
+          classRank={rankInfo?.classRank}
+        />
 
         {/* =========================================================================
             PRIMARY ACTION TILES: DOSSIER, TASKS, ACTIVITIES, CASH

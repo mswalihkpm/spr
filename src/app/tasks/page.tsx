@@ -111,6 +111,7 @@ export default function AdminTasksPage() {
   const router = useRouter();
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
   const [classes, setClasses] = useState<AcademicClassItem[]>([]);
+  const [briefNoteTemplates, setBriefNoteTemplates] = useState<any[]>([]);
   const [metrics, setMetrics] = useState({
     totalTasks: 0,
     draftTasks: 0,
@@ -244,6 +245,12 @@ export default function AdminTasksPage() {
 
   useEffect(() => {
     fetchTasks();
+    fetch('/api/admin/brief-notes')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.templates) setBriefNoteTemplates(data.templates);
+      })
+      .catch(() => {});
   }, [statusFilter]);
 
   const loadTaskDetail = async (taskId: string) => {
@@ -393,9 +400,11 @@ export default function AdminTasksPage() {
           studentIds: formData.selectedStudentIds,
         };
       } else if (formData.targetAudience === 'QUESTIONNAIRE_GROUP') {
+        const matchedTpl = briefNoteTemplates.find((t) => t.id === formData.questionnaireGroup);
         payload.targetAudienceJson = {
-          group: formData.questionnaireGroup,
-          optionKeywords: [formData.questionnaireGroup],
+          templateId: formData.questionnaireGroup,
+          group: matchedTpl ? matchedTpl.name : formData.questionnaireGroup,
+          optionKeywords: matchedTpl ? [matchedTpl.name] : [formData.questionnaireGroup],
         };
       }
 
@@ -1759,7 +1768,7 @@ export default function AdminTasksPage() {
                           { id: 'ALL', title: 'Target Type A: All Students', desc: 'Enrolls all eligible students across all classes' },
                           { id: 'SPECIFIC_CLASS', title: 'Target Type B: Specific Classes', desc: 'Assigns to selected class cohorts' },
                           { id: 'SPECIFIC_STUDENTS', title: 'Target Type C: Individual Students', desc: 'Custom pick specific students by name / SPR ID' },
-                          { id: 'QUESTIONNAIRE_GROUP', title: 'Target Type D: Intelligence Groups', desc: 'Dynamic group based on questionnaire responses' },
+                          { id: 'QUESTIONNAIRE_GROUP', title: 'Target Type D: Brief Note Student Groups', desc: 'Target students from admin-created Brief Note templates' },
                         ].map((m) => (
                           <div
                             key={m.id}
@@ -1891,23 +1900,37 @@ export default function AdminTasksPage() {
                       </div>
                     )}
 
-                    {/* Questionnaire Target Group */}
+                    {/* Brief Note Template Student Group */}
                     {formData.targetAudience === 'QUESTIONNAIRE_GROUP' && (
                       <div className="space-y-2 p-3.5 rounded-2xl bg-purple-50/60 border border-purple-200">
-                        <label className="font-bold text-purple-900 block">Select Intelligence Group</label>
+                        <div className="flex items-center justify-between">
+                          <label className="font-bold text-purple-900 block text-xs">
+                            Select Student Group in Brief Note Template
+                          </label>
+                          <span className="text-[10px] text-purple-700 font-semibold">
+                            {briefNoteTemplates.length} Template(s) Available
+                          </span>
+                        </div>
                         <select
                           value={formData.questionnaireGroup}
                           onChange={(e) => setFormData({ ...formData, questionnaireGroup: e.target.value })}
-                          className="w-full p-2.5 rounded-xl border border-purple-300 bg-white text-slate-900"
+                          className="w-full p-2.5 rounded-xl border border-purple-300 bg-white text-slate-900 text-xs font-medium outline-none focus:ring-2 focus:ring-purple-600 cursor-pointer"
                         >
-                          <option value="">Choose Dynamic Group...</option>
-                          <option value="Biology & Medical Enthusiasts">Biology &amp; Medical Enthusiasts (NEET)</option>
-                          <option value="German Language Enthusiasts">German Language Enthusiasts</option>
-                          <option value="Public Speaking & Debate">Public Speaking &amp; Debate Members</option>
-                          <option value="Civil Services & Leadership">Civil Services &amp; Leadership Aspirants</option>
-                          <option value="Arts, Calligraphy & Graphic Design">Arts, Calligraphy &amp; Design Group</option>
-                          <option value="IT & Computer Science">IT &amp; Computer Science Enthusiasts</option>
+                          <option value="">Choose Brief Note Template Group...</option>
+                          {briefNoteTemplates.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.name} ({Array.isArray(t.sections) ? t.sections.length : 0} sections)
+                            </option>
+                          ))}
+                          {briefNoteTemplates.length === 0 && (
+                            <option value="" disabled>
+                              No brief note templates created yet. Create one in Brief Notes Manager.
+                            </option>
+                          )}
                         </select>
+                        <p className="text-[10.5px] text-purple-700 mt-1">
+                          Enrolls all students matching the profile questions configured in this Brief Note template.
+                        </p>
                       </div>
                     )}
                   </div>

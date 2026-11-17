@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     const academicYearId = searchParams.get('academicYearId') || undefined;
 
     const categories = await getCachedCategories();
-    const isFresh = searchParams.get('fresh') === 'true' || searchParams.has('t') || req.headers.get('cache-control') === 'no-cache';
+    const isFresh = searchParams.get('fresh') === 'true' || searchParams.has('t');
 
     // 1. Handle Class Ranking Leaderboard Request
     const isClassRanking =

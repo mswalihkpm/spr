@@ -221,16 +221,17 @@ export default function OfficialPdfExportModal({
   const handleDownloadDossiers = async () => {
     setIsGenerating(true);
     setProgressPercent(5);
-    setProgressStatus('Fetching enrolled students in selected cohort...');
+    setProgressStatus('Fetching enrolled students across selected cohort...');
 
     try {
-      const targetClass = localClasses.find((c) => c.id === dossierClassId) || localClasses[0];
-      const targetClassName = targetClass ? targetClass.name : 'Selected Cohort';
+      const isAllCohorts = !dossierClassId || dossierClassId === 'ALL';
+      const targetClass = isAllCohorts ? null : localClasses.find((c) => c.id === dossierClassId);
+      const targetClassName = isAllCohorts ? 'All Students (School-Wide A-Z)' : (targetClass ? targetClass.name : 'Selected Cohort');
 
-      // 1. Fetch active students in class
-      const url = dossierClassId
-        ? `/api/students?classId=${dossierClassId}&status=ACTIVE&all=true`
-        : `/api/students?status=ACTIVE&all=true`;
+      // 1. Fetch active students in class or all
+      const url = isAllCohorts
+        ? `/api/students?status=ACTIVE&all=true`
+        : `/api/students?classId=${dossierClassId}&status=ACTIVE&all=true`;
 
       const stRes = await fetch(url);
       if (!stRes.ok) throw new Error('Failed to retrieve students in selected cohort.');
@@ -248,39 +249,43 @@ export default function OfficialPdfExportModal({
 
       const totalCount = enrolled.length;
       setProgressPercent(15);
-      setProgressStatus(`Found ${totalCount} students. Fetching comprehensive individual dossiers (Sorted A-Z)...`);
+      setProgressStatus(`Found ${totalCount} students. Fetching advanced detailed dossiers (Sorted A-Z)...`);
 
-      // 2. Fetch full dossier profiles one by one or in small batches with real-time percentage
+      // 2. Fetch full dossier profiles concurrently in batches of 8 for ultra-fast compilation
       const detailedProfiles: any[] = [];
-      for (let i = 0; i < enrolled.length; i++) {
-        const student = enrolled[i];
-        const currentPct = Math.round(15 + ((i + 1) / totalCount) * 75); // 15% -> 90%
+      const batchSize = 8;
+      for (let i = 0; i < enrolled.length; i += batchSize) {
+        const chunk = enrolled.slice(i, i + batchSize);
+        const results = await Promise.all(
+          chunk.map(async (student: any) => {
+            try {
+              const profRes = await fetch(`/api/public/student/${student.id}`);
+              if (profRes.ok) {
+                const profData = await profRes.json();
+                return {
+                  student,
+                  profile: profData.profile || null,
+                  creativeWorks: profData.creativeWorks || [],
+                  libraryRecords: profData.libraryRecords || [],
+                };
+              }
+            } catch {
+              // fallback
+            }
+            return { student, profile: null };
+          })
+        );
+        detailedProfiles.push(...results);
+        const currentPct = Math.round(15 + (detailedProfiles.length / totalCount) * 80);
         setProgressPercent(currentPct);
         setProgressStatus(
-          `Fetching dossier ${i + 1} of ${totalCount} (${currentPct}%) • ${student.fullName}`
+          `Compiled ${detailedProfiles.length} of ${totalCount} advanced dossiers (${currentPct}%)...`
         );
-
-        try {
-          const profRes = await fetch(`/api/public/student/${student.id}?fresh=true`);
-          if (profRes.ok) {
-            const profData = await profRes.json();
-            detailedProfiles.push({
-              student,
-              profile: profData.profile || null,
-              creativeWorks: profData.creativeWorks || [],
-              libraryRecords: profData.libraryRecords || [],
-            });
-          } else {
-            detailedProfiles.push({ student, profile: null });
-          }
-        } catch {
-          detailedProfiles.push({ student, profile: null });
-        }
       }
 
       setProgressPercent(95);
-      setProgressStatus('Compiling multi-page dossier booklet with certified seals...');
-      await new Promise((r) => setTimeout(r, 300));
+      setProgressStatus('Compiling multi-page detailed dossier booklet with certified institutional seals...');
+      await new Promise((r) => setTimeout(r, 200));
 
       setDossierReportData({
         students: detailedProfiles,
@@ -293,7 +298,7 @@ export default function OfficialPdfExportModal({
 
       setGeneratedDocType('DOSSIERS');
       setProgressPercent(100);
-      setProgressStatus('All dossiers compiled successfully! Opening print dialog...');
+      setProgressStatus('All advanced dossiers compiled successfully! Opening print dialog...');
 
       setTimeout(() => {
         setIsGenerating(false);
@@ -570,10 +575,13 @@ export default function OfficialPdfExportModal({
                     <CustomSelect
                       value={dossierClassId}
                       onChange={(val) => setDossierClassId(val)}
-                      options={localClasses.map((c) => ({
-                        value: c.id,
-                        label: `${c.name} (${c.numericGrade ? `Grade ${c.numericGrade}` : 'Cohort'})`,
-                      }))}
+                      options={[
+                        { value: 'ALL', label: 'All Students Across School (A-Z Overall)' },
+                        ...localClasses.map((c) => ({
+                          value: c.id,
+                          label: `${c.name} (${c.numericGrade ? `Grade ${c.numericGrade}` : 'Cohort'})`,
+                        })),
+                      ]}
                     />
                   </div>
 
@@ -768,17 +776,20 @@ export default function OfficialPdfExportModal({
             </div>
           )}
 
-          {/* Tab 2: Batch Student Dossiers (Sorted A-Z) */}
+          {/* Tab 2: Batch Student Dossiers (Sorted A-Z) - ADVANCED DETAILED DOSSIERS */}
           {generatedDocType === 'DOSSIERS' && dossierReportData && (
             <div className="font-sans text-slate-900">
-              {dossierReportData.students.map(({ student, profile }, idx) => {
+              {dossierReportData.students.map(({ student, profile, libraryRecords, creativeWorks }, idx) => {
                 const numericScore = profile ? (profile.overallScore ?? profile.overallSPR ?? 0) : 0;
                 const cats = profile?.categoryBreakdown || profile?.categoryScores || [];
+                const subjects = profile?.subjectWiseRecords || [];
+                const attendances = profile?.monthlyAttendances || [];
+                const corrections = profile?.pointCorrections;
 
                 return (
-                  <div key={student.id || idx} className="dossier-card-page p-2 space-y-3 flex flex-col justify-between">
+                  <div key={student.id || idx} className="dossier-card-page p-2 space-y-2.5 flex flex-col justify-between">
                     {/* Top Dossier Header */}
-                    <div className="space-y-3">
+                    <div className="space-y-2.5">
                       <div className="rounded-xl bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-900 text-white p-3 flex items-center justify-between page-break-avoid">
                         <div className="flex items-center space-x-2.5">
                           <div className="w-8 h-8 rounded-lg bg-white p-1 flex items-center justify-center shrink-0">
@@ -789,10 +800,10 @@ export default function OfficialPdfExportModal({
                               Madin School of Excellence
                             </div>
                             <h2 className="text-xs font-black text-white leading-tight">
-                              Official Student Performance Rate (SPR) Scorecard Dossier
+                              Official Student Performance Rate (SPR) Advanced Detailed Dossier
                             </h2>
                             <div className="text-[8px] text-blue-100">
-                              Academic &amp; Co-Curricular Comprehensive Evaluation Dossier
+                              Comprehensive 360° Academic &amp; Co-Curricular Evaluation Ledger
                             </div>
                           </div>
                         </div>
@@ -804,8 +815,8 @@ export default function OfficialPdfExportModal({
                       </div>
 
                       {/* Student Profile Card */}
-                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 flex items-center justify-between page-break-avoid">
-                        <div className="space-y-1">
+                      <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-200 flex items-center justify-between page-break-avoid">
+                        <div className="space-y-0.5">
                           <div className="flex items-center space-x-2">
                             <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-900 font-mono text-[9px] font-bold">
                               {student.sprStudentId || 'SPR ID'}
@@ -822,12 +833,18 @@ export default function OfficialPdfExportModal({
                           </div>
                         </div>
 
-                        {/* Total Score */}
-                        <div className="text-right bg-blue-600 text-white px-3 py-1.5 rounded-xl min-w-[90px]">
-                          <div className="text-[7.5px] uppercase font-bold text-blue-100">Total SPR Points</div>
-                          <div className="text-base font-black font-mono leading-tight">{numericScore}</div>
-                          <div className="text-[7.5px] text-blue-200">
-                            {numericScore >= 400 ? 'Exceptional' : numericScore >= 250 ? 'Outstanding' : 'Standard'}
+                        {/* Total Score & Point Corrections */}
+                        <div className="text-right bg-blue-600 text-white px-3 py-1.5 rounded-xl min-w-[95px]">
+                          <div className="text-[7.5px] uppercase font-bold text-blue-100">Official SPR</div>
+                          <div className="text-sm font-black font-mono leading-tight">
+                            {profile?.sprPercentage !== undefined && profile?.sprPercentage !== null
+                              ? Number(profile.sprPercentage).toFixed(2) + '%'
+                              : `${numericScore}%`}
+                          </div>
+                          <div className="text-[7.5px] text-blue-200 font-mono">
+                            Points: {numericScore}
+                            {corrections?.added > 0 && ` (+${corrections.added})`}
+                            {corrections?.reduced > 0 && ` (-${corrections.reduced})`}
                           </div>
                         </div>
                       </div>
@@ -835,47 +852,49 @@ export default function OfficialPdfExportModal({
                       {/* Rankings Grid */}
                       {profile && (
                         <div className="grid grid-cols-3 gap-2 text-center page-break-avoid">
-                          <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200">
-                            <div className="text-[8.5px] text-slate-500 font-semibold">Class Rank</div>
+                          <div className="p-1 rounded-lg bg-slate-50 border border-slate-200">
+                            <div className="text-[8px] text-slate-500 font-semibold">Class Rank</div>
                             <div className="text-xs font-black text-slate-900">
-                              #{profile.classRank || 1} <span className="text-[8px] text-slate-400 font-normal">/ {profile.totalStudentsInClass || 1}</span>
+                              #{profile.classRank || 1} <span className="text-[7.5px] text-slate-400 font-normal">/ {profile.totalStudentsInClass || 1}</span>
                             </div>
                           </div>
-                          <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200">
-                            <div className="text-[8.5px] text-slate-500 font-semibold">School Rank</div>
+                          <div className="p-1 rounded-lg bg-slate-50 border border-slate-200">
+                            <div className="text-[8px] text-slate-500 font-semibold">School Rank</div>
                             <div className="text-xs font-black text-slate-900">
-                              #{profile.schoolRank || 1} <span className="text-[8px] text-slate-400 font-normal">/ {profile.totalStudentsInSchool || 1}</span>
+                              #{profile.schoolRank || 1} <span className="text-[7.5px] text-slate-400 font-normal">/ {profile.totalStudentsInSchool || 1}</span>
                             </div>
                           </div>
-                          <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200">
-                            <div className="text-[8.5px] text-slate-500 font-semibold">Overall Standing</div>
+                          <div className="p-1 rounded-lg bg-slate-50 border border-slate-200">
+                            <div className="text-[8px] text-slate-500 font-semibold">Overall Standing</div>
                             <div className="text-xs font-black text-blue-700">
-                              #{profile.overallRank ?? profile.rank ?? 1} <span className="text-[8px] text-slate-400 font-normal">/ {profile.totalStudentsOverall || 1}</span>
+                              #{profile.overallRank ?? profile.rank ?? 1} <span className="text-[7.5px] text-slate-400 font-normal">/ {profile.totalStudentsOverall || 1}</span>
                             </div>
                           </div>
                         </div>
                       )}
 
-                      {/* Category Breakdown Table */}
+                      {/* Cumulative Category Breakdown Table */}
                       {cats.length > 0 && (
                         <div className="space-y-1 page-break-avoid">
-                          <div className="text-[10px] font-black text-slate-900 uppercase tracking-wider">
-                            Cumulative Category Performance Summary
+                          <div className="text-[9.5px] font-black text-slate-900 uppercase tracking-wider">
+                            1. Cumulative Category Performance Summary
                           </div>
-                          <table className="w-full table-fixed text-left text-[10px] border border-slate-200 rounded-lg overflow-hidden">
+                          <table className="w-full table-fixed text-left text-[9px] border border-slate-200 rounded-lg overflow-hidden">
                             <thead className="bg-slate-100 font-bold text-slate-700">
                               <tr>
-                                <th className="py-1 px-2">Category Wing</th>
-                                <th className="py-1 px-2 w-28 text-center">Records Logged</th>
-                                <th className="py-1 px-2 w-28 text-right">Earned Points</th>
+                                <th className="py-0.5 px-2">Category Wing</th>
+                                <th className="py-0.5 px-2 w-24 text-center">Records</th>
+                                <th className="py-0.5 px-2 w-24 text-center">Weight %</th>
+                                <th className="py-0.5 px-2 w-24 text-right">Earned Points</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
                               {cats.map((cat: any, cIdx: number) => (
                                 <tr key={cIdx} className={cIdx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}>
-                                  <td className="py-1 px-2 font-bold text-slate-900">{cat.categoryName}</td>
-                                  <td className="py-1 px-2 text-center text-slate-600">{cat.recordsCount || 0} items</td>
-                                  <td className="py-1 px-2 text-right font-black font-mono text-slate-950">
+                                  <td className="py-0.5 px-2 font-bold text-slate-900">{cat.categoryName}</td>
+                                  <td className="py-0.5 px-2 text-center text-slate-600">{cat.recordsCount || 0} items</td>
+                                  <td className="py-0.5 px-2 text-center font-mono text-slate-500">{cat.weight || cat.defaultWeight || '—'}%</td>
+                                  <td className="py-0.5 px-2 text-right font-black font-mono text-slate-950">
                                     {cat.earnedPoints || 0} pts
                                   </td>
                                 </tr>
@@ -884,13 +903,101 @@ export default function OfficialPdfExportModal({
                           </table>
                         </div>
                       )}
+
+                      {/* Detailed Ledger Section 2: Evaluated Academic Subject Scores */}
+                      {subjects.length > 0 && (
+                        <div className="space-y-1 page-break-avoid">
+                          <div className="text-[9.5px] font-black text-slate-900 uppercase tracking-wider">
+                            2. Itemized Academic Exam &amp; Subject Evaluations
+                          </div>
+                          <table className="w-full text-left text-[8.5px] border border-slate-200 rounded-lg overflow-hidden">
+                            <thead className="bg-slate-100 font-bold text-slate-700">
+                              <tr>
+                                <th className="py-0.5 px-2">Subject Name</th>
+                                <th className="py-0.5 px-2">Exam / Assessment</th>
+                                <th className="py-0.5 px-2 w-20 text-center">Score</th>
+                                <th className="py-0.5 px-2 w-20 text-right">Percentage</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200">
+                              {subjects.slice(0, 10).map((sub: any, sIdx: number) => (
+                                <tr key={sIdx} className={sIdx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}>
+                                  <td className="py-0.5 px-2 font-bold text-slate-900">{sub.subjectName}</td>
+                                  <td className="py-0.5 px-2 text-slate-600 truncate max-w-[200px]">{sub.examName || sub.termName || 'Exam'}</td>
+                                  <td className="py-0.5 px-2 text-center font-mono text-slate-900 font-bold">{sub.obtainedScore} / {sub.maxScore}</td>
+                                  <td className="py-0.5 px-2 text-right font-mono font-bold text-blue-700">{sub.percentage}%</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {/* Detailed Ledger Section 3: Monthly Attendance & Reading */}
+                      {(attendances.length > 0 || (libraryRecords && libraryRecords.length > 0)) && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 page-break-avoid">
+                          {/* Attendance */}
+                          {attendances.length > 0 && (
+                            <div className="space-y-1">
+                              <div className="text-[9px] font-black text-slate-900 uppercase tracking-wider">
+                                3. Monthly Attendance Audit
+                              </div>
+                              <table className="w-full text-left text-[8.5px] border border-slate-200 rounded-lg overflow-hidden">
+                                <thead className="bg-slate-100 font-bold text-slate-700">
+                                  <tr>
+                                    <th className="py-0.5 px-1.5">Period</th>
+                                    <th className="py-0.5 px-1.5 text-center">Rate</th>
+                                    <th className="py-0.5 px-1.5 text-right">Points</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-200">
+                                  {attendances.slice(0, 4).map((att: any, aIdx: number) => (
+                                    <tr key={aIdx}>
+                                      <td className="py-0.5 px-1.5 text-slate-800">{att.monthName || `Month ${att.month}`} {att.year}</td>
+                                      <td className="py-0.5 px-1.5 text-center font-mono font-bold text-slate-900">{att.percentage}%</td>
+                                      <td className="py-0.5 px-1.5 text-right font-mono font-bold text-emerald-700">+{att.points} pts</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+
+                          {/* Library Reading */}
+                          {libraryRecords && libraryRecords.length > 0 && (
+                            <div className="space-y-1">
+                              <div className="text-[9px] font-black text-slate-900 uppercase tracking-wider">
+                                4. Library Book Reading
+                              </div>
+                              <table className="w-full text-left text-[8.5px] border border-slate-200 rounded-lg overflow-hidden">
+                                <thead className="bg-slate-100 font-bold text-slate-700">
+                                  <tr>
+                                    <th className="py-0.5 px-1.5">Period</th>
+                                    <th className="py-0.5 px-1.5 text-center">Books</th>
+                                    <th className="py-0.5 px-1.5 text-right">Score</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-200">
+                                  {libraryRecords.slice(0, 4).map((lib: any, lIdx: number) => (
+                                    <tr key={lIdx}>
+                                      <td className="py-0.5 px-1.5 text-slate-800">{lib.readingPeriod || 'General'}</td>
+                                      <td className="py-0.5 px-1.5 text-center font-mono text-slate-900">{lib.booksRead || 0}</td>
+                                      <td className="py-0.5 px-1.5 text-right font-mono font-bold text-teal-700">{lib.readingScore || 0} pts</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* Certified Footer */}
-                    <div className="pt-3 border-t border-slate-300 flex items-end justify-between text-[8px] text-slate-500 page-break-avoid">
+                    <div className="pt-2 border-t border-slate-300 flex items-end justify-between text-[8px] text-slate-500 page-break-avoid">
                       <div>
                         <div>Madin School of Excellence • Student Performance Rate (SPR) System</div>
-                        <div>Document generated: {dossierReportData.generatedAt}</div>
+                        <div>Official Verified Document: {dossierReportData.generatedAt}</div>
                       </div>
                       <div className="text-center space-y-0.5">
                         <div className="w-24 border-b border-slate-700"></div>

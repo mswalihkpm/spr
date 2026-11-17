@@ -228,12 +228,36 @@ export function invalidateClientCache(pattern?: string | RegExp): void {
   }
 }
 
+// Client-side in-memory session cache for student authenticated dashboard
+let cachedStudentData: any = null;
+let lastStudentFetchTime = 0;
+const STUDENT_CACHE_TTL = 60 * 1000; // 60 seconds
+
+export function getCachedStudentDashboard() {
+  if (cachedStudentData && Date.now() - lastStudentFetchTime < STUDENT_CACHE_TTL) {
+    return cachedStudentData;
+  }
+  return null;
+}
+
+export function setCachedStudentDashboard(data: any) {
+  cachedStudentData = data;
+  lastStudentFetchTime = Date.now();
+}
+
+export function invalidateStudentClientCache() {
+  cachedStudentData = null;
+  lastStudentFetchTime = 0;
+}
+
 /**
  * Clear all client cache and active requests (invoked on logout / session switch)
  */
 export function clearClientCache(): void {
   memoryCache.clear();
   inFlightRequests.clear();
+  cachedStudentData = null;
+  lastStudentFetchTime = 0;
 
   if (typeof window !== 'undefined') {
     try {

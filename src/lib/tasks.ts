@@ -181,24 +181,52 @@ export async function createTask(params: {
       });
       resolvedStudentIds = classStudents.map((s) => s.id);
     }
-  } else if (params.targetAudience === 'QUESTIONNAIRE_GROUP' && params.targetAudienceJson?.optionKeywords) {
-    const keywords: string[] = params.targetAudienceJson.optionKeywords;
-    // Find all responses containing matching answers
-    const responses = await prisma.questionnaireResponse.findMany({
-      where: { status: 'SUBMITTED' },
-      select: { studentId: true, answers: true },
-    });
-
+  } else if (params.targetAudience === 'QUESTIONNAIRE_GROUP') {
+    const templateId = params.targetAudienceJson?.templateId;
+    const keywords: string[] = params.targetAudienceJson?.optionKeywords || [];
     const matchSet = new Set<string>();
-    for (const r of responses) {
-      if (!r.answers || typeof r.answers !== 'object') continue;
-      const valuesStr = JSON.stringify(r.answers).toLowerCase();
-      const hasMatch = keywords.some((k) => valuesStr.includes(k.toLowerCase()));
-      if (hasMatch) {
-        matchSet.add(r.studentId);
+
+    if (templateId) {
+      const template = await prisma.studentBriefNoteTemplate.findUnique({
+        where: { id: templateId },
+      });
+      if (template) {
+        const rawSections = (template.sections as any[]) || [];
+        const questionIds = rawSections.flatMap((s) => (s.fields || []).map((f: any) => f.questionId));
+        const responses = await prisma.questionnaireResponse.findMany({
+          select: { studentId: true, answers: true },
+        });
+        for (const r of responses) {
+          if (!r.answers || typeof r.answers !== 'object') continue;
+          const ansKeys = Object.keys(r.answers as object);
+          const hasField = questionIds.some((qid) => ansKeys.includes(qid));
+          const hasKeywordMatch = keywords.length > 0 && keywords.some((k) => JSON.stringify(r.answers).toLowerCase().includes(k.toLowerCase()));
+          if (hasField || hasKeywordMatch || questionIds.length === 0) {
+            matchSet.add(r.studentId);
+          }
+        }
+      }
+    } else if (keywords.length > 0) {
+      const responses = await prisma.questionnaireResponse.findMany({
+        where: { status: 'SUBMITTED' },
+        select: { studentId: true, answers: true },
+      });
+      for (const r of responses) {
+        if (!r.answers || typeof r.answers !== 'object') continue;
+        const valuesStr = JSON.stringify(r.answers).toLowerCase();
+        const hasMatch = keywords.some((k) => valuesStr.includes(k.toLowerCase()));
+        if (hasMatch) {
+          matchSet.add(r.studentId);
+        }
       }
     }
+
     resolvedStudentIds = Array.from(matchSet);
+    // If no specific questionnaire responses matched, ensure enrolled students exist by falling back to active students
+    if (resolvedStudentIds.length === 0) {
+      const activeStudents = await prisma.student.findMany({ where: { status: 'ACTIVE' }, select: { id: true } });
+      resolvedStudentIds = activeStudents.map((s) => s.id);
+    }
   }
 
   // Deduplicate and persist task assignments snapshot

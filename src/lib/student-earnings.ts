@@ -1,7 +1,7 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 import { CategoryEarningItem, WalletSummary, StoreFundSummary } from '../types';
-import { getCachedSettings } from './spr-engine';
+import { getCachedSettings, onInvalidateEngine } from './spr-engine';
 
 // Default Planned Earnings Start Date: November 1, 2026 00:00:00 IST (2026-10-31T18:30:00.000Z UTC)
 export const DEFAULT_ELIGIBILITY_START_DATE = '2026-10-31T18:30:00.000Z';
@@ -20,6 +20,24 @@ export const ALLOWED_CASH_CATEGORY_CODES = new Set([
   'TASKS',
   'FIELD_COLLECTION',
 ]);
+
+// High-performance server-side in-memory cache for student earnings (TTL: 5 minutes)
+const earningsSyncCache = new Map<string, { timestamp: number; data: { wallet: WalletSummary; categoryEarnings: CategoryEarningItem[]; storeFund: StoreFundSummary } }>();
+const inFlightEarningsSync = new Map<string, Promise<{ wallet: WalletSummary; categoryEarnings: CategoryEarningItem[]; storeFund: StoreFundSummary }>>();
+const EARNINGS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+export function invalidateStudentEarningsCache(studentId?: string) {
+  if (studentId) {
+    earningsSyncCache.delete(studentId);
+  } else {
+    earningsSyncCache.clear();
+  }
+}
+
+// Hook into master SPR engine cache invalidation
+onInvalidateEngine(() => {
+  invalidateStudentEarningsCache();
+});
 
 /**
  * Retrieves the configured eligibility start date from SystemSettings or fallback.
@@ -127,23 +145,37 @@ export async function getOrCreateStudentWallet(studentId: string, tx?: Prisma.Tr
  * Only activities on or after the eligibility date generate earnings.
  * Re-running this function never duplicates wallet credits or resets spent money.
  */
-export async function syncStudentEarnings(studentId: string): Promise<{
+export async function syncStudentEarnings(studentId: string, force = false): Promise<{
   wallet: WalletSummary;
   categoryEarnings: CategoryEarningItem[];
   storeFund: StoreFundSummary;
 }> {
-  return await prisma.$transaction(async (tx) => {
-    const { wallet, storeFund } = await getOrCreateStudentWallet(studentId, tx);
-    const eligibilityStartDate = await getEarningsEligibilityStartDate();
+  const now = Date.now();
+  if (!force) {
+    const cached = earningsSyncCache.get(studentId);
+    if (cached && now - cached.timestamp < EARNINGS_CACHE_TTL_MS) {
+      return cached.data;
+    }
+  }
 
-    const currentYear = await tx.academicYear.findFirst({ where: { isCurrent: true } });
-    const categories = await tx.category.findMany({
-      where: { active: true },
-      include: {
-        categoryWeights: true,
-      },
-      orderBy: { displayOrder: 'asc' },
-    });
+  if (inFlightEarningsSync.has(studentId)) {
+    return inFlightEarningsSync.get(studentId)!;
+  }
+
+  const syncPromise = (async () => {
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const { wallet, storeFund } = await getOrCreateStudentWallet(studentId, tx);
+        const eligibilityStartDate = await getEarningsEligibilityStartDate();
+
+        const currentYear = await tx.academicYear.findFirst({ where: { isCurrent: true } });
+        const categories = await tx.category.findMany({
+          where: { active: true },
+          include: {
+            categoryWeights: true,
+          },
+          orderBy: { displayOrder: 'asc' },
+        });
 
     // Fetch student performance records
     const performanceRecords = await tx.performanceRecord.findMany({
@@ -654,4 +686,14 @@ export async function syncStudentEarnings(studentId: string): Promise<{
     maxWait: 15000,
     timeout: 60000,
   });
+
+  earningsSyncCache.set(studentId, { timestamp: Date.now(), data: result });
+  return result;
+} finally {
+  inFlightEarningsSync.delete(studentId);
+}
+  })();
+
+  inFlightEarningsSync.set(studentId, syncPromise);
+  return syncPromise;
 }

@@ -34,6 +34,8 @@ import {
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import VideoLoader from '@/components/ui/VideoLoader';
+import WeeklyPerformanceChart from '@/components/student/WeeklyPerformanceChart';
+import { getCachedStudentDashboard, setCachedStudentDashboard } from '@/lib/client-cache';
 
 export default function StudentDossierPage() {
   const router = useRouter();
@@ -44,6 +46,13 @@ export default function StudentDossierPage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
+    // Instant client render from memory cache
+    const cached = getCachedStudentDashboard();
+    if (cached) {
+      setData(cached);
+      setLoading(false);
+    }
+
     fetch('/api/student/auth/me')
       .then((res) => {
         if (res.status === 401 || res.status === 403) {
@@ -54,11 +63,12 @@ export default function StudentDossierPage() {
       })
       .then((json) => {
         if (!json) return;
+        setCachedStudentDashboard(json);
         setData(json);
       })
       .catch((err) => {
         console.error(err);
-        setError('Failed to load official dossier records.');
+        if (!cached) setError('Failed to load official dossier records.');
       })
       .finally(() => setLoading(false));
   }, [router]);
@@ -135,6 +145,8 @@ export default function StudentDossierPage() {
         return { label: 'Creative Hub', bg: 'bg-pink-100 text-pink-800 border-pink-200', icon: Sparkles };
       case 'TASK':
         return { label: 'Task Assignment', bg: 'bg-amber-100 text-amber-800 border-amber-200', icon: CheckSquare };
+      case 'POINT_ADJUSTMENT':
+        return { label: 'Admin Correction', bg: 'bg-indigo-100 text-indigo-800 border-indigo-200', icon: ShieldCheck };
       default:
         return { label: 'Performance', bg: 'bg-slate-100 text-slate-800 border-slate-200', icon: Award };
     }
@@ -197,10 +209,12 @@ export default function StudentDossierPage() {
           <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-white/5 border border-white/10 min-w-0">
             <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-blue-200 truncate">Official SPR</div>
             <div className="text-sm sm:text-2xl font-black text-amber-300 font-mono mt-0.5 truncate">
-              {sprProfile?.overallSPR !== undefined && sprProfile?.overallSPR !== null
-                ? Number(sprProfile.overallSPR).toFixed(2)
+              {sprProfile?.sprPercentage !== undefined && sprProfile?.sprPercentage !== null
+                ? Number(sprProfile.sprPercentage).toFixed(2) + '%'
+                : sprProfile?.overallSPR !== undefined && sprProfile?.overallSPR !== null
+                ? Number(sprProfile.overallSPR).toFixed(2) + '%'
                 : sprProfile?.overallScore !== undefined && sprProfile?.overallScore !== null
-                ? Number(sprProfile.overallScore).toFixed(2)
+                ? Number(sprProfile.overallScore).toFixed(2) + '%'
                 : sprProfile?.totalPoints !== undefined && sprProfile?.totalPoints !== null
                 ? Number(sprProfile.totalPoints).toFixed(2)
                 : totalFilteredPoints > 0
@@ -256,6 +270,22 @@ export default function StudentDossierPage() {
           </div>
         )}
       </div>
+
+      {/* Weekly Student Performance Graph */}
+      <WeeklyPerformanceChart
+        timeline={data?.weeklyPerformanceTimeline || []}
+        currentSprPct={
+          sprProfile?.sprPercentage !== undefined && sprProfile?.sprPercentage !== null
+            ? Number(sprProfile.sprPercentage.toFixed(2))
+            : sprProfile?.overallScore || 0
+        }
+        totalPoints={
+          sprProfile?.totalWeightedScore !== undefined && sprProfile?.totalWeightedScore !== null
+            ? Number(sprProfile.totalWeightedScore.toFixed(1))
+            : sprProfile?.totalPoints || 0
+        }
+        classRank={rankInfo?.classRank}
+      />
 
       {/* Main Grid: Profile Snapshot + Full Itemized Points Ledger */}
       <div className="space-y-5 sm:space-y-6">

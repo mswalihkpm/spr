@@ -54,11 +54,18 @@ export default function AdminBriefNotesPage() {
 
   // Preview / Print Modal
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewMode, setPreviewMode] = useState<'INDIVIDUAL' | 'ALL'>('INDIVIDUAL');
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
   const [selectedTemplateForPreview, setSelectedTemplateForPreview] = useState<any | null>(null);
   const [generatedNote, setGeneratedNote] = useState<any | null>(null);
   const [generating, setGenerating] = useState(false);
+
+  // Master Table State ("All Over" view)
+  const [masterReportData, setMasterReportData] = useState<any | null>(null);
+  const [masterClassFilter, setMasterClassFilter] = useState('ALL');
+  const [masterSearchQuery, setMasterSearchQuery] = useState('');
+  const [loadingMaster, setLoadingMaster] = useState(false);
 
   const filteredStudents = useMemo(() => {
     if (!studentSearchQuery.trim()) return students;
@@ -194,10 +201,57 @@ export default function AdminBriefNotesPage() {
   const handleOpenPreview = async (tpl: any) => {
     setSelectedTemplateForPreview(tpl);
     setPreviewOpen(true);
-    if (selectedStudentId) {
-      generateNoteForStudent(tpl.id, selectedStudentId);
+    if (previewMode === 'INDIVIDUAL') {
+      if (selectedStudentId) {
+        generateNoteForStudent(tpl.id, selectedStudentId);
+      }
+    } else {
+      fetchMasterTableData(tpl.id, masterClassFilter);
     }
   };
+
+  const fetchMasterTableData = async (templateId: string, classId = 'ALL') => {
+    try {
+      setLoadingMaster(true);
+      const res = await fetch('/api/admin/brief-notes/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templateId, mode: 'ALL', classId }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to fetch master table');
+      setMasterReportData(json);
+    } catch (err: any) {
+      console.error(err);
+      setStatusMsg({ type: 'error', text: err.message });
+    } finally {
+      setLoadingMaster(false);
+    }
+  };
+
+  const filteredMasterStudents = useMemo(() => {
+    if (!masterReportData?.students) return [];
+    let list = masterReportData.students;
+
+    if (masterClassFilter !== 'ALL') {
+      list = list.filter((s: any) => s.classId === masterClassFilter);
+    }
+
+    if (masterSearchQuery.trim()) {
+      const q = masterSearchQuery.toLowerCase();
+      list = list.filter((s: any) => {
+        const nameMatch = (s.fullName || '').toLowerCase().includes(q);
+        const sprMatch = (s.sprStudentId || '').toLowerCase().includes(q);
+        const classMatch = (s.className || '').toLowerCase().includes(q);
+        const valMatch = Object.values(s.fieldValues || {}).some((v: any) =>
+          String(v).toLowerCase().includes(q)
+        );
+        return nameMatch || sprMatch || classMatch || valMatch;
+      });
+    }
+
+    return list;
+  }, [masterReportData, masterClassFilter, masterSearchQuery]);
 
   const generateNoteForStudent = async (templateId: string, studentId: string) => {
     try {
@@ -483,101 +537,242 @@ export default function AdminBriefNotesPage() {
 
         {/* Modal: Preview & Print Generated Note */}
         {previewOpen && selectedTemplateForPreview && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
-            <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/75 backdrop-blur-xs">
+            <div
+              className={`bg-white rounded-3xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[92vh] overflow-y-auto transition-all ${
+                previewMode === 'ALL' ? 'max-w-6xl' : 'max-w-3xl'
+              }`}
+            >
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
                 <div>
-                  <span className="text-[10px] font-black uppercase text-blue-600">Generated Brief Note</span>
-                  <h3 className="text-base font-extrabold text-slate-900">{selectedTemplateForPreview.name}</h3>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[10px] font-black uppercase text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                      {previewMode === 'ALL' ? 'Master Table Analytics' : 'Individual Profile'}
+                    </span>
+                    <span className="text-xs text-slate-400 font-medium">• Template</span>
+                  </div>
+                  <h3 className="text-base sm:text-lg font-extrabold text-slate-900 mt-0.5">
+                    {selectedTemplateForPreview.name}
+                  </h3>
                 </div>
-                <div className="flex items-center space-x-2">
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* View Mode Toggle */}
+                  <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewMode('INDIVIDUAL')}
+                      className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
+                        previewMode === 'INDIVIDUAL'
+                          ? 'bg-white text-blue-700 shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Individual View
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPreviewMode('ALL');
+                        if (!masterReportData) {
+                          fetchMasterTableData(selectedTemplateForPreview.id, masterClassFilter);
+                        }
+                      }}
+                      className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
+                        previewMode === 'ALL'
+                          ? 'bg-white text-blue-700 shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      All Over Table View
+                    </button>
+                  </div>
+
                   <button
                     onClick={() => window.print()}
-                    className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold flex items-center space-x-1"
+                    className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center space-x-1.5 shadow-xs transition cursor-pointer"
                   >
                     <Printer className="w-3.5 h-3.5" />
-                    <span>Print</span>
+                    <span>Download / Print PDF</span>
                   </button>
-                  <button onClick={() => setPreviewOpen(false)} className="text-slate-400 hover:text-slate-700">
+
+                  <button
+                    onClick={() => setPreviewOpen(false)}
+                    className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                  >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
-              {/* Select Student to Generate for with Search Option */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200 text-xs">
-                <span className="font-bold text-slate-700 shrink-0">Preview for Student:</span>
-                <div className="relative shrink-0 sm:w-48">
-                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search student..."
-                    value={studentSearchQuery}
-                    onChange={(e) => setStudentSearchQuery(e.target.value)}
-                    className="w-full pl-7 pr-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-slate-900 outline-none text-xs focus:ring-1 focus:ring-blue-600"
-                  />
-                </div>
-                <select
-                  value={selectedStudentId}
-                  onChange={(e) => {
-                    setSelectedStudentId(e.target.value);
-                    generateNoteForStudent(selectedTemplateForPreview.id, e.target.value);
-                  }}
-                  className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-slate-900 outline-none font-medium"
-                >
-                  {filteredStudents.length === 0 ? (
-                    <option value="">No matching students found</option>
-                  ) : (
-                    filteredStudents.map((s: any) => (
-                      <option key={s.id} value={s.id}>
-                        {s.fullName} ({s.sprStudentId || s.studentId}) • {s.class?.name || 'Class'}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
-
-              {/* Rendered Note Sheet */}
-              {generating ? (
-                <div className="py-12 text-center text-xs text-slate-400 animate-pulse">
-                  Generating brief note with actual student responses...
-                </div>
-              ) : generatedNote ? (
-                <div className="p-6 bg-white border border-slate-300 rounded-2xl space-y-5 text-slate-900 font-sans shadow-sm">
-                  {/* Note Header */}
-                  <div className="text-center pb-3 border-b-2 border-slate-800 space-y-1">
-                    <h2 className="text-sm font-black uppercase tracking-wider text-slate-900">
-                      Madin School of Excellence • Student Brief Note
-                    </h2>
-                    <p className="text-base font-black text-blue-900">{generatedNote.student?.fullName}</p>
-                    <p className="text-xs font-mono text-slate-500">
-                      SPR ID: {generatedNote.student?.sprStudentId} • Class {generatedNote.student?.className}
-                    </p>
+              {/* MODE 1: INDIVIDUAL STUDENT VIEW */}
+              {previewMode === 'INDIVIDUAL' && (
+                <div className="space-y-4">
+                  {/* Select Student to Generate for with Search Option */}
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200 text-xs">
+                    <span className="font-bold text-slate-700 shrink-0">Select Student:</span>
+                    <div className="relative shrink-0 sm:w-48">
+                      <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search student..."
+                        value={studentSearchQuery}
+                        onChange={(e) => setStudentSearchQuery(e.target.value)}
+                        className="w-full pl-7 pr-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-slate-900 outline-none text-xs focus:ring-1 focus:ring-blue-600"
+                      />
+                    </div>
+                    <select
+                      value={selectedStudentId}
+                      onChange={(e) => {
+                        setSelectedStudentId(e.target.value);
+                        generateNoteForStudent(selectedTemplateForPreview.id, e.target.value);
+                      }}
+                      className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-slate-900 outline-none font-medium cursor-pointer"
+                    >
+                      {filteredStudents.length === 0 ? (
+                        <option value="">No matching students found</option>
+                      ) : (
+                        filteredStudents.map((s: any) => (
+                          <option key={s.id} value={s.id}>
+                            {s.fullName} ({s.sprStudentId || s.studentId}) • {s.class?.name || 'Class'}
+                          </option>
+                        ))
+                      )}
+                    </select>
                   </div>
 
-                  {/* Populated Sections */}
-                  {generatedNote.sections?.map((sec: any, i: number) => (
-                    <div key={i} className="space-y-2">
-                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 pb-1 border-b border-slate-200">
-                        {sec.title}
-                      </h4>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        {sec.fields?.map((f: any, fi: number) => (
-                          <div key={fi} className="p-2 rounded-lg bg-slate-50 border border-slate-100">
-                            <span className="text-[10px] text-slate-400 block font-bold uppercase">{f.label}</span>
-                            <span className="font-semibold text-slate-900 mt-0.5 block">{f.value}</span>
+                  {/* Rendered Individual Note Sheet */}
+                  {generating ? (
+                    <div className="py-12 text-center text-xs text-slate-400 animate-pulse">
+                      Generating brief note with actual student responses...
+                    </div>
+                  ) : generatedNote ? (
+                    <div className="p-6 bg-white border border-slate-300 rounded-2xl space-y-5 text-slate-900 font-sans shadow-xs">
+                      {/* Note Header */}
+                      <div className="text-center pb-3 border-b-2 border-slate-800 space-y-1">
+                        <h2 className="text-xs font-black uppercase tracking-wider text-slate-900">
+                          Madin School of Excellence • Student Brief Note
+                        </h2>
+                        <p className="text-base font-black text-blue-900">{generatedNote.student?.fullName}</p>
+                        <p className="text-xs font-mono text-slate-500">
+                          SPR ID: {generatedNote.student?.sprStudentId} • Class {generatedNote.student?.className}
+                        </p>
+                      </div>
+
+                      {/* Populated Sections */}
+                      {generatedNote.sections?.map((sec: any, i: number) => (
+                        <div key={i} className="space-y-2">
+                          <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 pb-1 border-b border-slate-200">
+                            {sec.title}
+                          </h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                            {sec.fields?.map((f: any, fi: number) => (
+                              <div key={fi} className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                                <span className="text-[10px] text-slate-400 block font-bold uppercase">{f.label}</span>
+                                <span className="font-semibold text-slate-900 mt-0.5 block">{f.value}</span>
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                        </div>
+                      ))}
+
+                      <div className="pt-3 border-t border-slate-200 flex justify-between text-[10px] text-slate-400 font-mono">
+                        <span>Generated on {new Date(generatedNote.generatedAt).toLocaleDateString()}</span>
+                        <span>Official Institutional Document</span>
                       </div>
                     </div>
-                  ))}
-
-                  <div className="pt-3 border-t border-slate-200 flex justify-between text-[10px] text-slate-400 font-mono">
-                    <span>Generated on {new Date(generatedNote.generatedAt).toLocaleDateString()}</span>
-                    <span>Official Institutional Document</span>
-                  </div>
+                  ) : null}
                 </div>
-              ) : null}
+              )}
+
+              {/* MODE 2: ALL OVER MASTER TABLE VIEW (Class-Wise Filtering + Search + Printable Table) */}
+              {previewMode === 'ALL' && (
+                <div className="space-y-3.5">
+                  {/* Controls: Class Filtering + Search */}
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-slate-50 p-3 rounded-2xl border border-slate-200 text-xs">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-bold text-slate-700">Filter Class:</span>
+                      <select
+                        value={masterClassFilter}
+                        onChange={(e) => setMasterClassFilter(e.target.value)}
+                        className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-slate-900 outline-none font-semibold cursor-pointer"
+                      >
+                        <option value="ALL">All Enrolled Classes</option>
+                        {masterReportData?.classes?.map((cls: any) => (
+                          <option key={cls.id} value={cls.id}>
+                            {cls.name}
+                          </option>
+                        ))}
+                      </select>
+
+                      <span className="text-slate-400 text-xs hidden sm:inline">•</span>
+                      <span className="text-slate-500 font-medium">
+                        Showing <strong className="text-slate-900">{filteredMasterStudents.length}</strong> of{' '}
+                        {masterReportData?.totalStudents || 0} students
+                      </span>
+                    </div>
+
+                    {/* Master Search Input */}
+                    <div className="relative sm:w-64">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search in table (Name, SPR ID, etc.)..."
+                        value={masterSearchQuery}
+                        onChange={(e) => setMasterSearchQuery(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-slate-900 outline-none text-xs focus:ring-1 focus:ring-blue-600"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Master Table */}
+                  {loadingMaster ? (
+                    <div className="py-16 text-center text-xs text-slate-400 animate-pulse">
+                      Compiling master brief note dataset across all enrolled students...
+                    </div>
+                  ) : filteredMasterStudents.length === 0 ? (
+                    <div className="py-12 text-center text-xs text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                      No student records match the active class filter and search query.
+                    </div>
+                  ) : (
+                    <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+                      <div className="overflow-x-auto max-h-[60vh] scrollbar-thin">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead className="bg-slate-100 text-slate-700 font-extrabold sticky top-0 z-20 border-b border-slate-200 shadow-2xs">
+                            <tr>
+                              <th className="py-2.5 px-3 w-12 text-center">#</th>
+                              <th className="py-2.5 px-3 w-24">SPR ID</th>
+                              <th className="py-2.5 px-3 min-w-[150px]">Student Name</th>
+                              <th className="py-2.5 px-3 w-24">Class</th>
+                              {masterReportData?.fields?.map((f: any, fIdx: number) => (
+                                <th key={fIdx} className="py-2.5 px-3 min-w-[140px] whitespace-nowrap">
+                                  {f.label}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 bg-white">
+                            {filteredMasterStudents.map((st: any, idx: number) => (
+                              <tr key={st.studentId} className={idx % 2 === 1 ? 'bg-slate-50/50 hover:bg-blue-50/50' : 'hover:bg-blue-50/50'}>
+                                <td className="py-2 px-3 text-center text-slate-400 font-mono text-[11px]">{idx + 1}</td>
+                                <td className="py-2 px-3 font-mono font-bold text-blue-700 text-[11px]">{st.sprStudentId}</td>
+                                <td className="py-2 px-3 font-bold text-slate-900">{st.fullName}</td>
+                                <td className="py-2 px-3 text-slate-600 font-medium">{st.className}</td>
+                                {masterReportData?.fields?.map((f: any, fIdx: number) => (
+                                  <td key={fIdx} className="py-2 px-3 text-slate-700 text-[11px]">
+                                    {st.fieldValues[f.questionId] || '—'}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}

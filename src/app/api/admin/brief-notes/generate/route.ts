@@ -10,10 +10,10 @@ export async function POST(req: NextRequest) {
     if (errorResponse) return errorResponse;
 
     const body = await req.json();
-    const { templateId, studentId } = body;
+    const { templateId, studentId, mode, classId } = body;
 
-    if (!templateId || !studentId) {
-      return NextResponse.json({ error: 'Template ID and Student ID are required' }, { status: 400 });
+    if (!templateId) {
+      return NextResponse.json({ error: 'Template ID is required' }, { status: 400 });
     }
 
     const template = await prisma.studentBriefNoteTemplate.findUnique({
@@ -21,6 +21,116 @@ export async function POST(req: NextRequest) {
     });
     if (!template) {
       return NextResponse.json({ error: 'Template not found' }, { status: 404 });
+    }
+
+    const rawSections = (template.sections as any[]) || [];
+    const allFields: any[] = [];
+    rawSections.forEach((sec) => {
+      (sec.fields || []).forEach((f: any) => {
+        allFields.push({
+          label: f.label || f.title || f.questionId,
+          questionId: f.questionId,
+          sectionTitle: sec.title || 'General',
+        });
+      });
+    });
+
+    // -------------------------------------------------------------------------
+    // MODE 1: ALL OVER MASTER TABLE VIEW (Across all students with class filter)
+    // -------------------------------------------------------------------------
+    if (mode === 'ALL' || studentId === 'ALL') {
+      const studentWhere: any = { status: 'ACTIVE' };
+      if (classId && classId !== 'ALL') {
+        studentWhere.classId = classId;
+      }
+
+      const [enrolledStudents, classes, responses] = await Promise.all([
+        prisma.student.findMany({
+          where: studentWhere,
+          include: {
+            class: true,
+            academicYear: true,
+          },
+          orderBy: { fullName: 'asc' },
+        }),
+        prisma.academicClass.findMany({
+          where: { active: true },
+          orderBy: { numericGrade: 'asc' },
+        }),
+        prisma.questionnaireResponse.findMany({
+          select: {
+            studentId: true,
+            answers: true,
+          },
+        }),
+      ]);
+
+      const studentAnswersMap: Record<string, Record<string, any>> = {};
+      for (const r of responses) {
+        if (!studentAnswersMap[r.studentId]) {
+          studentAnswersMap[r.studentId] = {};
+        }
+        if (r.answers && typeof r.answers === 'object') {
+          Object.assign(studentAnswersMap[r.studentId], r.answers);
+        }
+      }
+
+      const rows = enrolledStudents.map((st) => {
+        const answersMap = studentAnswersMap[st.id] || {};
+        const fieldValues: Record<string, string> = {};
+
+        for (const f of allFields) {
+          let value = answersMap[f.questionId];
+
+          if (value === undefined || value === null || value === '') {
+            if (f.questionId === 'q1_father_name' || f.questionId === 'fatherName') value = st.fatherName;
+            if (f.questionId === 'q2_mother_name' || f.questionId === 'motherName') value = st.motherName;
+            if (f.questionId === 'q3_house_name' || f.questionId === 'houseName') value = st.houseName;
+            if (f.questionId === 'q4_guardian_phone' || f.questionId === 'guardianPhone') value = st.guardianPhone;
+            if (f.questionId === 'q5_student_phone' || f.questionId === 'studentPhone') value = st.studentPhone;
+            if (f.questionId === 'q6_student_email' || f.questionId === 'studentEmail') value = st.studentEmail;
+            if (f.questionId === 'q7_place' || f.questionId === 'place') value = st.place;
+            if (f.questionId === 'q8_district' || f.questionId === 'district') value = st.district;
+            if (f.questionId === 'q9_residential_status' || f.questionId === 'residentialStatus') value = st.residentialStatus;
+          }
+
+          let displayValue = '—';
+          if (value !== undefined && value !== null && value !== '') {
+            displayValue = Array.isArray(value) ? value.join(', ') : String(value);
+          }
+          fieldValues[f.questionId] = displayValue;
+        }
+
+        return {
+          studentId: st.id,
+          sprStudentId: st.sprStudentId || st.studentId,
+          fullName: st.fullName,
+          className: st.class?.name || 'Class',
+          classId: st.classId,
+          fieldValues,
+        };
+      });
+
+      return NextResponse.json({
+        mode: 'ALL',
+        template: {
+          id: template.id,
+          name: template.name,
+          description: template.description,
+        },
+        fields: allFields,
+        students: rows,
+        classes,
+        totalStudents: rows.length,
+        generatedAt: new Date().toISOString(),
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // MODE 2: INDIVIDUAL STUDENT BRIEF NOTE PROFILE
+    // -------------------------------------------------------------------------
+    if (!studentId) {
+      return NextResponse.json({ error: 'Student ID is required' }, { status: 400 });
     }
 
     const student = await prisma.student.findUnique({
@@ -34,7 +144,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Student record not found' }, { status: 404 });
     }
 
-    // Fetch all questionnaire responses for this student
     const responses = await prisma.questionnaireResponse.findMany({
       where: { studentId },
     });
@@ -46,13 +155,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Populate template sections
-    const rawSections = (template.sections as any[]) || [];
     const populatedSections = rawSections.map((sec) => {
       const populatedFields = (sec.fields || []).map((f: any) => {
         let value = answersMap[f.questionId];
 
-        // Fallbacks to standard student record fields if mapped
         if (value === undefined || value === null || value === '') {
           if (f.questionId === 'q1_father_name' || f.questionId === 'fatherName') value = student.fatherName;
           if (f.questionId === 'q2_mother_name' || f.questionId === 'motherName') value = student.motherName;
@@ -84,6 +190,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({
+      mode: 'INDIVIDUAL',
       template: {
         id: template.id,
         name: template.name,
@@ -100,7 +207,7 @@ export async function POST(req: NextRequest) {
       generatedAt: new Date().toISOString(),
     });
   } catch (error: any) {
-    console.error('Generate brief note error:', error);
-    return NextResponse.json({ error: error.message || 'Failed to generate note' }, { status: 500 });
+    console.error('Error generating brief note:', error);
+    return NextResponse.json({ error: error.message || 'Failed to generate brief note' }, { status: 500 });
   }
 }
