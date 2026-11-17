@@ -27,12 +27,15 @@ import {
   Sliders,
   FileText,
   ExternalLink,
+  Zap,
 } from 'lucide-react';
 import CustomSelect from '@/components/ui/CustomSelect';
 import VideoLoader from '@/components/ui/VideoLoader';
 import { invalidateClientAcademicCache } from '@/lib/academic-client';
 import { invalidateClientCache } from '@/lib/client-cache';
 import StudentAccountManagement from '@/components/admin/StudentAccountManagement';
+import ActiveLeaderboardSettingsModal from '@/components/modals/ActiveLeaderboardSettingsModal';
+import { ActiveLeaderboardSettings } from '@/types';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<string>('INSTITUTION');
@@ -60,6 +63,10 @@ export default function SettingsPage() {
   const [adminResetUser, setAdminResetUser] = useState<any>(null);
   const [adminResetPassword, setAdminResetPassword] = useState('');
   const [adminResetForceChange, setAdminResetForceChange] = useState(false);
+
+  // Active Leaderboard Settings State
+  const [activeSettings, setActiveSettings] = useState<ActiveLeaderboardSettings | null>(null);
+  const [showActiveSettingsModal, setShowActiveSettingsModal] = useState(false);
 
   // Entity Modal (Add/Edit School, Class, Subject, Program, Competition, Level, Exam, Term)
   const [entityModalOpen, setEntityModalOpen] = useState(false);
@@ -407,6 +414,13 @@ export default function SettingsPage() {
         if (dataSettings.settings.APP_INTRO_FOOTER) setIntroFooterText(dataSettings.settings.APP_INTRO_FOOTER);
       }
       if (dataSettings.users) setUsersList(dataSettings.users);
+
+      fetch('/api/admin/active-leaderboard-settings')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (d?.settings) setActiveSettings(d.settings);
+        })
+        .catch(() => {});
     } catch (err) {
       console.error(err);
     } finally {
@@ -808,6 +822,58 @@ export default function SettingsPage() {
                 Save Institution Settings
               </button>
             </form>
+
+            {/* Active Leaderboard System Setting Card */}
+            <div className="pt-6 border-t border-slate-200 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center space-x-1.5">
+                    <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+                    <span>Active Leaderboard Window & Cutoff Settings</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Configure the rolling active window or fixed starting date used to calculate live active student standings.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowActiveSettingsModal(true)}
+                  className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl shadow-xs flex items-center space-x-1.5 transition self-start sm:self-auto shrink-0"
+                >
+                  <Sliders className="w-3.5 h-3.5" />
+                  <span>Configure Window</span>
+                </button>
+              </div>
+
+              <div className="p-4 bg-amber-50/70 rounded-2xl border border-amber-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                    <span>Active Period Window:</span>
+                    <span className="px-2.5 py-0.5 rounded-lg bg-amber-500 text-white font-extrabold text-[11px]">
+                      {activeSettings?.mode === 'DATE' && activeSettings.customDate
+                        ? `Custom Start Date: ${activeSettings.customDate}`
+                        : `Last ${activeSettings?.days || 30} Days`}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-600">
+                    Records Cutoff:{' '}
+                    <span className="font-semibold text-slate-800">
+                      {activeSettings?.cutoffDate
+                        ? new Date(activeSettings.cutoffDate).toLocaleString('en-US', {
+                            dateStyle: 'medium',
+                            timeStyle: 'short',
+                          })
+                        : 'Calculating dynamically'}
+                    </span>
+                    {activeSettings?.updatedBy && (
+                      <span className="ml-2 text-slate-400">
+                        • Last modified by <span className="font-medium text-slate-700">{activeSettings.updatedBy}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* Institutional Compliance & Google Play Privacy Notice */}
             <div className="pt-6 border-t border-slate-200 space-y-3">
@@ -2275,6 +2341,17 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+
+      {/* Active Leaderboard Configuration Modal */}
+      <ActiveLeaderboardSettingsModal
+        isOpen={showActiveSettingsModal}
+        onClose={() => setShowActiveSettingsModal(false)}
+        currentSettings={activeSettings}
+        onSaved={(updated) => {
+          setActiveSettings(updated);
+          fetchSettings(true);
+        }}
+      />
     </AdminLayout>
   );
 }

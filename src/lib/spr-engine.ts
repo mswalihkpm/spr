@@ -1,5 +1,5 @@
 import { prisma } from './prisma';
-import { MissingDataRule, CategorySummary, StudentSPRProfile, LeaderboardEntry } from '../types';
+import { MissingDataRule, CategorySummary, StudentSPRProfile, LeaderboardEntry, ActiveLeaderboardSettings } from '../types';
 
 // High-performance server-side in-memory cache with TTL for ultra-fast loading
 const leaderboardCache = new Map<string, { timestamp: number; data: LeaderboardEntry[] }>();
@@ -1202,6 +1202,7 @@ async function getActiveStudentsSnapshot(): Promise<any[]> {
               categoryCode: true,
               percentage: true,
               points: true,
+              createdAt: true,
             },
           },
           performanceRecords: {
@@ -1217,29 +1218,37 @@ async function getActiveStudentsSnapshot(): Promise<any[]> {
               maxScore: true,
               position: true,
               remarks: true,
+              date: true,
+              createdAt: true,
             },
           },
           creativeWorks: {
             select: {
               score: true,
               categoryId: true,
+              date: true,
+              createdAt: true,
             },
           },
           libraryRecords: {
             select: {
               booksRead: true,
               readingScore: true,
+              createdAt: true,
             },
           },
           taskRecords: {
             where: { status: 'APPROVED' },
             select: {
               awardedPoints: true,
+              approvedAt: true,
+              createdAt: true,
             },
           },
           pointAdjustments: {
             select: {
               points: true,
+              createdAt: true,
             },
           },
         },
@@ -1281,8 +1290,13 @@ export async function calculateAllLeaderboards(filters?: {
   subcategoryId?: string;
   stream?: string; // e.g. 'JAMIATHUL_HIND', 'MADIN_ACADEMY'
   fest?: string; // e.g. 'SAHITYOTSAV', 'KALOTSAV', 'M_LIT', 'JAMIA_MAHRAJAN'
+  sinceDate?: Date;
+  activeDays?: number;
 }): Promise<LeaderboardEntry[]> {
-  const cacheKey = JSON.stringify(filters || {});
+  const cacheKey = JSON.stringify({
+    ...filters,
+    sinceDate: filters?.sinceDate ? filters.sinceDate.toISOString() : undefined,
+  });
   const now = Date.now();
   const cached = leaderboardCache.get(cacheKey);
   if (cached && now - cached.timestamp < CACHE_TTL_MS) {
@@ -1301,7 +1315,8 @@ export async function calculateAllLeaderboards(filters?: {
         !filters?.fest &&
         !filters?.stream &&
         !filters?.academicYearId &&
-        !filters?.schoolId;
+        !filters?.schoolId &&
+        !filters?.sinceDate;
 
       const masterCached = leaderboardCache.get('{}');
       if (isPureCategoryFilter && masterCached && Date.now() - masterCached.timestamp < CACHE_TTL_MS) {
@@ -1394,7 +1409,57 @@ export async function calculateAllLeaderboards(filters?: {
   for (const student of students) {
     const categoryPoints: Record<string, number> = {};
     let totalPoints = 0;
-    let totalRecords = student.performanceRecords.length + student.creativeWorks.length + student.libraryRecords.length + ((student as any).taskRecords?.length || 0);
+
+    // Filter student records if a sinceDate cutoff is specified
+    const cutoff = filters?.sinceDate;
+    const studentPerfRecords = cutoff
+      ? student.performanceRecords.filter((r: any) => {
+          const d = r.date ? new Date(r.date) : (r.createdAt ? new Date(r.createdAt) : null);
+          return d ? d >= cutoff : false;
+        })
+      : student.performanceRecords;
+
+    const studentCreativeWorks = cutoff
+      ? student.creativeWorks.filter((w: any) => {
+          const d = w.date ? new Date(w.date) : (w.createdAt ? new Date(w.createdAt) : null);
+          return d ? d >= cutoff : false;
+        })
+      : student.creativeWorks;
+
+    const studentLibraryRecords = cutoff
+      ? student.libraryRecords.filter((lib: any) => {
+          const d = lib.createdAt ? new Date(lib.createdAt) : null;
+          return d ? d >= cutoff : false;
+        })
+      : student.libraryRecords;
+
+    const studentAttendances = cutoff
+      ? ((student as any).monthlyAttendances || []).filter((a: any) => {
+          const d = a.createdAt ? new Date(a.createdAt) : null;
+          return d ? d >= cutoff : false;
+        })
+      : ((student as any).monthlyAttendances || []);
+
+    const studentTaskRecords = cutoff
+      ? ((student as any).taskRecords || []).filter((tr: any) => {
+          const d = tr.approvedAt ? new Date(tr.approvedAt) : (tr.createdAt ? new Date(tr.createdAt) : null);
+          return d ? d >= cutoff : false;
+        })
+      : ((student as any).taskRecords || []);
+
+    const studentPointAdjustments = cutoff
+      ? ((student as any).pointAdjustments || []).filter((adj: any) => {
+          const d = adj.createdAt ? new Date(adj.createdAt) : null;
+          return d ? d >= cutoff : false;
+        })
+      : ((student as any).pointAdjustments || []);
+
+    let totalRecords =
+      studentPerfRecords.length +
+      studentCreativeWorks.length +
+      studentLibraryRecords.length +
+      studentTaskRecords.length +
+      studentAttendances.length;
 
     // Subcategory-specific calculation if requested
     let subcategoryScore = 0;
@@ -1407,7 +1472,7 @@ export async function calculateAllLeaderboards(filters?: {
         filters.subcategoryId.toUpperCase() === 'IMTHIYAAZ_LIBRARY';
 
       if (isImthiyaazLib) {
-        const libRecords = student.libraryRecords || [];
+        const libRecords = studentLibraryRecords || [];
         if (libRecords.length > 0) {
           let libSum = 0;
           libRecords.forEach((lib: any) => {
@@ -1437,7 +1502,7 @@ export async function calculateAllLeaderboards(filters?: {
           targetSubName.includes('jamia') ||
           targetSubName.includes('shastramela');
 
-        const subRecords = (student.performanceRecords as any[]).filter((r) => {
+        const subRecords = (studentPerfRecords as any[]).filter((r) => {
           if (r.subcategoryId === targetSubId || r.subcategory?.id === targetSubId || r.subcategory?.code === targetSubId) {
             return true;
           }
@@ -1508,7 +1573,7 @@ export async function calculateAllLeaderboards(filters?: {
         streamIslamicScore = 0;
         streamIslamicRecordsCount = 0;
       } else {
-        const streamRecords = (student.performanceRecords as any[]).filter((r) => {
+        const streamRecords = (studentPerfRecords as any[]).filter((r) => {
           const instCode = r.subject?.institution?.code?.toUpperCase() || '';
           const instName = r.subject?.institution?.name?.toUpperCase() || '';
           return false;
@@ -1526,7 +1591,7 @@ export async function calculateAllLeaderboards(filters?: {
 
     if (filters?.fest) {
       const festTarget = filters.fest.toUpperCase();
-      const festRecords = (student.performanceRecords as any[]).filter((r) => {
+      const festRecords = (studentPerfRecords as any[]).filter((r) => {
         const subName = (r.subcategory?.name || '').toUpperCase();
         const subCode = (r.subcategory?.code || '').toUpperCase();
         const eventName = (r.literaryCompetition?.event?.name || r.competition?.program?.name || '').toUpperCase();
@@ -1570,27 +1635,27 @@ export async function calculateAllLeaderboards(filters?: {
       let catEarned = 0;
 
       if (cat.code === 'CREATIVE_HUB') {
-        student.creativeWorks.forEach((w: any) => {
+        studentCreativeWorks.forEach((w: any) => {
           const rawScore = typeof w.score === 'number' && !isNaN(w.score)
             ? w.score
             : (typeof w.category?.weight === 'number' && w.category.weight > 0 ? w.category.weight : 20);
           catEarned += rawScore;
         });
       } else if (cat.code === 'LIBRARY') {
-        student.libraryRecords.forEach((lib: any) => {
+        studentLibraryRecords.forEach((lib: any) => {
           const pts = typeof lib.readingScore === 'number' && !isNaN(lib.readingScore)
             ? lib.readingScore
             : ((lib.booksRead || 0) * 20);
           catEarned += pts;
         });
-        const libPerfRecords = student.performanceRecords.filter((r: any) => r.categoryId === cat.id);
+        const libPerfRecords = studentPerfRecords.filter((r: any) => r.categoryId === cat.id);
         libPerfRecords.forEach((r: any) => {
           const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
           const base = typeof r.obtainedScore === 'number' && !isNaN(r.obtainedScore) ? r.obtainedScore : 0;
           catEarned += (base * mult);
         });
       } else if (cat.code === 'LITERARY' || cat.code === 'PROGRAMS') {
-        const records = student.performanceRecords.filter((r: any) => r.categoryId === cat.id);
+        const records = studentPerfRecords.filter((r: any) => r.categoryId === cat.id);
         records.forEach((r: any) => {
           const lvlMult = resolveLevelMultiplier(r.level, levelsList);
           const prizeMult = resolvePrizeMultiplier(r.position);
@@ -1601,7 +1666,7 @@ export async function calculateAllLeaderboards(filters?: {
           catEarned += (baseScore * prizeMult * lvlMult);
         });
       } else if (cat.code === 'QUALIFICATION') {
-        const records = student.performanceRecords.filter((r: any) => r.categoryId === cat.id);
+        const records = studentPerfRecords.filter((r: any) => r.categoryId === cat.id);
         records.forEach((r: any) => {
           const subMult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
           const lvlMult = resolveLevelMultiplier(r.level, levelsList);
@@ -1613,11 +1678,11 @@ export async function calculateAllLeaderboards(filters?: {
           catEarned += (baseScore * subMult * lvlMult * prizeMult);
         });
       } else if (cat.code === 'SCHOOL' || cat.code === 'ISLAMIC') {
-        const records = student.performanceRecords.filter((r: any) => {
+        const records = studentPerfRecords.filter((r: any) => {
           if (r.categoryId !== cat.id) return false;
           return (r.exam?.name || '').trim().toLowerCase() !== 'attendance';
         });
-        const attendances = ((student as any).monthlyAttendances || []).filter(
+        const attendances = studentAttendances.filter(
           (a: any) => a.categoryCode === cat.code
         );
 
@@ -1647,22 +1712,22 @@ export async function calculateAllLeaderboards(filters?: {
 
         catEarned = Number(catSum.toFixed(2));
       } else if (cat.code === 'TASKS' || cat.code.startsWith('TASK')) {
-        ((student as any).taskRecords || []).forEach((tr: any) => {
+        studentTaskRecords.forEach((tr: any) => {
           catEarned += Number(tr.awardedPoints) || 0;
         });
-        const records = student.performanceRecords.filter((r: any) => r.categoryId === cat.id);
+        const records = studentPerfRecords.filter((r: any) => r.categoryId === cat.id);
         records.forEach((r: any) => {
           catEarned += (r.obtainedScore || 0);
         });
       } else if (cat.code === 'FIELD_COLLECTION') {
-        const records = student.performanceRecords.filter((r: any) => r.categoryId === cat.id);
+        const records = studentPerfRecords.filter((r: any) => r.categoryId === cat.id);
         records.forEach((r: any) => {
           const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
           const base = r.obtainedScore || 0;
           catEarned += (base * mult);
         });
       } else {
-        const records = student.performanceRecords.filter((r: any) => r.categoryId === cat.id);
+        const records = studentPerfRecords.filter((r: any) => r.categoryId === cat.id);
         records.forEach((r: any) => {
           const mult = typeof r.subcategory?.weight === 'number' && r.subcategory.weight > 0 ? r.subcategory.weight : 1.0;
           const lvlMult = resolveLevelMultiplier(r.level, levelsList);
@@ -1699,15 +1764,15 @@ export async function calculateAllLeaderboards(filters?: {
       );
       finalScore = matchedCategory ? (categoryPoints[matchedCategory.id] || 0) : (categoryPoints[filters.categoryId] || 0);
       if (matchedCategory?.code === 'CREATIVE_HUB') {
-        totalRecords = student.creativeWorks?.length || 0;
+        totalRecords = studentCreativeWorks?.length || 0;
       } else if (matchedCategory?.code === 'LIBRARY') {
-        const libPerf = student.performanceRecords.filter((r: any) => r.categoryId === matchedCategory.id).length;
-        totalRecords = (student.libraryRecords?.length || 0) + libPerf;
+        const libPerf = studentPerfRecords.filter((r: any) => r.categoryId === matchedCategory.id).length;
+        totalRecords = (studentLibraryRecords?.length || 0) + libPerf;
       } else if (matchedCategory) {
-        totalRecords = student.performanceRecords.filter((r: any) => r.categoryId === matchedCategory.id).length;
+        totalRecords = studentPerfRecords.filter((r: any) => r.categoryId === matchedCategory.id).length;
       }
     } else {
-      const netAdjustment = ((student as any).pointAdjustments || []).reduce(
+      const netAdjustment = studentPointAdjustments.reduce(
         (sum: number, adj: any) => sum + (Number(adj.points) || 0),
         0
       );
@@ -1734,11 +1799,14 @@ export async function calculateAllLeaderboards(filters?: {
       categoryPoints,
       categoryPercentages: categoryPoints,
       recordsCount: totalRecords,
+      activePeriodDays: filters?.activeDays,
+      activeSinceDate: filters?.sinceDate ? filters.sinceDate.toISOString() : undefined,
+      activeRecordsCount: totalRecords,
     });
   }
 
-  const isOverall = !filters?.categoryId && !filters?.subcategoryId && !filters?.fest && !filters?.stream;
-  let rankedEntries = isOverall ? entries : entries.filter((e) => (e.spr || 0) > 0);
+  const isOverall = !filters?.categoryId && !filters?.subcategoryId && !filters?.fest && !filters?.stream && !filters?.sinceDate;
+  let rankedEntries = isOverall ? entries : entries.filter((e) => (e.spr || 0) > 0 || (e.recordsCount || 0) > 0);
 
   rankedEntries.sort((a, b) => {
     if (b.spr !== a.spr) return b.spr - a.spr;
@@ -1763,6 +1831,11 @@ export async function calculateAllLeaderboards(filters?: {
   rankedEntries.forEach((e: any) => {
     e.isTied = scoreCounts[e.spr] > 1;
     e.tiedCount = scoreCounts[e.spr];
+    if (filters?.sinceDate) {
+      e.activePeriodDays = filters.activeDays;
+      e.activeSinceDate = filters.sinceDate.toISOString();
+      e.activeRecordsCount = e.recordsCount;
+    }
   });
 
   leaderboardCache.set(cacheKey, { timestamp: Date.now(), data: rankedEntries });
@@ -1774,6 +1847,122 @@ export async function calculateAllLeaderboards(filters?: {
 
   inFlightLeaderboardPromises.set(cacheKey, computePromise);
   return computePromise;
+}
+
+export async function getActiveLeaderboardSettings(): Promise<ActiveLeaderboardSettings> {
+  const settings = await getCachedSettings();
+  const days = parseInt(settings.ACTIVE_LEADERBOARD_DAYS || '30', 10) || 30;
+  const mode = (settings.ACTIVE_LEADERBOARD_MODE === 'DATE' ? 'DATE' : 'DAYS') as 'DAYS' | 'DATE';
+  const customDate = settings.ACTIVE_LEADERBOARD_CUSTOM_DATE || null;
+  const updatedAt = settings.ACTIVE_LEADERBOARD_UPDATED_AT || null;
+  const updatedBy = settings.ACTIVE_LEADERBOARD_UPDATED_BY || null;
+
+  let cutoffDate: Date;
+  if (mode === 'DATE' && customDate) {
+    const d = new Date(customDate);
+    cutoffDate = !isNaN(d.getTime()) ? d : new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  } else {
+    cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  }
+
+  return {
+    days,
+    mode,
+    customDate,
+    cutoffDate: cutoffDate.toISOString(),
+    updatedAt,
+    updatedBy,
+  };
+}
+
+export async function saveActiveLeaderboardSettings(params: {
+  days: number;
+  mode?: 'DAYS' | 'DATE';
+  customDate?: string | null;
+  adminName?: string;
+}): Promise<ActiveLeaderboardSettings> {
+  const daysNum = Math.max(1, Math.min(365, params.days || 30));
+  const daysStr = daysNum.toString();
+  const modeStr = params.mode === 'DATE' ? 'DATE' : 'DAYS';
+  const customDateStr = params.customDate || '';
+  const nowIso = new Date().toISOString();
+  const adminNameStr = params.adminName || 'Admin';
+
+  await prisma.$transaction([
+    prisma.systemSetting.upsert({
+      where: { key: 'ACTIVE_LEADERBOARD_DAYS' },
+      update: { value: daysStr, description: 'Number of recent days for the Active Leaderboard calculation.' },
+      create: { key: 'ACTIVE_LEADERBOARD_DAYS', value: daysStr, description: 'Number of recent days for the Active Leaderboard calculation.' },
+    }),
+    prisma.systemSetting.upsert({
+      where: { key: 'ACTIVE_LEADERBOARD_MODE' },
+      update: { value: modeStr, description: 'Active Leaderboard window mode (DAYS or DATE).' },
+      create: { key: 'ACTIVE_LEADERBOARD_MODE', value: modeStr, description: 'Active Leaderboard window mode (DAYS or DATE).' },
+    }),
+    prisma.systemSetting.upsert({
+      where: { key: 'ACTIVE_LEADERBOARD_CUSTOM_DATE' },
+      update: { value: customDateStr, description: 'Custom start date for Active Leaderboard records cutoff.' },
+      create: { key: 'ACTIVE_LEADERBOARD_CUSTOM_DATE', value: customDateStr, description: 'Custom start date for Active Leaderboard records cutoff.' },
+    }),
+    prisma.systemSetting.upsert({
+      where: { key: 'ACTIVE_LEADERBOARD_UPDATED_AT' },
+      update: { value: nowIso },
+      create: { key: 'ACTIVE_LEADERBOARD_UPDATED_AT', value: nowIso, description: 'Timestamp of last active window change.' },
+    }),
+    prisma.systemSetting.upsert({
+      where: { key: 'ACTIVE_LEADERBOARD_UPDATED_BY' },
+      update: { value: adminNameStr },
+      create: { key: 'ACTIVE_LEADERBOARD_UPDATED_BY', value: adminNameStr, description: 'Admin user who last customized active window.' },
+    }),
+  ]);
+
+  invalidateEngineCache();
+  return getActiveLeaderboardSettings();
+}
+
+export async function calculateActiveLeaderboard(filters?: {
+  days?: number;
+  customDate?: string;
+  classId?: string;
+  schoolId?: string;
+  academicYearId?: string;
+  categoryId?: string;
+  subcategoryId?: string;
+}) {
+  const activeSettings = await getActiveLeaderboardSettings();
+  let cutoffDate = new Date(activeSettings.cutoffDate);
+  let days = activeSettings.days;
+
+  if (filters?.days && filters.days > 0) {
+    days = filters.days;
+    cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  } else if (filters?.customDate) {
+    const d = new Date(filters.customDate);
+    if (!isNaN(d.getTime())) {
+      cutoffDate = d;
+      days = Math.max(1, Math.round((Date.now() - cutoffDate.getTime()) / (24 * 60 * 60 * 1000)));
+    }
+  }
+
+  const entries = await calculateAllLeaderboards({
+    classId: filters?.classId,
+    schoolId: filters?.schoolId,
+    academicYearId: filters?.academicYearId,
+    categoryId: filters?.categoryId,
+    subcategoryId: filters?.subcategoryId,
+    sinceDate: cutoffDate,
+    activeDays: days,
+  });
+
+  return {
+    leaderboard: entries,
+    totalStudents: entries.length,
+    activeSettings: {
+      ...activeSettings,
+      days,
+      cutoffDate: cutoffDate.toISOString(),
+    },
+  };
 }
 
 // Lightweight fast rank calculation for single student profile

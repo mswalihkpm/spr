@@ -27,9 +27,12 @@ import {
   ExternalLink,
   ChevronRight,
   Percent,
+  Zap,
+  Sliders,
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import StudentReportModal from '@/components/modals/StudentReportModal';
+import ActiveLeaderboardSettingsModal from '@/components/modals/ActiveLeaderboardSettingsModal';
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
 import MobileHeaderMenu from '@/components/layout/MobileHeaderMenu';
@@ -42,6 +45,7 @@ import ScrollProgressBar from '@/components/leaderboard/ScrollProgressBar';
 import ScrollToTopHUD from '@/components/leaderboard/ScrollToTopHUD';
 import { useLeaderboardAnimation } from '@/hooks/useLeaderboardAnimation';
 import ClassChampionsBenchmarkChart from '@/components/leaderboard/ClassChampionsBenchmarkChart';
+import { ActiveLeaderboardSettings } from '@/types';
 
 // Global client-side memory caches for 0ms instant loading
 const clientLeaderboardMemory = new Map<string, any[]>();
@@ -102,6 +106,10 @@ function LeaderboardContent() {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [modalCalcTab, setModalCalcTab] = useState<'OVERALL' | 'SUBJECTS' | 'PROGRAMMES'>('OVERALL');
 
+  // Active Leaderboard Settings State
+  const [activeSettings, setActiveSettings] = useState<ActiveLeaderboardSettings | null>(null);
+  const [showActiveSettingsModal, setShowActiveSettingsModal] = useState(false);
+
   // Sync state from bootstrap context
   useEffect(() => {
     if (bootstrapLeaderboard.length > 0) {
@@ -129,8 +137,10 @@ function LeaderboardContent() {
     const festParam = searchParams.get('fest') || '';
     const viewType = searchParams.get('type') || searchParams.get('view') || '';
 
-    // Handle Class Ranking view
-    if (viewType === 'class' || viewType === 'classes' || catParam === 'CLASS_RANKING') {
+    // Handle Active Leaderboard view
+    if (viewType === 'active' || searchParams.get('mode') === 'active' || catParam === 'ACTIVE') {
+      catParam = 'ACTIVE';
+    } else if (viewType === 'class' || viewType === 'classes' || catParam === 'CLASS_RANKING') {
       catParam = 'CLASS_RANKING';
     }
 
@@ -193,6 +203,12 @@ function LeaderboardContent() {
         })
         .catch((err) => console.error('Error fetching subcategories:', err));
     }
+
+    fetchWithDedupe<{ settings: ActiveLeaderboardSettings }>('/api/admin/active-leaderboard-settings')
+      .then((data) => {
+        if (data?.settings) setActiveSettings(data.settings);
+      })
+      .catch(() => {});
   }, []);
 
 function deriveCategoryLeaderboard(
@@ -257,7 +273,9 @@ function deriveCategoryLeaderboard(
 
   const fetchLeaderboard = async () => {
     const params = new URLSearchParams();
-    if (selectedCategory === 'CLASS_RANKING') {
+    if (selectedCategory === 'ACTIVE' || searchParams.get('mode') === 'active' || searchParams.get('type') === 'active') {
+      params.append('mode', 'active');
+    } else if (selectedCategory === 'CLASS_RANKING') {
       params.append('type', 'class');
     } else if (selectedSubcategory) {
       params.append('subcategoryId', selectedSubcategory);
@@ -275,7 +293,7 @@ function deriveCategoryLeaderboard(
     const masterList = bootstrapLeaderboard.length > 0 ? bootstrapLeaderboard : clientLeaderboardMemory.get('overall') || [];
 
     // If default overall view and we already have bootstrapLeaderboard, use it without network delay
-    if (cacheKey === 'overall' && masterList.length > 0 && selectedCategory !== 'CLASS_RANKING') {
+    if (cacheKey === 'overall' && masterList.length > 0 && selectedCategory !== 'CLASS_RANKING' && selectedCategory !== 'ACTIVE') {
       setLeaderboard(masterList);
       setLoading(false);
       clientLeaderboardMemory.set('overall', masterList);
@@ -307,6 +325,9 @@ function deriveCategoryLeaderboard(
       if (data && data.leaderboard) {
         clientLeaderboardMemory.set(cacheKey, data.leaderboard);
         setLeaderboard(data.leaderboard);
+        if (data.activeSettings) {
+          setActiveSettings(data.activeSettings);
+        }
       }
       if (data && data.categories && categories.length === 0) setCategories(data.categories);
     } catch (err) {
@@ -342,7 +363,7 @@ function deriveCategoryLeaderboard(
   }, [selectedCategory, selectedSubcategory, selectedStream, selectedFest, selectedClass]);
 
   const switchLeaderboard = (target: {
-    type: 'OVERALL' | 'CLASS' | 'STREAM' | 'FEST' | 'CATEGORY' | 'SUBCATEGORY';
+    type: 'OVERALL' | 'ACTIVE' | 'CLASS' | 'STREAM' | 'FEST' | 'CATEGORY' | 'SUBCATEGORY';
     stream?: string;
     fest?: string;
     categoryId?: string;
@@ -354,7 +375,13 @@ function deriveCategoryLeaderboard(
     let newFest = '';
     let url = '/leaderboard';
 
-    if (target.type === 'CLASS') {
+    if (target.type === 'ACTIVE') {
+      newCat = 'ACTIVE';
+      newSub = '';
+      newStream = '';
+      newFest = '';
+      url = '/leaderboard?mode=active';
+    } else if (target.type === 'CLASS') {
       newCat = 'CLASS_RANKING';
       newSub = '';
       newStream = '';
@@ -678,7 +705,28 @@ function deriveCategoryLeaderboard(
     isFest: false,
   };
 
-  if (isClassRankingActive) {
+  const isActiveActive =
+    selectedCategory === 'ACTIVE' ||
+    searchParams.get('mode') === 'active' ||
+    searchParams.get('type') === 'active';
+
+  if (isActiveActive) {
+    heroTheme = {
+      bgGradient: 'bg-gradient-to-r from-[#78350f] via-[#b45309] to-[#d97706]',
+      glowColor: 'from-white/30 via-amber-300/15 to-transparent',
+      borderColor: 'border-amber-400/40',
+      title: 'Active Institutional Standings',
+      subtitle: `Standings computed strictly from activities and records in the ${
+        activeSettings?.mode === 'DATE' && activeSettings.customDate
+          ? `period since ${activeSettings.customDate}`
+          : `last ${activeSettings?.days || 30} days`
+      }.`,
+      badge: `${activeSettings?.days || 30}-Day Active Registry`,
+      badgeClass: 'bg-amber-500/30 text-amber-100 border-amber-300/40',
+      logo: '/logo.png',
+      isFest: false,
+    };
+  } else if (isClassRankingActive) {
     heroTheme = {
       bgGradient: 'bg-gradient-to-r from-[#1e1b4b] via-[#312e81] to-[#4338ca]',
       glowColor: 'from-indigo-300/30 via-indigo-400/10 to-transparent',
@@ -946,14 +994,16 @@ function deriveCategoryLeaderboard(
   }
 
   // Determine active primary wing tab
-  const isOverallActive = !selectedCategory && !selectedStream && !selectedFest && !selectedSubcategory;
+  const isOverallActive = !isActiveActive && !selectedCategory && !selectedStream && !selectedFest && !selectedSubcategory;
   const isFestActive = Boolean(selectedFest || currentCategory?.code === 'LITERARY');
   const isSchoolActive = currentCategory?.code === 'SCHOOL';
   const isCreativeActive = currentCategory?.code === 'CREATIVE_HUB';
   const isProgramsActive = currentCategory?.code === 'PROGRAMS';
   const isLibraryActive = currentCategory?.code === 'LIBRARY';
 
-  const activeCategoryKey = isClassRankingActive
+  const activeCategoryKey = isActiveActive
+    ? 'ACTIVE'
+    : isClassRankingActive
     ? 'CLASS_RANKING'
     : isOverallActive
     ? 'OVERALL'
@@ -1128,6 +1178,30 @@ function deriveCategoryLeaderboard(
             >
               <Trophy className={`w-3.5 h-3.5 ${isOverallActive ? 'text-amber-300' : 'text-amber-500'}`} />
               <span>⭐ Overall Students</span>
+            </button>
+
+            {/* Active Leaderboard */}
+            <button
+              data-item-id="ACTIVE"
+              data-active={isActiveActive}
+              onClick={() => switchLeaderboard({ type: 'ACTIVE' })}
+              className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-150 shrink-0 flex items-center space-x-1.5 ${
+                isActiveActive
+                  ? 'bg-amber-500 text-white shadow-sm shadow-amber-500/20 ring-2 ring-amber-500/30'
+                  : 'bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750 hover:text-slate-900 dark:hover:text-white border border-slate-200/80 dark:border-slate-700'
+              }`}
+            >
+              <Zap className={`w-3.5 h-3.5 ${isActiveActive ? 'text-amber-100 fill-amber-100' : 'text-amber-500'}`} />
+              <span>⚡ Active Standings</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                  isActiveActive ? 'bg-amber-600 text-white' : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'
+                }`}
+              >
+                {activeSettings?.mode === 'DATE' && activeSettings.customDate
+                  ? activeSettings.customDate.slice(5)
+                  : `${activeSettings?.days || 30}d`}
+              </span>
             </button>
 
             {/* Qualification */}
@@ -1383,6 +1457,17 @@ function deriveCategoryLeaderboard(
 
             {/* Quick Switcher Dropdown & Live Library Sync Button */}
             <div className="flex items-center space-x-2 shrink-0 flex-wrap gap-y-2 w-full lg:w-auto">
+              {isActiveActive && (
+                <button
+                  type="button"
+                  onClick={() => setShowActiveSettingsModal(true)}
+                  className="px-3 py-1.5 sm:px-3.5 sm:py-2.5 rounded-xl sm:rounded-2xl bg-white/20 hover:bg-white/30 text-white text-[11px] sm:text-xs font-bold transition flex items-center space-x-1.5 border border-white/30 shadow-md active:scale-95"
+                  title="Customize Active Leaderboard Window / Days"
+                >
+                  <Sliders className="w-3.5 h-3.5" />
+                  <span>Customize Days</span>
+                </button>
+              )}
               {isLibraryActive && (
                 <button
                   type="button"
@@ -2328,6 +2413,19 @@ function deriveCategoryLeaderboard(
           setReportingStudent(null);
         }}
         student={reportingStudent}
+      />
+
+      {/* Active Leaderboard Admin Settings Modal */}
+      <ActiveLeaderboardSettingsModal
+        isOpen={showActiveSettingsModal}
+        onClose={() => setShowActiveSettingsModal(false)}
+        currentSettings={activeSettings}
+        onSaved={(updated) => {
+          setActiveSettings(updated);
+          clientLeaderboardMemory.clear();
+          invalidateClientCache('/api/leaderboard');
+          fetchLeaderboard();
+        }}
       />
 
       {/* Permanent Public Footer */}

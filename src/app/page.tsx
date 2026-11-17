@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -24,24 +24,29 @@ import {
   Calendar,
   Lock,
   Loader2,
+  Zap,
+  Sliders,
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import StudentReportModal from '@/components/modals/StudentReportModal';
 import NewsDetailModal from '@/components/modals/NewsDetailModal';
 import ItemLeaderboardModal from '@/components/modals/ItemLeaderboardModal';
+import ActiveLeaderboardSettingsModal from '@/components/modals/ActiveLeaderboardSettingsModal';
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
 import MobileHeaderMenu from '@/components/layout/MobileHeaderMenu';
 import HomepageTextNotification, { TextNotificationData } from '@/components/notifications/HomepageTextNotification';
 import { getAcademicMasterData } from '@/lib/academic-client';
-import { fetchWithDedupe } from '@/lib/client-cache';
+import { fetchWithDedupe, invalidateClientCache } from '@/lib/client-cache';
 import CustomSelect from '@/components/ui/CustomSelect';
 import { useAppBootstrap } from '@/context/AppBootstrapContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useLeaderboardAnimation } from '@/hooks/useLeaderboardAnimation';
+import { ActiveLeaderboardSettings } from '@/types';
 
 // Global module-level client memory caches for instant 0ms loading
 const homeLeaderboardMemory = new Map<string, any[]>();
+const homeActiveLeaderboardMemory = new Map<string, any[]>();
 const homeStudentProfileMemory = new Map<string, any>();
 
 export default function PublicHomePage() {
@@ -66,6 +71,15 @@ export default function PublicHomePage() {
     bootstrapNews.length > 0 ? bootstrapNews.slice(0, 3) : []
   );
   const [activeNotifications, setActiveNotifications] = useState<TextNotificationData[]>([]);
+
+  // Active Leaderboard State
+  const [leaderboardTab, setLeaderboardTab] = useState<'OVERALL' | 'ACTIVE'>('OVERALL');
+  const [activeLeaderboardData, setActiveLeaderboardData] = useState<any[]>([]);
+  const [loadingActiveLeaderboard, setLoadingActiveLeaderboard] = useState(false);
+  const [activeSettings, setActiveSettings] = useState<ActiveLeaderboardSettings | null>(null);
+  const [showActiveSettingsModal, setShowActiveSettingsModal] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any | null>(null);
+  const isAdmin = currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN';
 
   // Fetch active text notifications on fresh application launch (session-guarded)
   useEffect(() => {
@@ -300,6 +314,64 @@ export default function PublicHomePage() {
       .finally(() => setLoadingLeaderboard(false));
   }, [selectedClass, bootstrapLeaderboard, isBootstrapped]);
 
+  // Fetch current user and active leaderboard settings on mount
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.user) setCurrentUser(data.user);
+      })
+      .catch(() => {});
+
+    fetchWithDedupe<{ settings: ActiveLeaderboardSettings }>('/api/admin/active-leaderboard-settings')
+      .then((data) => {
+        if (data?.settings) setActiveSettings(data.settings);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Function to fetch active leaderboard
+  const fetchActiveStandings = useCallback((fresh = false) => {
+    const params = new URLSearchParams();
+    params.append('mode', 'active');
+    if (selectedClass) params.append('classId', selectedClass);
+    if (fresh) params.append('fresh', 'true');
+    const cacheKey = `active_${params.toString()}`;
+
+    if (!fresh) {
+      const cached = homeActiveLeaderboardMemory.get(cacheKey);
+      if (cached) {
+        setActiveLeaderboardData(cached);
+        setLoadingActiveLeaderboard(false);
+        return;
+      }
+    }
+
+    setLoadingActiveLeaderboard(true);
+    fetchWithDedupe<{ leaderboard: any[]; activeSettings?: ActiveLeaderboardSettings }>(
+      `/api/leaderboard?${params.toString()}`,
+      { ttl: 2 * 60 * 1000 }
+    )
+      .then((data) => {
+        if (data && data.leaderboard) {
+          homeActiveLeaderboardMemory.set(cacheKey, data.leaderboard);
+          setActiveLeaderboardData(data.leaderboard);
+          if (data.activeSettings) {
+            setActiveSettings(data.activeSettings);
+          }
+        }
+      })
+      .catch((err) => console.error('Error fetching active leaderboard:', err))
+      .finally(() => setLoadingActiveLeaderboard(false));
+  }, [selectedClass]);
+
+  // Fetch Active Leaderboard when active tab is selected or class changes
+  useEffect(() => {
+    if (leaderboardTab === 'ACTIVE') {
+      fetchActiveStandings();
+    }
+  }, [leaderboardTab, fetchActiveStandings]);
+
   // Global search debouncing (search by Name, ID, Class, School, Programmes, Competitions, Exams)
   useEffect(() => {
     const trimmed = searchQuery.trim();
@@ -468,8 +540,12 @@ export default function PublicHomePage() {
     return val.replace(/^(class|std|standard|grade)\s*/i, '').trim();
   };
 
+  // Active vs Overall Source
+  const currentLeaderboardSource = leaderboardTab === 'ACTIVE' ? activeLeaderboardData : leaderboard;
+  const isLoadingCurrentLeaderboard = leaderboardTab === 'ACTIVE' ? loadingActiveLeaderboard : loadingLeaderboard;
+
   // Filtered leaderboard list with multi-term support
-  const filteredLeaderboard = leaderboard.filter((item) => {
+  const filteredLeaderboard = currentLeaderboardSource.filter((item) => {
     if (!tableSearch.trim()) return true;
     const q = tableSearch.toLowerCase().trim();
     const terms = q.split(/\s+/).filter(Boolean);
@@ -503,7 +579,7 @@ export default function PublicHomePage() {
   });
 
   // 3-second dynamic animated leaderboard for all leaderboard openings
-  const homeLeaderboardKey = selectedClass ? `HOME_CLASS_${selectedClass}` : 'HOME_OVERALL';
+  const homeLeaderboardKey = `${leaderboardTab}_${selectedClass || 'ALL'}`;
   const { animatedEntries } = useLeaderboardAnimation(filteredLeaderboard, false, homeLeaderboardKey);
 
   // Top 15 on homepage overview
@@ -528,7 +604,7 @@ export default function PublicHomePage() {
     targets.forEach((el) => observer.observe(el));
 
     return () => observer.disconnect();
-  }, [displayedLeaderboard, loadingLeaderboard]);
+  }, [displayedLeaderboard, isLoadingCurrentLeaderboard]);
 
   // Shared Search Dropdown content renderer for Hero, Header, and Mobile search bars
   const renderSearchDropdownContent = (closeDropdown: () => void) => {
@@ -1151,23 +1227,35 @@ export default function PublicHomePage() {
           </div>
 
           {/* Loading Process Video Container */}
-          {loadingLeaderboard && (
+          {isLoadingCurrentLeaderboard && (
             <div className="mt-4 pb-6 relative z-10 flex justify-center animate-fade-in">
               <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-sm rounded-3xl p-5 sm:p-6 border border-slate-200/90 dark:border-slate-800 shadow-md max-w-sm w-full flex flex-col items-center justify-center text-center">
-                <VideoLoader size="lg" text="Loading SPR Live Standings..." subtext="Accessing Student Performance Registry" />
+                <VideoLoader
+                  size="lg"
+                  text={leaderboardTab === 'ACTIVE' ? 'Loading Active Live Standings...' : 'Loading SPR Live Standings...'}
+                  subtext="Accessing Student Performance Registry"
+                />
               </div>
             </div>
           )}
 
           {/* Top 3 Institutional Podium Showcase (Dynamic Rank & Tie-Aware Layout) */}
-          {!loadingLeaderboard && top3.length >= 3 && (
+          {!isLoadingCurrentLeaderboard && top3.length >= 3 && (
             <div className="mt-2 pb-6 relative z-10">
               <div className="text-center mb-5 animate-slide-up delay-200">
                 <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-blue-800 dark:text-blue-300 bg-blue-50/90 dark:bg-blue-950/60 px-3 py-1 rounded-full border border-blue-200 dark:border-blue-800/80 shadow-2xs">
-                  Top Institutional Honors
+                  {leaderboardTab === 'ACTIVE' ? '⚡ Top Active Honors' : 'Top Institutional Honors'}
                 </span>
-                <h3 className="text-xl sm:text-3xl font-black text-slate-900 dark:text-white mt-1 drop-shadow-2xs">Overall SPR Champions</h3>
-                <p className="text-[11px] sm:text-sm text-slate-600 dark:text-slate-400 font-medium mt-0.5">Leading institutional benchmarks across all evaluation wings</p>
+                <h3 className="text-xl sm:text-3xl font-black text-slate-900 dark:text-white mt-1 drop-shadow-2xs">
+                  {leaderboardTab === 'ACTIVE'
+                    ? `Active Standings Podium (${activeSettings?.mode === 'DATE' && activeSettings.customDate ? `Since ${activeSettings.customDate}` : `Last ${activeSettings?.days || 30} Days`})`
+                    : 'Overall SPR Champions'}
+                </h3>
+                <p className="text-[11px] sm:text-sm text-slate-600 dark:text-slate-400 font-medium mt-0.5">
+                  {leaderboardTab === 'ACTIVE'
+                    ? 'Top performers based on activities recorded strictly in the active period.'
+                    : 'Leading institutional benchmarks across all evaluation wings'}
+                </p>
               </div>
 
               {/* Mobile Top Honors Indicator */}
@@ -1260,7 +1348,7 @@ export default function PublicHomePage() {
                           </span>
                         </div>
                         <div className="text-[9px] sm:text-xs font-black uppercase tracking-wider bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 px-2 sm:px-3 py-0.5 rounded-full shadow-2xs mt-1 sm:mt-1.5">
-                          ★ 1st Champion {isTied ? '(Joint)' : ''} ★
+                          ★ {leaderboardTab === 'ACTIVE' ? '1st Active Champion' : '1st Champion'} {isTied ? '(Joint)' : ''} ★
                         </div>
                       </div>
 
@@ -1345,13 +1433,16 @@ export default function PublicHomePage() {
 
               {/* Joint Rank 1 Cohort Recognition Pill Bar */}
               {(() => {
-                const rank1Students = leaderboard.filter((s) => s.rank === 1);
+                const rank1Students = currentLeaderboardSource.filter((s) => s.rank === 1);
                 if (rank1Students.length <= 1) return null;
                 return (
                   <div className="mt-4 p-3.5 bg-amber-50/90 dark:bg-amber-950/30 border border-amber-200/90 dark:border-amber-900/50 rounded-2xl max-w-4xl mx-auto text-center shadow-xs animate-fade-in">
                     <div className="text-xs font-black text-amber-950 dark:text-amber-200 flex items-center justify-center space-x-1.5">
                       <span>🏆</span>
-                      <span>{rank1Students.length} Students Jointly Share 1st Rank ({formatScore(rank1Students[0]?.spr ?? 0)} SPR Points)</span>
+                      <span>
+                        {rank1Students.length} Students Jointly Share 1st Rank ({formatScore(rank1Students[0]?.spr ?? 0)}{' '}
+                        {leaderboardTab === 'ACTIVE' ? 'Active' : 'SPR'} Points)
+                      </span>
                     </div>
                     <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 mt-2">
                       {rank1Students.map((st) => (
@@ -1379,24 +1470,112 @@ export default function PublicHomePage() {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
           <div>
             <span className="px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-blue-100 dark:bg-blue-950/80 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-              Live Standings Overview
+              {leaderboardTab === 'ACTIVE' ? '⚡ Active Window Standings' : 'Live Standings Overview'}
             </span>
             <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
-              Top Institutional Performers
+              {leaderboardTab === 'ACTIVE' ? 'Active Institutional Performers' : 'Top Institutional Performers'}
             </h3>
             <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
-              Institution-wide overall SPR benchmarks.
+              {leaderboardTab === 'ACTIVE'
+                ? `Students with active records in the ${
+                    activeSettings?.mode === 'DATE' && activeSettings.customDate
+                      ? `period since ${activeSettings.customDate}`
+                      : `last ${activeSettings?.days || 30} days`
+                  }.`
+                : 'Institution-wide overall SPR benchmarks.'}
             </p>
           </div>
 
+          {/* User Requested: Active Leaderboard Switcher & Admin Cutoff Config (Red-Box Area) */}
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-end">
+            <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-800/90 rounded-2xl border border-slate-200/90 dark:border-slate-700/80 shadow-xs">
+              <button
+                type="button"
+                onClick={() => setLeaderboardTab('OVERALL')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  leaderboardTab === 'OVERALL'
+                    ? 'bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-400 shadow-xs border border-slate-200/70 dark:border-slate-700/60'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Trophy className="w-3.5 h-3.5" />
+                <span>All-Time</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setLeaderboardTab('ACTIVE')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  leaderboardTab === 'ACTIVE'
+                    ? 'bg-amber-500 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Zap className={`w-3.5 h-3.5 ${leaderboardTab === 'ACTIVE' ? 'text-amber-200 fill-amber-200' : 'text-amber-500'}`} />
+                <span>Active Leaderboard</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                    leaderboardTab === 'ACTIVE'
+                      ? 'bg-amber-600 text-white'
+                      : 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300'
+                  }`}
+                >
+                  {activeSettings?.mode === 'DATE' && activeSettings.customDate
+                    ? activeSettings.customDate.slice(5)
+                    : `${activeSettings?.days || 30}d`}
+                </span>
+              </button>
+            </div>
+
+            {/* Quick Admin Edit Days Button */}
+            <button
+              type="button"
+              onClick={() => setShowActiveSettingsModal(true)}
+              title="Customize Active Leaderboard Window / Days"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-amber-600 dark:hover:text-amber-400 transition border border-slate-200 dark:border-slate-700 shadow-2xs"
+            >
+              <Sliders className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+              <span className="hidden sm:inline">Edit Days</span>
+            </button>
+          </div>
+
           <Link
-            href="/leaderboard"
-            className="inline-flex items-center justify-center space-x-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 px-3.5 py-2 rounded-xl transition btn-interactive"
+            href={leaderboardTab === 'ACTIVE' ? '/leaderboard?mode=active' : '/leaderboard'}
+            className="inline-flex items-center justify-center space-x-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 px-3.5 py-2 rounded-xl transition btn-interactive self-start sm:self-end"
           >
             <span>Full Standings Page</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
+
+        {/* Active Mode Quick Banner */}
+        {leaderboardTab === 'ACTIVE' && (
+          <div className="bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs animate-slide-down">
+            <div className="flex items-center space-x-2 text-amber-900 dark:text-amber-300">
+              <Zap className="w-4 h-4 text-amber-500 fill-amber-500 shrink-0" />
+              <span>
+                <strong>Active Window Standings:</strong> Evaluated strictly from activities recorded in the{' '}
+                <span className="font-bold underline">
+                  {activeSettings?.mode === 'DATE' && activeSettings.customDate
+                    ? `period since ${activeSettings.customDate}`
+                    : `last ${activeSettings?.days || 30} days`}
+                </span>
+                {activeSettings?.cutoffDate && (
+                  <span className="text-amber-700 dark:text-amber-400 text-[11px] ml-1">
+                    (on or after {new Date(activeSettings.cutoffDate).toLocaleDateString()})
+                  </span>
+                )}
+              </span>
+            </div>
+            <button
+              onClick={() => setShowActiveSettingsModal(true)}
+              className="text-[11px] font-bold text-amber-800 dark:text-amber-300 underline hover:text-amber-950 self-start sm:self-auto shrink-0 flex items-center gap-1"
+            >
+              <Sliders className="w-3 h-3" />
+              <span>Customize Window</span>
+            </button>
+          </div>
+        )}
 
         {/* Filter Toolbar (Search & Class Filter Only) */}
         <div className="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs grid grid-cols-1 sm:grid-cols-2 gap-2.5 relative z-30">
@@ -1436,21 +1615,29 @@ export default function PublicHomePage() {
                   <th className="py-2.5 sm:py-3.5 px-2 sm:px-4 w-9 sm:w-16 text-center">#</th>
                   <th className="py-2.5 sm:py-3.5 px-2 sm:px-4">Student</th>
                   <th className="py-2.5 sm:py-3.5 px-1 sm:px-4 w-10 sm:w-20 text-center">Class</th>
-                  <th className="py-2.5 sm:py-3.5 px-2 sm:px-4 w-24 sm:w-32 text-right">SPR Points</th>
+                  <th className="py-2.5 sm:py-3.5 px-2 sm:px-4 w-24 sm:w-32 text-right">
+                    {leaderboardTab === 'ACTIVE' ? 'Active SPR' : 'SPR Points'}
+                  </th>
                   <th className="py-2.5 sm:py-3.5 px-1 sm:px-3 w-8 sm:w-12 text-center" title="Report issue"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70">
-                {loadingLeaderboard ? (
+                {isLoadingCurrentLeaderboard ? (
                   <tr>
                     <td colSpan={5} className="py-10 text-center">
-                      <VideoLoader size="md" text="Loading live standings..." subtext="SPR Evaluation Platform" />
+                      <VideoLoader
+                        size="md"
+                        text={leaderboardTab === 'ACTIVE' ? 'Loading active standings...' : 'Loading live standings...'}
+                        subtext="SPR Evaluation Platform"
+                      />
                     </td>
                   </tr>
                 ) : displayedLeaderboard.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="py-8 text-center text-slate-500 dark:text-slate-400">
-                      No student records found matching the active filters.
+                      {leaderboardTab === 'ACTIVE'
+                        ? 'No active student records found for the selected period.'
+                        : 'No student records found matching the active filters.'}
                     </td>
                   </tr>
                 ) : (
@@ -1492,9 +1679,17 @@ export default function PublicHomePage() {
                         <td className="py-2 sm:py-3.5 px-1.5 sm:px-4">
                           <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
                             <StudentAvatar photoUrl={row.photoUrl} name={studentDisplayName} size="sm" className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
-                            <span className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors text-[11px] sm:text-xs leading-tight line-clamp-2">
-                              {studentDisplayName}
-                            </span>
+                            <div className="min-w-0 flex flex-col">
+                              <span className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors text-[11px] sm:text-xs leading-tight line-clamp-2">
+                                {studentDisplayName}
+                              </span>
+                              {leaderboardTab === 'ACTIVE' && (
+                                <span className="text-[9px] sm:text-[10px] text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1 mt-0.5">
+                                  <Zap className="w-2.5 h-2.5 fill-amber-500 text-amber-500 shrink-0" />
+                                  <span>{row.activeRecordsCount || row.recordsCount || 0} activities in window</span>
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </td>
 
@@ -1506,14 +1701,24 @@ export default function PublicHomePage() {
                         </td>
 
                         <td className="py-2 sm:py-3.5 px-2 sm:px-4 text-right whitespace-nowrap">
-                          <div className="inline-flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl font-mono text-xs font-black shadow-2xs border transition-all group-hover:scale-105 bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700">
-                            <span className={`score-odometer ${isTop1 ? 'text-amber-800 dark:text-amber-300 font-black' : isTop2 ? 'text-slate-800 dark:text-slate-200 font-black' : isTop3 ? 'text-amber-900 dark:text-amber-300 font-black' : 'text-blue-900 dark:text-blue-300 font-extrabold'}`}>
+                          <div className={`inline-flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl font-mono text-xs font-black shadow-2xs border transition-all group-hover:scale-105 ${
+                            leaderboardTab === 'ACTIVE'
+                              ? 'bg-amber-50/80 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800'
+                              : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700'
+                          }`}>
+                            <span className={`score-odometer ${
+                              leaderboardTab === 'ACTIVE'
+                                ? 'text-amber-900 dark:text-amber-300 font-black'
+                                : isTop1 ? 'text-amber-800 dark:text-amber-300 font-black' : isTop2 ? 'text-slate-800 dark:text-slate-200 font-black' : isTop3 ? 'text-amber-900 dark:text-amber-300 font-black' : 'text-blue-900 dark:text-blue-300 font-extrabold'
+                            }`}>
                               {studentSprScore}
                             </span>
                             <span className={`text-[8.5px] sm:text-[9.5px] font-black uppercase px-1 py-0.2 rounded ${
-                              isTop1 ? 'bg-amber-400 dark:bg-amber-500 text-amber-950' : isTop2 ? 'bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-200' : isTop3 ? 'bg-amber-300 dark:bg-amber-600 text-amber-950' : 'bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300'
+                              leaderboardTab === 'ACTIVE'
+                                ? 'bg-amber-500 text-white'
+                                : isTop1 ? 'bg-amber-400 dark:bg-amber-500 text-amber-950' : isTop2 ? 'bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-200' : isTop3 ? 'bg-amber-300 dark:bg-amber-600 text-amber-950' : 'bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300'
                             }`}>
-                              PTS
+                              {leaderboardTab === 'ACTIVE' ? 'ACT' : 'PTS'}
                             </span>
                           </div>
                         </td>
@@ -1928,6 +2133,21 @@ export default function PublicHomePage() {
         onSelectStudent={(studentId) => {
           setItemLeaderboardModalOpen(false);
           openStudentDossier(studentId);
+        }}
+      />
+
+      {/* Active Leaderboard Admin Settings Modal */}
+      <ActiveLeaderboardSettingsModal
+        isOpen={showActiveSettingsModal}
+        onClose={() => setShowActiveSettingsModal(false)}
+        currentSettings={activeSettings}
+        onSaved={(updated) => {
+          setActiveSettings(updated);
+          homeActiveLeaderboardMemory.clear();
+          invalidateClientCache('/api/leaderboard');
+          if (leaderboardTab === 'ACTIVE') {
+            fetchActiveStandings(true);
+          }
         }}
       />
 

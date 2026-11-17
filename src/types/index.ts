@@ -167,6 +167,18 @@ export interface LeaderboardEntry {
   categoryPoints?: Record<string, number>;
   categoryPercentages?: Record<string, number>;
   recordsCount: number;
+  activePeriodDays?: number;
+  activeSinceDate?: string;
+  activeRecordsCount?: number;
+}
+
+export interface ActiveLeaderboardSettings {
+  days: number;
+  mode: 'DAYS' | 'DATE';
+  customDate: string | null;
+  cutoffDate: string;
+  updatedAt?: string | null;
+  updatedBy?: string | null;
 }
 
 export interface ExcelImportRow {

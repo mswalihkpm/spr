@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { calculateAllLeaderboards, calculateClassRankingLeaderboard, getCachedCategories } from '@/lib/spr-engine';
+import { calculateAllLeaderboards, calculateClassRankingLeaderboard, calculateActiveLeaderboard, getCachedCategories } from '@/lib/spr-engine';
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,7 +19,45 @@ export async function GET(req: NextRequest) {
     const categories = await getCachedCategories();
     const isFresh = searchParams.get('fresh') === 'true' || searchParams.has('t');
 
-    // 1. Handle Class Ranking Leaderboard Request
+    // 1. Handle Active Leaderboard Request (Last X Days / Cutoff Date)
+    const isActiveMode =
+      viewType.toLowerCase() === 'active' ||
+      searchParams.get('mode')?.toLowerCase() === 'active' ||
+      searchParams.get('active') === 'true';
+
+    if (isActiveMode) {
+      const customDays = searchParams.get('days') ? parseInt(searchParams.get('days')!, 10) : undefined;
+      const customDate = searchParams.get('date') || searchParams.get('sinceDate') || undefined;
+
+      const activeResult = await calculateActiveLeaderboard({
+        days: customDays,
+        customDate,
+        classId,
+        schoolId,
+        academicYearId,
+        categoryId,
+        subcategoryId,
+      });
+
+      return NextResponse.json(
+        {
+          type: 'ACTIVE_LEADERBOARD',
+          leaderboard: activeResult.leaderboard,
+          categories,
+          totalStudents: activeResult.totalStudents,
+          activeSettings: activeResult.activeSettings,
+        },
+        {
+          headers: {
+            'Cache-Control': isFresh
+              ? 'private, no-cache, no-store, must-revalidate'
+              : 'public, s-maxage=120, stale-while-revalidate=300',
+          },
+        }
+      );
+    }
+
+    // 2. Handle Class Ranking Leaderboard Request
     const isClassRanking =
       viewType.toLowerCase() === 'class' ||
       viewType.toLowerCase() === 'classes' ||
