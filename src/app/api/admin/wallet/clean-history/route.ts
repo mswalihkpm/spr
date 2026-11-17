@@ -20,6 +20,9 @@ export async function POST(req: NextRequest) {
     const deleted = await prisma.walletTransaction.deleteMany({
       where: {
         createdAt: { gte: cutoffDate },
+        NOT: {
+          reference: { startsWith: 'TXN-TASK' },
+        },
       },
     });
 

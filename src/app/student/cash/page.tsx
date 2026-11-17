@@ -444,10 +444,14 @@ export default function StudentCashPage() {
             {transactions.map((tx: any) => {
               const isPositive = Number(tx.amount) >= 0;
               const typeUpper = (tx.type || '').toUpperCase();
+              const isTaskReward = (tx.reference && tx.reference.startsWith('TXN-TASK')) || (tx.description && tx.description.toLowerCase().includes('from task'));
               let badgeText = 'Credit';
               let badgeBg = 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800';
 
-              if (typeUpper.includes('SENT') || typeUpper === 'TRANSFER_SENT') {
+              if (isTaskReward) {
+                badgeText = 'Task Reward';
+                badgeBg = 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800';
+              } else if (typeUpper.includes('SENT') || typeUpper === 'TRANSFER_SENT') {
                 badgeText = 'Sent';
                 badgeBg = 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800';
               } else if (typeUpper.includes('RECV') || typeUpper === 'TRANSFER_RECEIVED') {
@@ -464,11 +468,16 @@ export default function StudentCashPage() {
               }
 
               return (
-                <div key={tx.id || tx.reference} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs hover:bg-slate-50/50 dark:hover:bg-slate-800/30 px-2 rounded-xl transition">
+                <div key={tx.id || tx.reference} className={`py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs px-2.5 rounded-xl transition ${
+                  isTaskReward
+                    ? 'bg-amber-50/40 dark:bg-amber-950/20 border border-amber-100/80 dark:border-amber-900/40 hover:bg-amber-50/70'
+                    : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/30'
+                }`}>
                   <div className="space-y-1">
                     <div className="flex items-center space-x-2">
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${badgeBg}`}>
-                        {badgeText}
+                      <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${badgeBg}`}>
+                        {isTaskReward && <CheckSquare className="w-3 h-3 text-amber-700 dark:text-amber-300" />}
+                        <span>{badgeText}</span>
                       </span>
                       <span className="font-extrabold text-slate-900 dark:text-slate-100">
                         {tx.description || 'Wallet Transaction'}

@@ -11,15 +11,24 @@ export async function GET(req: NextRequest) {
     if (errorResponse) return errorResponse;
     if (!student) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
 
-    const transactions = await prisma.walletTransaction.findMany({
-      where: { studentId: student.studentId },
-      include: {
-        senderStudent: { select: { fullName: true, sprStudentId: true } },
-        recipientStudent: { select: { fullName: true, sprStudentId: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-    });
+    const [transactions, approvedTasks, wallet] = await Promise.all([
+      prisma.walletTransaction.findMany({
+        where: { studentId: student.studentId },
+        include: {
+          senderStudent: { select: { fullName: true, sprStudentId: true } },
+          recipientStudent: { select: { fullName: true, sprStudentId: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+      }),
+      prisma.studentTaskRecord.findMany({
+        where: { studentId: student.studentId, status: 'APPROVED' },
+        include: { task: true },
+      }),
+      prisma.studentWallet.findUnique({
+        where: { studentId: student.studentId },
+      }),
+    ]);
 
     const formatted = transactions.map((t) => ({
       id: t.id,
@@ -34,6 +43,36 @@ export async function GET(req: NextRequest) {
       recipientName: t.recipientStudent?.fullName,
       createdAt: t.createdAt.toISOString(),
     }));
+
+    // Guarantee that approved rewarded tasks always appear in transaction history
+    if (approvedTasks) {
+      const currentBal = wallet ? Number(wallet.balance) : 0;
+      for (const t of approvedTasks) {
+        if (Number(t.awardedAmount) > 0) {
+          const taskIdRef = t.task?.taskId || '';
+          const alreadyExists = formatted.some(
+            (tx) => (taskIdRef && tx.reference.includes(taskIdRef)) || (tx.description && tx.description.includes(t.task?.title || ''))
+          );
+          if (!alreadyExists) {
+            const amt = Number(t.awardedAmount);
+            formatted.push({
+              id: `task-tx-${t.id}`,
+              reference: `TXN-TASK-${taskIdRef}-${student.studentId.slice(-6)}`,
+              type: 'EARNING',
+              amount: amt,
+              balanceBefore: Math.max(0, currentBal - amt),
+              balanceAfter: currentBal,
+              description: `Earned ₹${amt.toFixed(2)} from task "${t.task.title}" (${t.approvedPercentage || 100}% approved)`,
+              status: 'COMPLETED',
+              senderName: undefined,
+              recipientName: undefined,
+              createdAt: (t.approvedAt || t.createdAt).toISOString(),
+            });
+          }
+        }
+      }
+      formatted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
 
     return NextResponse.json(
       { transactions: formatted },

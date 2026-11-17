@@ -82,9 +82,49 @@ export async function GET(req: NextRequest) {
             },
             orderBy: { activityDate: 'desc' },
           },
+          taskRecords: {
+            where: { status: 'APPROVED' },
+            select: {
+              id: true,
+              awardedPoints: true,
+              awardedAmount: true,
+              approvedPercentage: true,
+              approvedAt: true,
+              createdAt: true,
+              adminRemarks: true,
+              task: {
+                select: { id: true, taskId: true, title: true },
+              },
+            },
+            orderBy: { approvedAt: 'desc' },
+          },
+          transactions: {
+            select: {
+              id: true,
+              reference: true,
+              type: true,
+              amount: true,
+              balanceBefore: true,
+              balanceAfter: true,
+              description: true,
+              status: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+          },
         },
       }),
     ]);
+
+    // Find or define TASKS category
+    const taskCategory = categories.find((c) => c.code === 'TASKS') || {
+      id: 'task-category-virtual',
+      name: 'Institutional Tasks',
+      code: 'TASKS',
+      icon: 'CheckSquare',
+      defaultWeight: 1,
+    };
 
     // Compute institution-wide metrics
     let totalCashOffered = 0;
@@ -98,6 +138,9 @@ export async function GET(req: NextRequest) {
     categories.forEach((c) => {
       categoryTotalsMap.set(c.id, { code: c.code, name: c.name, amount: 0, points: 0 });
     });
+    if (!categoryTotalsMap.has(taskCategory.id)) {
+      categoryTotalsMap.set(taskCategory.id, { code: taskCategory.code, name: taskCategory.name, amount: 0, points: 0 });
+    }
 
     const studentList = students.map((s) => {
       const offered = s.wallet ? Number(s.wallet.totalEarnings) : 0;
@@ -149,6 +192,78 @@ export async function GET(req: NextRequest) {
         }
       });
 
+      // Integrate Approved Task Rewards into category breakdown & institution totals
+      const approvedTasks = (s.taskRecords || []).filter(
+        (t) => Number(t.awardedAmount) > 0 || Number(t.awardedPoints) > 0
+      );
+
+      if (approvedTasks.length > 0) {
+        const catId = taskCategory.id;
+        const catCode = 'TASKS';
+        const catName = taskCategory.name || 'Institutional Tasks';
+
+        if (!studentCatMap.has(catId)) {
+          studentCatMap.set(catId, {
+            categoryId: catId,
+            categoryCode: catCode,
+            categoryName: catName,
+            amount: 0,
+            points: 0,
+          });
+        }
+        const sCat = studentCatMap.get(catId)!;
+
+        approvedTasks.forEach((t) => {
+          const amt = Number(t.awardedAmount) || 0;
+          const pts = Number(t.awardedPoints) || 0;
+
+          sCat.amount = Number((sCat.amount + amt).toFixed(2));
+          sCat.points = Number((sCat.points + pts).toFixed(2));
+
+          if (categoryTotalsMap.has(catId)) {
+            const cTot = categoryTotalsMap.get(catId)!;
+            cTot.amount = Number((cTot.amount + amt).toFixed(2));
+            cTot.points = Number((cTot.points + pts).toFixed(2));
+          }
+        });
+      }
+
+      // Synthesize Task Ledger items alongside standard earning ledgers
+      const taskLedgerEntries = approvedTasks.map((t) => ({
+        id: `task-${t.id}`,
+        reference: `TASK-${t.task?.taskId || t.id.slice(-6)}`,
+        sourceType: 'TASK',
+        activityDate: (t.approvedAt || t.createdAt).toISOString(),
+        points: Number(t.awardedPoints) || 0,
+        multiplier: 1,
+        amount: Number(t.awardedAmount) || 0,
+        categoryName: taskCategory.name || 'Institutional Tasks',
+        categoryCode: 'TASKS',
+        metadata: {
+          title: t.task?.title || 'Assigned Task',
+          taskId: t.task?.taskId,
+          approvedPercentage: t.approvedPercentage,
+          adminRemarks: t.adminRemarks,
+          approvedAt: t.approvedAt,
+        },
+      }));
+
+      const combinedLedgers = [
+        ...s.earningLedgers.map((l) => ({
+          id: l.id,
+          reference: l.reference,
+          sourceType: l.sourceType,
+          activityDate: l.activityDate.toISOString(),
+          points: Number(l.eligiblePoints),
+          multiplier: Number(l.categoryMultiplier),
+          amount: Number(l.recognizedAmount),
+          categoryName: l.category?.name || 'General',
+          categoryCode: l.category?.code || '',
+          metadata: l.metadata ? (() => { try { return JSON.parse(l.metadata); } catch { return null; } })() : null,
+        })),
+        ...taskLedgerEntries,
+      ].sort((a, b) => new Date(b.activityDate).getTime() - new Date(a.activityDate).getTime());
+
       return {
         id: s.id,
         fullName: s.fullName,
@@ -166,17 +281,17 @@ export async function GET(req: NextRequest) {
         availableStoreFund: Number(availStore.toFixed(2)),
         storeFundUsed: Number(usedStore.toFixed(2)),
         categoryBreakdown: Array.from(studentCatMap.values()),
-        recentLedgers: s.earningLedgers.slice(0, 10).map((l) => ({
-          id: l.id,
-          reference: l.reference,
-          sourceType: l.sourceType,
-          activityDate: l.activityDate.toISOString(),
-          points: Number(l.eligiblePoints),
-          multiplier: Number(l.categoryMultiplier),
-          amount: Number(l.recognizedAmount),
-          categoryName: l.category?.name || 'General',
-          categoryCode: l.category?.code || '',
-          metadata: l.metadata ? (() => { try { return JSON.parse(l.metadata); } catch { return null; } })() : null,
+        recentLedgers: combinedLedgers.slice(0, 20),
+        transactions: (s.transactions || []).map((tx) => ({
+          id: tx.id,
+          reference: tx.reference,
+          type: tx.type,
+          amount: Number(tx.amount),
+          balanceBefore: Number(tx.balanceBefore),
+          balanceAfter: Number(tx.balanceAfter),
+          description: tx.description,
+          status: tx.status,
+          createdAt: tx.createdAt.toISOString(),
         })),
       };
     });

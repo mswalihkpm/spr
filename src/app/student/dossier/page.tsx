@@ -574,13 +574,24 @@ export default function StudentDossierPage() {
             </div>
           ) : (
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {recentTransactions.slice(0, 10).map((tx: any) => {
+              {recentTransactions.slice(0, 15).map((tx: any) => {
                 const isPositive = Number(tx.amount) >= 0;
+                const isTaskReward = (tx.reference && tx.reference.startsWith('TXN-TASK')) || (tx.description && tx.description.toLowerCase().includes('from task'));
                 return (
-                  <div key={tx.id || tx.reference} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
-                    <div>
-                      <span className="font-bold text-slate-900 dark:text-slate-100 block">{tx.description}</span>
-                      <span className="text-[10px] text-slate-400 font-mono">
+                  <div key={tx.id || tx.reference} className={`py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs px-2 rounded-xl transition ${
+                    isTaskReward ? 'bg-amber-50/50 dark:bg-amber-950/20' : ''
+                  }`}>
+                    <div className="min-w-0 pr-2">
+                      <div className="flex items-center space-x-1.5 flex-wrap">
+                        {isTaskReward && (
+                          <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
+                            <CheckSquare className="w-2.5 h-2.5" />
+                            <span>Task Reward</span>
+                          </span>
+                        )}
+                        <span className="font-bold text-slate-900 dark:text-slate-100 truncate">{tx.description}</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
                         {new Date(tx.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} • Ref: {tx.reference}
                       </span>
                     </div>

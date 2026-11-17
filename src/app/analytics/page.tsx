@@ -31,6 +31,7 @@ import {
   RefreshCw,
   Plus,
   Minus,
+  CheckSquare,
 } from 'lucide-react';
 import {
   BarChart,
@@ -974,33 +975,56 @@ export default function AnalyticsPage() {
                       const formattedDate = !isNaN(d.getTime())
                         ? d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
                         : '';
+                      const isTask = ledger.sourceType === 'TASK' || ledger.categoryCode === 'TASKS';
                       const title =
                         ledger.metadata?.title ||
-                        ledger.metadata?.monthName
+                        (ledger.metadata?.monthName
                           ? `${ledger.metadata.monthName} ${ledger.metadata.year || ''}`
-                          : ledger.categoryName;
+                          : ledger.categoryName);
 
                       return (
                         <div
                           key={ledger.id}
-                          className="p-2.5 rounded-xl border border-slate-100 bg-slate-50/60 flex items-center justify-between text-xs"
+                          className={`p-2.5 rounded-xl border flex items-center justify-between text-xs transition ${
+                            isTask
+                              ? 'border-amber-200 bg-amber-50/50 hover:bg-amber-50'
+                              : 'border-slate-100 bg-slate-50/60 hover:bg-slate-50'
+                          }`}
                         >
                           <div className="min-w-0 pr-2">
-                            <div className="font-bold text-slate-900 truncate">
-                              {ledger.categoryName} {title && title !== ledger.categoryName ? `• ${title}` : ''}
+                            <div className="font-bold text-slate-900 truncate flex items-center space-x-1.5">
+                              {isTask ? (
+                                <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300">
+                                  <CheckSquare className="w-2.5 h-2.5" />
+                                  <span>Task</span>
+                                </span>
+                              ) : null}
+                              <span className="truncate">
+                                {isTask ? title : `${ledger.categoryName} ${title && title !== ledger.categoryName ? `• ${title}` : ''}`}
+                              </span>
                             </div>
-                            <div className="text-[10px] text-slate-500 flex items-center space-x-2 font-mono">
+                            <div className="text-[10px] text-slate-500 flex items-center space-x-2 font-mono mt-0.5">
                               <span>{formattedDate}</span>
                               <span>•</span>
                               <span>
-                                {ledger.points} pts × {ledger.multiplier}
+                                {ledger.points} pts {isTask ? (ledger.metadata?.approvedPercentage ? `(${ledger.metadata.approvedPercentage}% approved)` : '') : `× ${ledger.multiplier}`}
                               </span>
+                              {ledger.metadata?.taskId && (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-amber-700 font-bold">{ledger.metadata.taskId}</span>
+                                </>
+                              )}
                               <span>•</span>
                               <span className="text-slate-400">{ledger.sourceType}</span>
                             </div>
                           </div>
 
-                          <div className="font-mono font-black text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shrink-0">
+                          <div className={`font-mono font-black text-xs px-2 py-0.5 rounded border shrink-0 ${
+                            isTask
+                              ? 'text-amber-800 bg-amber-100 border-amber-300'
+                              : 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                          }`}>
                             +₹{Number(ledger.amount).toFixed(2)}
                           </div>
                         </div>
@@ -1009,6 +1033,41 @@ export default function AnalyticsPage() {
                   )}
                 </div>
               </div>
+
+              {/* Wallet Transaction Ledger */}
+              {selectedStudentForBreakdown.transactions && selectedStudentForBreakdown.transactions.length > 0 && (
+                <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center space-x-1.5">
+                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Wallet Transactions Audit Log ({selectedStudentForBreakdown.transactions.length})</span>
+                  </h4>
+                  <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+                    {selectedStudentForBreakdown.transactions.map((tx: any) => {
+                      const isTaskTx = tx.type === 'EARNING' && (tx.reference?.startsWith('TXN-TASK') || tx.description?.toLowerCase().includes('task'));
+                      return (
+                        <div key={tx.id || tx.reference} className="p-2 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-between text-[11px]">
+                          <div className="min-w-0 pr-2">
+                            <div className="font-semibold text-slate-800 truncate flex items-center space-x-1.5">
+                              {isTaskTx && (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300">
+                                  Task Reward
+                                </span>
+                              )}
+                              <span className="truncate">{tx.description || tx.type}</span>
+                            </div>
+                            <div className="text-[9.5px] text-slate-400 font-mono">
+                              {new Date(tx.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} • Ref: {tx.reference}
+                            </div>
+                          </div>
+                          <div className={`font-mono font-bold text-xs shrink-0 ${Number(tx.amount) >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                            {Number(tx.amount) >= 0 ? '+' : ''}₹{Math.abs(Number(tx.amount)).toFixed(2)}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Close Button */}
               <div className="pt-2 flex items-center justify-between">

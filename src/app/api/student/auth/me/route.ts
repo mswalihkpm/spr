@@ -96,6 +96,35 @@ export async function GET(req: NextRequest) {
       createdAt: t.createdAt.toISOString(),
     }));
 
+    // Ensure all approved task rewards are guaranteed to appear in transaction history
+    if (taskRecords) {
+      for (const t of taskRecords) {
+        if (t.status === 'APPROVED' && Number(t.awardedAmount) > 0) {
+          const taskIdRef = t.task?.taskId || '';
+          const alreadyExists = formattedTransactions.some(
+            (tx) => (taskIdRef && tx.reference.includes(taskIdRef)) || (tx.description && tx.description.includes(t.task?.title || ''))
+          );
+          if (!alreadyExists) {
+            const amt = Number(t.awardedAmount);
+            formattedTransactions.push({
+              id: `task-tx-${t.id}`,
+              reference: `TXN-TASK-${taskIdRef}-${studentRecord?.sprStudentId || studentId.slice(-6)}`,
+              type: 'EARNING',
+              amount: amt,
+              balanceBefore: Math.max(0, Number(earningsData.wallet.balance) - amt),
+              balanceAfter: Number(earningsData.wallet.balance),
+              description: `Earned ₹${amt.toFixed(2)} from task "${t.task.title}" (${t.approvedPercentage || 100}% approved)`,
+              status: 'COMPLETED',
+              senderName: undefined,
+              recipientName: undefined,
+              createdAt: (t.approvedAt || t.createdAt).toISOString(),
+            });
+          }
+        }
+      }
+      formattedTransactions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+
     // Calculate student ranks using in-memory cached leaderboard
     let rankInfo = { overallRank: 0, classRank: 0, schoolRank: 0 };
     try {
