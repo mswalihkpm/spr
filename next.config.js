@@ -5,14 +5,6 @@ const nextConfig = {
   swcMinify: true,
   experimental: {
     optimizePackageImports: ['lucide-react', 'recharts', 'xlsx'],
-    serverComponentsExternalPackages: ['@prisma/client', 'pg'],
-    outputFileTracingExcludes: {
-      '*': [
-        'node_modules/.prisma/client/query_engine-windows.dll.node*',
-        'node_modules/.prisma/client/libquery_engine-*',
-        'node_modules/@prisma/engines/**',
-      ],
-    },
   },
   images: {
     unoptimized: true,
