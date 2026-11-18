@@ -47,6 +47,7 @@ import {
 } from 'recharts';
 import VideoLoader from '@/components/ui/VideoLoader';
 import OfficialPdfExportModal from '@/components/modals/OfficialPdfExportModal';
+import TvSlideshowSettingsModal from '@/components/modals/TvSlideshowSettingsModal';
 
 
 export default function DashboardPage() {
@@ -67,6 +68,9 @@ export default function DashboardPage() {
   // Official Records & PDF Export State
   const [exportPdfOpen, setExportPdfOpen] = useState(false);
   const [exportInitialTab, setExportInitialTab] = useState<'LEADERBOARD' | 'DOSSIERS'>('LEADERBOARD');
+
+  // TV Slideshow Advanced Customizer State
+  const [slideshowSettingsModalOpen, setSlideshowSettingsModalOpen] = useState(false);
 
   const fetchAnalytics = async () => {
     try {
@@ -255,14 +259,24 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => router.push('/display')}
-              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 hover:from-blue-600 hover:to-indigo-600 text-white text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-blue-900/20 transition-all cursor-pointer hover:scale-105 active:scale-95"
-              title="Launch TV Slideshow Broadcast (14 Students per Slide in 2 Columns)"
-            >
-              <Tv className="w-4 h-4 text-blue-200 animate-pulse" />
-              <span>TV Slideshow</span>
-            </button>
+            <div className="inline-flex rounded-xl shadow-md shadow-blue-900/10 overflow-hidden border border-blue-900/20">
+              <button
+                onClick={() => router.push('/display')}
+                className="px-3.5 py-2 bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 hover:from-blue-600 hover:to-indigo-600 text-white text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer hover:brightness-105 active:scale-95"
+                title="Launch TV Slideshow Broadcast (14 Students per Slide in 2 Columns)"
+              >
+                <Tv className="w-4 h-4 text-blue-200 animate-pulse" />
+                <span>TV Slideshow</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSlideshowSettingsModalOpen(true)}
+                className="px-2.5 py-2 bg-blue-900/90 hover:bg-blue-800 text-blue-200 hover:text-white border-l border-blue-600/40 transition-colors cursor-pointer"
+                title="Configure TV Slideshow Settings, Durations & Poster Images"
+              >
+                <Sliders className="w-4 h-4" />
+              </button>
+            </div>
             <button
               onClick={() => {
                 fetchAnalytics();
@@ -852,6 +866,12 @@ export default function DashboardPage() {
           isOpen={exportPdfOpen}
           onClose={() => setExportPdfOpen(false)}
           initialTab={exportInitialTab}
+        />
+
+        {/* TV Slideshow Advanced Settings & Images Modal */}
+        <TvSlideshowSettingsModal
+          isOpen={slideshowSettingsModalOpen}
+          onClose={() => setSlideshowSettingsModalOpen(false)}
         />
       </div>
     </AdminLayout>

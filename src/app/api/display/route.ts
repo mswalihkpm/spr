@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { calculateAllLeaderboards, getCachedSettings, getCachedCategories } from '@/lib/spr-engine';
 import { getCachedAcademicClasses } from '@/lib/academic-cache';
+import { parseTvSlideshowSettings, parseTvSlideImages } from '@/lib/tv-slideshow-config';
 
 const displayCache = new Map<string, { timestamp: number; data: any }>();
 const DISPLAY_CACHE_TTL = 3 * 60 * 1000; // 3 minutes
@@ -96,9 +97,12 @@ export async function GET(req: NextRequest) {
       spr: entry.spr,
     }));
 
+    const slideshowSettings = parseTvSlideshowSettings(settings.TV_SLIDESHOW_SETTINGS);
+    const slideshowImages = parseTvSlideImages(settings.TV_SLIDESHOW_IMAGES);
+
     const responsePayload = {
       institutionName: settings.INSTITUTION_NAME || 'Madin School of Excellence',
-      autoScrollInterval: parseInt(settings.DISPLAY_AUTOSCROLL_INTERVAL || '7', 10),
+      autoScrollInterval: slideshowSettings.leaderboardSlideDuration || parseInt(settings.DISPLAY_AUTOSCROLL_INTERVAL || '7', 10),
       introFooter: settings.APP_INTRO_FOOTER || 'Madin School of Excellence • SPR Platform',
       leaderboard: sanitizedLeaderboard,
       totalCount: sanitizedLeaderboard.length,
@@ -106,6 +110,8 @@ export async function GET(req: NextRequest) {
       classes: classes.map((c: any) => ({ id: c.id, name: c.name })),
       topThree: sanitizedLeaderboard.slice(0, 3),
       notifications: broadcastNotifications,
+      slideshowSettings,
+      slideshowImages,
     };
 
     if (!isFresh) {

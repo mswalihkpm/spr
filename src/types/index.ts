@@ -206,3 +206,36 @@ export interface ExcelImportResult {
   issues: ExcelValidationIssue[];
   validRecords: ExcelImportRow[];
 }
+
+export interface TvSlideImage {
+  id: string;
+  imageUrl: string;
+  title?: string;
+  caption?: string;
+  duration?: number;
+  active: boolean;
+  order: number;
+  createdAt: string;
+}
+
+export interface TvSlideshowSettings {
+  leaderboardSlideDuration: number;
+  imageSlideDuration: number;
+  notificationDuration: number;
+  autoRefreshInterval: number;
+  mode: 'BOTH' | 'LEADERBOARD_ONLY' | 'IMAGES_ONLY';
+  interleaveMode: 'EVERY_N_SLIDES' | 'AFTER_ALL' | 'BEFORE_ALL';
+  interleaveFrequency: number;
+  studentsPerSlide: number;
+  columnLayout: 'TWO_COLUMNS' | 'SINGLE_COLUMN';
+  theme: 'MIDNIGHT' | 'COSMIC' | 'GOLD' | 'EMERALD';
+  transitionEffect: 'SLIDE' | 'FADE' | 'ZOOM' | 'FLIP';
+  showProgressBar: boolean;
+  showSlideCounter: boolean;
+  showClock: boolean;
+  showNotificationsTicker: boolean;
+  autoPlay: boolean;
+  defaultCategoryId?: string;
+  defaultClassId?: string;
+}
+
