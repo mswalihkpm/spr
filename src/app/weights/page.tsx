@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
-import { formatPoints } from '@/lib/spr-engine';
+import { formatPoints } from '@/lib/format-utils';
 import CustomSelect from '@/components/ui/CustomSelect';
 
 export default function WeightsPage() {

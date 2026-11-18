@@ -52,24 +52,8 @@ export function invalidateEngineCache() {
   }
 }
 
-export function formatPoints(val: number): string {
-  if (isNaN(val) || val === null || val === undefined) return '0';
-  if (Number.isInteger(val)) {
-    return val.toLocaleString('en-US');
-  }
-  const fixed = Number(val.toFixed(2));
-  return fixed.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-}
-
-export function normalizeScoreToPercentage(obtainedScore: number, maxScore: number): number {
-  if (!maxScore || maxScore <= 0) return 0;
-  const raw = (obtainedScore / maxScore) * 100;
-  return Math.min(Math.max(Number(raw.toFixed(2)), 0), 100);
-}
-
-export function formatPercentage(val: number): string {
-  return `${val.toFixed(2)}%`;
-}
+import { formatPoints, normalizeScoreToPercentage, formatPercentage } from './format-utils';
+export { formatPoints, normalizeScoreToPercentage, formatPercentage };
 
 export async function getCachedSettings(): Promise<Record<string, string>> {
   const now = Date.now();
