@@ -787,3 +787,64 @@ textarea {
   }
 }
 
+/* =========================================================================
+   TV SLIDESHOW BROADCAST ANIMATIONS
+   ========================================================================= */
+@keyframes tvSlideFadeIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes tvCardEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+  70% {
+    opacity: 0.95;
+    transform: translateY(-2px) scale(1.005);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes tvTickerSlide {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  85% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+.animate-tv-slide {
+  animation: tvSlideFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-tv-card {
+  animation: tvCardEntrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-tv-ticker {
+  animation: tvTickerSlide 6.5s ease-in-out infinite;
+}
+
+

@@ -153,6 +153,7 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
     { name: 'News & Updates', href: '/updates/manage', icon: Megaphone, adminOnly: true },
     { name: 'Weight Management', href: '/weights', icon: Sliders, adminOnly: true },
     { name: 'Leaderboards', href: '/leaderboard', icon: Award },
+    { name: 'TV Slideshow', href: '/display', icon: Tv },
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Deletion Requests', href: '/admin/deletion-requests', icon: UserX, adminOnly: true },
     { name: 'Settings', href: '/settings', icon: Settings, adminOnly: true },

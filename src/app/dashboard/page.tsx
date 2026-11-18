@@ -33,6 +33,7 @@ import {
   ExternalLink,
   Trash2,
   Download,
+  Tv,
 } from 'lucide-react';
 import {
   BarChart,
@@ -253,7 +254,15 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => router.push('/display')}
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 hover:from-blue-600 hover:to-indigo-600 text-white text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-blue-900/20 transition-all cursor-pointer hover:scale-105 active:scale-95"
+              title="Launch TV Slideshow Broadcast (14 Students per Slide in 2 Columns)"
+            >
+              <Tv className="w-4 h-4 text-blue-200 animate-pulse" />
+              <span>TV Slideshow</span>
+            </button>
             <button
               onClick={() => {
                 fetchAnalytics();
