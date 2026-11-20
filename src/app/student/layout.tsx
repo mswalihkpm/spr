@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import { clearClientCache } from '@/lib/client-cache';
 import StudentAvatar from '@/components/ui/StudentAvatar';
+import { registerForegroundMessageHandler } from '@/lib/firebase-client';
+import { sanitizeStudentDeepLink } from '@/lib/notification-navigation';
 
 interface StudentLayoutProps {
   children: React.ReactNode;
@@ -53,6 +55,12 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
   const [student, setStudent] = useState<any>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [foregroundAlert, setForegroundAlert] = useState<{
+    title: string;
+    body: string;
+    url: string;
+    category?: string;
+  } | null>(null);
 
   useEffect(() => {
     fetch('/api/student/auth/me')
@@ -71,9 +79,37 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
       .catch(() => {});
   }, [router]);
 
+  // Observer for foreground push notifications received while looking at active portal
+  useEffect(() => {
+    const cleanup = registerForegroundMessageHandler((msg) => {
+      setForegroundAlert({
+        title: msg.title,
+        body: msg.body,
+        url: msg.url || '/student/dashboard',
+        category: msg.category,
+      });
+    });
+
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, []);
+
   const handleLogout = async () => {
     try {
-      await fetch('/api/student/auth/logout', { method: 'POST' });
+      const token = typeof window !== 'undefined' ? localStorage.getItem('spr_fcm_token') : null;
+      await fetch('/api/student/auth/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fcmToken: token || undefined }),
+      });
+    } catch (err) {
+      console.warn('Logout network warning:', err);
+    }
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('spr_fcm_token');
+      }
     } catch {}
     clearClientCache();
     router.push('/student/login');
@@ -231,6 +267,13 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
         </Link>
 
         <div className="flex items-center space-x-2 shrink-0">
+          <Link
+            href="/student/settings"
+            className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+            title="Notification Preferences"
+          >
+            <Bell className="w-4 h-4" />
+          </Link>
           {student && (
             <div className="flex items-center space-x-1.5">
               <span className="text-[10px] font-mono font-bold text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800">
@@ -259,6 +302,52 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
           PAGE MAIN CONTENT
           --------------------------------------------------------------------- */}
       <div className="flex-1 flex flex-col min-w-0 pb-20 md:pb-6 w-full max-w-full overflow-x-hidden">
+        {/* Foreground In-App Push Notification Toast */}
+        {foregroundAlert && (
+          <div className="mx-3.5 mt-3 sm:mx-6 sm:mt-4 p-4 rounded-2xl bg-slate-900 text-white shadow-xl border border-blue-500/40 flex items-start justify-between gap-3 animate-in fade-in slide-in-from-top-3 z-50">
+            <div className="flex items-start space-x-3 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                <Bell className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center space-x-2">
+                  <span className="text-[10px] font-black uppercase text-blue-400 tracking-wider">
+                    {foregroundAlert.category || 'Notification'}
+                  </span>
+                </div>
+                <h4 className="text-xs sm:text-sm font-bold text-white truncate">
+                  {foregroundAlert.title}
+                </h4>
+                <p className="text-[11px] text-slate-300 line-clamp-2 mt-0.5">
+                  {foregroundAlert.body}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  const targetUrl = sanitizeStudentDeepLink(foregroundAlert.url);
+                  setForegroundAlert(null);
+                  router.push(targetUrl);
+                }}
+                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold transition cursor-pointer"
+              >
+                View
+              </button>
+              <button
+                type="button"
+                onClick={() => setForegroundAlert(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"
+                title="Dismiss"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {children}
       </div>
 

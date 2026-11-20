@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import StudentAvatar from '@/components/ui/StudentAvatar';
+import NotificationPreferencesCard from '@/components/student/NotificationPreferencesCard';
 
 export default function StudentSettingsPage() {
   const router = useRouter();
@@ -168,6 +169,9 @@ export default function StudentSettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Push Notification Preferences & Device Registration Card */}
+      <NotificationPreferencesCard />
 
       {/* Security & Password Change Card */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xs space-y-4">

@@ -138,3 +138,219 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 });
+
+// =============================================================================
+// Push Notification Handlers (SPR Push Notification System - Phase B)
+// =============================================================================
+
+/**
+ * Validates and sanitizes a deep-link URL to ensure it is strictly an internal,
+ * same-origin relative path or same-origin URL. Rejects external schemes, protocol-relative
+ * URLs, and dangerous URIs (javascript:, data:, etc.).
+ */
+function sanitizeInternalUrl(rawUrl) {
+  const fallback = '/student/dashboard';
+  if (!rawUrl || typeof rawUrl !== 'string') {
+    return fallback;
+  }
+
+  const trimmed = rawUrl.trim();
+
+  // Reject control characters, backslashes, or empty strings
+  if (!trimmed || /[\x00-\x1F\x7F]/.test(trimmed) || trimmed.includes('\\')) {
+    return fallback;
+  }
+
+  // Reject scheme-relative or pseudo-protocols
+  if (trimmed.startsWith('//') || /^[a-zA-Z][a-zA-Z0-9+.-]*:/i.test(trimmed)) {
+    return fallback;
+  }
+
+  // Multi-level decoding check to catch %2e%2e directory traversal
+  let decoded = trimmed;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const nextDecoded = decodeURIComponent(decoded);
+      if (nextDecoded === decoded) break;
+      decoded = nextDecoded;
+    } catch {
+      return fallback;
+    }
+  }
+
+  if (decoded.includes('..') || decoded.includes('\\') || /[\x00-\x1F\x7F]/.test(decoded)) {
+    return fallback;
+  }
+
+  // Relative path starting with '/'
+  if (trimmed.startsWith('/')) {
+    try {
+      const parsed = new URL(trimmed, self.location.origin);
+      if (parsed.origin === self.location.origin) {
+        const pathPart = parsed.pathname;
+        if (pathPart === '/student' || pathPart.startsWith('/student/')) {
+          return pathPart + parsed.search + parsed.hash;
+        }
+      }
+    } catch {
+      return fallback;
+    }
+  }
+
+  // Absolute URL matching self origin
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.origin === self.location.origin) {
+      const pathPart = parsed.pathname;
+      if (pathPart === '/student' || pathPart.startsWith('/student/')) {
+        return pathPart + parsed.search + parsed.hash;
+      }
+    }
+  } catch {
+    return fallback;
+  }
+
+  return fallback;
+}
+
+/**
+ * Parses and sanitizes incoming push event payloads.
+ * Supports standard Firebase Cloud Messaging Admin SDK payloads, data payloads,
+ * and standard Web Push formats with safe defaults.
+ */
+function parsePushPayload(event) {
+  const fallback = {
+    title: 'SPR Madin Notification',
+    body: 'You have a new update in your student portal.',
+    url: '/student/dashboard',
+    tag: 'spr-notification',
+    category: 'GENERAL'
+  };
+
+  if (!event || !event.data) {
+    return fallback;
+  }
+
+  let data = {};
+  try {
+    data = event.data.json() || {};
+  } catch {
+    const text = event.data.text() || '';
+    return {
+      title: fallback.title,
+      body: text.replace(/<[^>]*>/g, '').trim().slice(0, 500) || fallback.body,
+      url: fallback.url,
+      tag: fallback.tag,
+      category: fallback.category
+    };
+  }
+
+  const rawNotification = data.notification || {};
+  const customData = data.data || {};
+
+  const rawTitle = rawNotification.title || customData.title || data.title || fallback.title;
+  const rawBody = rawNotification.body || customData.body || data.body || fallback.body;
+  const rawUrl = customData.url || customData.deepLink || rawNotification.click_action || data.url || fallback.url;
+  const rawTag = customData.tag || rawNotification.tag || data.tag || fallback.tag;
+  const rawCategory = customData.category || data.category || fallback.category;
+
+  const safeTitle = String(rawTitle).replace(/<[^>]*>/g, '').trim().slice(0, 100) || fallback.title;
+  const safeBody = String(rawBody).replace(/<[^>]*>/g, '').trim().slice(0, 500) || fallback.body;
+  const safeUrl = sanitizeInternalUrl(rawUrl);
+  const safeTag = String(rawTag).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 50) || fallback.tag;
+
+  return {
+    title: safeTitle,
+    body: safeBody,
+    url: safeUrl,
+    tag: safeTag,
+    category: String(rawCategory).slice(0, 30)
+  };
+}
+
+// Push event handler: receives background Web Push / FCM notifications
+self.addEventListener('push', (event) => {
+  const payload = parsePushPayload(event);
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // Check if an active, focused client window is visible on screen
+      const focusedClient = windowClients.find((client) => client.focused);
+
+      if (focusedClient) {
+        // Post message to focused client for in-app toast / onMessage handling
+        focusedClient.postMessage({
+          isFirebaseMessaging: true,
+          messageType: 'push-received',
+          data: {
+            title: payload.title,
+            body: payload.body,
+            url: payload.url,
+            tag: payload.tag,
+            category: payload.category
+          }
+        });
+        // Do NOT call showNotification to avoid duplicate notifications when user is actively in the app
+        return;
+      }
+
+      // Background or locked device: display native system notification
+      const options = {
+        body: payload.body,
+        icon: '/icon-192.png',
+        badge: '/icon-96.png',
+        tag: payload.tag,
+        renotify: true,
+        data: {
+          url: payload.url,
+          category: payload.category,
+          dateOfArrival: Date.now()
+        },
+        vibrate: [200, 100, 200]
+      };
+
+      return self.registration.showNotification(payload.title, options);
+    })
+  );
+});
+
+// Notification click handler: closes notification and securely navigates/focuses client
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const rawUrl = event.notification.data && event.notification.data.url;
+  const targetPath = sanitizeInternalUrl(rawUrl);
+  const targetUrl = new URL(targetPath, self.location.origin).href;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // Focus existing window on the same origin if available
+      for (const client of windowClients) {
+        if (client.url && client.url.startsWith(self.location.origin)) {
+          if ('navigate' in client) {
+            return client.navigate(targetUrl).then((navigatedClient) => {
+              const targetToFocus = navigatedClient || client;
+              if ('focus' in targetToFocus) {
+                return targetToFocus.focus();
+              }
+            }).catch(() => {
+              if ('focus' in client) {
+                return client.focus();
+              }
+            });
+          }
+          if ('focus' in client) {
+            return client.focus();
+          }
+          return;
+        }
+      }
+
+      // If no window is currently open, open a new one
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
+

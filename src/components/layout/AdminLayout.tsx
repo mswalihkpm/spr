@@ -118,7 +118,7 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
           router.push('/kuthbkhana');
         }
       } else if (!isAdmin && !isSuperAdmin) {
-        if (pathname.startsWith('/settings') || pathname.startsWith('/weights') || pathname.startsWith('/categories') || pathname.startsWith('/updates/manage') || pathname.startsWith('/store') || pathname.startsWith('/admin/deletion-requests') || pathname.startsWith('/attendance') || pathname.startsWith('/field-collection')) {
+        if (pathname.startsWith('/settings') || pathname.startsWith('/weights') || pathname.startsWith('/categories') || pathname.startsWith('/updates/manage') || pathname.startsWith('/store') || pathname.startsWith('/admin/deletion-requests') || pathname.startsWith('/attendance') || pathname.startsWith('/field-collection') || pathname.startsWith('/admin/push-notifications')) {
           router.push('/dashboard');
         }
       }
@@ -151,6 +151,7 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
     { name: 'Other Subcategories', href: '/subcategories', icon: Layers },
     { name: 'Store Management', href: '/store', icon: Store, adminOnly: true },
     { name: 'News & Updates', href: '/updates/manage', icon: Megaphone, adminOnly: true },
+    { name: 'Push Notifications', href: '/admin/push-notifications', icon: Bell, adminOnly: true },
     { name: 'Weight Management', href: '/weights', icon: Sliders, adminOnly: true },
     { name: 'Leaderboards', href: '/leaderboard', icon: Award },
     { name: 'TV Slideshow', href: '/display', icon: Tv },

@@ -29,6 +29,8 @@ model User {
   profileCorrections ProfileCorrectionLog[] @relation("AdminCorrections")
   savedFilters       StudentSavedFilter[]   @relation("SavedFilters")
   briefNoteTemplates StudentBriefNoteTemplate[] @relation("BriefNoteTemplates")
+  sentPushNotifications NotificationLog[] @relation("SentPushNotifications")
+  pushSubscriptions  PushSubscription[]
 }
 
 model Session {
@@ -71,6 +73,7 @@ model AcademicClass {
   updatedAt    DateTime  @updatedAt
   students     Student[]
   tasks        Task[]
+  targetedNotifications NotificationLog[]
 }
 
 model AcademicYear {
@@ -125,6 +128,7 @@ model Student {
   taskPointsLedgers  TaskPointsLedger[]
   deletionRequests   AccountDeletionRequest[]
   monthlyAttendances MonthlyAttendance[]
+  targetedNotifications NotificationLog[]
 
   // Extended Profile from Questionnaire 1 (Personal & Family)
   fatherName         String?
@@ -573,6 +577,8 @@ model StudentAccount {
   lastLoginAt        DateTime?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
+  pushSubscriptions  PushSubscription[]
+  notificationPreference NotificationPreference?
 
   @@index([studentId])
   @@index([status])
@@ -975,6 +981,67 @@ model StudentPointAdjustment {
 
   @@index([studentId])
   @@index([reasonId])
+}
+
+// -----------------------------------------------------------------------------
+// PUSH NOTIFICATION SYSTEM MODELS
+// -----------------------------------------------------------------------------
+
+model PushSubscription {
+  id               String          @id @default(cuid())
+  fcmToken         String          @unique
+  deviceType       String          @default("WEB") // "ANDROID_TWA" | "CHROME" | "SAFARI" | "EDGE" | "FIREFOX"
+  userAgent        String?
+  studentAccountId String?
+  studentAccount   StudentAccount? @relation(fields: [studentAccountId], references: [id], onDelete: Cascade)
+  userId           String?
+  user             User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isActive         Boolean         @default(true)
+  lastActiveAt     DateTime        @default(now())
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([studentAccountId])
+  @@index([userId])
+  @@index([isActive])
+}
+
+model NotificationLog {
+  id               String         @id @default(cuid())
+  title            String
+  body             String
+  category         String         @default("GENERAL") // "GENERAL" | "ACADEMIC" | "EXAM" | "TASK" | "FEE" | "EVENT"
+  targetType       String         @default("ALL")     // "ALL" | "CLASS" | "INDIVIDUAL"
+  targetClassId    String?
+  targetClass      AcademicClass? @relation(fields: [targetClassId], references: [id], onDelete: SetNull)
+  targetStudentId  String?
+  targetStudent    Student?       @relation(fields: [targetStudentId], references: [id], onDelete: SetNull)
+  deepLink         String?
+  senderId         String
+  sender           User           @relation("SentPushNotifications", fields: [senderId], references: [id])
+  recipientCount   Int            @default(0)
+  fcmAcceptedCount Int            @default(0)
+  failureCount     Int            @default(0)
+  status           String         @default("PENDING") // "PENDING" | "SENT" | "PARTIAL_FAILURE" | "FAILED"
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([targetType])
+  @@index([category])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+model NotificationPreference {
+  id               String         @id @default(cuid())
+  studentAccountId String         @unique
+  studentAccount   StudentAccount @relation(fields: [studentAccountId], references: [id], onDelete: Cascade)
+  academicAlerts   Boolean        @default(true)
+  examAlerts       Boolean        @default(true)
+  taskAlerts       Boolean        @default(true)
+  announcements    Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 }
 
 
