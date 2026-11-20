@@ -77,6 +77,7 @@ export default function PublicHomePage() {
   const [loadingActiveLeaderboard, setLoadingActiveLeaderboard] = useState(false);
   const [activeSettings, setActiveSettings] = useState<ActiveLeaderboardSettings | null>(null);
   const [currentUser, setCurrentUser] = useState<any | null>(null);
+  const [currentStudent, setCurrentStudent] = useState<any | null>(null);
   const isAdmin = currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN';
 
   // Fetch active text notifications on fresh application launch (session-guarded)
@@ -312,12 +313,19 @@ export default function PublicHomePage() {
       .finally(() => setLoadingLeaderboard(false));
   }, [selectedClass, bootstrapLeaderboard, isBootstrapped]);
 
-  // Fetch current user and active leaderboard settings on mount
+  // Fetch current user, student session, and active leaderboard settings on mount
   useEffect(() => {
     fetch('/api/auth/me')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.user) setCurrentUser(data.user);
+      })
+      .catch(() => {});
+
+    fetch('/api/student/auth/me', { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.student) setCurrentStudent(data.student);
       })
       .catch(() => {});
 
@@ -926,10 +934,14 @@ export default function PublicHomePage() {
                   <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 dark:text-indigo-400" />
                 </Link>
                 <Link
-                  href="/student/login"
+                  href={currentStudent ? '/student/dashboard' : '/student/login'}
                   className="hidden sm:flex w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/90 dark:bg-slate-900/90 hover:bg-emerald-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs border border-transparent dark:border-slate-800 btn-interactive"
-                  title="Student Portal (Earnings & Wallet)"
-                  aria-label="Student Portal"
+                  title={
+                    currentStudent
+                      ? `My Student Dashboard (${currentStudent.fullName || currentStudent.sprStudentId})`
+                      : 'Student Portal (Earnings & Wallet)'
+                  }
+                  aria-label={currentStudent ? 'My Student Dashboard' : 'Student Portal'}
                 >
                   <GraduationCap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400" />
                 </Link>

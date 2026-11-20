@@ -23,7 +23,51 @@ import {
 
 export default function StudentLoginPage() {
   const router = useRouter();
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [mode, setMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
+
+  // Verify whether an active student session already exists on application/page startup
+  useEffect(() => {
+    let isMounted = true;
+    const controller = new AbortController();
+
+    async function checkExistingSession() {
+      try {
+        const res = await fetch('/api/student/auth/me', {
+          credentials: 'include',
+          signal: controller.signal,
+          headers: {
+            'Cache-Control': 'no-cache',
+          },
+        });
+
+        if (!isMounted) return;
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.student) {
+            router.replace('/student/dashboard');
+            return;
+          }
+        }
+        // Confirmed unauthenticated (401, 403, or invalid payload)
+        setCheckingAuth(false);
+      } catch (err: any) {
+        if (!isMounted || err.name === 'AbortError') return;
+        // In case of network errors or server hiccups, fall back to displaying the login form
+        // without falsely declaring or displaying an unauthenticated/logout error
+        console.warn('Student session check error:', err);
+        setCheckingAuth(false);
+      }
+    }
+
+    checkExistingSession();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [router]);
 
   // Sign In State
   const [loginIdentifier, setLoginIdentifier] = useState('');
@@ -140,6 +184,29 @@ export default function StudentLoginPage() {
   });
 
   const selectedStudent = unregisteredStudents.find((s) => s.id === selectedStudentId);
+
+  // Show dedicated loading screen while verifying existing authentication session
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-madin-950 to-slate-900 flex flex-col justify-center items-center py-8 px-4 relative overflow-hidden">
+        {/* Decorative Orbs */}
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gold-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="sm:mx-auto sm:w-full sm:max-w-md text-center z-10 space-y-4">
+          <div className="w-20 h-20 mx-auto rounded-2xl bg-white p-2.5 shadow-2xl flex items-center justify-center animate-pulse">
+            <img src="/logo.png" alt="Madin SPR Logo" className="w-full h-full object-contain" />
+          </div>
+          <div className="flex flex-col items-center justify-center space-y-2">
+            <div className="w-7 h-7 border-3 border-gold-400 border-t-transparent rounded-full animate-spin" />
+            <p className="text-xs font-bold text-slate-300 tracking-wider uppercase">
+              Verifying Student Session...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-madin-950 to-slate-900 flex flex-col justify-center py-8 sm:py-12 px-3.5 sm:px-6 lg:px-8 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] relative overflow-hidden">
