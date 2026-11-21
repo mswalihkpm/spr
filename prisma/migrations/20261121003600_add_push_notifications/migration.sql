@@ -1,3 +1,5 @@
+BEGIN;
+
 -- CreateTable
 CREATE TABLE "PushSubscription" (
     "id" TEXT NOT NULL,
@@ -99,3 +101,5 @@ ALTER TABLE "PushSubscription" ADD CONSTRAINT "PushSubscription_exactly_one_owne
     ("studentAccountId" IS NOT NULL AND "userId" IS NULL) OR
     ("studentAccountId" IS NULL AND "userId" IS NOT NULL)
 );
+
+COMMIT;
