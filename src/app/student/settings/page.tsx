@@ -14,10 +14,12 @@ import {
   Smartphone,
   Eye,
   EyeOff,
+  LogOut,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import NotificationPreferencesCard from '@/components/student/NotificationPreferencesCard';
+import { clearClientCache } from '@/lib/client-cache';
 
 export default function StudentSettingsPage() {
   const router = useRouter();
@@ -30,6 +32,44 @@ export default function StudentSettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [pwdLoading, setPwdLoading] = useState(false);
   const [pwdMsg, setPwdMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Logout State
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    setLogoutError(null);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('spr_fcm_token') : null;
+      const res = await fetch('/api/student/auth/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fcmToken: token || undefined }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        const failMessage =
+          errorData.message ||
+          'Unable to safely complete logout at this time. Please retry to ensure private notifications are disconnected.';
+        setLogoutError(failMessage);
+        setLoggingOut(false);
+        return;
+      }
+
+      // Revert device token type to ANONYMOUS so it continues to receive general circulars
+      if (typeof window !== 'undefined' && token) {
+        localStorage.setItem('spr_subscription_type', 'ANONYMOUS');
+      }
+      clearClientCache();
+      router.push('/student/login');
+    } catch (err: any) {
+      console.warn('Logout network error:', err);
+      setLogoutError('Network connection failed during logout. Please check your connection and retry.');
+      setLoggingOut(false);
+    }
+  };
 
   useEffect(() => {
     fetch('/api/student/auth/me')
@@ -241,6 +281,48 @@ export default function StudentSettingsPage() {
             {pwdLoading ? 'Updating...' : 'Update Password'}
           </button>
         </form>
+      </div>
+
+      {/* Account Session & Sign Out Card */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-rose-200/80 dark:border-rose-900/40 p-6 shadow-xs space-y-4">
+        <div className="flex items-start justify-between">
+          <div className="space-y-1">
+            <h2 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center space-x-2">
+              <LogOut className="w-4 h-4 text-rose-600" />
+              <span>Session &amp; Account Sign Out</span>
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Sign out of your active student portal session on this device. Private push notifications will be disconnected and reverted to institutional bulletin mode.
+            </p>
+          </div>
+        </div>
+
+        {logoutError && (
+          <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-xs text-rose-800 dark:text-rose-200 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{logoutError}</span>
+            </div>
+            <button
+              onClick={() => setLogoutError(null)}
+              className="text-rose-400 hover:text-rose-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        <div className="pt-2">
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-md shadow-rose-600/20 transition flex items-center justify-center space-x-2 disabled:opacity-50 cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>{loggingOut ? 'Signing Out...' : 'Sign Out of Account'}</span>
+          </button>
+        </div>
       </div>
     </div>
   );

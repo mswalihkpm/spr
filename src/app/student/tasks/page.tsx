@@ -1116,9 +1116,10 @@ export default function StudentTasksPage() {
       {/* Report Completion Modal (Enter submission notes)                          */}
       {/* ========================================================================= */}
       {submitModalTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-lg rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl space-y-5 animate-scale-in">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-fade-in overflow-y-auto">
+          <div className="relative w-full max-w-lg max-h-[calc(100dvh-2rem)] flex flex-col rounded-3xl bg-white border border-slate-200 shadow-2xl animate-scale-in my-auto overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 shrink-0">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
                   <Send className="w-5 h-5" />
@@ -1136,67 +1137,71 @@ export default function StudentTasksPage() {
               </button>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
-              <h4 className="text-sm font-black text-slate-900">{submitModalTask.title}</h4>
-              <p className="text-xs text-slate-600 line-clamp-2">{submitModalTask.description}</p>
-              <div className="pt-2 flex items-center space-x-4 text-xs font-bold font-mono">
-                <span className="text-amber-800">Max Points: {submitModalTask.maxPoints} pts</span>
-                <span className="text-emerald-800">Max Cash: ₹{submitModalTask.maxFund.toFixed(2)}</span>
-              </div>
-              {submitModalTask.telemetry && submitModalTask.telemetry.rewardMode !== 'EQUAL' && (
-                <div className="mt-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs flex items-center justify-between font-bold text-amber-950">
-                  <span className="flex items-center space-x-1.5">
-                    <Target className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                    <span>
-                      {submitModalTask.telemetry.myPosition
-                        ? `Submitting update for Rank #${submitModalTask.telemetry.myPosition}`
-                        : `Your submission will secure Rank #${(submitModalTask.telemetry.totalSubmissions || 0) + 1}`}
-                    </span>
-                  </span>
-                  {submitModalTask.telemetry.nextPotentialReward && (
-                    <span className="font-mono text-emerald-800 shrink-0">
-                      Est: +{submitModalTask.telemetry.nextPotentialReward.points} pts • ₹{submitModalTask.telemetry.nextPotentialReward.cash.toFixed(2)}
-                    </span>
-                  )}
+            {/* Scrollable Modal Content */}
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4">
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+                <h4 className="text-sm font-black text-slate-900">{submitModalTask.title}</h4>
+                <p className="text-xs text-slate-600 line-clamp-2">{submitModalTask.description}</p>
+                <div className="pt-2 flex items-center space-x-4 text-xs font-bold font-mono">
+                  <span className="text-amber-800">Max Points: {submitModalTask.maxPoints} pts</span>
+                  <span className="text-emerald-800">Max Cash: ₹{submitModalTask.maxFund.toFixed(2)}</span>
                 </div>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Shareable Submission Link <span className="text-slate-400 font-normal">(Google Drive, OneDrive, Dropbox URL)</span>
-                </label>
-                <input
-                  type="url"
-                  value={submissionNotes}
-                  onChange={(e) => setSubmissionNotes(e.target.value)}
-                  placeholder="https://drive.google.com/... or https://..."
-                  className="w-full rounded-xl bg-white border border-slate-300 p-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all font-mono"
-                />
+                {submitModalTask.telemetry && submitModalTask.telemetry.rewardMode !== 'EQUAL' && (
+                  <div className="mt-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs flex items-center justify-between font-bold text-amber-950">
+                    <span className="flex items-center space-x-1.5">
+                      <Target className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>
+                        {submitModalTask.telemetry.myPosition
+                          ? `Submitting update for Rank #${submitModalTask.telemetry.myPosition}`
+                          : `Your submission will secure Rank #${(submitModalTask.telemetry.totalSubmissions || 0) + 1}`}
+                      </span>
+                    </span>
+                    {submitModalTask.telemetry.nextPotentialReward && (
+                      <span className="font-mono text-emerald-800 shrink-0">
+                        Est: +{submitModalTask.telemetry.nextPotentialReward.points} pts • ₹{submitModalTask.telemetry.nextPotentialReward.cash.toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
-              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200/80 text-[11.5px] text-amber-900 flex items-start space-x-2">
-                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Shareable Submission Link <span className="text-slate-400 font-normal">(Google Drive, OneDrive, Dropbox URL)</span>
+                  </label>
+                  <input
+                    type="url"
+                    value={submissionNotes}
+                    onChange={(e) => setSubmissionNotes(e.target.value)}
+                    placeholder="https://drive.google.com/... or https://..."
+                    className="w-full rounded-xl bg-white border border-slate-300 p-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all font-mono"
+                  />
+                </div>
+
+                <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200/80 text-[11.5px] text-amber-900 flex items-start space-x-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Strict Link-Only Policy:</strong> Direct file uploads are disabled to preserve database performance. Ensure your cloud link permissions are set to <em>&quot;Anyone with the link can view&quot;</em> so administrators can verify your work.
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-blue-50 border border-blue-200 text-[11px] text-blue-900 flex items-start space-x-2">
+                <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Strict Link-Only Policy:</strong> Direct file uploads are disabled to preserve database performance. Ensure your cloud link permissions are set to <em>&quot;Anyone with the link can view&quot;</em> so administrators can verify your work.
+                  Reporting completion notifies administrators. SPR points and cash rewards will be awarded directly
+                  to your profile and wallet upon admin approval.
                 </span>
               </div>
             </div>
 
-            <div className="p-3 rounded-2xl bg-blue-50 border border-blue-200 text-[11px] text-blue-900 flex items-start space-x-2">
-              <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-              <span>
-                Reporting completion notifies administrators. SPR points and cash rewards will be awarded directly
-                to your profile and wallet upon admin approval.
-              </span>
-            </div>
-
-            <div className="flex items-center space-x-3 pt-2">
+            {/* Pinned Action Buttons (Never Cut Off) */}
+            <div className="flex items-center space-x-3 p-4 sm:p-5 border-t border-slate-100 shrink-0 bg-slate-50/70">
               <button
                 type="button"
                 onClick={() => setSubmitModalTask(null)}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-200 transition-colors cursor-pointer"
+                className="flex-1 py-2.5 px-4 rounded-xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200 transition-colors cursor-pointer shadow-xs"
               >
                 Cancel
               </button>
@@ -1222,37 +1227,6 @@ export default function StudentTasksPage() {
           </div>
         </div>
       )}
-
-      {/* ========================================================================= */}
-      {/* Mobile Sticky Bottom Navigation Bar                                       */}
-      {/* ========================================================================= */}
-      <nav className="sm:hidden fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] inset-x-3 bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-2xl p-1.5 flex justify-around items-center z-40 shadow-xl">
-        <button
-          onClick={() => router.push('/student/dashboard')}
-          className="flex flex-col items-center justify-center flex-1 min-h-[44px] py-1 px-2 text-slate-500 hover:text-slate-900 text-[10px] font-bold cursor-pointer"
-        >
-          <LayoutDashboard className="w-4 h-4 mb-0.5" />
-          <span>Dashboard</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('AVAILABLE')}
-          className="flex flex-col items-center justify-center flex-1 min-h-[44px] py-1 px-2 text-amber-600 font-black text-[10px] cursor-pointer"
-        >
-          <CheckSquare className="w-4 h-4 mb-0.5" />
-          <span>Tasks ({availableTasks.length})</span>
-        </button>
-
-        {student?.sprStudentId && (
-          <button
-            onClick={() => router.push(`/student/${student.sprStudentId}`)}
-            className="flex flex-col items-center justify-center flex-1 min-h-[44px] py-1 px-2 text-slate-500 hover:text-slate-900 text-[10px] font-bold cursor-pointer"
-          >
-            <Award className="w-4 h-4 mb-0.5" />
-            <span>My Dossier</span>
-          </button>
-        )}
-      </nav>
     </div>
   );
 }

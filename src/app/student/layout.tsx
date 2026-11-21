@@ -305,13 +305,6 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
               />
             </div>
           )}
-          <button
-            onClick={handleLogout}
-            className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
-            title="Sign Out"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
         </div>
       </header>
 
