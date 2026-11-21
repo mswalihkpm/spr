@@ -8,7 +8,14 @@ import { getFirebaseAdminMessaging, isFirebaseAdminConfigured } from '@/lib/fire
 const VALID_CATEGORIES = ['GENERAL', 'ACADEMIC', 'EXAM', 'TASK', 'EVENT'] as const;
 type NotificationCategory = (typeof VALID_CATEGORIES)[number];
 
-const VALID_TARGET_TYPES = ['ALL_STUDENTS', 'CLASS', 'INDIVIDUAL'] as const;
+const VALID_TARGET_TYPES = [
+  'ALL_GENERAL_SUBSCRIBERS',
+  'ALL_STUDENTS',
+  'STUDENT_TARGETED',
+  'CLASS',
+  'CLASS_TARGETED',
+  'INDIVIDUAL',
+] as const;
 type TargetType = (typeof VALID_TARGET_TYPES)[number];
 
 function getPreferenceFieldForCategory(category: NotificationCategory): 'academicAlerts' | 'examAlerts' | 'taskAlerts' | 'announcements' {
@@ -38,17 +45,22 @@ function sanitizeDeepLink(link?: unknown): string {
 /**
  * POST /api/admin/push-notifications
  *
- * Sends push notifications to students based on cohort targeting.
+ * Sends push notifications based on cohort targeting.
  *
- * Security & Reliability Guarantees:
- * 1. Requires verified ADMIN or SUPER_ADMIN session via `authenticateApiRequest(req, 'ADMIN')`.
- * 2. Derives sender identity strictly from server JWT (`user.userId`).
- * 3. Validates target academic class or student existence against database.
- * 4. Respects student category preferences (filters out opted-out students).
- * 5. Sends data-only FCM messages to avoid duplicate notifications with public/sw.js.
- * 6. Never includes marks, grades, personal passwords or confidential records in payloads.
- * 7. Prunes invalid or unregistered FCM tokens matching exact subscription ID.
- * 8. Persists delivery attempt in NotificationLog with FCM accepted count (not device delivery).
+ * Targeting Separation Rules:
+ * A. ALL_GENERAL_SUBSCRIBERS:
+ *    - Reaches anonymous opted-in devices + all enrolled student devices.
+ *    - Restricted to GENERAL and EVENT categories. Never permitted for academic, exam, or task alerts.
+ * B. STUDENT_TARGETED (or ALL_STUDENTS):
+ *    - Reaches authenticated student subscriptions only. Anonymous devices are strictly excluded.
+ * C. CLASS_TARGETED (or CLASS):
+ *    - Reaches eligible student subscriptions belonging to the selected class.
+ * D. INDIVIDUAL:
+ *    - Reaches subscriptions belonging to the selected individual student.
+ *
+ * Privacy Guarantees:
+ * - Student marks, personal credentials and private records are never broadcast.
+ * - Anonymous devices never receive private student alerts.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -90,15 +102,25 @@ export async function POST(req: NextRequest) {
     // Validate targetType
     let cleanTargetType: TargetType = 'ALL_STUDENTS';
     const rawTarget = typeof targetType === 'string' ? targetType.trim().toUpperCase() : '';
-    if (rawTarget === 'ALL' || rawTarget === 'ALL_STUDENTS') {
+    if (rawTarget === 'ALL_GENERAL_SUBSCRIBERS' || rawTarget === 'ALL_GENERAL') {
+      cleanTargetType = 'ALL_GENERAL_SUBSCRIBERS';
+    } else if (rawTarget === 'ALL' || rawTarget === 'ALL_STUDENTS' || rawTarget === 'STUDENT_TARGETED') {
       cleanTargetType = 'ALL_STUDENTS';
-    } else if (rawTarget === 'CLASS') {
+    } else if (rawTarget === 'CLASS' || rawTarget === 'CLASS_TARGETED') {
       cleanTargetType = 'CLASS';
     } else if (rawTarget === 'INDIVIDUAL') {
       cleanTargetType = 'INDIVIDUAL';
     } else {
       return NextResponse.json(
-        { error: "Invalid targetType. Must be 'ALL_STUDENTS', 'CLASS', or 'INDIVIDUAL'." },
+        { error: "Invalid targetType. Must be 'ALL_GENERAL_SUBSCRIBERS', 'ALL_STUDENTS', 'CLASS', or 'INDIVIDUAL'." },
+        { status: 400 }
+      );
+    }
+
+    // Privacy Guard: General subscribers cannot be targeted with private student categories
+    if (cleanTargetType === 'ALL_GENERAL_SUBSCRIBERS' && cleanCategory !== 'GENERAL' && cleanCategory !== 'EVENT') {
+      return NextResponse.json(
+        { error: 'Academic, exam, and task notifications cannot be sent to general/anonymous subscribers.' },
         { status: 400 }
       );
     }
@@ -134,70 +156,153 @@ export async function POST(req: NextRequest) {
     }
 
     const cleanDeepLink = sanitizeDeepLink(deepLink);
+    const targetTokens: Array<{ subscriptionId: string; fcmToken: string; studentAccountId?: string | null }> = [];
+    const seenTokens = new Set<string>();
+    let recipientCount = 0;
 
-    // 4. Query Eligible Students and Respect Preferences
-    const preferenceField = getPreferenceFieldForCategory(cleanCategory);
+    // 4. Query Eligible Subscriptions
+    if (cleanTargetType === 'ALL_GENERAL_SUBSCRIBERS') {
+      // 4A: Anonymous Subscribers (Strictly unowned devices only)
+      const anonymousSubs = await prisma.pushSubscription.findMany({
+        where: {
+          isAnonymous: true,
+          isActive: true,
+          studentAccountId: null,
+          userId: null,
+        },
+        select: { id: true, fcmToken: true },
+      });
 
-    const studentWhereClause: Record<string, unknown> = {
-      status: 'ACTIVE',
-    };
-    if (cleanTargetType === 'CLASS' && validatedClassId) {
-      studentWhereClause.classId = validatedClassId;
-    } else if (cleanTargetType === 'INDIVIDUAL' && validatedStudentId) {
-      studentWhereClause.id = validatedStudentId;
-    }
+      for (const sub of anonymousSubs) {
+        if (!sub.fcmToken || typeof sub.fcmToken !== 'string' || sub.fcmToken.trim().length < 10) continue;
+        const cleanToken = sub.fcmToken.trim();
+        if (!seenTokens.has(cleanToken)) {
+          seenTokens.add(cleanToken);
+          targetTokens.push({ subscriptionId: sub.id, fcmToken: cleanToken, studentAccountId: null });
+          recipientCount++;
+        }
+      }
 
-    const eligibleStudents = await prisma.student.findMany({
-      where: studentWhereClause,
-      select: {
-        id: true,
-        account: {
-          select: {
-            id: true,
-            status: true,
-            isActivated: true,
-            notificationPreference: {
-              select: {
-                academicAlerts: true,
-                examAlerts: true,
-                taskAlerts: true,
-                announcements: true,
+      // 4B: Enrolled Students who have announcements enabled
+      const enrolledStudents = await prisma.student.findMany({
+        where: { status: 'ACTIVE' },
+        select: {
+          account: {
+            select: {
+              id: true,
+              status: true,
+              isActivated: true,
+              notificationPreference: { select: { announcements: true } },
+              pushSubscriptions: {
+                where: { isActive: true, isAnonymous: false, userId: null },
+                select: { id: true, fcmToken: true, isAnonymous: true, studentAccountId: true, userId: true },
               },
-            },
-            pushSubscriptions: {
-              where: { isActive: true },
-              select: { id: true, fcmToken: true },
             },
           },
         },
-      },
-    });
+      });
 
-    const targetTokens: Array<{ subscriptionId: string; fcmToken: string }> = [];
-    let recipientCount = 0;
+      for (const std of enrolledStudents) {
+        if (!std.account || std.account.status !== 'ACTIVE' || !std.account.isActivated) continue;
+        if (std.account.notificationPreference && std.account.notificationPreference.announcements === false) continue;
 
-    for (const student of eligibleStudents) {
-      if (!student.account || student.account.status !== 'ACTIVE' || !student.account.isActivated) {
-        continue;
+        if (std.account.pushSubscriptions && std.account.pushSubscriptions.length > 0) {
+          let hasValidToken = false;
+          for (const sub of std.account.pushSubscriptions) {
+            // Defense-in-depth validation: verify ownership and exclude invalid records
+            if (sub.isAnonymous !== false || sub.userId !== null || sub.studentAccountId !== std.account.id) continue;
+            if (!sub.fcmToken || typeof sub.fcmToken !== 'string' || sub.fcmToken.trim().length < 10) continue;
+
+            const cleanToken = sub.fcmToken.trim();
+            if (!seenTokens.has(cleanToken)) {
+              seenTokens.add(cleanToken);
+              targetTokens.push({ subscriptionId: sub.id, fcmToken: cleanToken, studentAccountId: std.account.id });
+              hasValidToken = true;
+            }
+          }
+          if (hasValidToken) {
+            recipientCount++;
+          }
+        }
+      }
+    } else {
+      // 4C: Student-Targeted (ALL_STUDENTS, CLASS, INDIVIDUAL)
+      const preferenceField = getPreferenceFieldForCategory(cleanCategory);
+      const studentWhereClause: Record<string, unknown> = { status: 'ACTIVE' };
+
+      if (cleanTargetType === 'CLASS' && validatedClassId) {
+        studentWhereClause.classId = validatedClassId;
+      } else if (cleanTargetType === 'INDIVIDUAL' && validatedStudentId) {
+        studentWhereClause.id = validatedStudentId;
       }
 
-      // Check student notification preference
-      const pref = student.account.notificationPreference;
-      if (pref && pref[preferenceField] === false) {
-        // Opted out of this category
-        continue;
-      }
+      const eligibleStudents = await prisma.student.findMany({
+        where: studentWhereClause,
+        select: {
+          id: true,
+          account: {
+            select: {
+              id: true,
+              status: true,
+              isActivated: true,
+              notificationPreference: {
+                select: {
+                  academicAlerts: true,
+                  examAlerts: true,
+                  taskAlerts: true,
+                  announcements: true,
+                },
+              },
+              pushSubscriptions: {
+                where: { isActive: true, isAnonymous: false, userId: null },
+                select: { id: true, fcmToken: true, isAnonymous: true, studentAccountId: true, userId: true, isActive: true },
+              },
+            },
+          },
+        },
+      });
 
-      const activeSubs = student.account.pushSubscriptions;
-      if (activeSubs && activeSubs.length > 0) {
-        recipientCount++;
-        for (const sub of activeSubs) {
-          targetTokens.push({ subscriptionId: sub.id, fcmToken: sub.fcmToken });
+      for (const student of eligibleStudents) {
+        if (!student.account || student.account.status !== 'ACTIVE' || !student.account.isActivated) {
+          continue;
+        }
+
+        const pref = student.account.notificationPreference;
+        if (pref && pref[preferenceField] === false) {
+          continue;
+        }
+
+        const activeSubs = student.account.pushSubscriptions;
+        if (activeSubs && activeSubs.length > 0) {
+          let hasValidToken = false;
+          for (const sub of activeSubs) {
+            // Defense-in-depth:
+            // 1. Strictly exclude anonymous subscriptions
+            if (sub.isAnonymous !== false) continue;
+            // 2. Reject subscriptions with invalid ownership state or mismatched studentAccountId
+            if (!sub.studentAccountId || sub.studentAccountId !== student.account.id) continue;
+            // 3. Never permit staff tokens in student targeted deliveries
+            if (sub.userId !== null) continue;
+            // 4. Must be active
+            if (!sub.isActive) continue;
+            // 5. Must have valid non-empty FCM token
+            if (!sub.fcmToken || typeof sub.fcmToken !== 'string' || sub.fcmToken.trim().length < 10) continue;
+
+            const cleanToken = sub.fcmToken.trim();
+            if (!seenTokens.has(cleanToken)) {
+              seenTokens.add(cleanToken);
+              targetTokens.push({ subscriptionId: sub.id, fcmToken: cleanToken, studentAccountId: student.account.id });
+              hasValidToken = true;
+            }
+          }
+          if (hasValidToken) {
+            recipientCount++;
+          }
         }
       }
     }
 
-    // 5. Firebase Dispatch
+    // 5. Firebase Dispatch with Just-In-Time Pre-Flight Authorization
     let fcmAcceptedCount = 0;
     let failureCount = 0;
     let dispatchStatus = 'SENT';
@@ -212,7 +317,6 @@ export async function POST(req: NextRequest) {
         try {
           const messaging = getFirebaseAdminMessaging();
 
-          // Data-only message payload to prevent duplicate notifications with public/sw.js
           const fcmDataPayload: Record<string, string> = {
             title: cleanTitle,
             body: cleanBody,
@@ -221,10 +325,64 @@ export async function POST(req: NextRequest) {
             tag: `spr-${cleanCategory.toLowerCase()}`,
           };
 
-          // Multicast batches of 500
           for (let i = 0; i < targetTokens.length; i += 500) {
             const batch = targetTokens.slice(i, i + 500);
-            const tokenList = batch.map((b) => b.fcmToken);
+
+            // JIT Pre-Flight Authorization Check:
+            // Re-verify that every subscription in this batch is STILL active and still bound
+            // to the intended student immediately before socket transmission to Google FCM.
+            let authorizedBatch = batch;
+            if (cleanTargetType !== 'ALL_GENERAL_SUBSCRIBERS') {
+              try {
+                const batchSubIds = batch.map((b) => b.subscriptionId);
+                const liveSubs = await prisma.pushSubscription.findMany({
+                  where: {
+                    id: { in: batchSubIds },
+                    isActive: true,
+                    isAnonymous: false,
+                    userId: null,
+                  },
+                  select: { id: true, studentAccountId: true, fcmToken: true },
+                });
+                const liveMap = new Map(liveSubs.map((s) => [s.id, s]));
+
+                authorizedBatch = batch.filter((item) => {
+                  const live = liveMap.get(item.subscriptionId);
+                  if (!live) return false;
+                  // Reject if student logged out or if device was rebound to another student
+                  if (item.studentAccountId && live.studentAccountId !== item.studentAccountId) {
+                    return false;
+                  }
+                  return true;
+                });
+              } catch (verifyErr) {
+                console.warn('Pre-flight dispatch authorization check encountered database error:', verifyErr);
+                // Fail-safe: if database cannot verify authorization, do NOT send unverified private messages
+                continue;
+              }
+            } else {
+              // For general broadcasts, verify subscription is still active
+              try {
+                const batchSubIds = batch.map((b) => b.subscriptionId);
+                const activeLiveSubs = await prisma.pushSubscription.findMany({
+                  where: {
+                    id: { in: batchSubIds },
+                    isActive: true,
+                  },
+                  select: { id: true },
+                });
+                const activeSet = new Set(activeLiveSubs.map((s) => s.id));
+                authorizedBatch = batch.filter((item) => activeSet.has(item.subscriptionId));
+              } catch (verifyErr) {
+                console.warn('Pre-flight general broadcast verification error:', verifyErr);
+              }
+            }
+
+            if (authorizedBatch.length === 0) {
+              continue;
+            }
+
+            const tokenList = authorizedBatch.map((b) => b.fcmToken);
 
             try {
               const multicastResponse = await messaging.sendEachForMulticast({
@@ -242,13 +400,13 @@ export async function POST(req: NextRequest) {
                     code === 'messaging/registration-token-not-registered' ||
                     code === 'messaging/invalid-registration-token'
                   ) {
-                    invalidTokens.push(batch[idx]);
+                    invalidTokens.push(authorizedBatch[idx]);
                   }
                 }
               });
             } catch (batchErr) {
               console.error('Batch send error:', batchErr);
-              failureCount += batch.length;
+              failureCount += authorizedBatch.length;
             }
           }
 
@@ -261,63 +419,62 @@ export async function POST(req: NextRequest) {
           failureCount = targetTokens.length;
         }
       }
+    } else {
+      dispatchStatus = 'SENT';
     }
 
-    // 6. Prune invalid tokens safely matching both subscription ID and fcmToken
+    // 6. Prune invalid tokens safely
     if (invalidTokens.length > 0) {
-      await Promise.allSettled(
-        invalidTokens.map((item) =>
-          prisma.pushSubscription.updateMany({
-            where: {
-              id: item.subscriptionId,
-              fcmToken: item.fcmToken,
-            },
-            data: {
-              isActive: false,
-              lastActiveAt: new Date(),
-            },
-          })
-        )
-      );
+      try {
+        const subIdsToDeactivate = invalidTokens.map((t) => t.subscriptionId);
+        await prisma.pushSubscription.updateMany({
+          where: { id: { in: subIdsToDeactivate } },
+          data: { isActive: false, lastActiveAt: new Date() },
+        });
+      } catch (pruneErr) {
+        console.warn('Pruning invalid FCM tokens encountered error:', pruneErr);
+      }
     }
 
-    // 7. Persist NotificationLog Audit Record
-    const notificationLog = await prisma.notificationLog.create({
-      data: {
-        title: cleanTitle,
-        body: cleanBody,
-        category: cleanCategory,
-        targetType: cleanTargetType,
-        targetClassId: validatedClassId,
-        targetStudentId: validatedStudentId,
-        deepLink: cleanDeepLink,
-        senderId: user.id,
-        recipientCount,
-        fcmAcceptedCount,
-        failureCount,
-        status: dispatchStatus,
-      },
-    });
+    // 7. Persist Notification Log in Database
+    try {
+      await prisma.notificationLog.create({
+        data: {
+          title: cleanTitle,
+          body: cleanBody,
+          category: cleanCategory,
+          targetType: cleanTargetType,
+          targetClassId: validatedClassId,
+          targetStudentId: validatedStudentId,
+          deepLink: cleanDeepLink,
+          senderId: user.id,
+          recipientCount,
+          fcmAcceptedCount,
+          failureCount,
+          status: dispatchStatus,
+        },
+      });
+    } catch (logErr) {
+      console.error('Failed to persist NotificationLog record:', logErr);
+    }
 
     return NextResponse.json({
-      success: dispatchStatus !== 'FAILED',
+      success: dispatchStatus === 'SENT' || dispatchStatus === 'PARTIAL_FAILURE',
+      status: dispatchStatus,
+      recipientCount,
+      fcmAcceptedCount,
+      failureCount,
       message:
-        dispatchStatus === 'FAILED'
-          ? 'Notification dispatch failed or service not configured.'
-          : 'Notification processed successfully. FCM accepted message count recorded.',
-      log: {
-        id: notificationLog.id,
-        recipientCount,
-        fcmAcceptedCount,
-        failureCount,
-        status: dispatchStatus,
-        createdAt: notificationLog.createdAt,
-      },
+        dispatchStatus === 'SENT'
+          ? 'Notification dispatched successfully to all target subscribers.'
+          : dispatchStatus === 'PARTIAL_FAILURE'
+          ? 'Notification dispatched with partial delivery failures.'
+          : 'Failed to dispatch notification to FCM.',
     });
   } catch (error: unknown) {
-    console.error('Admin push notification dispatch error:', error);
+    console.error('Send push notifications error:', error);
     return NextResponse.json(
-      { error: 'An unexpected error occurred while processing the push notification request.' },
+      { error: 'An unexpected error occurred while processing push notification dispatch.' },
       { status: 500 }
     );
   }

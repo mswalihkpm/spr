@@ -992,6 +992,7 @@ model PushSubscription {
   fcmToken         String          @unique
   deviceType       String          @default("WEB") // "ANDROID_TWA" | "CHROME" | "SAFARI" | "EDGE" | "FIREFOX"
   userAgent        String?
+  isAnonymous      Boolean         @default(false)
   studentAccountId String?
   studentAccount   StudentAccount? @relation(fields: [studentAccountId], references: [id], onDelete: Cascade)
   userId           String?
@@ -1001,6 +1002,7 @@ model PushSubscription {
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
+  @@index([isAnonymous])
   @@index([studentAccountId])
   @@index([userId])
   @@index([isActive])

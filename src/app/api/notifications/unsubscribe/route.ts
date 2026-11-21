@@ -7,31 +7,18 @@ import { prisma } from '@/lib/prisma';
 /**
  * POST /api/notifications/unsubscribe
  *
- * Deactivates an existing push subscription token for the authenticated student.
+ * Deactivates an existing push subscription token for an authenticated student
+ * or an anonymous visitor.
  *
- * Security & Ownership Rules (Stage 4.1):
- * 1. Strict student authentication required: returns HTTP 401 if unauthenticated.
- * 2. Ownership derived strictly from the verified server JWT session (`student.studentAccountId`).
- * 3. Never deactivates staff subscriptions or subscriptions belonging to other students:
- *    the database query requires BOTH `fcmToken` and `studentAccountId`.
- * 4. Preserves database foreign keys and CHECK constraint by setting only `isActive: false`
- *    and `lastActiveAt`, without altering ownership IDs.
- * 5. Returns a generic success response without leaking whether the token was found or belongs
- *    to another account.
- * 6. No public logout bypass or client-supplied ownership IDs are accepted.
+ * Security & Ownership Rules:
+ * 1. Authenticated Student: Deactivates ONLY if fcmToken matches AND studentAccountId matches.
+ * 2. Anonymous Visitor: Deactivates ONLY if fcmToken matches AND isAnonymous is true.
+ * 3. Never alters or deactivates staff subscriptions (userId !== null).
+ * 4. Preserves database records and ownership foreign keys by setting isActive: false.
  */
 export async function POST(req: NextRequest) {
   try {
-    const { student, errorResponse } = await authenticateStudentRequest(req);
-    if (errorResponse) {
-      return errorResponse;
-    }
-    if (!student || !student.studentAccountId) {
-      return NextResponse.json(
-        { error: 'Student authentication required. Please sign in.' },
-        { status: 401 }
-      );
-    }
+    const { student } = await authenticateStudentRequest(req);
 
     let body: Record<string, unknown> = {};
     try {
@@ -53,28 +40,42 @@ export async function POST(req: NextRequest) {
 
     const cleanToken = fcmToken.trim();
 
-    // Deactivate ONLY if the record matches BOTH fcmToken AND studentAccountId.
-    // Staff records (where userId is set) or other students' records will not match.
-    await prisma.pushSubscription.updateMany({
-      where: {
-        fcmToken: cleanToken,
-        studentAccountId: student.studentAccountId,
-      },
-      data: {
-        isActive: false,
-        lastActiveAt: new Date(),
-      },
-    });
+    if (student?.studentAccountId) {
+      // Deactivate student's subscription
+      await prisma.pushSubscription.updateMany({
+        where: {
+          fcmToken: cleanToken,
+          studentAccountId: student.studentAccountId,
+          isActive: true,
+        },
+        data: {
+          isActive: false,
+          lastActiveAt: new Date(),
+        },
+      });
+    } else {
+      // Deactivate anonymous subscription
+      await prisma.pushSubscription.updateMany({
+        where: {
+          fcmToken: cleanToken,
+          isAnonymous: true,
+          isActive: true,
+        },
+        data: {
+          isActive: false,
+          lastActiveAt: new Date(),
+        },
+      });
+    }
 
-    // Generic success response to prevent ownership enumeration
     return NextResponse.json({
       success: true,
-      message: 'Push subscription deactivated.',
+      message: 'Unsubscribed successfully.',
     });
   } catch (error: unknown) {
     console.error('Push notification unsubscribe error:', error);
     return NextResponse.json(
-      { error: 'An unexpected error occurred while deactivating the notification subscription.' },
+      { error: 'An unexpected error occurred while processing unsubscription.' },
       { status: 500 }
     );
   }

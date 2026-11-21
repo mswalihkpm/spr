@@ -95,24 +95,41 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
     };
   }, []);
 
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+
   const handleLogout = async () => {
+    setLoggingOut(true);
+    setLogoutError(null);
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('spr_fcm_token') : null;
-      await fetch('/api/student/auth/logout', {
+      const res = await fetch('/api/student/auth/logout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fcmToken: token || undefined }),
       });
-    } catch (err) {
-      console.warn('Logout network warning:', err);
-    }
-    try {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('spr_fcm_token');
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        const failMessage =
+          errorData.message ||
+          'Unable to safely complete logout at this time. Please retry to ensure private notifications are disconnected.';
+        setLogoutError(failMessage);
+        setLoggingOut(false);
+        return;
       }
-    } catch {}
-    clearClientCache();
-    router.push('/student/login');
+
+      // Revert device token type to ANONYMOUS so it continues to receive general circulars
+      if (typeof window !== 'undefined' && token) {
+        localStorage.setItem('spr_subscription_type', 'ANONYMOUS');
+      }
+      clearClientCache();
+      router.push('/student/login');
+    } catch (err: any) {
+      console.warn('Logout network error:', err);
+      setLogoutError('Network connection failed during logout. Please check your connection and retry.');
+      setLoggingOut(false);
+    }
   };
 
   // The EXACT 6 primary navigation items in EXACT required order
@@ -340,6 +357,34 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
                 type="button"
                 onClick={() => setForegroundAlert(null)}
                 className="p-1 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"
+                title="Dismiss"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Logout Security Failure Alert Banner */}
+        {logoutError && (
+          <div className="mx-4 sm:mx-6 mt-4 p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-800 shadow-md flex items-center justify-between text-xs text-rose-800 dark:text-rose-200">
+            <div className="flex-1 mr-3">
+              <span className="font-bold block text-sm mb-0.5">Logout Incomplete (Security Protection)</span>
+              <span>{logoutError}</span>
+            </div>
+            <div className="flex items-center space-x-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="px-3 py-1.5 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition disabled:opacity-50 cursor-pointer shadow-xs"
+              >
+                {loggingOut ? 'Retrying...' : 'Retry Logout'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setLogoutError(null)}
+                className="p-1 text-rose-400 hover:text-rose-600 dark:hover:text-rose-200 transition cursor-pointer"
                 title="Dismiss"
               >
                 <X className="w-4 h-4" />

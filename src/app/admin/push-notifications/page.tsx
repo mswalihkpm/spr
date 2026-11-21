@@ -78,7 +78,7 @@ export default function AdminPushNotificationsPage() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [category, setCategory] = useState<string>('GENERAL');
-  const [targetType, setTargetType] = useState<'ALL_STUDENTS' | 'CLASS' | 'INDIVIDUAL'>('ALL_STUDENTS');
+  const [targetType, setTargetType] = useState<'ALL_GENERAL_SUBSCRIBERS' | 'ALL_STUDENTS' | 'CLASS' | 'INDIVIDUAL'>('ALL_GENERAL_SUBSCRIBERS');
   const [targetClassId, setTargetClassId] = useState('');
   const [targetStudentId, setTargetStudentId] = useState('');
   const [deepLink, setDeepLink] = useState('/student/dashboard');
@@ -344,7 +344,25 @@ export default function AdminPushNotificationsPage() {
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
                   Target Audience
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTargetType('ALL_GENERAL_SUBSCRIBERS');
+                      if (category !== 'GENERAL' && category !== 'EVENT') {
+                        setCategory('GENERAL');
+                      }
+                    }}
+                    className={`flex flex-col items-center justify-center p-3 rounded-2xl border text-xs font-semibold transition ${
+                      targetType === 'ALL_GENERAL_SUBSCRIBERS'
+                        ? 'bg-madin-900 text-white border-madin-900 shadow-sm'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Sparkles className="w-4 h-4 mb-1" />
+                    <span>All General</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => setTargetType('ALL_STUDENTS')}
@@ -384,6 +402,13 @@ export default function AdminPushNotificationsPage() {
                     <span>Individual</span>
                   </button>
                 </div>
+
+                {targetType === 'ALL_GENERAL_SUBSCRIBERS' && (
+                  <p className="mt-2 text-[11px] text-blue-700 bg-blue-50 border border-blue-200 p-2.5 rounded-xl flex items-center space-x-1.5">
+                    <Info className="w-3.5 h-3.5 shrink-0" />
+                    <span>Broadcasts to both anonymous public visitors and enrolled students for general circulars and announcements.</span>
+                  </p>
+                )}
 
                 {/* Conditional Sub-selectors */}
                 {targetType === 'CLASS' && (
@@ -633,7 +658,7 @@ export default function AdminPushNotificationsPage() {
                           {log.category}
                         </span>
                         <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-md font-medium">
-                          Target: {log.targetType === 'CLASS' ? log.targetClass?.name || 'Class' : log.targetType === 'INDIVIDUAL' ? log.targetStudent?.fullName || 'Student' : 'All Students'}
+                          Target: {log.targetType === 'ALL_GENERAL_SUBSCRIBERS' ? 'All General' : log.targetType === 'CLASS' ? log.targetClass?.name || 'Class' : log.targetType === 'INDIVIDUAL' ? log.targetStudent?.fullName || 'Student' : 'All Students'}
                         </span>
                         <span className="text-slate-400 ml-auto">
                           {new Date(log.createdAt).toLocaleDateString([], {
@@ -706,7 +731,9 @@ export default function AdminPushNotificationsPage() {
               <div className="flex justify-between">
                 <span className="font-semibold text-slate-500">Audience:</span>
                 <span className="font-bold text-slate-900">
-                  {targetType === 'ALL_STUDENTS'
+                  {targetType === 'ALL_GENERAL_SUBSCRIBERS'
+                    ? 'All General Subscribers (Anonymous + Students)'
+                    : targetType === 'ALL_STUDENTS'
                     ? 'All Registered Students'
                     : targetType === 'CLASS'
                     ? `Class: ${selectedClassName}`

@@ -20,6 +20,7 @@ import {
   ArrowLeft,
   Sparkles,
 } from 'lucide-react';
+import FirstVisitNotificationCard from '@/components/notifications/FirstVisitNotificationCard';
 
 export default function StudentLoginPage() {
   const router = useRouter();
@@ -121,6 +122,20 @@ export default function StudentLoginPage() {
         throw new Error(errorDetail);
       }
 
+      // Automatically link any existing device push token to this student account
+      try {
+        const cachedToken = typeof window !== 'undefined' ? localStorage.getItem('spr_fcm_token') : null;
+        if (cachedToken) {
+          fetch('/api/notifications/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fcmToken: cachedToken }),
+          }).then(() => {
+            localStorage.setItem('spr_subscription_type', 'STUDENT');
+          }).catch(() => {});
+        }
+      } catch {}
+
       router.push('/student/dashboard');
     } catch (err: any) {
       setLoginError(err.message || 'Login failed. Please check your credentials.');
@@ -165,7 +180,21 @@ export default function StudentLoginPage() {
 
       setRegisterSuccess('Account created successfully! Redirecting to your dashboard...');
       setTimeout(() => {
-        router.push('/student/dashboard');
+        // Automatically link any existing device push token to this student account
+      try {
+        const cachedToken = typeof window !== 'undefined' ? localStorage.getItem('spr_fcm_token') : null;
+        if (cachedToken) {
+          fetch('/api/notifications/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fcmToken: cachedToken }),
+          }).then(() => {
+            localStorage.setItem('spr_subscription_type', 'STUDENT');
+          }).catch(() => {});
+        }
+      } catch {}
+
+      router.push('/student/dashboard');
       }, 1200);
     } catch (err: any) {
       setRegisterError(err.message || 'Failed to create student account.');
@@ -610,6 +639,7 @@ export default function StudentLoginPage() {
           </div>
         </div>
       </div>
+      <FirstVisitNotificationCard />
     </div>
   );
 }

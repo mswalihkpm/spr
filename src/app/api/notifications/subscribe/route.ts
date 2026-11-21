@@ -9,64 +9,87 @@ const VALID_DEVICE_TYPES = ['ANDROID_TWA', 'CHROME', 'SAFARI', 'EDGE', 'FIREFOX'
 /**
  * GET /api/notifications/subscribe
  *
- * Verifies whether an FCM token is currently active and belongs to the authenticated student.
+ * Verifies whether an FCM token is currently active.
+ *
  * Guarantees:
- * 1. Strict student session authentication.
- * 2. If fcmToken is supplied: returns isSubscribed: true ONLY if subscription exists,
- *    isActive: true, and studentAccountId strictly matches the authenticated session.
- * 3. Never leaks ownership identity of tokens belonging to staff or other students.
+ * 1. Authenticated Student: Verifies if the token is active and linked to the authenticated student account.
+ * 2. Anonymous Visitor: If unauthenticated, verifies if the supplied token is registered as an active anonymous subscription.
+ * 3. Never leaks ownership identity or staff status.
  */
 export async function GET(req: NextRequest) {
   try {
-    const { student, errorResponse } = await authenticateStudentRequest(req);
-    if (errorResponse) {
-      return errorResponse;
-    }
-    if (!student || !student.studentAccountId) {
-      return NextResponse.json(
-        { error: 'Student authentication required. Please sign in.' },
-        { status: 401 }
-      );
-    }
-
+    const { student } = await authenticateStudentRequest(req);
     const { searchParams } = new URL(req.url);
     const fcmToken = searchParams.get('fcmToken');
 
+    if (student?.studentAccountId) {
+      if (fcmToken && fcmToken.trim()) {
+        const cleanToken = fcmToken.trim();
+        const sub = await prisma.pushSubscription.findUnique({
+          where: { fcmToken: cleanToken },
+          select: {
+            id: true,
+            studentAccountId: true,
+            isAnonymous: true,
+            isActive: true,
+            deviceType: true,
+          },
+        });
+
+        const isSubscribed = Boolean(
+          sub &&
+          sub.studentAccountId === student.studentAccountId &&
+          sub.isActive &&
+          !sub.isAnonymous
+        );
+
+        return NextResponse.json({
+          isSubscribed,
+          deviceType: isSubscribed ? sub?.deviceType : null,
+          isAnonymous: false,
+        });
+      }
+
+      const activeCount = await prisma.pushSubscription.count({
+        where: {
+          studentAccountId: student.studentAccountId,
+          isActive: true,
+          isAnonymous: false,
+        },
+      });
+
+      return NextResponse.json({
+        isSubscribed: activeCount > 0,
+        activeSubscriptionsCount: activeCount,
+        isAnonymous: false,
+      });
+    }
+
+    // Unauthenticated (Anonymous Visitor check)
     if (fcmToken && fcmToken.trim()) {
       const cleanToken = fcmToken.trim();
       const sub = await prisma.pushSubscription.findUnique({
         where: { fcmToken: cleanToken },
         select: {
           id: true,
-          studentAccountId: true,
+          isAnonymous: true,
           isActive: true,
           deviceType: true,
         },
       });
 
-      const isSubscribed = Boolean(
-        sub &&
-        sub.studentAccountId === student.studentAccountId &&
-        sub.isActive
-      );
-
+      const isSubscribed = Boolean(sub && sub.isAnonymous && sub.isActive);
       return NextResponse.json({
         isSubscribed,
         deviceType: isSubscribed ? sub?.deviceType : null,
+        isAnonymous: true,
       });
     }
 
-    const activeCount = await prisma.pushSubscription.count({
-      where: {
-        studentAccountId: student.studentAccountId,
-        isActive: true,
-      },
-    });
-
-    return NextResponse.json({
-      isSubscribed: activeCount > 0,
-      activeSubscriptionsCount: activeCount,
-    });
+    return NextResponse.json(
+      { error: 'Authentication or fcmToken query parameter required.' },
+      { status: 401 }
+    );
   } catch (error: unknown) {
     console.error('Check push subscription status error:', error);
     return NextResponse.json(
@@ -79,32 +102,26 @@ export async function GET(req: NextRequest) {
 /**
  * POST /api/notifications/subscribe
  *
- * Registers or reassigns an FCM push subscription for an authenticated student.
+ * Registers or upgrades an FCM push subscription for students or anonymous visitors.
  *
- * Security & Ownership Rules (Stage 4.1):
- * 1. Strict student authentication required via `authenticateStudentRequest`.
- * 2. Ownership derived strictly from the verified server JWT session (`student.studentAccountId`).
- * 3. Client-supplied ownership fields (studentAccountId, studentId, userId) are ignored.
- * 4. Staff token takeover protection: If the token belongs to a staff user (`userId !== null`),
- *    the request is strictly rejected with HTTP 409 Conflict without modifying the record.
- * 5. Reassignment: If the token belongs to a student account (or same student), safe reassignment
- *    to the authenticated student account is permitted (shared-device scenario).
- * 6. Concurrency & Race-Condition Safety: Handles concurrent token registration races (P2002)
- *    and guards against concurrent staff claims using atomic conditional updates.
- * 7. Upholds the database CHECK constraint: `studentAccountId` is set, `userId` is strictly null.
+ * Security & Ownership Rules:
+ * 1. Authenticated Student:
+ *    - Always derives studentAccountId from the verified server session JWT (never from client payload).
+ *    - If the token was previously anonymous (`isAnonymous: true`), cleanly upgrades it to student-owned.
+ *    - Preserves institutional announcement preferences while enabling student-specific alerts.
+ *    - If the token was registered to another student (shared device), safely reassigns ownership.
+ *    - If the token belongs to a staff account (`userId !== null`), rejects with HTTP 409 Conflict.
+ * 2. Anonymous Visitor:
+ *    - Allows unauthenticated visitors to register device for general institutional announcements.
+ *    - Sets `isAnonymous: true`, `studentAccountId: null`, and `userId: null`.
+ *    - If the token belongs to a staff account, rejects with HTTP 409 Conflict.
+ * 3. Atomic Database Parity:
+ *    - Upholds mutual exclusivity (either studentAccountId, userId, or isAnonymous = true).
+ *    - Handles race conditions gracefully via P2002 constraint error recovery.
  */
 export async function POST(req: NextRequest) {
   try {
-    const { student, errorResponse } = await authenticateStudentRequest(req);
-    if (errorResponse) {
-      return errorResponse;
-    }
-    if (!student || !student.studentAccountId) {
-      return NextResponse.json(
-        { error: 'Student authentication required. Please sign in.' },
-        { status: 401 }
-      );
-    }
+    const { student } = await authenticateStudentRequest(req);
 
     let body: Record<string, unknown> = {};
     try {
@@ -116,7 +133,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { fcmToken, deviceType } = body;
+    const { fcmToken, deviceType, isAnonymous: requestAnonymous } = body;
 
     // Validate FCM registration token
     if (!fcmToken || typeof fcmToken !== 'string' || !fcmToken.trim()) {
@@ -147,30 +164,166 @@ export async function POST(req: NextRequest) {
     const rawUserAgent = req.headers.get('user-agent')?.trim() || null;
     const cleanUserAgent = rawUserAgent ? rawUserAgent.slice(0, 500) : null;
 
-    // Inspect existing subscription to prevent staff token takeover
+    // Check existing subscription record to enforce ownership guards
     const existing = await prisma.pushSubscription.findUnique({
       where: { fcmToken: cleanToken },
     });
 
-    if (existing) {
-      // Rule 4: If the token belongs to a staff member, reject with HTTP 409 Conflict
-      if (existing.userId !== null) {
-        return NextResponse.json(
-          { error: 'This device token is registered to a staff account and cannot be claimed by a student.' },
-          { status: 409 }
-        );
+    if (existing && existing.userId !== null) {
+      // Guard: Never allow student or anonymous client to claim a staff token
+      return NextResponse.json(
+        { error: 'This device token is registered to a staff account and cannot be claimed.' },
+        { status: 409 }
+      );
+    }
+
+    // -------------------------------------------------------------------------
+    // BRANCH A: Authenticated Student Registration or Anonymous Upgrade
+    // -------------------------------------------------------------------------
+    if (student?.studentAccountId) {
+      const studentAccountId = student.studentAccountId;
+
+      if (existing) {
+        // Safe update: Reassign or upgrade to authenticated student
+        const updated = await prisma.pushSubscription.update({
+          where: {
+            id: existing.id,
+            userId: null,
+          },
+          data: {
+            studentAccountId: studentAccountId,
+            userId: null,
+            isAnonymous: false,
+            deviceType: cleanDeviceType,
+            userAgent: cleanUserAgent || undefined,
+            isActive: true,
+            lastActiveAt: new Date(),
+          },
+        });
+
+        // Ensure default notification preferences exist for this student account
+        await prisma.notificationPreference.upsert({
+          where: { studentAccountId: studentAccountId },
+          create: {
+            studentAccountId: studentAccountId,
+            academicAlerts: true,
+            examAlerts: true,
+            taskAlerts: true,
+            announcements: true,
+          },
+          update: {},
+        });
+
+        return NextResponse.json({
+          success: true,
+          message: 'Push subscription registered successfully for student account.',
+          subscription: {
+            id: updated.id,
+            deviceType: updated.deviceType,
+            isActive: updated.isActive,
+            isAnonymous: false,
+          },
+        });
       }
 
-      // Rule 5: If it belongs to a student account, reassign safely to the authenticated student
-      // Concurrency guard: update only if userId is still null
+      // No existing record -> Create student-owned subscription
+      try {
+        const created = await prisma.pushSubscription.create({
+          data: {
+            fcmToken: cleanToken,
+            studentAccountId: studentAccountId,
+            userId: null,
+            isAnonymous: false,
+            deviceType: cleanDeviceType,
+            userAgent: cleanUserAgent,
+            isActive: true,
+            lastActiveAt: new Date(),
+          },
+        });
+
+        await prisma.notificationPreference.upsert({
+          where: { studentAccountId: studentAccountId },
+          create: {
+            studentAccountId: studentAccountId,
+            academicAlerts: true,
+            examAlerts: true,
+            taskAlerts: true,
+            announcements: true,
+          },
+          update: {},
+        });
+
+        return NextResponse.json({
+          success: true,
+          message: 'Push subscription registered successfully.',
+          subscription: {
+            id: created.id,
+            deviceType: created.deviceType,
+            isActive: created.isActive,
+            isAnonymous: false,
+          },
+        });
+      } catch (err: unknown) {
+        // Handle concurrent insert race condition (P2002)
+        const isP2002 =
+          typeof err === 'object' &&
+          err !== null &&
+          'code' in err &&
+          (err as { code: string }).code === 'P2002';
+
+        if (isP2002) {
+          const racingRecord = await prisma.pushSubscription.findUnique({
+            where: { fcmToken: cleanToken },
+          });
+
+          if (racingRecord && racingRecord.userId !== null) {
+            return NextResponse.json(
+              { error: 'This device token is registered to a staff account and cannot be claimed.' },
+              { status: 409 }
+            );
+          }
+
+          if (racingRecord) {
+            const updated = await prisma.pushSubscription.update({
+              where: { id: racingRecord.id, userId: null },
+              data: {
+                studentAccountId: studentAccountId,
+                userId: null,
+                isAnonymous: false,
+                deviceType: cleanDeviceType,
+                userAgent: cleanUserAgent || undefined,
+                isActive: true,
+                lastActiveAt: new Date(),
+              },
+            });
+
+            return NextResponse.json({
+              success: true,
+              message: 'Push subscription registered successfully.',
+              subscription: {
+                id: updated.id,
+                deviceType: updated.deviceType,
+                isActive: updated.isActive,
+                isAnonymous: false,
+              },
+            });
+          }
+        }
+        throw err;
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // BRANCH B: Anonymous Visitor Subscription
+    // -------------------------------------------------------------------------
+    if (existing) {
+      // If token already exists: ensure it is clean of student links and active as anonymous
       const updated = await prisma.pushSubscription.update({
-        where: {
-          id: existing.id,
-          userId: null,
-        },
+        where: { id: existing.id, userId: null },
         data: {
-          studentAccountId: student.studentAccountId,
+          studentAccountId: null,
           userId: null,
+          isAnonymous: true,
           deviceType: cleanDeviceType,
           userAgent: cleanUserAgent || undefined,
           isActive: true,
@@ -178,37 +331,26 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Ensure default notification preferences exist for this student account
-      await prisma.notificationPreference.upsert({
-        where: { studentAccountId: student.studentAccountId },
-        create: {
-          studentAccountId: student.studentAccountId,
-          academicAlerts: true,
-          examAlerts: true,
-          taskAlerts: true,
-          announcements: true,
-        },
-        update: {},
-      });
-
       return NextResponse.json({
         success: true,
-        message: 'Push subscription registered successfully.',
+        message: 'Anonymous institutional notification subscription registered successfully.',
         subscription: {
           id: updated.id,
           deviceType: updated.deviceType,
           isActive: updated.isActive,
+          isAnonymous: true,
         },
       });
     }
 
-    // Rule 3: Token does not exist -> create student-owned subscription
+    // No existing record -> Create anonymous subscription
     try {
       const created = await prisma.pushSubscription.create({
         data: {
           fcmToken: cleanToken,
-          studentAccountId: student.studentAccountId,
+          studentAccountId: null,
           userId: null,
+          isAnonymous: true,
           deviceType: cleanDeviceType,
           userAgent: cleanUserAgent,
           isActive: true,
@@ -216,58 +358,42 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Ensure default notification preferences exist for this student account
-      await prisma.notificationPreference.upsert({
-        where: { studentAccountId: student.studentAccountId },
-        create: {
-          studentAccountId: student.studentAccountId,
-          academicAlerts: true,
-          examAlerts: true,
-          taskAlerts: true,
-          announcements: true,
-        },
-        update: {},
-      });
-
       return NextResponse.json({
         success: true,
-        message: 'Push subscription registered successfully.',
+        message: 'Anonymous institutional notification subscription registered successfully.',
         subscription: {
           id: created.id,
           deviceType: created.deviceType,
           isActive: created.isActive,
+          isAnonymous: true,
         },
       });
     } catch (err: unknown) {
-      // Rule 6: Handle concurrent insert race condition (P2002 unique constraint violation)
-      const isUniqueConstraintError =
+      const isP2002 =
         typeof err === 'object' &&
         err !== null &&
         'code' in err &&
         (err as { code: string }).code === 'P2002';
 
-      if (isUniqueConstraintError) {
-        // Re-query the token that was concurrently inserted
+      if (isP2002) {
         const racingRecord = await prisma.pushSubscription.findUnique({
           where: { fcmToken: cleanToken },
         });
 
         if (racingRecord && racingRecord.userId !== null) {
           return NextResponse.json(
-            { error: 'This device token is registered to a staff account and cannot be claimed by a student.' },
+            { error: 'This device token is registered to a staff account and cannot be claimed.' },
             { status: 409 }
           );
         }
 
         if (racingRecord) {
           const updated = await prisma.pushSubscription.update({
-            where: {
-              id: racingRecord.id,
-              userId: null,
-            },
+            where: { id: racingRecord.id, userId: null },
             data: {
-              studentAccountId: student.studentAccountId,
+              studentAccountId: null,
               userId: null,
+              isAnonymous: true,
               deviceType: cleanDeviceType,
               userAgent: cleanUserAgent || undefined,
               isActive: true,
@@ -277,16 +403,16 @@ export async function POST(req: NextRequest) {
 
           return NextResponse.json({
             success: true,
-            message: 'Push subscription registered successfully.',
+            message: 'Anonymous institutional notification subscription registered successfully.',
             subscription: {
               id: updated.id,
               deviceType: updated.deviceType,
               isActive: updated.isActive,
+              isAnonymous: true,
             },
           });
         }
       }
-
       throw err;
     }
   } catch (error: unknown) {

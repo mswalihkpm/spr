@@ -33,6 +33,7 @@ import NewsDetailModal from '@/components/modals/NewsDetailModal';
 import ItemLeaderboardModal from '@/components/modals/ItemLeaderboardModal';
 import VideoLoader from '@/components/ui/VideoLoader';
 import PublicFooter from '@/components/layout/PublicFooter';
+import FirstVisitNotificationCard from '@/components/notifications/FirstVisitNotificationCard';
 import MobileHeaderMenu from '@/components/layout/MobileHeaderMenu';
 import HomepageTextNotification, { TextNotificationData } from '@/components/notifications/HomepageTextNotification';
 import { getAcademicMasterData } from '@/lib/academic-client';
@@ -2131,6 +2132,9 @@ export default function PublicHomePage() {
           openStudentDossier(studentId);
         }}
       />
+
+      {/* First-Visit Institutional Notification Opt-In Banner */}
+      <FirstVisitNotificationCard />
 
       {/* Permanent Public Footer */}
       <PublicFooter />
