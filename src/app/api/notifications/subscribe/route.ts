@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authenticateStudentRequest } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
-const VALID_DEVICE_TYPES = ['ANDROID_TWA', 'CHROME', 'SAFARI', 'EDGE', 'FIREFOX', 'WEB'] as const;
+const VALID_DEVICE_TYPES = ['ANDROID_NATIVE', 'ANDROID_TWA', 'CHROME', 'SAFARI', 'EDGE', 'FIREFOX', 'WEB'] as const;
 
 /**
  * GET /api/notifications/subscribe

@@ -95,6 +95,20 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
+                // Native Android FCM Token bootstrap
+                try {
+                  var urlParams = new URLSearchParams(window.location.search);
+                  var nativeToken = urlParams.get('native_fcm_token');
+                  if (nativeToken && nativeToken.trim().length >= 10) {
+                    localStorage.setItem('spr_fcm_token', nativeToken.trim());
+                    localStorage.setItem('spr_subscription_type', 'ANDROID_NATIVE');
+                    urlParams.delete('native_fcm_token');
+                    var newSearch = urlParams.toString();
+                    var newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash;
+                    window.history.replaceState({}, '', newUrl);
+                  }
+                } catch(e) {}
+
                 window.__deferredPrompt = null;
                 window.addEventListener('beforeinstallprompt', function(e) {
                   e.preventDefault();
