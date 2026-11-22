@@ -677,7 +677,7 @@ export default function StudentTasksPage() {
       {/* FULL TASK DETAILS & BODY MODAL - Opens with complete full body text       */}
       {/* ========================================================================= */}
       {detailModalTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-5 bg-slate-950/60 backdrop-blur-sm animate-fade-in overflow-y-auto">
           <div className="relative w-full max-w-2xl max-h-[92vh] flex flex-col rounded-3xl bg-white border border-slate-200 shadow-2xl overflow-hidden animate-scale-in">
             {/* Modal Header */}
             <div className="p-5 sm:p-6 bg-gradient-to-r from-slate-50 via-amber-50/30 to-white border-b border-slate-200 flex items-start justify-between">
@@ -1116,7 +1116,7 @@ export default function StudentTasksPage() {
       {/* Report Completion Modal (Enter submission notes)                          */}
       {/* ========================================================================= */}
       {submitModalTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-fade-in overflow-y-auto">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-fade-in overflow-y-auto">
           <div className="relative w-full max-w-lg max-h-[calc(100dvh-2rem)] flex flex-col rounded-3xl bg-white border border-slate-200 shadow-2xl animate-scale-in my-auto overflow-hidden">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 shrink-0">

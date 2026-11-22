@@ -9,7 +9,7 @@ function PublicMobileNavContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Do not display public mobile nav on admin paths
+  // Do not display public mobile nav on admin or student portal paths
   const isAdminPath =
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/students') ||
@@ -24,7 +24,7 @@ function PublicMobileNavContent() {
     pathname.startsWith('/updates/manage') ||
     pathname.startsWith('/display');
 
-  if (isAdminPath) {
+  if (isAdminPath || pathname.startsWith('/student')) {
     return null;
   }
 

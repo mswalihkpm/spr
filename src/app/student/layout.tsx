@@ -392,7 +392,7 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
       {/* ---------------------------------------------------------------------
           MOBILE COMPACT BOTTOM NAVIGATION (6 Primary Links)
           --------------------------------------------------------------------- */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 flex items-center justify-around py-1.5 px-0.5">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 flex items-center justify-around py-1.5 px-0.5">
         {navItems.map((item) => {
           const Icon = item.icon;
           return (
