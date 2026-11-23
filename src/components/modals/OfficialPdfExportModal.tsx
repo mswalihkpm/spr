@@ -20,6 +20,15 @@ import {
   GraduationCap,
   Trophy,
   BookOpen,
+  CreditCard,
+  Scissors,
+  ShieldCheck,
+  MapPin,
+  Phone,
+  Mail,
+  Store,
+  ShoppingCart,
+  QrCode,
 } from 'lucide-react';
 import CustomSelect from '@/components/ui/CustomSelect';
 import { getAcademicMasterData } from '@/lib/academic-client';
@@ -29,7 +38,7 @@ interface OfficialPdfExportModalProps {
   onClose: () => void;
   classes?: any[];
   categories?: any[];
-  initialTab?: 'LEADERBOARD' | 'DOSSIERS';
+  initialTab?: 'LEADERBOARD' | 'DOSSIERS' | 'ID_CARDS';
 }
 
 function formatClassNumber(className?: string): string {
@@ -44,7 +53,7 @@ export default function OfficialPdfExportModal({
   categories = [],
   initialTab = 'LEADERBOARD',
 }: OfficialPdfExportModalProps) {
-  const [activeTab, setActiveTab] = useState<'LEADERBOARD' | 'DOSSIERS'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'LEADERBOARD' | 'DOSSIERS' | 'ID_CARDS'>(initialTab);
   const [localClasses, setLocalClasses] = useState<any[]>(classes);
   const [localCategories, setLocalCategories] = useState<any[]>(categories);
   const [isMounted, setIsMounted] = useState(false);
@@ -63,11 +72,16 @@ export default function OfficialPdfExportModal({
   const [dossierClassId, setDossierClassId] = useState<string>(classes[0]?.id || '');
   const [dossierAcademicYear, setDossierAcademicYear] = useState<string>('2025-2026');
 
+  // Tab 3: ID Card Filters
+  const [idCardClassId, setIdCardClassId] = useState<string>('ALL');
+  const [idCardSortBy, setIdCardSortBy] = useState<string>('CLASS_THEN_NAME');
+  const [idCardAcademicYear, setIdCardAcademicYear] = useState<string>('2026-27');
+
   // Generation & Progress States
   const [isGenerating, setIsGenerating] = useState(false);
   const [progressPercent, setProgressPercent] = useState<number>(0);
   const [progressStatus, setProgressStatus] = useState<string>('');
-  const [generatedDocType, setGeneratedDocType] = useState<'LEADERBOARD' | 'DOSSIERS' | null>(null);
+  const [generatedDocType, setGeneratedDocType] = useState<'LEADERBOARD' | 'DOSSIERS' | 'ID_CARDS' | null>(null);
 
   // Rendered Data
   const [leaderboardReportData, setLeaderboardReportData] = useState<{
@@ -81,6 +95,14 @@ export default function OfficialPdfExportModal({
   const [dossierReportData, setDossierReportData] = useState<{
     students: any[];
     className: string;
+    generatedAt: string;
+  } | null>(null);
+
+  const [idCardReportData, setIdCardReportData] = useState<{
+    cards: any[];
+    count: number;
+    className: string;
+    sortBy: string;
     generatedAt: string;
   } | null>(null);
 
@@ -321,6 +343,84 @@ export default function OfficialPdfExportModal({
     }
   };
 
+  // --------------------------------------------------------------------------
+  // Tab 3 Execution: Download All Student 2-Sided ID Cards (Printable Sheets)
+  // --------------------------------------------------------------------------
+  const handleDownloadIdCards = async () => {
+    setIsGenerating(true);
+    setProgressPercent(10);
+    setProgressStatus('Connecting to institutional ID card generation engine...');
+
+    try {
+      const isAllClasses = !idCardClassId || idCardClassId === 'ALL';
+      const targetClass = isAllClasses ? null : localClasses.find((c) => c.id === idCardClassId);
+      const targetClassName = isAllClasses
+        ? 'All Classes (Grouped by Cohort)'
+        : targetClass
+        ? targetClass.name
+        : 'Selected Cohort';
+
+      setProgressPercent(25);
+      setProgressStatus(`Fetching students in ${targetClassName}...`);
+
+      const params = new URLSearchParams();
+      if (idCardClassId) params.set('classId', idCardClassId);
+      if (idCardSortBy) params.set('sortBy', idCardSortBy);
+
+      const res = await fetch(`/api/admin/student-id-cards?${params.toString()}`);
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Failed to retrieve student ID cards.');
+      }
+
+      const data = await res.json();
+      const cards = data.cards || [];
+      if (cards.length === 0) {
+        throw new Error(`No active student ID cards found in ${targetClassName}.`);
+      }
+
+      setProgressPercent(75);
+      setProgressStatus(`Formatting ${cards.length} 2-sided printable sheets...`);
+      await new Promise((r) => setTimeout(r, 250));
+
+      setIdCardReportData({
+        cards,
+        count: cards.length,
+        className: targetClassName,
+        sortBy: idCardSortBy,
+        generatedAt:
+          data.generatedAt ||
+          new Date().toLocaleString('en-IN', {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+          }),
+      });
+
+      setGeneratedDocType('ID_CARDS');
+      setProgressPercent(100);
+      setProgressStatus('All 2-sided sheets compiled! Opening print & download dialog...');
+
+      setTimeout(() => {
+        setIsGenerating(false);
+        if (typeof document !== 'undefined') {
+          document.body.classList.add('spr-printing-official-doc');
+          setTimeout(() => {
+            window.print();
+            const cleanup = () => {
+              document.body.classList.remove('spr-printing-official-doc');
+              window.removeEventListener('afterprint', cleanup);
+            };
+            window.addEventListener('afterprint', cleanup);
+            setTimeout(cleanup, 4000);
+          }, 200);
+        }
+      }, 400);
+    } catch (err: any) {
+      alert(err.message || 'Error compiling student ID cards.');
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <>
       {/* Strict Print Studio Styling for Clean A4 Vector PDF Generation Without Background Dashboard Artifacts */}
@@ -391,6 +491,26 @@ export default function OfficialPdfExportModal({
             overflow: hidden !important;
           }
           .dossier-card-page:last-child {
+            break-after: auto !important;
+            page-break-after: auto !important;
+          }
+          .id-card-sheet-page {
+            min-height: 270mm !important;
+            max-height: 285mm !important;
+            box-sizing: border-box !important;
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            break-after: page !important;
+            page-break-after: always !important;
+            overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            padding: 4mm 6mm !important;
+            background: white !important;
+          }
+          .id-card-sheet-page:last-child {
             break-after: auto !important;
             page-break-after: auto !important;
           }
@@ -469,6 +589,19 @@ export default function OfficialPdfExportModal({
             >
               <GraduationCap className="w-4 h-4 text-indigo-600" />
               <span>Class Student Dossiers (PDF)</span>
+            </button>
+            <button
+              type="button"
+              disabled={isGenerating}
+              onClick={() => setActiveTab('ID_CARDS')}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 ${
+                activeTab === 'ID_CARDS'
+                  ? 'bg-white dark:bg-slate-900 text-sky-700 dark:text-sky-400 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              <CreditCard className="w-4 h-4 text-sky-600" />
+              <span>Student ID Cards (2-Sided)</span>
             </button>
           </div>
 
@@ -557,7 +690,7 @@ export default function OfficialPdfExportModal({
                   )}
                 </div>
               </div>
-            ) : (
+            ) : activeTab === 'DOSSIERS' ? (
               /* TAB 2: CLASS STUDENT DOSSIERS */
               <div className="space-y-4">
                 <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-slate-800/50 border border-indigo-200/80 dark:border-slate-700 text-xs text-indigo-900 dark:text-indigo-300 flex items-start space-x-2.5">
@@ -609,6 +742,83 @@ export default function OfficialPdfExportModal({
                   </p>
                 </div>
               </div>
+            ) : (
+              /* TAB 3: STUDENT ID CARDS (2-SIDED PRINTABLE SHEETS) */
+              <div className="space-y-4">
+                <div className="p-3.5 rounded-2xl bg-sky-50/70 dark:bg-slate-800/50 border border-sky-200/80 dark:border-slate-700 text-xs text-sky-950 dark:text-sky-300 flex items-start space-x-2.5">
+                  <CreditCard className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Batch 2-Sided Student ID Cards (Printable Sheets):</span> Generates high-resolution 2-sided institutional ID card sheets (Front Card, Cut &amp; Fold Guide Line, and Back Card with store credentials). Sorted and grouped by class cohorts, ready to print on card stock or save as a single multi-page PDF.
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                      Target Class Cohort
+                    </label>
+                    <CustomSelect
+                      value={idCardClassId}
+                      onChange={(val) => setIdCardClassId(val)}
+                      options={[
+                        { value: 'ALL', label: 'All Classes (Grouped by Class Cohorts)' },
+                        ...localClasses.map((c) => ({
+                          value: c.id,
+                          label: `${c.name} (${c.numericGrade ? `Grade ${c.numericGrade}` : 'Cohort'})`,
+                        })),
+                      ]}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                      Class Sorting &amp; Ordering
+                    </label>
+                    <CustomSelect
+                      value={idCardSortBy}
+                      onChange={(val) => setIdCardSortBy(val)}
+                      options={[
+                        { value: 'CLASS_THEN_NAME', label: 'Class Sequence (+2 to 8) • Student Name (A–Z)' },
+                        { value: 'CLASS_THEN_SPR', label: 'Class Sequence (+2 to 8) • SPR ID Number' },
+                        { value: 'NAME_ASC', label: 'School-Wide Alphabetical (A–Z Overall)' },
+                        { value: 'SPR_ASC', label: 'School-Wide SPR ID Number (Ascending)' },
+                      ]}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                      Academic Session
+                    </label>
+                    <CustomSelect
+                      value={idCardAcademicYear}
+                      onChange={(val) => setIdCardAcademicYear(val)}
+                      options={[
+                        { value: '2026-27', label: 'Academic Session 2026-27 (Current)' },
+                      ]}
+                    />
+                  </div>
+
+                  <div className="p-3 bg-sky-50/60 dark:bg-slate-800/40 rounded-xl border border-sky-200/80 dark:border-slate-700 text-[11px] text-sky-900 dark:text-sky-300 flex items-center space-x-2">
+                    <QrCode className="w-4 h-4 text-sky-600 shrink-0" />
+                    <span className="font-semibold">
+                      Each sheet includes Front Card, Cut-line guide, &amp; Navy Back Card with high-density QR code.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 text-[11px] text-slate-600 dark:text-slate-400 space-y-1">
+                  <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center space-x-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>2-Sided Sheet Layout &amp; Multi-Page PDF Compilation</span>
+                  </div>
+                  <p>
+                    Each student card pair is formatted on its own page with standard cut-and-fold guide lines, ready for card pouches, lamination, or institutional card printers. Live progress tracking is displayed during generation.
+                  </p>
+                </div>
+              </div>
             )}
 
             {/* Live Progress Bar Container */}
@@ -646,7 +856,13 @@ export default function OfficialPdfExportModal({
             <button
               type="button"
               disabled={isGenerating}
-              onClick={activeTab === 'LEADERBOARD' ? handleDownloadLeaderboard : handleDownloadDossiers}
+              onClick={
+                activeTab === 'LEADERBOARD'
+                  ? handleDownloadLeaderboard
+                  : activeTab === 'DOSSIERS'
+                  ? handleDownloadDossiers
+                  : handleDownloadIdCards
+              }
               className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow flex items-center space-x-2 transition active:scale-95 disabled:opacity-50 cursor-pointer"
             >
               {isGenerating ? (
@@ -660,7 +876,9 @@ export default function OfficialPdfExportModal({
                   <span>
                     {activeTab === 'LEADERBOARD'
                       ? 'Download Tabulated Standings PDF'
-                      : 'Download Class Dossiers (A-Z) PDF'}
+                      : activeTab === 'DOSSIERS'
+                      ? 'Download Class Dossiers (A-Z) PDF'
+                      : 'Download Student ID Cards (2-Sided PDF)'}
                   </span>
                 </>
               )}
@@ -1007,6 +1225,324 @@ export default function OfficialPdfExportModal({
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Tab 3: Batch Student ID Cards (2-Sided Printable Sheets) */}
+          {generatedDocType === 'ID_CARDS' && idCardReportData && (
+            <div className="font-sans text-slate-900">
+              {idCardReportData.cards.map((card, idx) => (
+                <div
+                  key={card.id || idx}
+                  className="id-card-sheet-page"
+                  style={{
+                    pageBreakInside: 'avoid',
+                    breakInside: 'avoid',
+                    pageBreakAfter: idx === idCardReportData.cards.length - 1 ? 'auto' : 'always',
+                    breakAfter: idx === idCardReportData.cards.length - 1 ? 'auto' : 'page',
+                  }}
+                >
+                  {/* Subtle Page Sequence Indicator */}
+                  <div className="w-full max-w-[580px] pb-1 flex items-center justify-between text-[8px] font-mono text-slate-400">
+                    <span>Official Student ID Card • Sheet #{idx + 1} of {idCardReportData.count}</span>
+                    <span className="font-bold text-slate-600">Cohort: {card.className}</span>
+                  </div>
+
+                  {/* =========================================================================
+                      FRONT CARD (EXACT REPLICA OF REQUESTED PIXEL-PERFECT SPECIFICATION)
+                      ========================================================================= */}
+                  <div
+                    className="relative w-full max-w-[580px] aspect-[1.586/1] bg-white rounded-2xl shadow-sm border border-sky-200 overflow-hidden text-slate-900 select-none flex flex-col justify-between"
+                    style={{
+                      background: 'linear-gradient(135deg, #F0F9FF 0%, #FFFFFF 50%, #E0F2FE 100%)',
+                    }}
+                  >
+                    {/* Top-Right Decorative Waves */}
+                    <div className="absolute top-0 right-0 w-[48%] h-[40%] pointer-events-none overflow-hidden">
+                      <svg viewBox="0 0 200 100" className="w-full h-full" preserveAspectRatio="none">
+                        <path d="M40 0 C100 0 120 70 200 60 L200 0 Z" fill="#0284C7" opacity="0.9" />
+                        <path d="M80 0 C130 0 150 55 200 45 L200 0 Z" fill="#0F172A" />
+                      </svg>
+                    </div>
+
+                    {/* Bottom Cyan & Navy Curves */}
+                    <div className="absolute bottom-0 left-0 right-0 h-8 pointer-events-none overflow-hidden">
+                      <svg viewBox="0 0 600 40" className="w-full h-full" preserveAspectRatio="none">
+                        <path d="M0 16 C200 -10 400 30 600 12 L600 40 L0 40 Z" fill="#06B6D4" opacity="0.95" />
+                        <path d="M0 24 L600 24 L600 40 L0 40 Z" fill="#0A2540" />
+                      </svg>
+                    </div>
+
+                    {/* Front Header */}
+                    <div className="relative z-10 px-5 pt-3 pb-1.5 border-b border-sky-200/60 flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-8 h-8 rounded-xl bg-white shadow-2xs border border-sky-200 p-1 flex items-center justify-center shrink-0">
+                          <img src="/logo.png" alt="SPR Logo" className="w-full h-full object-contain" />
+                        </div>
+                        <div>
+                          <h3 className="text-xs font-black tracking-tight text-slate-900 leading-tight uppercase font-sans">
+                            STUDENT PERFORMANCE RATE
+                          </h3>
+                          <p className="text-[9px] font-bold text-sky-700 tracking-wide uppercase">
+                            {card.schoolName || "GBHSS MALAPPURAM"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Academic Session Badge - 2026-27 */}
+                      <div className="text-right shrink-0 pr-3">
+                        <span className="inline-block px-2 py-0.5 rounded-md text-[9px] font-mono font-black text-white bg-slate-900 shadow-2xs">
+                          2026-27
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Front Body */}
+                    <div className="relative z-10 px-5 py-1.5 flex items-start gap-4 flex-1 min-h-0">
+                      {/* Left Column: Photograph + Strong 8-Digit ID Pill */}
+                      <div className="flex flex-col items-center shrink-0 w-[27%]">
+                        <div className="w-full aspect-[4/5] rounded-xl overflow-hidden bg-slate-100 border-2 border-sky-400 shadow-sm relative">
+                          {card.photoUrl ? (
+                            <img
+                              src={card.photoUrl}
+                              alt={card.fullName}
+                              crossOrigin="anonymous"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-sky-600 to-blue-700 text-white font-black">
+                              <span className="text-lg">
+                                {card.fullName
+                                  .split(' ')
+                                  .slice(0, 2)
+                                  .map((n: string) => n[0])
+                                  .join('')
+                                  .toUpperCase() || 'ST'}
+                              </span>
+                              <span className="text-[8px] opacity-75 font-mono">SPR ID</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Strong 8-Digit ID Pill */}
+                        <div className="mt-1.5 w-full py-0.5 px-1 rounded-lg bg-slate-900 text-center shadow-xs border border-slate-800">
+                          <div className="text-sky-300 font-mono font-black text-xs tracking-wider">
+                            {card.eightDigitSprId}
+                          </div>
+                          <div className="text-[8px] text-slate-400 font-mono font-bold leading-none">
+                            SPR ID: {card.sprId}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Column: Info & Positioned Details directly below Class */}
+                      <div className="flex-1 min-w-0 flex flex-col justify-between h-full">
+                        <div>
+                          <h2 className="text-sm font-black text-slate-900 tracking-tight leading-snug truncate uppercase font-sans">
+                            {card.fullName}
+                          </h2>
+
+                          <div className="mt-0.5 inline-flex items-center px-2 py-0.5 rounded-md bg-sky-100/80 border border-sky-300/80 text-[10px] font-black text-sky-900">
+                            <span>Class: {card.className}</span>
+                            {card.division && <span className="ml-1">({card.division})</span>}
+                          </div>
+
+                          {/* Details Positioned Directly Under Class Badge */}
+                          <div className="mt-1.5 space-y-0.5 text-[10px] text-slate-700 font-medium leading-tight">
+                            <div className="flex items-center space-x-1.5 truncate">
+                              <MapPin className="w-2.5 h-2.5 text-sky-600 shrink-0" />
+                              <span className="text-slate-400 text-[8.5px] uppercase font-bold shrink-0">Place:</span>
+                              <span className="font-bold text-slate-800 truncate">{card.location || card.place || '—'}</span>
+                            </div>
+
+                            <div className="flex items-center space-x-1.5 truncate">
+                              <Phone className="w-2.5 h-2.5 text-sky-600 shrink-0" />
+                              <span className="text-slate-400 text-[8.5px] uppercase font-bold shrink-0">Phone:</span>
+                              <span className="font-bold text-slate-800 font-mono truncate">{card.phone || '—'}</span>
+                            </div>
+
+                            <div className="flex items-center space-x-1.5 truncate">
+                              <Mail className="w-2.5 h-2.5 text-sky-600 shrink-0" />
+                              <span className="text-slate-400 text-[8.5px] uppercase font-bold shrink-0">Email:</span>
+                              <span className="font-bold text-slate-800 font-mono truncate">{card.email || '—'}</span>
+                            </div>
+
+                            {card.fatherName && card.fatherName !== '—' && (
+                              <div className="flex items-center space-x-1.5 truncate">
+                                <span className="w-2.5 h-2.5 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-[7.5px] font-black shrink-0">
+                                  P
+                                </span>
+                                <span className="text-slate-400 text-[8.5px] uppercase font-bold shrink-0">Guardian:</span>
+                                <span className="font-bold text-slate-800 truncate">{card.fatherName}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Bottom Row: Verified Identity & Large QR Code */}
+                        <div className="flex items-end justify-between pt-1 mt-0.5 border-t border-sky-100">
+                          <div className="text-[8px] text-slate-500 font-semibold space-y-0.5">
+                            <div className="flex items-center space-x-1 text-sky-700 font-bold">
+                              <ShieldCheck className="w-3 h-3" />
+                              <span>Verified SPR Identity</span>
+                            </div>
+                            <p className="font-mono text-[7.5px] text-slate-400">
+                              AUTH-REF: {card.qrToken?.substring(0, 16) || 'SECURE-TOKEN'}
+                            </p>
+                          </div>
+
+                          {/* Enlarged QR Code Frame */}
+                          <div className="p-1 rounded-xl bg-white border-2 border-sky-300 shadow-xs shrink-0 flex flex-col items-center">
+                            <img
+                              src={card.qrDataUrl}
+                              alt="Student QR Code"
+                              className="w-18 h-18 object-contain"
+                            />
+                            <span className="text-[7px] font-black text-sky-900 tracking-tighter mt-0.5 uppercase">
+                              Scan for Wallet
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Front Footer */}
+                    <div className="relative z-10 px-5 py-1 text-white flex items-center justify-between text-[7.5px] font-mono tracking-wider uppercase">
+                      <span>OFFICIAL INSTITUTIONAL DIGITAL CREDENTIAL</span>
+                      <span className="font-bold text-cyan-300">MADIN SCHOOL OF EXCELLENCE</span>
+                    </div>
+                  </div>
+
+                  {/* =========================================================================
+                      PROFESSIONAL CUT & FOLD GUIDE LINE
+                      ========================================================================= */}
+                  <div className="w-full max-w-[580px] my-2 py-1 flex items-center justify-between text-slate-400 text-[9px] font-mono">
+                    <div className="flex-1 border-b-2 border-dashed border-slate-300" />
+                    <div className="px-3 flex items-center space-x-1.5 font-bold uppercase tracking-wider text-slate-500">
+                      <Scissors className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Cut along dashed line • Fold back-to-back for card pouch</span>
+                    </div>
+                    <div className="flex-1 border-b-2 border-dashed border-slate-300" />
+                  </div>
+
+                  {/* =========================================================================
+                      BACK CARD (DEEP NAVY THEME #0A192F WITH STORE USAGE CREDENTIAL)
+                      ========================================================================= */}
+                  <div
+                    className="relative w-full max-w-[580px] aspect-[1.586/1] text-white rounded-2xl shadow-sm border border-sky-900 overflow-hidden select-none flex flex-col justify-between"
+                    style={{
+                      backgroundColor: '#0A192F',
+                      background: '#0A192F',
+                      color: '#FFFFFF',
+                    }}
+                  >
+                    {/* Bottom-Left Curved Wave Accents */}
+                    <div className="absolute bottom-0 left-0 w-[55%] h-[60%] pointer-events-none overflow-hidden">
+                      <svg viewBox="0 0 300 200" className="w-full h-full" preserveAspectRatio="none">
+                        <path d="M0 60 C80 120 180 160 300 200 L0 200 Z" fill="#0284C7" opacity="0.6" />
+                        <path d="M0 110 C90 140 160 170 250 200 L0 200 Z" fill="#00C9E8" opacity="0.95" />
+                      </svg>
+                    </div>
+
+                    {/* Back Header */}
+                    <div className="relative z-10 px-5 pt-3 flex items-center justify-end">
+                      <div className="flex items-center space-x-2 text-right">
+                        <div className="leading-tight">
+                          <span className="block text-xs font-black text-white">Student</span>
+                          <span className="block text-[11px] font-black text-sky-400">
+                            Performance Rate
+                          </span>
+                        </div>
+                        <div className="w-7 h-7 rounded-lg bg-sky-950/90 border border-sky-400/50 p-1 flex items-center justify-center">
+                          <img src="/logo.png" alt="SPR Logo" className="w-full h-full object-contain" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Back Body: Store graphic + Steps + Important notice */}
+                    <div className="relative z-10 px-5 py-1 flex items-center gap-3 flex-1 min-h-0">
+                      {/* Store Icon Column */}
+                      <div className="flex flex-col items-center justify-center w-[22%] shrink-0 text-center">
+                        <div className="w-15 h-15 rounded-xl bg-[#0F274E] border-2 border-sky-400/60 flex flex-col items-center justify-center p-2 shadow-sm">
+                          <Store className="w-6 h-6 text-sky-400" />
+                          <ShoppingCart className="w-3 h-3 text-white mt-0.5" />
+                        </div>
+                        <span className="text-[8.5px] font-black text-sky-300 uppercase tracking-wider mt-1">
+                          SPR Store
+                        </span>
+                      </div>
+
+                      {/* Vertical Divider */}
+                      <div className="w-0.5 self-stretch bg-sky-600/50 my-1 shrink-0" />
+
+                      {/* Right Column: Instructions */}
+                      <div className="flex-1 min-w-0 flex flex-col justify-center space-y-1">
+                        <div className="inline-flex items-center self-start px-2.5 py-0.5 rounded-full bg-sky-100 text-slate-900 text-[9.5px] font-black uppercase tracking-tight shadow-xs">
+                          HOW TO USE AT THE STORE
+                        </div>
+
+                        <div className="space-y-0.5 text-[9.5px] text-slate-200">
+                          <div className="flex items-center space-x-1.5">
+                            <span className="w-3 h-3 rounded-full bg-sky-400 text-slate-950 text-[8.5px] font-black flex items-center justify-center shrink-0">
+                              1
+                            </span>
+                            <span className="truncate">Present your SPR ID Card at the store.</span>
+                          </div>
+                          <div className="flex items-center space-x-1.5">
+                            <span className="w-3 h-3 rounded-full bg-sky-400 text-slate-950 text-[8.5px] font-black flex items-center justify-center shrink-0">
+                              2
+                            </span>
+                            <span className="truncate">Allow the Store Admin to scan your QR Code.</span>
+                          </div>
+                          <div className="flex items-center space-x-1.5">
+                            <span className="w-3 h-3 rounded-full bg-sky-400 text-slate-950 text-[8.5px] font-black flex items-center justify-center shrink-0">
+                              3
+                            </span>
+                            <span className="truncate">Your student profile will be displayed automatically.</span>
+                          </div>
+                          <div className="flex items-center space-x-1.5">
+                            <span className="w-3 h-3 rounded-full bg-sky-400 text-slate-950 text-[8.5px] font-black flex items-center justify-center shrink-0">
+                              4
+                            </span>
+                            <span className="truncate">Your available wallet balance is viewed instantly.</span>
+                          </div>
+                        </div>
+
+                        <div className="p-1.5 rounded-lg bg-[#0F274E]/80 border border-sky-400/50 flex items-start space-x-1.5">
+                          <ShieldCheck className="w-3.5 h-3.5 text-sky-400 shrink-0 mt-0.5" />
+                          <div className="min-w-0">
+                            <div className="text-[8.5px] font-black text-sky-300 uppercase">
+                              IMPORTANT
+                            </div>
+                            <p className="text-[8px] text-slate-300 leading-tight">
+                              Keep your ID Card safe. Your QR Code provides secure access to your student wallet information at authorized SPR stores.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="text-center text-[8.5px] font-bold text-sky-400 tracking-wider">
+                          ── ONE CARD • ONE STUDENT • ONE WALLET ──
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Back Footer */}
+                    <div className="relative z-10 px-5 py-2 flex items-center justify-between">
+                      <div className="inline-flex items-center space-x-2 px-2.5 py-0.5 rounded-lg bg-slate-950/80 border border-sky-400/30">
+                        <span className="text-[11px] font-bold text-slate-200">SPR ID :</span>
+                        <span className="text-xs font-black text-sky-300 font-mono">
+                          {card.sprId}
+                        </span>
+                        <span className="text-[10px] font-mono font-bold text-sky-400">({card.eightDigitSprId})</span>
+                      </div>
+
+                      <div className="text-[8px] font-mono text-slate-400">
+                        AUTHORIZED SPR STORE CREDENTIAL
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>,

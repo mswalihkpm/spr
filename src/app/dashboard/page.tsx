@@ -34,6 +34,7 @@ import {
   Trash2,
   Download,
   Tv,
+  CreditCard,
 } from 'lucide-react';
 import {
   BarChart,
@@ -67,7 +68,7 @@ export default function DashboardPage() {
 
   // Official Records & PDF Export State
   const [exportPdfOpen, setExportPdfOpen] = useState(false);
-  const [exportInitialTab, setExportInitialTab] = useState<'LEADERBOARD' | 'DOSSIERS'>('LEADERBOARD');
+  const [exportInitialTab, setExportInitialTab] = useState<'LEADERBOARD' | 'DOSSIERS' | 'ID_CARDS'>('LEADERBOARD');
 
   // TV Slideshow Advanced Customizer State
   const [slideshowSettingsModalOpen, setSlideshowSettingsModalOpen] = useState(false);
@@ -792,11 +793,11 @@ export default function DashboardPage() {
           <div className="space-y-1.5 text-center lg:text-left">
             <div className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 text-[10px] font-black uppercase tracking-wider">
               <Sparkles className="w-3 h-3 text-indigo-400" />
-              <span>Official Export & Archival Center</span>
+              <span>Official Export &amp; Archival Center</span>
             </div>
-            <h3 className="text-lg font-black text-white">Download Records & Official Dossiers (PDF)</h3>
+            <h3 className="text-lg font-black text-white">Download Records, Dossiers &amp; Student ID Cards (PDF)</h3>
             <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
-              Export high-resolution vector A4 tabulated standings or batch student dossiers (sorted alphabetically A–Z) with real-time percentage progress indicators.
+              Export high-resolution vector A4 tabulated standings, batch student dossiers (sorted A–Z), or complete 2-sided printable student ID card sheets with class sorting and cryptographic QR codes.
             </p>
           </div>
 
@@ -806,7 +807,7 @@ export default function DashboardPage() {
                 setExportInitialTab('LEADERBOARD');
                 setExportPdfOpen(true);
               }}
-              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md transition-all flex items-center space-x-2 border border-indigo-400/30 active:scale-95"
+              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md transition-all flex items-center space-x-2 border border-indigo-400/30 active:scale-95 cursor-pointer"
             >
               <Download className="w-4 h-4" />
               <span>Download Standings PDF</span>
@@ -817,10 +818,21 @@ export default function DashboardPage() {
                 setExportInitialTab('DOSSIERS');
                 setExportPdfOpen(true);
               }}
-              className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs shadow-md transition-all flex items-center space-x-2 border border-white/20 active:scale-95"
+              className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs shadow-md transition-all flex items-center space-x-2 border border-white/20 active:scale-95 cursor-pointer"
             >
               <GraduationCap className="w-4 h-4 text-amber-400" />
               <span>Download Class Dossiers (A-Z)</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setExportInitialTab('ID_CARDS');
+                setExportPdfOpen(true);
+              }}
+              className="px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-md transition-all flex items-center space-x-2 border border-sky-400/40 active:scale-95 cursor-pointer"
+            >
+              <CreditCard className="w-4 h-4 text-white" />
+              <span>Download ID Cards (2-Sided)</span>
             </button>
           </div>
         </div>
