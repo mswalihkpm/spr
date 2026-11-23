@@ -594,7 +594,7 @@ export default function StoreQrScannerModal({ isOpen, onClose }: StoreQrScannerM
                 }`}
               >
                 <Search className="w-4 h-4" />
-                <span>8-Digit SPR Number Search</span>
+                <span>8-Digit Security Code</span>
               </button>
             </div>
 
@@ -626,15 +626,16 @@ export default function StoreQrScannerModal({ isOpen, onClose }: StoreQrScannerM
               </div>
             )}
 
-            {/* Tab 2: Manual 8-Digit SPR ID Search */}
+            {/* Tab 2: Manual 8-Digit Security Code Search */}
             {activeTab === 'MANUAL' && (
               <form onSubmit={handleManualSubmit} className="space-y-4">
-                <div className="p-4 rounded-2xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/60 space-y-1">
-                  <span className="text-xs font-black text-blue-900 dark:text-blue-300">
-                    Type 8-Digit SPR Number ID
-                  </span>
-                  <p className="text-[11px] text-blue-700 dark:text-blue-400">
-                    Enter the student&apos;s 8-digit number (e.g. <strong>15762483</strong>) or SPR ID (e.g. <strong>SPR0122</strong>)
+                <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/60 space-y-1">
+                  <div className="flex items-center space-x-1.5 text-xs font-black text-amber-900 dark:text-amber-300">
+                    <ShieldCheck className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    <span>8-Digit Security Code Access Only</span>
+                  </div>
+                  <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-tight">
+                    For student safety, wallet details <strong>cannot</strong> be opened using public SPR IDs (e.g. SPR0122). Please enter the student&apos;s unique <strong>8-digit number</strong> printed on their card.
                   </p>
                 </div>
 
@@ -644,17 +645,18 @@ export default function StoreQrScannerModal({ isOpen, onClose }: StoreQrScannerM
                     ref={manualInputRef}
                     type="text"
                     inputMode="numeric"
+                    maxLength={8}
                     value={manualSprId}
-                    onChange={(e) => setManualSprId(e.target.value)}
-                    placeholder="Enter 8-digit SPR ID (e.g. 15762483)..."
-                    className="w-full pl-10 pr-24 py-3 rounded-2xl bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 text-sm font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) => setManualSprId(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                    placeholder="Enter 8-digit number (e.g. 57249153)..."
+                    className="w-full pl-10 pr-28 py-3 rounded-2xl bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 text-sm font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 tracking-wider"
                   />
                   <button
                     type="submit"
-                    disabled={loading || !manualSprId.trim()}
-                    className="absolute right-2 top-2 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition disabled:opacity-50 cursor-pointer"
+                    disabled={loading || manualSprId.length !== 8}
+                    className="absolute right-2 top-2 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition disabled:opacity-40 cursor-pointer"
                   >
-                    {loading ? 'Searching...' : 'Search'}
+                    {loading ? 'Verifying...' : `Unlock (${manualSprId.length}/8)`}
                   </button>
                 </div>
               </form>

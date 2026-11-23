@@ -36,6 +36,17 @@ export async function POST(req: NextRequest) {
     const cleanUpper = cleanInput.toUpperCase();
     const is8Digit = /^\d{8}$/.test(cleanInput);
 
+    // Prevent direct execution with public SPR IDs (e.g. SPR0122)
+    if (cleanUpper.startsWith('SPR')) {
+      return NextResponse.json(
+        {
+          error:
+            'Access Restricted: Direct wallet deductions cannot be executed using public SPR IDs (such as SPR0122). Please use the student QR code or enter the secure 8-digit number printed on the card.',
+        },
+        { status: 403 }
+      );
+    }
+
     // Resolve student
     let matchedStudent = null;
     if (is8Digit) {
@@ -48,41 +59,19 @@ export async function POST(req: NextRequest) {
       if (match) {
         matchedStudent = match;
       }
-
-      if (!matchedStudent && cleanInput.startsWith('2026')) {
-        const suffix = cleanInput.slice(4);
-        const numVal = parseInt(suffix, 10);
-        matchedStudent = await prisma.student.findFirst({
-          where: {
-            OR: [
-              { sprStudentId: cleanUpper },
-              { sprStudentId: `SPR${suffix}` },
-              { sprStudentId: `SPR${numVal.toString().padStart(4, '0')}` },
-              { sprStudentId: `SPR${numVal}` },
-              { studentId: { contains: suffix } },
-            ],
-          },
-          select: { id: true, fullName: true, sprStudentId: true, studentId: true },
-        });
-      }
-    }
-
-    if (!matchedStudent) {
-      matchedStudent = await prisma.student.findFirst({
-        where: {
-          OR: [
-            { id: cleanInput },
-            { sprStudentId: cleanUpper },
-            { sprStudentId: cleanUpper.startsWith('SPR') ? cleanUpper : `SPR${cleanUpper}` },
-            { studentId: cleanUpper },
-          ],
-        },
+    } else {
+      // Allow internal student ID passed from a validated QR scan session
+      matchedStudent = await prisma.student.findUnique({
+        where: { id: cleanInput },
         select: { id: true, fullName: true, sprStudentId: true, studentId: true },
       });
     }
 
     if (!matchedStudent) {
-      return NextResponse.json({ error: `Student "${cleanInput}" not found.` }, { status: 404 });
+      return NextResponse.json(
+        { error: `Student with identifier or 8-digit code "${cleanInput}" not found.` },
+        { status: 404 }
+      );
     }
 
     const canonicalStudentId = matchedStudent.id;

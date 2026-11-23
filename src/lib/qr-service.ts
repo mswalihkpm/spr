@@ -244,61 +244,33 @@ export async function resolveStudentAndWallet(params: {
     studentId = tokenRecord.studentId;
   } else if (sprStudentId) {
     const cleanInput = sprStudentId.trim();
-    const cleanUpper = cleanInput.toUpperCase();
     const is8Digit = /^\d{8}$/.test(cleanInput);
 
-    let matchedStudent: { id: string } | null = null;
-
-    if (is8Digit) {
-      // 1. First, check all students to see if any matches this strong 8-digit code
-      const allStudentsForLookup = await prisma.student.findMany({
-        select: { id: true, sprStudentId: true },
-      });
-      const match = allStudentsForLookup.find(
-        (s) => generateStrong8DigitCode(s.id, s.sprStudentId) === cleanInput
-      );
-      if (match) {
-        matchedStudent = { id: match.id };
-      }
-
-      // 2. Also check if it was formatted with legacy year prefix (e.g. 20260122 -> 0122)
-      if (!matchedStudent && cleanInput.startsWith('2026')) {
-        const suffix = cleanInput.slice(4);
-        const numVal = parseInt(suffix, 10);
-        matchedStudent = await prisma.student.findFirst({
-          where: {
-            OR: [
-              { sprStudentId: cleanUpper },
-              { sprStudentId: `SPR${suffix}` },
-              { sprStudentId: `SPR${numVal.toString().padStart(4, '0')}` },
-              { sprStudentId: `SPR${numVal}` },
-              { studentId: { contains: suffix } },
-            ],
-          },
-          select: { id: true },
-        });
-      }
+    // STRICT SECURITY: Public SPR IDs (e.g. SPR0122) cannot be used to view wallet details
+    if (!is8Digit) {
+      return {
+        error:
+          'Access Restricted: Student wallet details cannot be accessed using public SPR IDs (such as SPR0122). Please scan the physical/digital QR code or enter the secure 8-digit number printed on the ID card.',
+        status: 403,
+      };
     }
 
-    if (!matchedStudent) {
-      matchedStudent = await prisma.student.findFirst({
-        where: {
-          OR: [
-            { sprStudentId: cleanUpper },
-            { sprStudentId: cleanUpper.startsWith('SPR') ? cleanUpper : `SPR${cleanUpper}` },
-            { studentId: cleanUpper },
-            { fullName: { contains: cleanInput, mode: 'insensitive' } },
-          ],
-        },
-        select: { id: true },
-      });
+    // Match strictly by strong 8-digit code
+    const allStudentsForLookup = await prisma.student.findMany({
+      select: { id: true, sprStudentId: true },
+    });
+    const match = allStudentsForLookup.find(
+      (s) => generateStrong8DigitCode(s.id, s.sprStudentId) === cleanInput
+    );
+
+    if (!match) {
+      return {
+        error: `No student record found with 8-digit code "${cleanInput}". Please check the 8-digit number printed on the ID card.`,
+        status: 404,
+      };
     }
 
-    if (!matchedStudent) {
-      return { error: `Student with ID "${cleanInput}" not found.`, status: 404 };
-    }
-
-    studentId = matchedStudent.id;
+    studentId = match.id;
   } else {
     return { error: 'Either QR code or SPR Student ID is required.', status: 400 };
   }

@@ -21,7 +21,6 @@ import {
   ShoppingCart,
   Store,
   Layers,
-  FileDown,
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { extractGoogleDriveFileId } from '@/lib/google-drive';
@@ -78,7 +77,6 @@ export default function DigitalStudentIdCard({
     if (data.eightDigitSprId && /^\d{8}$/.test(data.eightDigitSprId)) {
       return data.eightDigitSprId;
     }
-    // High-entropy fallback if needed
     let hash = 0;
     const str = `${data.sprId || 'SPR'}:${data.studentCode || 'MSOE'}:2026`;
     for (let i = 0; i < str.length; i++) {
@@ -135,13 +133,20 @@ export default function DigitalStudentIdCard({
     document.body.removeChild(link);
   };
 
-  // Capture exact rendered card element at 300DPI (pixelRatio 3)
-  const captureCardElement = async (node: HTMLElement): Promise<string> => {
+  // Capture exact rendered card element at 300DPI (pixelRatio 3) with exact theme colors
+  const captureCardElement = async (
+    node: HTMLElement,
+    side: 'FRONT' | 'BACK' = 'FRONT'
+  ): Promise<string> => {
     return toPng(node, {
       quality: 1.0,
       pixelRatio: 3,
       cacheBust: true,
-      backgroundColor: 'transparent',
+      backgroundColor: side === 'BACK' ? '#0A192F' : '#FFFFFF',
+      style: {
+        backgroundColor: side === 'BACK' ? '#0A192F' : '#FFFFFF',
+        color: side === 'BACK' ? '#FFFFFF' : '#0F172A',
+      },
     });
   };
 
@@ -154,7 +159,7 @@ export default function DigitalStudentIdCard({
       const targetRef = side === 'FRONT' ? printFrontRef.current : printBackRef.current;
       if (!targetRef) throw new Error('Target card element not available');
 
-      const dataUrl = await captureCardElement(targetRef);
+      const dataUrl = await captureCardElement(targetRef, side);
       triggerDownload(dataUrl, `SPR_ID_CARD_${side}_${data.sprId || 'STUDENT'}.png`);
     } catch (err) {
       console.error(`Error downloading ${side} PNG:`, err);
@@ -174,10 +179,10 @@ export default function DigitalStudentIdCard({
       const backNode = printBackRef.current;
       if (!frontNode || !backNode) throw new Error('Card elements not available');
 
-      // 1. Capture high-res PNGs of both sides exactly as designed
+      // 1. Capture high-res PNGs of both sides with exact theme preservation
       const [frontPng, backPng] = await Promise.all([
-        captureCardElement(frontNode),
-        captureCardElement(backNode),
+        captureCardElement(frontNode, 'FRONT'),
+        captureCardElement(backNode, 'BACK'),
       ]);
 
       // 2. Download individual front and back PNGs
@@ -198,7 +203,7 @@ export default function DigitalStudentIdCard({
 
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        // Clean white background
+        // Clean white background for overall print sheet
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -249,8 +254,12 @@ export default function DigitalStudentIdCard({
         ctx.font = 'bold 16px monospace';
         ctx.fillText('✂ ─ ─ ─ ─ ─ ─ ─ ─ ─ CUT HERE ─ ─ ─ ─ ─ ─ ─ ─ ─ ✂', canvas.width / 2, cutY + 6);
 
-        // Draw Back Card
+        // Draw Back Card (PRESERVE DEEP NAVY #0A192F THEME)
         const backY = frontY + cardH + gap;
+        ctx.fillStyle = '#0A192F';
+        ctx.beginPath();
+        ctx.roundRect(margin, backY, cardW, cardH, 24);
+        ctx.fill();
         ctx.drawImage(backImg, margin, backY, cardW, cardH);
 
         // Trigger Combined Both Sides PNG Download
@@ -270,7 +279,7 @@ export default function DigitalStudentIdCard({
     window.print();
   };
 
-  // Reusable Front Card JSX Node
+  // Reusable Front Card JSX Node (With components in exact requested position)
   const renderFrontCard = (isPrintClone = false) => (
     <div
       ref={isPrintClone ? printFrontRef : frontCardRef}
@@ -324,7 +333,8 @@ export default function DigitalStudentIdCard({
       </div>
 
       {/* -------------------------------------------------------------
-          CARD BODY: PHOTO + DETAILS + EXPANDED FULL-SPACE QR
+          CARD BODY: PHOTO + DETAILS + QR
+          (DETAILS POSITIONED DIRECTLY UNDER CLASS AS MARKED BY USER)
           ------------------------------------------------------------- */}
       <div className="relative z-10 px-5 sm:px-6 py-2 sm:py-3 flex items-start gap-4 sm:gap-5 flex-1 min-h-0">
         {/* Left Column: Photograph + STRONG 8-DIGIT NUMBER ID PILL */}
@@ -365,7 +375,7 @@ export default function DigitalStudentIdCard({
           </div>
         </div>
 
-        {/* Right Column: Student Info & MASSIVE EXPANDED FULL-SPACE QR */}
+        {/* Right Column: Student Info & Positioned Details (EXACTLY AS MARKED) */}
         <div className="flex-1 min-w-0 flex flex-col justify-between h-full">
           <div>
             <h2 className="text-sm sm:text-base lg:text-lg font-black text-slate-900 tracking-tight leading-snug truncate uppercase font-sans">
@@ -376,12 +386,9 @@ export default function DigitalStudentIdCard({
               <span>Class: {data.className}</span>
               {data.division && <span className="ml-1">({data.division})</span>}
             </div>
-          </div>
 
-          {/* Middle & Bottom: Two columns -> Left: Metadata & Verified badge, Right: MASSIVE QR CODE */}
-          <div className="flex items-end justify-between gap-2 mt-1 pt-1 border-t border-sky-100/80">
-            {/* Left Sub-column: Metadata + Verified Identity */}
-            <div className="flex-1 min-w-0 space-y-1 text-[10px] sm:text-[11.5px] text-slate-700 font-medium leading-tight">
+            {/* POSITIONED HERE DIRECTLY BELOW CLASS (EXACTLY AS MARKED BY RED ARROW) */}
+            <div className="mt-2 space-y-1 text-[10px] sm:text-[11.5px] text-slate-700 font-medium leading-tight">
               <div className="flex items-center space-x-1.5 truncate">
                 <MapPin className="w-3 h-3 text-sky-600 shrink-0" />
                 <span className="text-slate-400 text-[9.5px] uppercase font-bold shrink-0">Place:</span>
@@ -409,25 +416,29 @@ export default function DigitalStudentIdCard({
                   <span className="font-bold text-slate-800 truncate">{data.fatherName}</span>
                 </div>
               )}
+            </div>
+          </div>
 
-              {/* Verified Status Tag */}
-              <div className="pt-0.5 flex items-center space-x-1 text-sky-700 text-[8.5px] sm:text-[9.5px] font-bold">
-                <ShieldCheck className="w-3 h-3 shrink-0" />
+          {/* Bottom Row: Left has Verified Identity Status, Right has the Enlarged QR Code */}
+          <div className="flex items-end justify-between pt-1 mt-1 border-t border-sky-100">
+            <div className="text-[8.5px] sm:text-[9.5px] text-slate-500 font-semibold space-y-0.5">
+              <div className="flex items-center space-x-1 text-sky-700 font-bold">
+                <ShieldCheck className="w-3 h-3" />
                 <span>Verified SPR Identity</span>
-                <span className="text-slate-400 font-mono text-[7.5px] ml-1">
-                  • {data.qrToken?.substring(0, 10)}
-                </span>
               </div>
+              <p className="font-mono text-[8px] text-slate-400">
+                AUTH-REF: {data.qrToken?.substring(0, 16) || 'SECURE-TOKEN'}
+              </p>
             </div>
 
-            {/* Right Sub-column: MASSIVE QR CODE FRAME */}
-            <div className="p-1 sm:p-1.5 rounded-2xl bg-white border-2 border-sky-300 shadow-md shrink-0 flex flex-col items-center">
+            {/* ENLARGED FULL SPACE QR CODE FRAME */}
+            <div className="p-1 rounded-xl bg-white border-2 border-sky-300 shadow-md shrink-0 flex flex-col items-center">
               <img
                 src={data.qrDataUrl}
                 alt="Student QR Code"
-                className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 object-contain"
+                className="w-18 h-18 sm:w-22 sm:h-22 md:w-24 md:h-24 object-contain"
               />
-              <span className="text-[7.5px] sm:text-[8px] font-black text-sky-900 tracking-tighter mt-0.5 uppercase">
+              <span className="text-[7px] sm:text-[7.5px] font-black text-sky-900 tracking-tighter mt-0.5 uppercase">
                 Scan for Wallet
               </span>
             </div>
@@ -445,13 +456,18 @@ export default function DigitalStudentIdCard({
     </div>
   );
 
-  // Reusable Back Card JSX Node
+  // Reusable Back Card JSX Node (FIXED THEME: EXPLICIT #0A192F COLOR + NO HIDDEN ELEMENTS)
   const renderBackCard = (isPrintClone = false) => (
     <div
       ref={isPrintClone ? printBackRef : backCardRef}
-      className={`relative w-full aspect-[1.586/1] bg-[#0A192F] text-white rounded-3xl shadow-2xl border border-sky-900 overflow-hidden select-none flex flex-col justify-between ${
+      className={`relative w-full aspect-[1.586/1] text-white rounded-3xl shadow-2xl border border-sky-900 overflow-hidden select-none flex flex-col justify-between ${
         isPrintClone ? 'print-card-box max-w-[620px]' : 'max-w-[620px]'
       }`}
+      style={{
+        backgroundColor: '#0A192F',
+        background: '#0A192F',
+        color: '#FFFFFF',
+      }}
     >
       {/* Bottom-Left Curved Wave Accents */}
       <div className="absolute bottom-0 left-0 w-[55%] h-[60%] pointer-events-none overflow-hidden">
@@ -472,7 +488,7 @@ export default function DigitalStudentIdCard({
               Performance Rate
             </span>
           </div>
-          <div className="w-8 h-8 rounded-xl bg-sky-950/80 border border-sky-400/40 p-1 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-xl bg-sky-950/90 border border-sky-400/50 p-1 flex items-center justify-center">
             <img src="/logo.png" alt="SPR Logo" className="w-full h-full object-contain" />
           </div>
         </div>
@@ -480,51 +496,52 @@ export default function DigitalStudentIdCard({
 
       {/* -------------------------------------------------------------
           BACK BODY: STORE FRONT ICON + HOW TO USE GUIDE + IMPORTANT
+          (NO HIDDEN CLASSES - ALWAYS VISIBLE IN DOWNLOADS & SCREEN)
           ------------------------------------------------------------- */}
-      <div className="relative z-10 px-5 sm:px-6 py-1 flex items-center gap-4 sm:gap-6 flex-1 min-h-0">
-        {/* Left Column: Store Graphic */}
-        <div className="hidden xs:flex flex-col items-center justify-center w-[25%] shrink-0 text-center">
-          <div className="w-18 h-18 sm:w-22 sm:h-22 rounded-2xl bg-sky-950/60 border-2 border-sky-400/60 flex flex-col items-center justify-center p-2 shadow-lg">
-            <Store className="w-8 h-8 sm:w-10 sm:h-10 text-sky-400" />
-            <ShoppingCart className="w-4 h-4 text-white mt-1" />
+      <div className="relative z-10 px-5 sm:px-6 py-1 flex items-center gap-3 sm:gap-5 flex-1 min-h-0">
+        {/* Left Column: Store Graphic (Always Visible) */}
+        <div className="flex flex-col items-center justify-center w-[22%] sm:w-[24%] shrink-0 text-center">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#0F274E] border-2 border-sky-400/60 flex flex-col items-center justify-center p-2 shadow-lg">
+            <Store className="w-7 h-7 sm:w-9 sm:h-9 text-sky-400" />
+            <ShoppingCart className="w-3.5 h-3.5 text-white mt-1" />
           </div>
-          <span className="text-[10px] font-black text-sky-300 uppercase tracking-wider mt-2">
+          <span className="text-[9px] sm:text-[10px] font-black text-sky-300 uppercase tracking-wider mt-1.5">
             SPR Store
           </span>
         </div>
 
         {/* Vertical Divider */}
-        <div className="hidden xs:block w-px self-stretch bg-sky-600/40" />
+        <div className="w-0.5 self-stretch bg-sky-600/50 my-1 shrink-0" />
 
         {/* Right Column: How To Use Instructions */}
-        <div className="flex-1 min-w-0 flex flex-col justify-center space-y-2">
+        <div className="flex-1 min-w-0 flex flex-col justify-center space-y-1.5">
           {/* How to use badge */}
           <div className="inline-flex items-center self-start px-3 py-0.5 rounded-full bg-sky-100 text-slate-900 text-[10px] sm:text-[11px] font-black uppercase tracking-tight shadow-xs">
             HOW TO USE AT THE STORE
           </div>
 
           {/* 4 Steps */}
-          <div className="space-y-1 text-[9.5px] sm:text-[11px] text-slate-200">
+          <div className="space-y-0.5 text-[9.5px] sm:text-[11px] text-slate-200">
             <div className="flex items-center space-x-2">
-              <span className="w-4 h-4 rounded-full bg-sky-400 text-slate-950 text-[10px] font-black flex items-center justify-center shrink-0">
+              <span className="w-3.5 h-3.5 rounded-full bg-sky-400 text-slate-950 text-[9.5px] font-black flex items-center justify-center shrink-0">
                 1
               </span>
               <span className="truncate">Present your SPR ID Card at the store.</span>
             </div>
             <div className="flex items-center space-x-2">
-              <span className="w-4 h-4 rounded-full bg-sky-400 text-slate-950 text-[10px] font-black flex items-center justify-center shrink-0">
+              <span className="w-3.5 h-3.5 rounded-full bg-sky-400 text-slate-950 text-[9.5px] font-black flex items-center justify-center shrink-0">
                 2
               </span>
               <span className="truncate">Allow the Store Admin to scan your QR Code.</span>
             </div>
             <div className="flex items-center space-x-2">
-              <span className="w-4 h-4 rounded-full bg-sky-400 text-slate-950 text-[10px] font-black flex items-center justify-center shrink-0">
+              <span className="w-3.5 h-3.5 rounded-full bg-sky-400 text-slate-950 text-[9.5px] font-black flex items-center justify-center shrink-0">
                 3
               </span>
               <span className="truncate">Your student profile will be displayed automatically.</span>
             </div>
             <div className="flex items-center space-x-2">
-              <span className="w-4 h-4 rounded-full bg-sky-400 text-slate-950 text-[10px] font-black flex items-center justify-center shrink-0">
+              <span className="w-3.5 h-3.5 rounded-full bg-sky-400 text-slate-950 text-[9.5px] font-black flex items-center justify-center shrink-0">
                 4
               </span>
               <span className="truncate">
@@ -534,7 +551,7 @@ export default function DigitalStudentIdCard({
           </div>
 
           {/* Important notice box */}
-          <div className="p-2 rounded-xl bg-sky-950/70 border border-sky-400/50 flex items-start space-x-2">
+          <div className="p-2 rounded-xl bg-[#0F274E]/80 border border-sky-400/50 flex items-start space-x-2">
             <ShieldCheck className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
             <div className="min-w-0">
               <div className="text-[9.5px] sm:text-[10px] font-black text-sky-300 uppercase">
@@ -642,7 +659,11 @@ export default function DigitalStudentIdCard({
             title={`Download high-resolution exact ${activeSide} PNG`}
           >
             <Download className="w-3.5 h-3.5" />
-            <span>{downloading && downloadProgressText.includes(activeSide) ? 'Capturing...' : `Download ${activeSide} PNG`}</span>
+            <span>
+              {downloading && downloadProgressText.includes(activeSide)
+                ? 'Capturing...'
+                : `Download ${activeSide} PNG`}
+            </span>
           </button>
 
           {/* BULKY DOWNLOAD: BOTH SIDES PNG */}
@@ -653,7 +674,11 @@ export default function DigitalStudentIdCard({
             title="Download both Front & Back PNGs plus a combined print sheet"
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>{downloading && downloadProgressText.includes('Both') ? 'Rendering...' : 'Download Both Sides (PNG)'}</span>
+            <span>
+              {downloading && downloadProgressText.includes('Both')
+                ? 'Rendering...'
+                : 'Download Both Sides (PNG)'}
+            </span>
           </button>
 
           {/* Print / PDF */}
