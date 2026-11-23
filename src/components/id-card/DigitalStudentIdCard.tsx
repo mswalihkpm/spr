@@ -333,13 +333,13 @@ export default function DigitalStudentIdCard({
       </div>
 
       {/* -------------------------------------------------------------
-          CARD BODY: PHOTO + DETAILS + QR
-          (DETAILS POSITIONED DIRECTLY UNDER CLASS AS MARKED BY USER)
+          CARD BODY: 3-COLUMN LAYOUT (PHOTO | DETAILS | EXTRA LARGE QR)
+          (DETAILS ON LEFT OF IMAGINARY LINE, EXTRA LARGE QR ON RIGHT)
           ------------------------------------------------------------- */}
-      <div className="relative z-10 px-5 sm:px-6 py-2 sm:py-3 flex items-start gap-4 sm:gap-5 flex-1 min-h-0">
-        {/* Left Column: Photograph + STRONG 8-DIGIT NUMBER ID PILL */}
-        <div className="flex flex-col items-center shrink-0 w-[28%] sm:w-[26%]">
-          <div className="w-full aspect-[4/5] rounded-2xl overflow-hidden bg-slate-100 border-2 border-sky-400 shadow-md relative">
+      <div className="relative z-10 px-4 sm:px-5 py-2 sm:py-2.5 flex items-stretch gap-2.5 sm:gap-3.5 flex-1 min-h-0">
+        {/* Column 1 (Far Left): Photograph + STRONG 8-DIGIT NUMBER ID PILL */}
+        <div className="flex flex-col items-center justify-between shrink-0 w-[24%] sm:w-[25%]">
+          <div className="w-full aspect-[4/5] rounded-xl sm:rounded-2xl overflow-hidden bg-slate-100 border-2 border-sky-400 shadow-md relative">
             {currentPhotoSrc && !imgLoadFailed ? (
               <img
                 src={currentPhotoSrc}
@@ -365,83 +365,83 @@ export default function DigitalStudentIdCard({
           </div>
 
           {/* STRONG 8-DIGIT NUMBER ID PILL */}
-          <div className="mt-2 w-full py-1 px-1 rounded-xl bg-slate-900 text-center shadow-xs border border-slate-800">
+          <div className="mt-1.5 w-full py-1 px-1 rounded-xl bg-slate-900 text-center shadow-xs border border-slate-800">
             <div className="text-sky-300 font-mono font-black text-xs sm:text-sm tracking-wider">
               {strong8DigitCode}
             </div>
-            <div className="text-[8.5px] sm:text-[9px] text-slate-400 font-mono font-bold leading-none">
+            <div className="text-[8px] sm:text-[8.5px] text-slate-400 font-mono font-bold leading-none">
               SPR ID: {data.sprId}
             </div>
           </div>
         </div>
 
-        {/* Right Column: Student Info & Positioned Details (EXACTLY AS MARKED) */}
-        <div className="flex-1 min-w-0 flex flex-col justify-between h-full">
+        {/* Column 2 (Middle, Left of Imaginary Line): Student Info & Details */}
+        <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
           <div>
-            <h2 className="text-sm sm:text-base lg:text-lg font-black text-slate-900 tracking-tight leading-snug truncate uppercase font-sans">
+            <h2 className="text-xs sm:text-sm lg:text-base font-black text-slate-900 tracking-tight leading-snug truncate uppercase font-sans">
               {data.fullName}
             </h2>
 
-            <div className="mt-0.5 inline-flex items-center px-2 py-0.5 rounded-md bg-sky-100/80 border border-sky-300/80 text-[10px] sm:text-[10.5px] font-black text-sky-900">
+            <div className="mt-0.5 inline-flex items-center px-2 py-0.5 rounded-md bg-sky-100/80 border border-sky-300/80 text-[9.5px] sm:text-[10px] font-black text-sky-900">
               <span>Class: {data.className}</span>
               {data.division && <span className="ml-1">({data.division})</span>}
             </div>
 
-            {/* POSITIONED HERE DIRECTLY BELOW CLASS (EXACTLY AS MARKED BY RED ARROW) */}
-            <div className="mt-2 space-y-1 text-[10px] sm:text-[11.5px] text-slate-700 font-medium leading-tight">
+            {/* DETAILS POSITIONED LEFT OF THE LINE */}
+            <div className="mt-1.5 space-y-0.5 sm:space-y-1 text-[9.5px] sm:text-[10.5px] text-slate-700 font-medium leading-tight">
               <div className="flex items-center space-x-1.5 truncate">
                 <MapPin className="w-3 h-3 text-sky-600 shrink-0" />
-                <span className="text-slate-400 text-[9.5px] uppercase font-bold shrink-0">Place:</span>
+                <span className="text-slate-400 text-[8.5px] sm:text-[9px] uppercase font-bold shrink-0">Place:</span>
                 <span className="font-bold text-slate-800 truncate">{displayLocation}</span>
               </div>
 
               <div className="flex items-center space-x-1.5 truncate">
                 <Phone className="w-3 h-3 text-sky-600 shrink-0" />
-                <span className="text-slate-400 text-[9.5px] uppercase font-bold shrink-0">Phone:</span>
+                <span className="text-slate-400 text-[8.5px] sm:text-[9px] uppercase font-bold shrink-0">Phone:</span>
                 <span className="font-bold text-slate-800 font-mono truncate">{displayPhone}</span>
               </div>
 
               <div className="flex items-center space-x-1.5 truncate">
                 <Mail className="w-3 h-3 text-sky-600 shrink-0" />
-                <span className="text-slate-400 text-[9.5px] uppercase font-bold shrink-0">Email:</span>
+                <span className="text-slate-400 text-[8.5px] sm:text-[9px] uppercase font-bold shrink-0">Email:</span>
                 <span className="font-bold text-slate-800 font-mono truncate">{displayEmail}</span>
               </div>
 
               {data.fatherName && data.fatherName !== '—' && (
                 <div className="flex items-center space-x-1.5 truncate">
-                  <span className="w-3 h-3 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-[8px] font-black shrink-0">
+                  <span className="w-3 h-3 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-[7.5px] font-black shrink-0">
                     P
                   </span>
-                  <span className="text-slate-400 text-[9.5px] uppercase font-bold shrink-0">Guardian:</span>
+                  <span className="text-slate-400 text-[8.5px] sm:text-[9px] uppercase font-bold shrink-0">Guardian:</span>
                   <span className="font-bold text-slate-800 truncate">{data.fatherName}</span>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Bottom Row: Left has Verified Identity Status, Right has the Enlarged QR Code */}
-          <div className="flex items-end justify-between pt-1 mt-1 border-t border-sky-100">
-            <div className="text-[8.5px] sm:text-[9.5px] text-slate-500 font-semibold space-y-0.5">
-              <div className="flex items-center space-x-1 text-sky-700 font-bold">
-                <ShieldCheck className="w-3 h-3" />
-                <span>Verified SPR Identity</span>
-              </div>
-              <p className="font-mono text-[8px] text-slate-400">
-                AUTH-REF: {data.qrToken?.substring(0, 16) || 'SECURE-TOKEN'}
-              </p>
+          {/* Bottom Identity Verification Badge */}
+          <div className="pt-1 mt-1 border-t border-sky-200/60 text-[8px] sm:text-[9px] text-slate-500 font-semibold space-y-0.5">
+            <div className="flex items-center space-x-1 text-sky-700 font-bold">
+              <ShieldCheck className="w-3 h-3" />
+              <span>Verified SPR Identity</span>
             </div>
+            <p className="font-mono text-[7.5px] sm:text-[8px] text-slate-400 truncate">
+              AUTH-REF: {data.qrToken?.substring(0, 16) || 'SECURE-TOKEN'}
+            </p>
+          </div>
+        </div>
 
-            {/* ENLARGED FULL SPACE QR CODE FRAME */}
-            <div className="p-1 rounded-xl bg-white border-2 border-sky-300 shadow-md shrink-0 flex flex-col items-center">
-              <img
-                src={data.qrDataUrl}
-                alt="Student QR Code"
-                className="w-18 h-18 sm:w-22 sm:h-22 md:w-24 md:h-24 object-contain"
-              />
-              <span className="text-[7px] sm:text-[7.5px] font-black text-sky-900 tracking-tighter mt-0.5 uppercase">
-                Scan for Wallet
-              </span>
-            </div>
+        {/* Column 3 (Right of Imaginary Line): EXTRA LARGE QR CODE */}
+        <div className="shrink-0 flex flex-col items-center justify-center self-center pl-0.5">
+          <div className="p-1.5 sm:p-2 rounded-2xl bg-white border-2 border-sky-400 shadow-md flex flex-col items-center justify-center">
+            <img
+              src={data.qrDataUrl}
+              alt="Student QR Code"
+              className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 object-contain"
+            />
+            <span className="text-[7.5px] sm:text-[8px] font-black text-sky-950 tracking-tighter mt-1 uppercase">
+              Scan for Wallet
+            </span>
           </div>
         </div>
       </div>

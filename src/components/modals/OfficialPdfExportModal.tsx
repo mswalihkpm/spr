@@ -1297,10 +1297,10 @@ export default function OfficialPdfExportModal({
                       </div>
                     </div>
 
-                    {/* Front Body */}
-                    <div className="relative z-10 px-5 py-1.5 flex items-start gap-4 flex-1 min-h-0">
-                      {/* Left Column: Photograph + Strong 8-Digit ID Pill */}
-                      <div className="flex flex-col items-center shrink-0 w-[27%]">
+                    {/* Front Body: 3-Column Layout (Photo | Details Left of Line | Extra Large QR Right) */}
+                    <div className="relative z-10 px-5 py-2 flex items-stretch gap-3 flex-1 min-h-0">
+                      {/* Column 1 (Far Left): Photograph + Strong 8-Digit ID Pill */}
+                      <div className="flex flex-col items-center justify-between shrink-0 w-[25%]">
                         <div className="w-full aspect-[4/5] rounded-xl overflow-hidden bg-slate-100 border-2 border-sky-400 shadow-sm relative">
                           {card.photoUrl ? (
                             <img
@@ -1335,35 +1335,35 @@ export default function OfficialPdfExportModal({
                         </div>
                       </div>
 
-                      {/* Right Column: Info & Positioned Details directly below Class */}
-                      <div className="flex-1 min-w-0 flex flex-col justify-between h-full">
+                      {/* Column 2 (Middle, Left of Imaginary Line): Info & Positioned Details */}
+                      <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
                         <div>
-                          <h2 className="text-sm font-black text-slate-900 tracking-tight leading-snug truncate uppercase font-sans">
+                          <h2 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight leading-snug truncate uppercase font-sans">
                             {card.fullName}
                           </h2>
 
-                          <div className="mt-0.5 inline-flex items-center px-2 py-0.5 rounded-md bg-sky-100/80 border border-sky-300/80 text-[10px] font-black text-sky-900">
+                          <div className="mt-0.5 inline-flex items-center px-2 py-0.5 rounded-md bg-sky-100/80 border border-sky-300/80 text-[9.5px] font-black text-sky-900">
                             <span>Class: {card.className}</span>
                             {card.division && <span className="ml-1">({card.division})</span>}
                           </div>
 
                           {/* Details Positioned Directly Under Class Badge */}
-                          <div className="mt-1.5 space-y-0.5 text-[10px] text-slate-700 font-medium leading-tight">
+                          <div className="mt-1.5 space-y-0.5 text-[9.5px] text-slate-700 font-medium leading-tight">
                             <div className="flex items-center space-x-1.5 truncate">
                               <MapPin className="w-2.5 h-2.5 text-sky-600 shrink-0" />
-                              <span className="text-slate-400 text-[8.5px] uppercase font-bold shrink-0">Place:</span>
+                              <span className="text-slate-400 text-[8px] uppercase font-bold shrink-0">Place:</span>
                               <span className="font-bold text-slate-800 truncate">{card.location || card.place || '—'}</span>
                             </div>
 
                             <div className="flex items-center space-x-1.5 truncate">
                               <Phone className="w-2.5 h-2.5 text-sky-600 shrink-0" />
-                              <span className="text-slate-400 text-[8.5px] uppercase font-bold shrink-0">Phone:</span>
+                              <span className="text-slate-400 text-[8px] uppercase font-bold shrink-0">Phone:</span>
                               <span className="font-bold text-slate-800 font-mono truncate">{card.phone || '—'}</span>
                             </div>
 
                             <div className="flex items-center space-x-1.5 truncate">
                               <Mail className="w-2.5 h-2.5 text-sky-600 shrink-0" />
-                              <span className="text-slate-400 text-[8.5px] uppercase font-bold shrink-0">Email:</span>
+                              <span className="text-slate-400 text-[8px] uppercase font-bold shrink-0">Email:</span>
                               <span className="font-bold text-slate-800 font-mono truncate">{card.email || '—'}</span>
                             </div>
 
@@ -1372,36 +1372,36 @@ export default function OfficialPdfExportModal({
                                 <span className="w-2.5 h-2.5 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-[7.5px] font-black shrink-0">
                                   P
                                 </span>
-                                <span className="text-slate-400 text-[8.5px] uppercase font-bold shrink-0">Guardian:</span>
+                                <span className="text-slate-400 text-[8px] uppercase font-bold shrink-0">Guardian:</span>
                                 <span className="font-bold text-slate-800 truncate">{card.fatherName}</span>
                               </div>
                             )}
                           </div>
                         </div>
 
-                        {/* Bottom Row: Verified Identity & Large QR Code */}
-                        <div className="flex items-end justify-between pt-1 mt-0.5 border-t border-sky-100">
-                          <div className="text-[8px] text-slate-500 font-semibold space-y-0.5">
-                            <div className="flex items-center space-x-1 text-sky-700 font-bold">
-                              <ShieldCheck className="w-3 h-3" />
-                              <span>Verified SPR Identity</span>
-                            </div>
-                            <p className="font-mono text-[7.5px] text-slate-400">
-                              AUTH-REF: {card.qrToken?.substring(0, 16) || 'SECURE-TOKEN'}
-                            </p>
+                        {/* Verified Identity Badge */}
+                        <div className="pt-1 mt-1 border-t border-sky-100 text-[8px] text-slate-500 font-semibold space-y-0.5">
+                          <div className="flex items-center space-x-1 text-sky-700 font-bold">
+                            <ShieldCheck className="w-3 h-3" />
+                            <span>Verified SPR Identity</span>
                           </div>
+                          <p className="font-mono text-[7.5px] text-slate-400 truncate">
+                            AUTH-REF: {card.qrToken?.substring(0, 16) || 'SECURE-TOKEN'}
+                          </p>
+                        </div>
+                      </div>
 
-                          {/* Enlarged QR Code Frame */}
-                          <div className="p-1 rounded-xl bg-white border-2 border-sky-300 shadow-xs shrink-0 flex flex-col items-center">
-                            <img
-                              src={card.qrDataUrl}
-                              alt="Student QR Code"
-                              className="w-18 h-18 object-contain"
-                            />
-                            <span className="text-[7px] font-black text-sky-900 tracking-tighter mt-0.5 uppercase">
-                              Scan for Wallet
-                            </span>
-                          </div>
+                      {/* Column 3 (Right of Imaginary Line): Extra Large QR Code */}
+                      <div className="shrink-0 flex flex-col items-center justify-center self-center pl-0.5">
+                        <div className="p-1.5 rounded-2xl bg-white border-2 border-sky-400 shadow-sm flex flex-col items-center justify-center">
+                          <img
+                            src={card.qrDataUrl}
+                            alt="Student QR Code"
+                            className="w-26 h-26 object-contain"
+                          />
+                          <span className="text-[7.5px] font-black text-sky-950 tracking-tighter mt-0.5 uppercase">
+                            Scan for Wallet
+                          </span>
                         </div>
                       </div>
                     </div>
