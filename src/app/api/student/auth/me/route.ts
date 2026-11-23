@@ -70,31 +70,63 @@ export async function GET(req: NextRequest) {
       });
 
       const pfResponse = studentRecord?.questionnaireResponses?.[0];
+      const ansObj = (pfResponse?.answers && typeof pfResponse.answers === 'object') ? (pfResponse.answers as Record<string, any>) : {};
+
+      const findAns = (keywords: string[]): string | null => {
+        for (const kw of keywords) {
+          const v = ansObj[kw];
+          if (typeof v === 'string' && v.trim()) return v.trim();
+        }
+        for (const [k, val] of Object.entries(ansObj)) {
+          if (typeof val === 'string' && val.trim()) {
+            const lk = k.toLowerCase();
+            if (keywords.some((kw) => lk.includes(kw.toLowerCase()))) {
+              return val.trim();
+            }
+          }
+        }
+        return null;
+      };
+
+      const resolvedFather = studentRecord?.fatherName || findAns(['father_name', 'father']) || null;
+      const resolvedMother = studentRecord?.motherName || findAns(['mother_name', 'mother']) || null;
+      const resolvedHouse = studentRecord?.houseName || findAns(['house_name', 'house', 'address']) || null;
+      const resolvedPlace = studentRecord?.place || findAns(['place', 'locality']) || null;
+      const resolvedDistrict = studentRecord?.district || findAns(['district']) || null;
+      const resolvedGuardianPhone = studentRecord?.guardianPhone || findAns(['guardian_phone', 'guardian_contact', 'parent_phone']) || null;
+      const resolvedStudentPhone = studentRecord?.studentPhone || findAns(['student_phone', 'student_contact']) || null;
+      const resolvedStudentEmail = studentRecord?.studentEmail || findAns(['student_email', 'email']) || null;
+      const resolvedResidential = studentRecord?.residentialStatus || findAns(['residential_status', 'residential', 'hostel']) || null;
+      const resolvedContactMethod = studentRecord?.preferredContact || findAns(['preferred_contact', 'contact_method']) || null;
+
       const isFamilyCompleted = Boolean(
         pfResponse?.status === 'SUBMITTED' ||
         pfResponse?.status === 'LOCKED' ||
-        studentRecord?.isProfileLocked ||
-        (studentRecord?.fatherName && studentRecord?.motherName)
+        resolvedFather ||
+        resolvedMother ||
+        resolvedPlace ||
+        resolvedDistrict ||
+        resolvedHouse
       );
 
       const familyPersonalDetails = isFamilyCompleted
         ? {
             completed: true,
-            status: pfResponse?.status || (studentRecord?.isProfileLocked ? 'LOCKED' : 'SUBMITTED'),
+            status: pfResponse?.status || 'SUBMITTED',
             submittedAt: pfResponse?.submittedAt || null,
             title: pfResponse?.questionnaire?.title || 'Personal & Family Information',
             answers: pfResponse?.answers || null,
-            fatherName: studentRecord?.fatherName || null,
-            motherName: studentRecord?.motherName || null,
-            houseName: studentRecord?.houseName || null,
-            guardianPhone: studentRecord?.guardianPhone || null,
-            studentPhone: studentRecord?.studentPhone || null,
-            studentEmail: studentRecord?.studentEmail || null,
-            place: studentRecord?.place || null,
-            district: studentRecord?.district || null,
-            residentialStatus: studentRecord?.residentialStatus || null,
-            preferredContact: studentRecord?.preferredContact || null,
-            isProfileLocked: studentRecord?.isProfileLocked ?? true,
+            fatherName: resolvedFather,
+            motherName: resolvedMother,
+            houseName: resolvedHouse,
+            guardianPhone: resolvedGuardianPhone,
+            studentPhone: resolvedStudentPhone,
+            studentEmail: resolvedStudentEmail,
+            place: resolvedPlace,
+            district: resolvedDistrict,
+            residentialStatus: resolvedResidential,
+            preferredContact: resolvedContactMethod,
+            isProfileLocked: false,
           }
         : {
             completed: false,
@@ -105,17 +137,17 @@ export async function GET(req: NextRequest) {
           student: {
             ...student,
             fullName: studentRecord?.fullName || (student as any).name || (student as any).fullName || '',
-            fatherName: studentRecord?.fatherName,
-            motherName: studentRecord?.motherName,
-            houseName: studentRecord?.houseName,
-            guardianPhone: studentRecord?.guardianPhone,
-            studentPhone: studentRecord?.studentPhone,
-            studentEmail: studentRecord?.studentEmail,
-            place: studentRecord?.place,
-            district: studentRecord?.district,
-            residentialStatus: studentRecord?.residentialStatus,
-            preferredContact: studentRecord?.preferredContact,
-            isProfileLocked: studentRecord?.isProfileLocked ?? false,
+            fatherName: resolvedFather,
+            motherName: resolvedMother,
+            houseName: resolvedHouse,
+            guardianPhone: resolvedGuardianPhone,
+            studentPhone: resolvedStudentPhone,
+            studentEmail: resolvedStudentEmail,
+            place: resolvedPlace,
+            district: resolvedDistrict,
+            residentialStatus: resolvedResidential,
+            preferredContact: resolvedContactMethod,
+            isProfileLocked: false,
             photoUrl: studentRecord?.photoUrl || (student as any)?.photoUrl || null,
             className: studentRecord?.class?.name || student.className,
             academicYear: studentRecord?.academicYear?.name,
@@ -552,31 +584,64 @@ export async function GET(req: NextRequest) {
         q.questionnaire?.title?.toLowerCase().includes('personal') ||
         q.questionnaire?.title?.toLowerCase().includes('family')
     );
+
+    const fullAnsObj = (pfResponse?.answers && typeof pfResponse.answers === 'object') ? (pfResponse.answers as Record<string, any>) : {};
+
+    const findFullAns = (keywords: string[]): string | null => {
+      for (const kw of keywords) {
+        const v = fullAnsObj[kw];
+        if (typeof v === 'string' && v.trim()) return v.trim();
+      }
+      for (const [k, val] of Object.entries(fullAnsObj)) {
+        if (typeof val === 'string' && val.trim()) {
+          const lk = k.toLowerCase();
+          if (keywords.some((kw) => lk.includes(kw.toLowerCase()))) {
+            return val.trim();
+          }
+        }
+      }
+      return null;
+    };
+
+    const resolvedFatherFull = studentRecord?.fatherName || findFullAns(['father_name', 'father']) || null;
+    const resolvedMotherFull = studentRecord?.motherName || findFullAns(['mother_name', 'mother']) || null;
+    const resolvedHouseFull = studentRecord?.houseName || findFullAns(['house_name', 'house', 'address']) || null;
+    const resolvedPlaceFull = studentRecord?.place || findFullAns(['place', 'locality']) || null;
+    const resolvedDistrictFull = studentRecord?.district || findFullAns(['district']) || null;
+    const resolvedGuardianPhoneFull = studentRecord?.guardianPhone || findFullAns(['guardian_phone', 'guardian_contact', 'parent_phone']) || null;
+    const resolvedStudentPhoneFull = studentRecord?.studentPhone || findFullAns(['student_phone', 'student_contact']) || null;
+    const resolvedStudentEmailFull = studentRecord?.studentEmail || findFullAns(['student_email', 'email']) || null;
+    const resolvedResidentialFull = studentRecord?.residentialStatus || findFullAns(['residential_status', 'residential', 'hostel']) || null;
+    const resolvedContactMethodFull = studentRecord?.preferredContact || findFullAns(['preferred_contact', 'contact_method']) || null;
+
     const isFamilyCompleted = Boolean(
       pfResponse?.status === 'SUBMITTED' ||
       pfResponse?.status === 'LOCKED' ||
-      studentRecord?.isProfileLocked ||
-      (studentRecord?.fatherName && studentRecord?.motherName)
+      resolvedFatherFull ||
+      resolvedMotherFull ||
+      resolvedPlaceFull ||
+      resolvedDistrictFull ||
+      resolvedHouseFull
     );
 
     const familyPersonalDetails = isFamilyCompleted
       ? {
           completed: true,
-          status: pfResponse?.status || (studentRecord?.isProfileLocked ? 'LOCKED' : 'SUBMITTED'),
+          status: pfResponse?.status || 'SUBMITTED',
           submittedAt: pfResponse?.submittedAt || null,
           title: pfResponse?.questionnaire?.title || 'Personal & Family Information',
           answers: pfResponse?.answers || null,
-          fatherName: studentRecord?.fatherName || null,
-          motherName: studentRecord?.motherName || null,
-          houseName: studentRecord?.houseName || null,
-          guardianPhone: studentRecord?.guardianPhone || null,
-          studentPhone: studentRecord?.studentPhone || null,
-          studentEmail: studentRecord?.studentEmail || null,
-          place: studentRecord?.place || null,
-          district: studentRecord?.district || null,
-          residentialStatus: studentRecord?.residentialStatus || null,
-          preferredContact: studentRecord?.preferredContact || null,
-          isProfileLocked: studentRecord?.isProfileLocked ?? true,
+          fatherName: resolvedFatherFull,
+          motherName: resolvedMotherFull,
+          houseName: resolvedHouseFull,
+          guardianPhone: resolvedGuardianPhoneFull,
+          studentPhone: resolvedStudentPhoneFull,
+          studentEmail: resolvedStudentEmailFull,
+          place: resolvedPlaceFull,
+          district: resolvedDistrictFull,
+          residentialStatus: resolvedResidentialFull,
+          preferredContact: resolvedContactMethodFull,
+          isProfileLocked: false,
         }
       : {
           completed: false,
@@ -586,17 +651,17 @@ export async function GET(req: NextRequest) {
         student: {
           ...student,
           fullName: studentRecord?.fullName || (student as any).name || (student as any).fullName || '',
-          fatherName: studentRecord?.fatherName,
-          motherName: studentRecord?.motherName,
-          houseName: studentRecord?.houseName,
-          guardianPhone: studentRecord?.guardianPhone,
-          studentPhone: studentRecord?.studentPhone,
-          studentEmail: studentRecord?.studentEmail,
-          place: studentRecord?.place,
-          district: studentRecord?.district,
-          residentialStatus: studentRecord?.residentialStatus,
-          preferredContact: studentRecord?.preferredContact,
-          isProfileLocked: studentRecord?.isProfileLocked ?? false,
+          fatherName: resolvedFatherFull,
+          motherName: resolvedMotherFull,
+          houseName: resolvedHouseFull,
+          guardianPhone: resolvedGuardianPhoneFull,
+          studentPhone: resolvedStudentPhoneFull,
+          studentEmail: resolvedStudentEmailFull,
+          place: resolvedPlaceFull,
+          district: resolvedDistrictFull,
+          residentialStatus: resolvedResidentialFull,
+          preferredContact: resolvedContactMethodFull,
+          isProfileLocked: false,
           photoUrl: studentRecord?.photoUrl || (student as any)?.photoUrl || null,
           className: studentRecord?.class?.name || student.className,
           academicYear: studentRecord?.academicYear?.name,

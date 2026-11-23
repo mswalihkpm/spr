@@ -497,11 +497,6 @@ export default function StudentDossierPage() {
                 <User className="w-4 h-4 text-blue-600" />
                 <span>Personal &amp; Family Profile</span>
               </h3>
-              {student?.isProfileLocked && (
-                <span className="p-1 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 border border-amber-200 dark:border-amber-800">
-                  <Lock className="w-3.5 h-3.5" />
-                </span>
-              )}
             </div>
 
             <div className="space-y-2 text-xs">
@@ -512,6 +507,10 @@ export default function StudentDossierPage() {
               <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                 <span className="text-slate-400">Mother's Name</span>
                 <span className="font-bold text-slate-800 dark:text-slate-200">{student?.motherName || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                <span className="text-slate-400">House Name</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">{student?.houseName || '—'}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                 <span className="text-slate-400">Place / Locality</span>

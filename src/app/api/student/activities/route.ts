@@ -47,11 +47,6 @@ export async function GET(req: NextRequest) {
       let status = response?.status || 'NOT_STARTED';
       let progress = response?.progressPercent || 0;
 
-      // Personal & Family Questionnaire locking rule
-      if (q.code === 'PERSONAL_FAMILY' && studentRecord?.isProfileLocked) {
-        status = 'LOCKED';
-      }
-
       return {
         id: q.id,
         code: q.code,

@@ -25,15 +25,6 @@ export async function POST(req: NextRequest, { params }: { params: { code: strin
       return NextResponse.json({ error: 'Questionnaire not found' }, { status: 404 });
     }
 
-    const studentRecord = await prisma.student.findUnique({
-      where: { id: student.studentId },
-      select: { isProfileLocked: true },
-    });
-
-    if (code.toUpperCase() === 'PERSONAL_FAMILY' && studentRecord?.isProfileLocked) {
-      return NextResponse.json({ error: 'Personal profile is locked from editing' }, { status: 403 });
-    }
-
     const existingResponse = await prisma.questionnaireResponse.findUnique({
       where: {
         studentId_questionnaireId: {

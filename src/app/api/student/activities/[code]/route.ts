@@ -109,10 +109,7 @@ export async function GET(req: NextRequest, { params }: { params: { code: string
       };
     }
 
-    const isLocked = Boolean(
-      (code.toUpperCase() === 'PERSONAL_FAMILY' && studentRecord?.isProfileLocked) ||
-      response?.status === 'LOCKED'
-    );
+    const isLocked = false;
 
     return NextResponse.json({
       success: true,
