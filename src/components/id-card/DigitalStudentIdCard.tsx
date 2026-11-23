@@ -337,8 +337,8 @@ export default function DigitalStudentIdCard({
           (DETAILS ON LEFT OF IMAGINARY LINE, EXTRA LARGE QR ON RIGHT)
           ------------------------------------------------------------- */}
       <div className="relative z-10 px-4 sm:px-5 py-2 sm:py-2.5 flex items-stretch gap-2.5 sm:gap-3.5 flex-1 min-h-0">
-        {/* Column 1 (Far Left): Photograph + STRONG 8-DIGIT NUMBER ID PILL */}
-        <div className="flex flex-col items-center justify-between shrink-0 w-[24%] sm:w-[25%]">
+        {/* Column 1 (Far Left): Photograph + STRONG 8-DIGIT NUMBER ID PILL (POSITIONED UPWARD) */}
+        <div className="flex flex-col items-center justify-start shrink-0 w-[24%] sm:w-[25%]">
           <div className="w-full aspect-[4/5] rounded-xl sm:rounded-2xl overflow-hidden bg-slate-100 border-2 border-sky-400 shadow-md relative">
             {currentPhotoSrc && !imgLoadFailed ? (
               <img
@@ -364,12 +364,12 @@ export default function DigitalStudentIdCard({
             )}
           </div>
 
-          {/* STRONG 8-DIGIT NUMBER ID PILL */}
-          <div className="mt-1.5 w-full py-1 px-1 rounded-xl bg-slate-900 text-center shadow-xs border border-slate-800">
+          {/* STRONG 8-DIGIT NUMBER ID PILL - POSITIONED UPWARD DIRECTLY UNDER PHOTO */}
+          <div className="mt-1.5 sm:mt-2 w-full py-0.5 sm:py-1 px-1 rounded-xl bg-slate-900 text-center shadow-xs border border-slate-800">
             <div className="text-sky-300 font-mono font-black text-xs sm:text-sm tracking-wider">
               {strong8DigitCode}
             </div>
-            <div className="text-[8px] sm:text-[8.5px] text-slate-400 font-mono font-bold leading-none">
+            <div className="text-[7.5px] sm:text-[8px] text-slate-400 font-mono font-bold leading-none">
               SPR ID: {data.sprId}
             </div>
           </div>
@@ -432,12 +432,25 @@ export default function DigitalStudentIdCard({
         </div>
 
         {/* Column 3 (Right of Imaginary Line): EXTRA LARGE QR CODE */}
-        <div className="shrink-0 flex flex-col items-center justify-center self-center pl-0.5">
-          <div className="p-1.5 sm:p-2 rounded-2xl bg-white border-2 border-sky-400 shadow-md flex flex-col items-center justify-center">
+        <div
+          className="shrink-0 flex flex-col items-center justify-center self-center pl-1"
+          style={{ width: '135px', maxWidth: '140px' }}
+        >
+          <div
+            className="p-1.5 sm:p-2 rounded-2xl bg-white border-2 border-sky-400 shadow-md flex flex-col items-center justify-center"
+            style={{ width: '100%', boxSizing: 'border-box' }}
+          >
             <img
               src={data.qrDataUrl}
               alt="Student QR Code"
-              className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 object-contain"
+              className="object-contain"
+              style={{
+                width: '105px',
+                height: '105px',
+                maxWidth: '105px',
+                maxHeight: '105px',
+                aspectRatio: '1 / 1',
+              }}
             />
             <span className="text-[7.5px] sm:text-[8px] font-black text-sky-950 tracking-tighter mt-1 uppercase">
               Scan for Wallet

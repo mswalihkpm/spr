@@ -514,6 +514,19 @@ export default function OfficialPdfExportModal({
             break-after: auto !important;
             page-break-after: auto !important;
           }
+          .print-id-card-qr-img {
+            width: 100px !important;
+            height: 100px !important;
+            max-width: 100px !important;
+            max-height: 100px !important;
+            object-fit: contain !important;
+          }
+          .print-id-card-qr-box {
+            width: 118px !important;
+            min-width: 118px !important;
+            max-width: 118px !important;
+            box-sizing: border-box !important;
+          }
           table {
             display: table !important;
             width: 100% !important;
@@ -1299,8 +1312,8 @@ export default function OfficialPdfExportModal({
 
                     {/* Front Body: 3-Column Layout (Photo | Details Left of Line | Extra Large QR Right) */}
                     <div className="relative z-10 px-5 py-2 flex items-stretch gap-3 flex-1 min-h-0">
-                      {/* Column 1 (Far Left): Photograph + Strong 8-Digit ID Pill */}
-                      <div className="flex flex-col items-center justify-between shrink-0 w-[25%]">
+                      {/* Column 1 (Far Left): Photograph + Strong 8-Digit ID Pill (POSITIONED UPWARD) */}
+                      <div className="flex flex-col items-center justify-start shrink-0 w-[24%]">
                         <div className="w-full aspect-[4/5] rounded-xl overflow-hidden bg-slate-100 border-2 border-sky-400 shadow-sm relative">
                           {card.photoUrl ? (
                             <img
@@ -1324,12 +1337,12 @@ export default function OfficialPdfExportModal({
                           )}
                         </div>
 
-                        {/* Strong 8-Digit ID Pill */}
-                        <div className="mt-1.5 w-full py-0.5 px-1 rounded-lg bg-slate-900 text-center shadow-xs border border-slate-800">
+                        {/* Strong 8-Digit ID Pill - POSITIONED UPWARD DIRECTLY UNDER PHOTO */}
+                        <div className="mt-1 sm:mt-1.5 w-full py-0.5 px-1 rounded-lg bg-slate-900 text-center shadow-xs border border-slate-800">
                           <div className="text-sky-300 font-mono font-black text-xs tracking-wider">
                             {card.eightDigitSprId}
                           </div>
-                          <div className="text-[8px] text-slate-400 font-mono font-bold leading-none">
+                          <div className="text-[7.5px] text-slate-400 font-mono font-bold leading-none">
                             SPR ID: {card.sprId}
                           </div>
                         </div>
@@ -1392,14 +1405,29 @@ export default function OfficialPdfExportModal({
                       </div>
 
                       {/* Column 3 (Right of Imaginary Line): Extra Large QR Code */}
-                      <div className="shrink-0 flex flex-col items-center justify-center self-center pl-0.5">
-                        <div className="p-1.5 rounded-2xl bg-white border-2 border-sky-400 shadow-sm flex flex-col items-center justify-center">
+                      <div
+                        className="shrink-0 flex flex-col items-center justify-center self-center pl-1 print-id-card-qr-box"
+                        style={{ width: '118px', minWidth: '118px', maxWidth: '118px' }}
+                      >
+                        <div
+                          className="p-1.5 rounded-2xl bg-white border-2 border-sky-400 shadow-sm flex flex-col items-center justify-center"
+                          style={{ width: '116px', boxSizing: 'border-box' }}
+                        >
                           <img
                             src={card.qrDataUrl}
                             alt="Student QR Code"
-                            className="w-26 h-26 object-contain"
+                            className="object-contain print-id-card-qr-img"
+                            style={{
+                              width: '100px',
+                              height: '100px',
+                              maxWidth: '100px',
+                              maxHeight: '100px',
+                            }}
                           />
-                          <span className="text-[7.5px] font-black text-sky-950 tracking-tighter mt-0.5 uppercase">
+                          <span
+                            className="font-black text-sky-950 tracking-tighter uppercase mt-0.5"
+                            style={{ fontSize: '7.5px', lineHeight: '1' }}
+                          >
                             Scan for Wallet
                           </span>
                         </div>
