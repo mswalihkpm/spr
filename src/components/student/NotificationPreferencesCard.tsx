@@ -56,6 +56,22 @@ export default function NotificationPreferencesCard() {
   // Helper to detect device client category
   const detectDeviceType = useCallback((): string => {
     if (typeof window === 'undefined') return 'WEB';
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (
+        urlParams.get('spr_native') === '1' ||
+        urlParams.get('spr_native') === 'true' ||
+        localStorage.getItem('spr_subscription_type') === 'ANDROID_NATIVE' ||
+        localStorage.getItem('spr_is_native_app') === '1'
+      ) {
+        try {
+          localStorage.setItem('spr_is_native_app', '1');
+          localStorage.setItem('spr_subscription_type', 'ANDROID_NATIVE');
+        } catch (e) {}
+        return 'ANDROID_NATIVE';
+      }
+    } catch (e) {}
+
     const ua = navigator.userAgent || '';
     const isStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
@@ -100,6 +116,89 @@ export default function NotificationPreferencesCard() {
     setDeviceType(detectDeviceType());
 
     async function checkSupport() {
+      const isNative =
+        typeof window !== 'undefined' &&
+        (() => {
+          try {
+            const params = new URLSearchParams(window.location.search);
+            return (
+              params.get('spr_native') === '1' ||
+              params.get('spr_native') === 'true' ||
+              localStorage.getItem('spr_subscription_type') === 'ANDROID_NATIVE' ||
+              localStorage.getItem('spr_is_native_app') === '1'
+            );
+          } catch {
+            return false;
+          }
+        })();
+
+      if (isNative) {
+        setIsSupported(true);
+        setDeviceType('ANDROID_NATIVE');
+        try {
+          localStorage.setItem('spr_is_native_app', '1');
+          localStorage.setItem('spr_subscription_type', 'ANDROID_NATIVE');
+        } catch (e) {}
+
+        let fetchedPermission: NotificationPermission = 'default';
+        try {
+          const win = window as any;
+          if (win.AndroidBridge && typeof win.AndroidBridge.postMessage === 'function') {
+            const bridgePromise = new Promise<any>((resolve) => {
+              const timeoutId = setTimeout(() => resolve(null), 1500);
+              const handleMsg = (event: MessageEvent) => {
+                clearTimeout(timeoutId);
+                try {
+                  const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+                  resolve(data);
+                } catch {
+                  resolve(null);
+                }
+                try {
+                  win.AndroidBridge.removeEventListener?.('message', handleMsg);
+                } catch {}
+              };
+              try {
+                if (typeof win.AndroidBridge.addEventListener === 'function') {
+                  win.AndroidBridge.addEventListener('message', handleMsg);
+                } else {
+                  win.AndroidBridge.onmessage = handleMsg;
+                }
+                win.AndroidBridge.postMessage(JSON.stringify({ action: 'getNotificationPermissionStatus' }));
+              } catch {
+                clearTimeout(timeoutId);
+                resolve(null);
+              }
+            });
+
+            const bridgeRes = await bridgePromise;
+            if (bridgeRes && typeof bridgeRes.notificationsEnabled === 'boolean') {
+              fetchedPermission = bridgeRes.notificationsEnabled ? 'granted' : 'denied';
+            }
+          }
+        } catch {
+          fetchedPermission = 'default';
+        }
+        setPermission(fetchedPermission);
+
+        setIsVerifying(true);
+        try {
+          const res = await fetch('/api/notifications/subscribe?deviceType=ANDROID_NATIVE');
+          if (res.ok) {
+            const json = await res.json();
+            const active = Boolean(json.isSubscribed);
+            setIsSubscribed(active);
+          } else {
+            setIsSubscribed(false);
+          }
+        } catch {
+          setIsSubscribed(false);
+        } finally {
+          setIsVerifying(false);
+        }
+        return;
+      }
+
       if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) {
         setIsSupported(false);
         setPermission('unsupported');
@@ -124,8 +223,12 @@ export default function NotificationPreferencesCard() {
         setIsVerifying(true);
         try {
           const cachedToken = localStorage.getItem('spr_fcm_token');
-          if (cachedToken) {
-            const res = await fetch(`/api/notifications/subscribe?fcmToken=${encodeURIComponent(cachedToken)}`);
+          if (cachedToken && cachedToken.trim().length >= 10) {
+            const res = await fetch('/api/notifications/subscribe/status', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fcmToken: cachedToken.trim() }),
+            });
             if (res.ok) {
               const json = await res.json();
               setIsSubscribed(Boolean(json.isSubscribed));
@@ -155,6 +258,21 @@ export default function NotificationPreferencesCard() {
 
     checkSupport();
     fetchPreferences();
+
+    // Re-check support and permission when returning from Android Settings or switching tabs
+    const handleVisibilityOrFocus = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        checkSupport();
+      }
+    };
+
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+    return () => {
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+    };
   }, [detectDeviceType, fetchPreferences]);
 
   // Handle individual preference toggle
@@ -200,6 +318,39 @@ export default function NotificationPreferencesCard() {
     setIsRegistering(true);
 
     try {
+      const isNative =
+        typeof window !== 'undefined' &&
+        (localStorage.getItem('spr_subscription_type') === 'ANDROID_NATIVE' ||
+          localStorage.getItem('spr_is_native_app') === '1');
+
+      if (isNative) {
+        // Native FCM tokens remain exclusively in native Android storage.
+        // Web UI does not hold or submit raw native tokens.
+        // If native bridge exists, request OS notification permission.
+        try {
+          const win = window as any;
+          if (win.AndroidBridge && typeof win.AndroidBridge.postMessage === 'function') {
+            win.AndroidBridge.postMessage(JSON.stringify({ action: 'requestNotificationPermission' }));
+          }
+        } catch {}
+
+        // Query subscription status for this student's native Android device
+        const res = await fetch('/api/notifications/subscribe?deviceType=ANDROID_NATIVE');
+        const json = await res.json().catch(() => ({}));
+
+        if (res.ok && json.isSubscribed) {
+          setIsSubscribed(true);
+          setDeviceType('ANDROID_NATIVE');
+          setRegSuccess('Push notifications are active on this Android device.');
+        } else {
+          setRegSuccess('Native notification service is enabled. Please ensure notification permissions are allowed in Android App Settings.');
+        }
+
+        setTimeout(() => setRegSuccess(null), 4000);
+        setIsRegistering(false);
+        return;
+      }
+
       if (typeof window === 'undefined' || !('Notification' in window)) {
         throw new Error('Notifications are not supported in this browser.');
       }
@@ -287,6 +438,34 @@ export default function NotificationPreferencesCard() {
     setIsRegistering(true);
 
     try {
+      const isNative =
+        typeof window !== 'undefined' &&
+        (localStorage.getItem('spr_subscription_type') === 'ANDROID_NATIVE' ||
+          localStorage.getItem('spr_is_native_app') === '1');
+
+      if (isNative) {
+        // Native device: Deactivate via server endpoint using authenticated student session and deviceType
+        // Raw FCM token is not exposed or stored in JS
+        const res = await fetch('/api/notifications/unsubscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deviceType: 'ANDROID_NATIVE' }),
+        });
+
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(
+            json.error || 'Failed to deactivate subscription on server. Please check your connection and retry.'
+          );
+        }
+
+        setIsSubscribed(false);
+        setRegSuccess('Push notifications disabled for this Android device.');
+        setTimeout(() => setRegSuccess(null), 4000);
+        setIsRegistering(false);
+        return;
+      }
+
       let token = localStorage.getItem('spr_fcm_token');
 
       // If token not in local storage cache, attempt to resolve from Firebase messaging
@@ -438,16 +617,20 @@ export default function NotificationPreferencesCard() {
                   This Device Status
                 </span>
                 <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold">
-                  {deviceType === 'ANDROID_TWA' ? 'Android TWA' : deviceType}
+                  {deviceType === 'ANDROID_TWA' ? 'Android TWA' : deviceType === 'ANDROID_NATIVE' ? 'Android Native' : deviceType}
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                 {isSubscribed
-                  ? 'Push notifications are actively configured and receiving alerts on this browser.'
+                  ? deviceType === 'ANDROID_NATIVE'
+                    ? 'Native push notifications are active and receiving alerts on this device.'
+                    : 'Push notifications are actively configured and receiving alerts on this browser.'
                   : permission === 'denied'
-                  ? 'Notifications are blocked in your browser site permissions.'
+                  ? 'Notifications are blocked in your device site permissions or Android app settings.'
                   : isSupported === false
                   ? 'Web Push notifications are not supported in this browser environment.'
+                  : deviceType === 'ANDROID_NATIVE'
+                  ? 'Native Android notification integration ready. Tap below to activate alerts.'
                   : 'Receive instant alerts on your lock-screen and device even when the app is closed.'}
               </p>
             </div>

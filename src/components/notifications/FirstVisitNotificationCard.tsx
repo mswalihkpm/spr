@@ -42,6 +42,20 @@ export default function FirstVisitNotificationCard() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
+    // 0. Suppress web prompt inside native Android app (handled natively by SPR Android app)
+    const isNativeApp =
+      localStorage.getItem('spr_is_native_app') === '1' ||
+      localStorage.getItem('spr_subscription_type') === 'ANDROID_NATIVE' ||
+      (typeof document !== 'undefined' && document.referrer.includes('android-app://in.madin.spr')) ||
+      (typeof window !== 'undefined' && (
+        new URLSearchParams(window.location.search).get('spr_native') === '1' ||
+        new URLSearchParams(window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash).get('spr_native') === '1'
+      ));
+
+    if (isNativeApp) {
+      return;
+    }
+
     // 1. Check if user previously dismissed or already subscribed
     const isDismissed = localStorage.getItem(DISMISSAL_KEY);
     const existingToken = localStorage.getItem(TOKEN_KEY);

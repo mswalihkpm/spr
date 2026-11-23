@@ -9,53 +9,54 @@ const VALID_DEVICE_TYPES = ['ANDROID_NATIVE', 'ANDROID_TWA', 'CHROME', 'SAFARI',
 /**
  * GET /api/notifications/subscribe
  *
- * Verifies whether an FCM token is currently active.
+ * Checks active subscription count for the authenticated student.
  *
- * Guarantees:
- * 1. Authenticated Student: Verifies if the token is active and linked to the authenticated student account.
- * 2. Anonymous Visitor: If unauthenticated, verifies if the supplied token is registered as an active anonymous subscription.
- * 3. Never leaks ownership identity or staff status.
+ * Security Guarantee:
+ * - Does NOT accept fcmToken via query parameters to prevent token leakage
+ *   in browser history, HTTP access logs, and referrer headers.
+ * - For single token status verification, use POST /api/notifications/subscribe/status.
  */
 export async function GET(req: NextRequest) {
   try {
-    const { student } = await authenticateStudentRequest(req);
     const { searchParams } = new URL(req.url);
-    const fcmToken = searchParams.get('fcmToken');
+    if (searchParams.has('fcmToken')) {
+      return NextResponse.json(
+        {
+          error:
+            'Passing fcmToken in query parameters is forbidden for security. Use POST /api/notifications/subscribe/status with a JSON body instead.',
+        },
+        { status: 400 }
+      );
+    }
+
+    const deviceTypeParam = searchParams.get('deviceType');
+    let validatedDeviceType: string | undefined = undefined;
+    if (deviceTypeParam && deviceTypeParam.trim()) {
+      const upper = deviceTypeParam.trim().toUpperCase();
+      if ((VALID_DEVICE_TYPES as readonly string[]).includes(upper)) {
+        validatedDeviceType = upper;
+      } else {
+        return NextResponse.json(
+          { error: 'Invalid deviceType parameter.' },
+          { status: 400 }
+        );
+      }
+    }
+
+    const { student } = await authenticateStudentRequest(req);
 
     if (student?.studentAccountId) {
-      if (fcmToken && fcmToken.trim()) {
-        const cleanToken = fcmToken.trim();
-        const sub = await prisma.pushSubscription.findUnique({
-          where: { fcmToken: cleanToken },
-          select: {
-            id: true,
-            studentAccountId: true,
-            isAnonymous: true,
-            isActive: true,
-            deviceType: true,
-          },
-        });
-
-        const isSubscribed = Boolean(
-          sub &&
-          sub.studentAccountId === student.studentAccountId &&
-          sub.isActive &&
-          !sub.isAnonymous
-        );
-
-        return NextResponse.json({
-          isSubscribed,
-          deviceType: isSubscribed ? sub?.deviceType : null,
-          isAnonymous: false,
-        });
+      const whereClause: any = {
+        studentAccountId: student.studentAccountId,
+        isActive: true,
+        isAnonymous: false,
+      };
+      if (validatedDeviceType) {
+        whereClause.deviceType = validatedDeviceType;
       }
 
       const activeCount = await prisma.pushSubscription.count({
-        where: {
-          studentAccountId: student.studentAccountId,
-          isActive: true,
-          isAnonymous: false,
-        },
+        where: whereClause,
       });
 
       return NextResponse.json({
@@ -65,33 +66,12 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Unauthenticated (Anonymous Visitor check)
-    if (fcmToken && fcmToken.trim()) {
-      const cleanToken = fcmToken.trim();
-      const sub = await prisma.pushSubscription.findUnique({
-        where: { fcmToken: cleanToken },
-        select: {
-          id: true,
-          isAnonymous: true,
-          isActive: true,
-          deviceType: true,
-        },
-      });
-
-      const isSubscribed = Boolean(sub && sub.isAnonymous && sub.isActive);
-      return NextResponse.json({
-        isSubscribed,
-        deviceType: isSubscribed ? sub?.deviceType : null,
-        isAnonymous: true,
-      });
-    }
-
     return NextResponse.json(
-      { error: 'Authentication or fcmToken query parameter required.' },
+      { error: 'Authentication required.' },
       { status: 401 }
     );
   } catch (error: unknown) {
-    console.error('Check push subscription status error:', error);
+    console.error('Check push subscription status error:', error instanceof Error ? error.message : 'Unknown error');
     return NextResponse.json(
       { error: 'An unexpected error occurred while checking subscription status.' },
       { status: 500 }
@@ -133,36 +113,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { fcmToken, deviceType, isAnonymous: requestAnonymous } = body;
+    const rawToken =
+      typeof body.fcmToken === 'string'
+        ? body.fcmToken
+        : typeof body.token === 'string'
+        ? body.token
+        : '';
+    const { deviceType, platform, isAnonymous: requestAnonymous } = body;
 
     // Validate FCM registration token
-    if (!fcmToken || typeof fcmToken !== 'string' || !fcmToken.trim()) {
+    if (!rawToken || !rawToken.trim()) {
       return NextResponse.json(
         { error: 'fcmToken is required and must be a non-empty string.' },
         { status: 400 }
       );
     }
 
-    const cleanToken = fcmToken.trim();
+    const cleanToken = rawToken.trim();
     if (cleanToken.length < 10 || cleanToken.length > 4096) {
       return NextResponse.json(
         { error: 'fcmToken has an invalid length.' },
         { status: 400 }
       );
     }
-
-    // Validate device type
-    let cleanDeviceType = 'WEB';
-    if (typeof deviceType === 'string' && deviceType.trim()) {
-      const upper = deviceType.trim().toUpperCase();
-      if ((VALID_DEVICE_TYPES as readonly string[]).includes(upper)) {
-        cleanDeviceType = upper;
-      }
-    }
-
-    // Capture User-Agent header safely
-    const rawUserAgent = req.headers.get('user-agent')?.trim() || null;
-    const cleanUserAgent = rawUserAgent ? rawUserAgent.slice(0, 500) : null;
 
     // Check existing subscription record to enforce ownership guards
     const existing = await prisma.pushSubscription.findUnique({
@@ -176,6 +149,21 @@ export async function POST(req: NextRequest) {
         { status: 409 }
       );
     }
+
+    // Validate device type
+    let cleanDeviceType = existing?.deviceType || 'WEB';
+    if (typeof deviceType === 'string' && deviceType.trim()) {
+      const upper = deviceType.trim().toUpperCase();
+      if ((VALID_DEVICE_TYPES as readonly string[]).includes(upper)) {
+        cleanDeviceType = upper;
+      }
+    } else if (platform === 'android' || platform === 'ANDROID') {
+      cleanDeviceType = 'ANDROID_NATIVE';
+    }
+
+    // Capture User-Agent header safely
+    const rawUserAgent = req.headers.get('user-agent')?.trim() || null;
+    const cleanUserAgent = rawUserAgent ? rawUserAgent.slice(0, 500) : null;
 
     // -------------------------------------------------------------------------
     // BRANCH A: Authenticated Student Registration or Anonymous Upgrade

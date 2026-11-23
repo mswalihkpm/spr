@@ -122,17 +122,29 @@ export default function StudentLoginPage() {
         throw new Error(errorDetail);
       }
 
-      // Automatically link any existing device push token to this student account
+      // For ordinary web browsers, auto-link existing Web Push token to this student account.
+      // Native Android devices handle token registration through the secure native architecture.
       try {
-        const cachedToken = typeof window !== 'undefined' ? localStorage.getItem('spr_fcm_token') : null;
-        if (cachedToken) {
-          fetch('/api/notifications/subscribe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fcmToken: cachedToken }),
-          }).then(() => {
-            localStorage.setItem('spr_subscription_type', 'STUDENT');
-          }).catch(() => {});
+        const isNative =
+          typeof window !== 'undefined' &&
+          (localStorage.getItem('spr_is_native_app') === '1' ||
+            localStorage.getItem('spr_subscription_type') === 'ANDROID_NATIVE');
+
+        if (!isNative) {
+          const cachedToken = typeof window !== 'undefined' ? localStorage.getItem('spr_fcm_token') : null;
+          if (cachedToken) {
+            fetch('/api/notifications/subscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                fcmToken: cachedToken,
+              }),
+            }).then((res) => {
+              if (res.ok) {
+                localStorage.setItem('spr_subscription_type', 'STUDENT');
+              }
+            }).catch(() => {});
+          }
         }
       } catch {}
 
@@ -180,17 +192,29 @@ export default function StudentLoginPage() {
 
       setRegisterSuccess('Account created successfully! Redirecting to your dashboard...');
       setTimeout(() => {
-        // Automatically link any existing device push token to this student account
+        // For ordinary web browsers, auto-link existing Web Push token to this student account.
+      // Native Android devices handle token registration through the secure native architecture.
       try {
-        const cachedToken = typeof window !== 'undefined' ? localStorage.getItem('spr_fcm_token') : null;
-        if (cachedToken) {
-          fetch('/api/notifications/subscribe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fcmToken: cachedToken }),
-          }).then(() => {
-            localStorage.setItem('spr_subscription_type', 'STUDENT');
-          }).catch(() => {});
+        const isNative =
+          typeof window !== 'undefined' &&
+          (localStorage.getItem('spr_is_native_app') === '1' ||
+            localStorage.getItem('spr_subscription_type') === 'ANDROID_NATIVE');
+
+        if (!isNative) {
+          const cachedToken = typeof window !== 'undefined' ? localStorage.getItem('spr_fcm_token') : null;
+          if (cachedToken) {
+            fetch('/api/notifications/subscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                fcmToken: cachedToken,
+              }),
+            }).then((res) => {
+              if (res.ok) {
+                localStorage.setItem('spr_subscription_type', 'STUDENT');
+              }
+            }).catch(() => {});
+          }
         }
       } catch {}
 

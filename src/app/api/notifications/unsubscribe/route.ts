@@ -30,7 +30,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { fcmToken } = body;
+    const { fcmToken, deviceType } = body;
+
+    // Branch 1: Authenticated student deactivating by deviceType (for native Android without exposing raw tokens)
+    if (student?.studentAccountId && deviceType === 'ANDROID_NATIVE' && (!fcmToken || typeof fcmToken !== 'string')) {
+      await prisma.pushSubscription.updateMany({
+        where: {
+          studentAccountId: student.studentAccountId,
+          deviceType: 'ANDROID_NATIVE',
+          isActive: true,
+        },
+        data: {
+          isActive: false,
+          lastActiveAt: new Date(),
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: 'Native push notifications deactivated successfully.',
+      });
+    }
+
+    // Branch 2: Standard token-based unsubscription (for Web Push browsers)
     if (!fcmToken || typeof fcmToken !== 'string' || !fcmToken.trim()) {
       return NextResponse.json(
         { error: 'fcmToken is required and must be a non-empty string.' },

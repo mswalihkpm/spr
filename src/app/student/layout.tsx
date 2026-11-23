@@ -74,6 +74,33 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
       .then((data) => {
         if (data?.student) {
           setStudent(data.student);
+
+          // For ordinary web browsers, auto-link existing Web Push token to this authenticated student session.
+          // Native Android devices handle token registration through the secure native architecture.
+          try {
+            const isNative =
+              typeof window !== 'undefined' &&
+              (localStorage.getItem('spr_is_native_app') === '1' ||
+                localStorage.getItem('spr_subscription_type') === 'ANDROID_NATIVE');
+
+            if (!isNative) {
+              const cachedToken = typeof window !== 'undefined' ? localStorage.getItem('spr_fcm_token') : null;
+              const subType = typeof window !== 'undefined' ? localStorage.getItem('spr_subscription_type') : null;
+              if (cachedToken && subType !== 'STUDENT') {
+                fetch('/api/notifications/subscribe', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    fcmToken: cachedToken,
+                  }),
+                }).then((res) => {
+                  if (res.ok) {
+                    localStorage.setItem('spr_subscription_type', 'STUDENT');
+                  }
+                }).catch(() => {});
+              }
+            }
+          } catch {}
         }
       })
       .catch(() => {});

@@ -95,16 +95,44 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
-                // Native Android FCM Token bootstrap
+                // Native Android container detection without exposing raw FCM tokens
                 try {
-                  var urlParams = new URLSearchParams(window.location.search);
-                  var nativeToken = urlParams.get('native_fcm_token');
-                  if (nativeToken && nativeToken.trim().length >= 10) {
-                    localStorage.setItem('spr_fcm_token', nativeToken.trim());
+                  var searchParams = new URLSearchParams(window.location.search);
+                  var rawHash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
+                  var hashParams = new URLSearchParams(rawHash);
+
+                  var isNativeApp = searchParams.get('spr_native') === '1' || hashParams.get('spr_native') === '1';
+                  var nativeOsPerm = hashParams.get('native_os_perm') || searchParams.get('native_os_perm');
+                  var cleanNeeded = false;
+
+                  // Safely strip legacy or misplaced token query/hash parameters without persisting them in web storage
+                  if (hashParams.has('native_fcm_token') || searchParams.has('native_fcm_token')) {
+                    hashParams.delete('native_fcm_token');
+                    searchParams.delete('native_fcm_token');
+                    cleanNeeded = true;
+                  }
+
+                  if (isNativeApp) {
+                    localStorage.setItem('spr_is_native_app', '1');
                     localStorage.setItem('spr_subscription_type', 'ANDROID_NATIVE');
-                    urlParams.delete('native_fcm_token');
-                    var newSearch = urlParams.toString();
-                    var newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash;
+                    // Ensure no raw native FCM token is retained in JavaScript storage
+                    localStorage.removeItem('spr_fcm_token');
+                    searchParams.delete('spr_native');
+                    hashParams.delete('spr_native');
+                    cleanNeeded = true;
+                  }
+
+                  if (nativeOsPerm && (nativeOsPerm === 'granted' || nativeOsPerm === 'denied')) {
+                    localStorage.setItem('spr_native_os_permission', nativeOsPerm);
+                    hashParams.delete('native_os_perm');
+                    searchParams.delete('native_os_perm');
+                    cleanNeeded = true;
+                  }
+
+                  if (cleanNeeded) {
+                    var newSearch = searchParams.toString();
+                    var newHash = hashParams.toString();
+                    var newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '') + (newHash ? '#' + newHash : '');
                     window.history.replaceState({}, '', newUrl);
                   }
                 } catch(e) {}

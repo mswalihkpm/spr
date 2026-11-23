@@ -53,6 +53,66 @@ body {
   overflow-x: hidden;
 }
 
+/* =============================================================================
+   NATIVE-APP INTERACTION POLISH: TEXT SELECTION & TOUCH CALLOUT RULES
+   ============================================================================= */
+
+/* 1. Disable accidental text selection and browser-style copy/share callouts strictly on interactive controls */
+button,
+summary,
+[role="button"],
+[role="tab"],
+[role="menuitem"],
+[role="switch"],
+.interactive-control,
+.no-select {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* 2. Explicitly preserve normal text selection and editing for readable text, student info, tables, and input fields */
+body,
+p,
+span,
+h1, h2, h3, h4, h5, h6,
+table,
+thead,
+tbody,
+tr,
+th,
+td,
+input,
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="number"],
+input[type="search"],
+input[type="tel"],
+input[type="url"],
+textarea,
+[contenteditable="true"],
+[contenteditable="true"] *,
+.selectable-text,
+.selectable-text * {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* 3. Remove grey touch-highlight on taps for refined native-app responsiveness */
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
   letter-spacing: -0.02em;
