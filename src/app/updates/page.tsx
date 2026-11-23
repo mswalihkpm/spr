@@ -117,7 +117,7 @@ function UpdatesPublicContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans pb-20">
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#080e1e] text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white transition-colors duration-300">
       {/* Top Header */}
       <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-subtle">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
@@ -195,7 +195,7 @@ function UpdatesPublicContent() {
       </div>
 
       {/* Main Updates Content Grid */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+      <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-24 sm:pb-12">
         {loading ? (
           <div className="py-24 flex items-center justify-center">
             <VideoLoader size="xl" text="Fetching latest updates..." subtext="Accessing institutional broadcast network" />
@@ -305,7 +305,7 @@ export default function UpdatesPublicPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center">
+        <div className="min-h-screen bg-[#f8fafc] dark:bg-[#080e1e] flex items-center justify-center">
           <VideoLoader size="xl" text="Loading announcements..." />
         </div>
       }

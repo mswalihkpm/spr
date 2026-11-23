@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { clearClientCache, getCachedStudentDashboard, setCachedStudentDashboard } from '@/lib/client-cache';
 import StudentAvatar from '@/components/ui/StudentAvatar';
+import MobileHeaderMenu from '@/components/layout/MobileHeaderMenu';
 import { registerForegroundMessageHandler } from '@/lib/firebase-client';
 import { sanitizeStudentDeepLink } from '@/lib/notification-navigation';
 
@@ -340,6 +341,7 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
               />
             </div>
           )}
+          <MobileHeaderMenu />
         </div>
       </header>
 
@@ -347,6 +349,39 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
           PAGE MAIN CONTENT
           --------------------------------------------------------------------- */}
       <div className="flex-1 flex flex-col min-w-0 pb-20 md:pb-6 w-full max-w-full overflow-x-hidden">
+        {/* Desktop Top Header Bar */}
+        <header className="hidden md:flex sticky top-0 z-30 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-6 h-14 items-center justify-between w-full shrink-0">
+          <div className="flex items-center space-x-3">
+            <span className="font-extrabold text-sm text-slate-800 dark:text-slate-200">
+              {navItems.find((n) => n.active)?.label || 'Student Portal'}
+            </span>
+          </div>
+
+          <div className="flex items-center space-x-2.5">
+            <Link
+              href="/student/settings"
+              className="p-2 rounded-xl text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              title="Notification Preferences"
+            >
+              <Bell className="w-4 h-4" />
+            </Link>
+            {student && (
+              <div className="flex items-center space-x-2 pl-2 border-l border-slate-200 dark:border-slate-800">
+                <span className="text-xs font-mono font-bold text-blue-700 dark:text-blue-300 px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800">
+                  {student.sprStudentId}
+                </span>
+                <StudentAvatar
+                  photoUrl={student.photoUrl}
+                  name={student.fullName}
+                  size="sm"
+                  studentId={student.sprStudentId || student.id}
+                  className="w-8 h-8"
+                />
+              </div>
+            )}
+            <MobileHeaderMenu />
+          </div>
+        </header>
         {/* Foreground In-App Push Notification Toast */}
         {foregroundAlert && (
           <div className="mx-3.5 mt-3 sm:mx-6 sm:mt-4 p-4 rounded-2xl bg-slate-900 text-white shadow-xl border border-blue-500/40 flex items-start justify-between gap-3 animate-in fade-in slide-in-from-top-3 z-50">

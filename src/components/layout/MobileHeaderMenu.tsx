@@ -25,11 +25,12 @@ import {
   Smartphone,
   Bell,
   Clock,
+  Settings,
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import BrandedShareModal from '@/components/modals/BrandedShareModal';
 import { executeBrandedShare, SharePayload } from '@/lib/share-utils';
-import { fetchWithDedupe } from '@/lib/client-cache';
+import { fetchWithDedupe, getCachedStudentProfile } from '@/lib/client-cache';
 
 interface NotificationNoteItem {
   id: string;
@@ -81,12 +82,16 @@ export default function MobileHeaderMenu({
         .catch(() => {})
         .finally(() => setLoadingNotifications(false));
 
-      fetch('/api/student/auth/me', { credentials: 'include' })
-        .then((res) => (res.ok ? res.json() : null))
+      const cachedProfile = getCachedStudentProfile();
+      if (cachedProfile) {
+        setCurrentStudent(cachedProfile);
+      }
+
+      fetchWithDedupe<{ student?: any }>('/api/student/auth/me?lite=1')
         .then((data) => {
           if (data?.student) {
             setCurrentStudent(data.student);
-          } else {
+          } else if (!cachedProfile) {
             setCurrentStudent(null);
           }
         })
@@ -407,6 +412,25 @@ export default function MobileHeaderMenu({
                     </div>
                     <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
                   </Link>
+
+                  {currentStudent && (
+                    <Link
+                      href="/student/settings"
+                      onClick={() => setIsOpen(false)}
+                      className="flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                    >
+                      <div className="flex items-center space-x-2.5">
+                        <Settings className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                        <div>
+                          <span>Student Account Settings</span>
+                          <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 block -mt-0.5">
+                            PIN, theme & notification preferences
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                    </Link>
+                  )}
 
                   <Link
                     href="/login"
