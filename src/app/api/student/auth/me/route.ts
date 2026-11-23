@@ -44,8 +44,61 @@ export async function GET(req: NextRequest) {
           photoUrl: true,
           class: { select: { id: true, name: true } },
           academicYear: { select: { id: true, name: true } },
+          questionnaireResponses: {
+            where: {
+              questionnaire: {
+                OR: [
+                  { code: 'PERSONAL_FAMILY' },
+                  { title: { contains: 'Personal', mode: 'insensitive' } },
+                  { title: { contains: 'Family', mode: 'insensitive' } },
+                ],
+              },
+            },
+            select: {
+              status: true,
+              answers: true,
+              submittedAt: true,
+              questionnaire: {
+                select: {
+                  code: true,
+                  title: true,
+                },
+              },
+            },
+          },
         },
       });
+
+      const pfResponse = studentRecord?.questionnaireResponses?.[0];
+      const isFamilyCompleted = Boolean(
+        pfResponse?.status === 'SUBMITTED' ||
+        pfResponse?.status === 'LOCKED' ||
+        studentRecord?.isProfileLocked ||
+        (studentRecord?.fatherName && studentRecord?.motherName)
+      );
+
+      const familyPersonalDetails = isFamilyCompleted
+        ? {
+            completed: true,
+            status: pfResponse?.status || (studentRecord?.isProfileLocked ? 'LOCKED' : 'SUBMITTED'),
+            submittedAt: pfResponse?.submittedAt || null,
+            title: pfResponse?.questionnaire?.title || 'Personal & Family Information',
+            answers: pfResponse?.answers || null,
+            fatherName: studentRecord?.fatherName || null,
+            motherName: studentRecord?.motherName || null,
+            houseName: studentRecord?.houseName || null,
+            guardianPhone: studentRecord?.guardianPhone || null,
+            studentPhone: studentRecord?.studentPhone || null,
+            studentEmail: studentRecord?.studentEmail || null,
+            place: studentRecord?.place || null,
+            district: studentRecord?.district || null,
+            residentialStatus: studentRecord?.residentialStatus || null,
+            preferredContact: studentRecord?.preferredContact || null,
+            isProfileLocked: studentRecord?.isProfileLocked ?? true,
+          }
+        : {
+            completed: false,
+          };
 
       return NextResponse.json(
         {
@@ -67,6 +120,7 @@ export async function GET(req: NextRequest) {
             className: studentRecord?.class?.name || student.className,
             academicYear: studentRecord?.academicYear?.name,
           },
+          familyPersonalDetails,
         },
         {
           headers: {
@@ -162,7 +216,14 @@ export async function GET(req: NextRequest) {
         }),
         prisma.questionnaireResponse.findMany({
           where: { studentId },
-          select: { questionnaireId: true, status: true, progressPercent: true },
+          select: {
+            questionnaireId: true,
+            status: true,
+            progressPercent: true,
+            answers: true,
+            submittedAt: true,
+            questionnaire: { select: { code: true, title: true } },
+          },
         }),
         prisma.questionnaire.count(),
         calculateStudentSPR(studentId),
@@ -485,6 +546,42 @@ export async function GET(req: NextRequest) {
 
     const completedQuestionnairesCount = questionnaireResponses.filter((q) => q.status === 'SUBMITTED').length;
 
+    const pfResponse = questionnaireResponses.find(
+      (q) =>
+        q.questionnaire?.code === 'PERSONAL_FAMILY' ||
+        q.questionnaire?.title?.toLowerCase().includes('personal') ||
+        q.questionnaire?.title?.toLowerCase().includes('family')
+    );
+    const isFamilyCompleted = Boolean(
+      pfResponse?.status === 'SUBMITTED' ||
+      pfResponse?.status === 'LOCKED' ||
+      studentRecord?.isProfileLocked ||
+      (studentRecord?.fatherName && studentRecord?.motherName)
+    );
+
+    const familyPersonalDetails = isFamilyCompleted
+      ? {
+          completed: true,
+          status: pfResponse?.status || (studentRecord?.isProfileLocked ? 'LOCKED' : 'SUBMITTED'),
+          submittedAt: pfResponse?.submittedAt || null,
+          title: pfResponse?.questionnaire?.title || 'Personal & Family Information',
+          answers: pfResponse?.answers || null,
+          fatherName: studentRecord?.fatherName || null,
+          motherName: studentRecord?.motherName || null,
+          houseName: studentRecord?.houseName || null,
+          guardianPhone: studentRecord?.guardianPhone || null,
+          studentPhone: studentRecord?.studentPhone || null,
+          studentEmail: studentRecord?.studentEmail || null,
+          place: studentRecord?.place || null,
+          district: studentRecord?.district || null,
+          residentialStatus: studentRecord?.residentialStatus || null,
+          preferredContact: studentRecord?.preferredContact || null,
+          isProfileLocked: studentRecord?.isProfileLocked ?? true,
+        }
+      : {
+          completed: false,
+        };
+
       const payload = {
         student: {
           ...student,
@@ -504,6 +601,7 @@ export async function GET(req: NextRequest) {
           className: studentRecord?.class?.name || student.className,
           academicYear: studentRecord?.academicYear?.name,
         },
+        familyPersonalDetails,
         wallet: earningsData.wallet,
         categoryEarnings: earningsData.categoryEarnings,
         storeFund: earningsData.storeFund,

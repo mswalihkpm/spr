@@ -2,12 +2,18 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Settings,
   KeyRound,
   ShieldCheck,
   Lock,
   User,
+  Users,
+  Home,
+  MapPin,
+  Phone,
+  Mail,
   CheckCircle2,
   AlertCircle,
   X,
@@ -15,6 +21,8 @@ import {
   Eye,
   EyeOff,
   LogOut,
+  FileCheck,
+  ExternalLink,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import StudentAvatar from '@/components/ui/StudentAvatar';
@@ -27,6 +35,7 @@ export default function StudentSettingsPage() {
   const initialStudent = cachedInitial?.student || cachedInitial;
   const hasInitialData = Boolean(initialStudent?.fullName);
   const [student, setStudent] = useState<any>(hasInitialData ? initialStudent : null);
+  const [familyPersonalDetails, setFamilyPersonalDetails] = useState<any>(null);
   const [loading, setLoading] = useState(!hasInitialData);
 
   // Change Password State
@@ -97,6 +106,9 @@ export default function StudentSettingsPage() {
         if (data?.student) {
           setStudent(data.student);
           setCachedStudentDashboard(data.student);
+        }
+        if (data?.familyPersonalDetails) {
+          setFamilyPersonalDetails(data.familyPersonalDetails);
         }
       })
       .catch(() => {})
@@ -223,6 +235,142 @@ export default function StudentSettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Official Family & Personal Profile Card (Locked & Non-Editable) */}
+      {(() => {
+        const isFamilyCompleted = Boolean(
+          familyPersonalDetails?.completed ||
+          student?.isProfileLocked ||
+          (student?.fatherName && student?.motherName)
+        );
+
+        if (isFamilyCompleted) {
+          return (
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="space-y-0.5">
+                  <h2 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center space-x-2">
+                    <Users className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    <span>Family &amp; Personal Profile</span>
+                  </h2>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Official verified information submitted via Questionnaire 1.
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 flex items-center space-x-1.5 shadow-2xs">
+                    <Lock className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                    <span>Verified &amp; Locked</span>
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                    Non-Editable
+                  </span>
+                </div>
+              </div>
+
+              {/* Institutional Lock Notice */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 flex items-start space-x-3 text-xs">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                <div className="space-y-0.5 text-slate-600 dark:text-slate-300 text-[11.5px] leading-relaxed">
+                  <span className="font-bold text-slate-800 dark:text-slate-200">Official Institutional Record: </span>
+                  This profile has been verified and permanently locked to prevent unauthorized alterations. If any details require administrative correction or updates, please contact your class teacher or the school administration.
+                </div>
+              </div>
+
+              {/* Details Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 text-xs">
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700">
+                  <span className="text-slate-400 font-semibold block uppercase text-[10px]">Father&apos;s Name</span>
+                  <span className="font-bold text-slate-900 dark:text-white mt-0.5 block truncate">
+                    {student?.fatherName || familyPersonalDetails?.fatherName || '—'}
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700">
+                  <span className="text-slate-400 font-semibold block uppercase text-[10px]">Mother&apos;s Name</span>
+                  <span className="font-bold text-slate-900 dark:text-white mt-0.5 block truncate">
+                    {student?.motherName || familyPersonalDetails?.motherName || '—'}
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700">
+                  <span className="text-slate-400 font-semibold block uppercase text-[10px]">House / Permanent Address</span>
+                  <span className="font-bold text-slate-900 dark:text-white mt-0.5 block truncate">
+                    {student?.houseName || familyPersonalDetails?.houseName || '—'}
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700">
+                  <span className="text-slate-400 font-semibold block uppercase text-[10px]">Place / Locality</span>
+                  <span className="font-bold text-slate-900 dark:text-white mt-0.5 block truncate">
+                    {student?.place || familyPersonalDetails?.place || '—'}
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700">
+                  <span className="text-slate-400 font-semibold block uppercase text-[10px]">District</span>
+                  <span className="font-bold text-slate-900 dark:text-white mt-0.5 block truncate">
+                    {student?.district || familyPersonalDetails?.district || '—'}
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700">
+                  <span className="text-slate-400 font-semibold block uppercase text-[10px]">Guardian Contact</span>
+                  <span className="font-mono font-bold text-blue-600 dark:text-blue-400 mt-0.5 block truncate">
+                    {student?.guardianPhone || familyPersonalDetails?.guardianPhone || '—'}
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700">
+                  <span className="text-slate-400 font-semibold block uppercase text-[10px]">Student Contact</span>
+                  <span className="font-mono font-bold text-slate-800 dark:text-slate-200 mt-0.5 block truncate">
+                    {student?.studentPhone || familyPersonalDetails?.studentPhone || 'Not provided'}
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700">
+                  <span className="text-slate-400 font-semibold block uppercase text-[10px]">Student Email</span>
+                  <span className="font-mono font-bold text-slate-800 dark:text-slate-200 mt-0.5 block truncate">
+                    {student?.studentEmail || familyPersonalDetails?.studentEmail || 'Not provided'}
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700">
+                  <span className="text-slate-400 font-semibold block uppercase text-[10px]">Residential Status</span>
+                  <span className="font-bold text-slate-900 dark:text-white mt-0.5 block truncate">
+                    {student?.residentialStatus || familyPersonalDetails?.residentialStatus || '—'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-amber-300 dark:border-amber-700/60 p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start space-x-3">
+              <div className="p-2.5 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 shrink-0">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
+                  Family &amp; Personal Questionnaire Pending
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                  Complete your Personal &amp; Family Information questionnaire in the Activities portal to verify and lock your official student records.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/student/activities/PERSONAL_FAMILY"
+              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs transition flex items-center justify-center space-x-1.5 shrink-0 shadow-xs"
+            >
+              <span>Complete Questionnaire</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        );
+      })()}
 
       {/* Push Notification Preferences & Device Registration Card */}
       <NotificationPreferencesCard />
