@@ -3,7 +3,8 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateStudentRequest } from '@/lib/auth';
-import { getOrCreateStudentQrToken, generateQrDataUrl } from '@/lib/qr-service';
+import { getOrCreateStudentQrToken, generateQrDataUrl, generate8DigitSprId } from '@/lib/qr-service';
+import { formatGoogleDriveDirectUrl } from '@/lib/google-drive';
 
 export async function GET(req: NextRequest) {
   const { student, errorResponse } = await authenticateStudentRequest(req);
@@ -76,15 +77,21 @@ export async function GET(req: NextRequest) {
     const { qrToken, qrPayload } = await getOrCreateStudentQrToken(studentRecord.id);
     const qrDataUrl = await generateQrDataUrl(qrPayload);
 
+    const rawPhoto = studentRecord.photoUrl || (student as any)?.photoUrl || null;
+    const resolvedPhoto = formatGoogleDriveDirectUrl(rawPhoto, 400) || rawPhoto;
+    const resolvedSprId = studentRecord.sprStudentId || student.sprStudentId || 'SPR0000';
+    const eightDigitSprId = generate8DigitSprId(resolvedSprId, studentRecord.studentId);
+
     const idCardData = {
-      sprId: studentRecord.sprStudentId || student.sprStudentId || 'SPR0000',
+      sprId: resolvedSprId,
+      eightDigitSprId,
       studentCode: studentRecord.studentId,
       fullName: studentRecord.fullName || (student as any).name || (student as any).fullName || 'Student Name',
       className: studentRecord.class?.name || student.className || 'Assigned Class',
       division: studentRecord.division || student.division || 'A',
-      academicYear: studentRecord.academicYear?.name || '2026-27',
+      academicYear: '2026-27',
       schoolName: studentRecord.school?.name || "Ma'din School of Excellence",
-      photoUrl: studentRecord.photoUrl || (student as any)?.photoUrl || null,
+      photoUrl: resolvedPhoto,
       fatherName: resolvedFather || '—',
       place: resolvedPlace || '—',
       district: resolvedDistrict || '—',

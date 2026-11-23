@@ -1,8 +1,33 @@
 import crypto from 'crypto';
 import QRCode from 'qrcode';
 import { prisma } from './prisma';
+import { formatGoogleDriveDirectUrl } from './google-drive';
 
 export const QR_PAYLOAD_PREFIX = 'SPR:ID:';
+
+/**
+ * Generates a deterministic, unique 8-digit numeric SPR Number ID for a student.
+ * Format: "2026" (academic year prefix) + 4-digit student sequence (e.g. "0122" -> "20260122").
+ */
+export function generate8DigitSprId(
+  sprStudentId?: string | null,
+  studentId?: string | null
+): string {
+  // 1. Try extracting digits from sprStudentId (e.g. SPR0122 -> 0122)
+  const sprMatch = (sprStudentId || '').match(/\d+/);
+  if (sprMatch && sprMatch[0]) {
+    return `2026${sprMatch[0].padStart(4, '0').slice(-4)}`;
+  }
+
+  // 2. Fallback: extract digits from institutional studentId (e.g. MSOE-2026-001 -> 0001)
+  const stMatches = (studentId || '').match(/\d+/g);
+  if (stMatches && stMatches.length > 0) {
+    const lastDigits = stMatches[stMatches.length - 1];
+    return `2026${lastDigits.padStart(4, '0').slice(-4)}`;
+  }
+
+  return '20260000';
+}
 
 export function hashQrToken(token: string): string {
   return crypto.createHash('sha256').update(token.trim()).digest('hex');
@@ -213,22 +238,49 @@ export async function resolveStudentAndWallet(params: {
 
     studentId = tokenRecord.studentId;
   } else if (sprStudentId) {
-    const cleanSprId = sprStudentId.trim().toUpperCase();
-    const student = await prisma.student.findFirst({
-      where: {
-        OR: [
-          { sprStudentId: cleanSprId },
-          { studentId: cleanSprId },
-        ],
-      },
-      select: { id: true },
-    });
+    const cleanInput = sprStudentId.trim();
+    const cleanUpper = cleanInput.toUpperCase();
+    const is8Digit = /^\d{8}$/.test(cleanInput);
 
-    if (!student) {
-      return { error: `Student with ID "${cleanSprId}" not found.`, status: 404 };
+    let matchedStudent = null;
+
+    if (is8Digit) {
+      // E.g. "20260122" -> extract suffix "0122"
+      const suffix = cleanInput.slice(4);
+      const numVal = parseInt(suffix, 10);
+      matchedStudent = await prisma.student.findFirst({
+        where: {
+          OR: [
+            { sprStudentId: cleanUpper },
+            { sprStudentId: `SPR${suffix}` },
+            { sprStudentId: `SPR${numVal.toString().padStart(4, '0')}` },
+            { sprStudentId: `SPR${numVal}` },
+            { studentId: { contains: suffix } },
+          ],
+        },
+        select: { id: true },
+      });
     }
 
-    studentId = student.id;
+    if (!matchedStudent) {
+      matchedStudent = await prisma.student.findFirst({
+        where: {
+          OR: [
+            { sprStudentId: cleanUpper },
+            { sprStudentId: cleanUpper.startsWith('SPR') ? cleanUpper : `SPR${cleanUpper}` },
+            { studentId: cleanUpper },
+            { fullName: { contains: cleanInput, mode: 'insensitive' } },
+          ],
+        },
+        select: { id: true },
+      });
+    }
+
+    if (!matchedStudent) {
+      return { error: `Student with ID "${cleanInput}" not found.`, status: 404 };
+    }
+
+    studentId = matchedStudent.id;
   } else {
     return { error: 'Either QR code or SPR Student ID is required.', status: 400 };
   }
@@ -297,16 +349,20 @@ export async function resolveStudentAndWallet(params: {
     date: t.createdAt.toISOString(),
   }));
 
+  const eightDigitSprId = generate8DigitSprId(student.sprStudentId, student.studentId);
+  const resolvedPhotoUrl = formatGoogleDriveDirectUrl(student.photoUrl, 400) || student.photoUrl || null;
+
   return {
     student: {
       id: student.id,
       sprStudentId: student.sprStudentId || 'N/A',
+      eightDigitSprId,
       studentCode: student.studentId,
       fullName: student.fullName,
       className: student.class?.name || 'Class',
       division: student.division || 'A',
       academicYear: student.academicYear?.name || '2026-27',
-      photoUrl: student.photoUrl || null,
+      photoUrl: resolvedPhotoUrl,
       status: student.status,
     },
     wallet: hasWallet
