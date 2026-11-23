@@ -145,6 +145,7 @@ model Student {
   profileCorrections ProfileCorrectionLog[]
   questionnaireResponses QuestionnaireResponse[]
   pointAdjustments   StudentPointAdjustment[]
+  qrToken            StudentQrToken?
 
   @@index([classId])
   @@index([schoolId])
@@ -1044,6 +1045,25 @@ model NotificationPreference {
   announcements    Boolean        @default(true)
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
+}
+
+model StudentQrToken {
+  id            String    @id @default(cuid())
+  studentId     String    @unique
+  student       Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  qrToken       String    @unique // Secure opaque identifier e.g. spr_id_...
+  qrTokenHash   String    @unique // SHA-256 hash for fast secure verification
+  status        String    @default("ACTIVE") // ACTIVE, REVOKED, EXPIRED
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  revokedAt     DateTime?
+  revokedReason String?
+  generatedBy   String?   @default("SYSTEM") // SYSTEM, SUPER_ADMIN, etc.
+
+  @@index([studentId])
+  @@index([qrToken])
+  @@index([qrTokenHash])
+  @@index([status])
 }
 
 

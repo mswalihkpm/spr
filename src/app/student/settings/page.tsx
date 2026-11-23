@@ -23,10 +23,12 @@ import {
   LogOut,
   FileCheck,
   ExternalLink,
+  QrCode,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import NotificationPreferencesCard from '@/components/student/NotificationPreferencesCard';
+import DigitalStudentIdCard, { IdCardData } from '@/components/id-card/DigitalStudentIdCard';
 import { clearClientCache, getCachedStudentDashboard, setCachedStudentDashboard } from '@/lib/client-cache';
 
 export default function StudentSettingsPage() {
@@ -44,6 +46,30 @@ export default function StudentSettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [pwdLoading, setPwdLoading] = useState(false);
   const [pwdMsg, setPwdMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Digital ID Card State
+  const [idCardModalOpen, setIdCardModalOpen] = useState(false);
+  const [idCardData, setIdCardData] = useState<IdCardData | null>(null);
+  const [idCardLoading, setIdCardLoading] = useState(false);
+  const [idCardError, setIdCardError] = useState<string | null>(null);
+
+  const handleOpenIdCardModal = async () => {
+    setIdCardModalOpen(true);
+    if (!idCardData) {
+      try {
+        setIdCardLoading(true);
+        setIdCardError(null);
+        const res = await fetch('/api/student/id-card');
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Failed to load ID card');
+        setIdCardData(json.idCard);
+      } catch (err: any) {
+        setIdCardError(err.message || 'Error generating Digital ID Card');
+      } finally {
+        setIdCardLoading(false);
+      }
+    }
+  };
 
   // Logout State
   const [loggingOut, setLoggingOut] = useState(false);
@@ -221,6 +247,48 @@ export default function StudentSettingsPage() {
             <span className="text-slate-400 font-semibold block uppercase text-[10px]">Academic Year</span>
             <span className="font-bold text-slate-900 dark:text-white mt-0.5 block">{student?.academicYear || 'Current Session'}</span>
           </div>
+        </div>
+      </div>
+
+      {/* =========================================================================
+          MY ID CARD — DIGITAL STUDENT ID CARD ACCESS
+          ========================================================================= */}
+      <div className="bg-gradient-to-r from-sky-500/10 via-blue-500/10 to-indigo-500/10 dark:from-sky-950/40 dark:via-blue-950/40 dark:to-indigo-950/40 rounded-3xl border border-sky-200 dark:border-sky-800/80 p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start space-x-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 text-white flex items-center justify-center shadow-md shrink-0">
+            <QrCode className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+                My Digital Student ID Card
+              </h2>
+              <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                Smart QR
+              </span>
+            </div>
+            <p className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-1 max-w-xl leading-relaxed">
+              Automatic horizontal institutional ID card with student photograph, SPR ID, and secure QR code for store wallet access.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-2 shrink-0">
+          <button
+            type="button"
+            onClick={handleOpenIdCardModal}
+            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs shadow-md transition flex items-center justify-center space-x-2 cursor-pointer"
+          >
+            <QrCode className="w-4 h-4" />
+            <span>My ID Card</span>
+          </button>
+          <Link
+            href="/student/id-card"
+            className="p-2.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition"
+            title="Open Dedicated Full Page"
+          >
+            <ExternalLink className="w-4 h-4" />
+          </Link>
         </div>
       </div>
 
@@ -475,6 +543,58 @@ export default function StudentSettingsPage() {
           </button>
         </div>
       </div>
+
+      {/* Modal: Digital ID Card Preview */}
+      {idCardModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-xs">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 max-h-[95vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-xl bg-sky-100 dark:bg-sky-950 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold">
+                  <QrCode className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                    Digital Student ID Card
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Official credential with verified institutional QR code
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIdCardModalOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {idCardLoading ? (
+              <div className="py-16 flex items-center justify-center">
+                <VideoLoader
+                  size="lg"
+                  text="Generating Digital ID Card..."
+                  subtext="Encoding secure QR identity"
+                />
+              </div>
+            ) : idCardError ? (
+              <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 font-bold flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{idCardError}</span>
+              </div>
+            ) : idCardData ? (
+              <DigitalStudentIdCard
+                data={idCardData}
+                onRefresh={async () => {
+                  setIdCardData(null);
+                  handleOpenIdCardModal();
+                }}
+              />
+            ) : null}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

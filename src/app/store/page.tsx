@@ -17,8 +17,11 @@ import {
   History,
   GraduationCap,
   ShieldCheck,
+  Camera,
+  QrCode,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import StoreQrScannerModal from '@/components/store/StoreQrScannerModal';
 
 export default function StoreManagementPage() {
   const [data, setData] = useState<any>(null);
@@ -26,6 +29,9 @@ export default function StoreManagementPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // QR Scanner Modal State
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   // Usage Modal State
   const [usageModalOpen, setUsageModalOpen] = useState(false);
@@ -155,7 +161,16 @@ export default function StoreManagementPage() {
             </p>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setScannerOpen(true)}
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white font-bold text-xs shadow-md transition flex items-center space-x-2 cursor-pointer"
+            >
+              <Camera className="w-4 h-4" />
+              <span>Scan Student QR Code</span>
+            </button>
+
             <button
               onClick={() => fetchStoreData(true)}
               disabled={refreshing}
@@ -468,6 +483,9 @@ export default function StoreManagementPage() {
           </div>
         </div>
       )}
+
+      {/* QR Scanner & Wallet Viewer Modal */}
+      <StoreQrScannerModal isOpen={scannerOpen} onClose={() => setScannerOpen(false)} />
     </AdminLayout>
   );
 }

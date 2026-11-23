@@ -39,6 +39,30 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #student-id-card-print-target,
+  #student-id-card-print-target * {
+    visibility: visible;
+  }
+  #student-id-card-print-target {
+    position: fixed !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 85.6mm !important;
+    height: 53.98mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
 input, textarea, select, button {
   font-family: inherit;
 }

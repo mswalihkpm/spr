@@ -45,6 +45,8 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
     pathname.startsWith('/student/tasks') ||
     pathname === '/student/activities' ||
     pathname.startsWith('/student/activities') ||
+    pathname === '/student/id-card' ||
+    pathname.startsWith('/student/id-card') ||
     pathname === '/student/settings' ||
     pathname.startsWith('/student/settings');
 
