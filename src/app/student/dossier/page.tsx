@@ -31,6 +31,7 @@ import {
   Check,
   Wallet,
   History,
+  Coins,
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import VideoLoader from '@/components/ui/VideoLoader';
@@ -91,26 +92,35 @@ export default function StudentDossierPage() {
 
   // Filtered Activities
   const filteredActivities = useMemo(() => {
-    return itemizedLedger.filter((item) => {
-      // Type filter
-      if (activityFilter !== 'ALL') {
-        if (activityFilter === 'EXAMS' && item.type !== 'EXAM') return false;
-        if (activityFilter === 'PROGRAMMES' && item.type !== 'PROGRAMME') return false;
-        if (activityFilter === 'ATTENDANCE' && item.type !== 'ATTENDANCE') return false;
-        if (activityFilter === 'LIBRARY' && item.type !== 'LIBRARY') return false;
-        if (activityFilter === 'CREATIVE_HUB' && item.type !== 'CREATIVE_HUB') return false;
-        if (activityFilter === 'TASKS' && item.type !== 'TASK') return false;
-      }
-      // Search query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const titleMatch = (item.title || '').toLowerCase().includes(q);
-        const catMatch = (item.categoryName || '').toLowerCase().includes(q);
-        const expMatch = (item.explanation || '').toLowerCase().includes(q);
-        if (!titleMatch && !catMatch && !expMatch) return false;
-      }
-      return true;
-    });
+    return itemizedLedger
+      .filter((item) => {
+        // Type filter
+        if (activityFilter !== 'ALL') {
+          if (activityFilter === 'EXAMS' && item.type !== 'EXAM') return false;
+          if (activityFilter === 'PROGRAMMES' && item.type !== 'PROGRAMME') return false;
+          if (activityFilter === 'ATTENDANCE' && item.type !== 'ATTENDANCE') return false;
+          if (activityFilter === 'LIBRARY' && item.type !== 'LIBRARY') return false;
+          if (activityFilter === 'CREATIVE_HUB' && item.type !== 'CREATIVE_HUB') return false;
+          if (activityFilter === 'TASKS' && item.type !== 'TASK') return false;
+          if (activityFilter === 'FIELD_COLLECTION' && item.type !== 'FIELD_COLLECTION') return false;
+        }
+        // Search query
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const titleMatch = (item.title || '').toLowerCase().includes(q);
+          const catMatch = (item.categoryName || '').toLowerCase().includes(q);
+          const expMatch = (item.explanation || '').toLowerCase().includes(q);
+          if (!titleMatch && !catMatch && !expMatch) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        // User rule: Sort collection records by collection name
+        if (activityFilter === 'FIELD_COLLECTION') {
+          return (a.title || '').localeCompare(b.title || '');
+        }
+        return 0;
+      });
   }, [itemizedLedger, activityFilter, searchQuery]);
 
   // Total points in filtered view
@@ -147,6 +157,8 @@ export default function StudentDossierPage() {
         return { label: 'Task Assignment', bg: 'bg-amber-100 text-amber-800 border-amber-200', icon: CheckSquare };
       case 'POINT_ADJUSTMENT':
         return { label: 'Admin Correction', bg: 'bg-indigo-100 text-indigo-800 border-indigo-200', icon: ShieldCheck };
+      case 'FIELD_COLLECTION':
+        return { label: 'Field Collection', bg: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: Coins };
       default:
         return { label: 'Performance', bg: 'bg-slate-100 text-slate-800 border-slate-200', icon: Award };
     }
@@ -331,6 +343,7 @@ export default function StudentDossierPage() {
                 { id: 'LIBRARY', label: 'Library Reading' },
                 { id: 'CREATIVE_HUB', label: 'Creative Hub' },
                 { id: 'TASKS', label: 'Tasks' },
+                { id: 'FIELD_COLLECTION', label: 'Field Collection' },
               ].map((tab) => (
                 <button
                   key={tab.id}

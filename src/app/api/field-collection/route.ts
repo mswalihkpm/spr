@@ -70,9 +70,21 @@ export async function GET(req: NextRequest) {
       ];
     }
 
-    // 3. Parallel fetch: classes from memory cache and students concurrently
-    const [classes, students] = await Promise.all([
+    // 3. Parallel fetch: classes from memory cache, all category records for collection summary, and students
+    const [classes, allCategoryRecords, students] = await Promise.all([
       getCachedAcademicClasses(),
+      prisma.performanceRecord.findMany({
+        where: { categoryId: category.id },
+        select: {
+          id: true,
+          remarks: true,
+          date: true,
+          obtainedScore: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: { date: 'desc' },
+      }),
       prisma.student.findMany({
         where: studentWhere,
         select: {
@@ -92,7 +104,7 @@ export async function GET(req: NextRequest) {
         performanceRecords: {
           where: {
             categoryId: category.id,
-            ...(driveName ? { remarks: { contains: driveName, mode: 'insensitive' } } : {}),
+            ...(driveName ? { remarks: driveName } : {}),
           },
           orderBy: { date: 'desc' },
           select: {
@@ -113,6 +125,48 @@ export async function GET(req: NextRequest) {
       ],
     }),
   ]);
+
+    // 4. Group all distinct previous collections by common name (remarks)
+    const collectionsMap = new Map<string, {
+      name: string;
+      recordCount: number;
+      totalPoints: number;
+      date: string;
+      createdAt: string;
+      updatedAt: string;
+    }>();
+
+    for (const r of allCategoryRecords) {
+      const name = (r.remarks || 'Field Collection Drive').trim();
+      const pts = Number(r.obtainedScore || 0);
+      const rDate = r.date ? r.date.toISOString() : r.createdAt.toISOString();
+      const rUpdate = r.updatedAt ? r.updatedAt.toISOString() : rDate;
+
+      const existing = collectionsMap.get(name);
+      if (!existing) {
+        collectionsMap.set(name, {
+          name,
+          recordCount: 1,
+          totalPoints: pts,
+          date: rDate,
+          createdAt: r.createdAt.toISOString(),
+          updatedAt: rUpdate,
+        });
+      } else {
+        existing.recordCount += 1;
+        existing.totalPoints = Number((existing.totalPoints + pts).toFixed(2));
+        if (new Date(rDate) > new Date(existing.date)) {
+          existing.date = rDate;
+        }
+        if (new Date(rUpdate) > new Date(existing.updatedAt)) {
+          existing.updatedAt = rUpdate;
+        }
+      }
+    }
+
+    const collections = Array.from(collectionsMap.values()).sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
 
     // 5. Structure student items with total points
     const mappedStudents = students.map((s) => {
@@ -168,6 +222,8 @@ export async function GET(req: NextRequest) {
         icon: category.icon,
         subcategories: category.subcategories,
       },
+      collections,
+      currentDriveName: driveName || null,
       classes,
       students: filteredStudents,
       stats: {
@@ -177,6 +233,7 @@ export async function GET(req: NextRequest) {
         totalPointsCollected,
         averagePoints,
         highestPoints,
+        totalCollectionsCount: collections.length,
       },
     });
   } catch (error: any) {
@@ -196,7 +253,9 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { entries, remarks: defaultRemarks, driveName } = body;
+    const { entries, remarks: defaultRemarks, driveName, previousDriveName, date } = body;
+    const finalDriveName = driveName?.trim() || defaultRemarks?.trim() || 'Field Collection Drive';
+    const recordDate = date ? new Date(date) : new Date();
 
     if (!Array.isArray(entries) || entries.length === 0) {
       return NextResponse.json(
@@ -214,6 +273,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Field Collection category not configured.' }, { status: 500 });
     }
 
+    // If renaming an existing collection, update all existing records with the previous collection name
+    if (previousDriveName && previousDriveName.trim() && previousDriveName.trim() !== finalDriveName) {
+      await prisma.performanceRecord.updateMany({
+        where: {
+          categoryId: category.id,
+          remarks: previousDriveName.trim(),
+        },
+        data: {
+          remarks: finalDriveName,
+          updatedById: user.id,
+          updatedAt: new Date(),
+        },
+      });
+    }
+
     const currentYear =
       (await prisma.academicYear.findFirst({ where: { isCurrent: true } })) ||
       (await prisma.academicYear.findFirst());
@@ -224,16 +298,24 @@ export async function POST(req: NextRequest) {
     for (const entry of entries) {
       const studentId = entry.studentId;
       const points = typeof entry.points === 'number' ? entry.points : parseFloat(entry.points);
-      const remarkText =
-        entry.remarks?.trim() ||
-        driveName?.trim() ||
-        defaultRemarks?.trim() ||
-        'Field Collection Drive';
+      const remarkText = finalDriveName;
 
       if (!studentId) continue;
       if (isNaN(points) || points < 0) continue;
 
       const numericPoints = Number(points.toFixed(2));
+
+      // If points are 0 and recordId exists, remove the record
+      if (numericPoints === 0 && entry.recordId) {
+        await prisma.performanceRecord.delete({
+          where: { id: entry.recordId },
+        });
+        savedCount++;
+        try {
+          await syncStudentEarnings(studentId, true);
+        } catch (earnErr) {}
+        continue;
+      }
 
       // Check if student already has a record with specific ID, or matching this drive remarks
       if (entry.recordId) {
@@ -244,6 +326,7 @@ export async function POST(req: NextRequest) {
             maxScore: numericPoints > 100 ? numericPoints : 100,
             percentage: numericPoints > 100 ? 100 : numericPoints,
             remarks: remarkText,
+            date: recordDate,
             updatedById: user.id,
             updatedAt: new Date(),
           },
@@ -266,6 +349,7 @@ export async function POST(req: NextRequest) {
               maxScore: numericPoints > 100 ? numericPoints : 100,
               percentage: numericPoints > 100 ? 100 : numericPoints,
               remarks: remarkText,
+              date: recordDate,
               updatedById: user.id,
               updatedAt: new Date(),
             },
@@ -282,7 +366,7 @@ export async function POST(req: NextRequest) {
               position: 'Participated',
               academicYearId: currentYear?.id,
               remarks: remarkText,
-              date: new Date(),
+              date: recordDate,
               createdById: user.id,
             },
           });
@@ -292,7 +376,7 @@ export async function POST(req: NextRequest) {
 
       // Automatically reconcile and credit student cash wallet for this recording
       try {
-        await syncStudentEarnings(studentId);
+        await syncStudentEarnings(studentId, true);
       } catch (earnErr) {
         console.warn('Earnings sync error for student:', studentId, earnErr);
       }
@@ -307,13 +391,14 @@ export async function POST(req: NextRequest) {
       action: 'UPDATE_FIELD_COLLECTION_POINTS',
       entity: 'CATEGORY',
       entityId: category.id,
-      newValue: { count: savedCount, driveName, defaultRemarks },
+      newValue: { count: savedCount, driveName: finalDriveName, date: recordDate },
     });
 
     return NextResponse.json({
       success: true,
       count: savedCount,
-      message: `Successfully saved points for ${savedCount} student(s).`,
+      driveName: finalDriveName,
+      message: `Successfully saved points for ${savedCount} student(s) in collection "${finalDriveName}".`,
     });
   } catch (error: any) {
     console.error('Error in POST /api/field-collection:', error);
@@ -333,16 +418,76 @@ export async function DELETE(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const recordId = searchParams.get('id');
+    const collectionName = searchParams.get('collectionName');
+
+    if (collectionName) {
+      const category = await prisma.category.findUnique({
+        where: { code: 'FIELD_COLLECTION' },
+      });
+      if (!category) {
+        return NextResponse.json({ error: 'Field Collection category not found.' }, { status: 404 });
+      }
+
+      const recordsToDelete = await prisma.performanceRecord.findMany({
+        where: {
+          categoryId: category.id,
+          remarks: collectionName,
+        },
+        select: { id: true, studentId: true },
+      });
+
+      const studentIds = Array.from(new Set(recordsToDelete.map((r) => r.studentId)));
+
+      const deleteResult = await prisma.performanceRecord.deleteMany({
+        where: {
+          categoryId: category.id,
+          remarks: collectionName,
+        },
+      });
+
+      invalidateEngineCache();
+
+      for (const sId of studentIds) {
+        try {
+          await syncStudentEarnings(sId, true);
+        } catch (err) {}
+      }
+
+      await logAuditAction({
+        userId: user.id,
+        action: 'DELETE_FIELD_COLLECTION_BATCH',
+        entity: 'PERFORMANCE_RECORD',
+        entityId: category.id,
+        newValue: { collectionName, count: deleteResult.count },
+      });
+
+      return NextResponse.json({
+        success: true,
+        count: deleteResult.count,
+        message: `Successfully deleted collection "${collectionName}" and all ${deleteResult.count} associated record(s).`,
+      });
+    }
 
     if (!recordId) {
-      return NextResponse.json({ error: 'Record ID is required.' }, { status: 400 });
+      return NextResponse.json({ error: 'Record ID or collectionName is required.' }, { status: 400 });
     }
+
+    const record = await prisma.performanceRecord.findUnique({
+      where: { id: recordId },
+      select: { id: true, studentId: true },
+    });
 
     await prisma.performanceRecord.delete({
       where: { id: recordId },
     });
 
     invalidateEngineCache();
+
+    if (record?.studentId) {
+      try {
+        await syncStudentEarnings(record.studentId, true);
+      } catch (err) {}
+    }
 
     await logAuditAction({
       userId: user.id,

@@ -238,19 +238,26 @@ export async function GET(req: NextRequest) {
     if (studentRecord?.performanceRecords) {
       for (const rec of studentRecord.performanceRecords) {
         const isExam = Boolean(rec.examId || rec.subjectId);
+        const isFieldCollection = rec.category?.code === 'FIELD_COLLECTION';
         const pts = Number(rec.obtainedScore || 0);
         const itemDate = rec.date ? new Date(rec.date) : new Date(rec.createdAt);
         allDatedItems.push({ date: itemDate, points: pts });
 
+        const recordTitle = isFieldCollection
+          ? (rec.remarks || rec.subcategory?.name || 'Field Collection Drive')
+          : isExam
+          ? `${rec.exam?.name || 'Academic Exam'} • ${rec.subject?.name || 'General Subject'}`
+          : rec.subcategory?.name || 'Competition Programme';
+
+        const recordType = isFieldCollection ? 'FIELD_COLLECTION' : isExam ? 'EXAM' : 'PROGRAMME';
+
         itemizedPointsLedger.push({
           id: rec.id,
-          type: isExam ? 'EXAM' : 'PROGRAMME',
+          type: recordType,
           date: itemDate.toISOString().slice(0, 10),
-          title: isExam
-            ? `${rec.exam?.name || 'Academic Exam'} • ${rec.subject?.name || 'General Subject'}`
-            : rec.subcategory?.name || 'Competition Programme',
-          categoryName: rec.category?.name || 'Academics',
-          categoryCode: rec.category?.code || 'ACADEMIC',
+          title: recordTitle,
+          categoryName: isFieldCollection ? 'Field Collection' : (rec.category?.name || 'Academics'),
+          categoryCode: isFieldCollection ? 'FIELD_COLLECTION' : (rec.category?.code || 'ACADEMIC'),
           obtainedScore: rec.obtainedScore,
           maxScore: rec.maxScore || rec.subject?.maxScore || 100,
           percentage: rec.percentage,
@@ -258,7 +265,9 @@ export async function GET(req: NextRequest) {
           grade: rec.grade,
           levelName: rec.level?.name,
           pointsEarned: pts,
-          explanation: isExam
+          explanation: isFieldCollection
+            ? `Field collection contribution: +${pts} SPR pts • ${recordTitle}`
+            : isExam
             ? `Scored ${rec.obtainedScore}/${rec.maxScore || 100} (${rec.percentage || 0}%) in ${rec.subject?.name || 'Exam Subject'}`
             : `${rec.position || 'Participation'} in ${rec.subcategory?.name || 'Activity'}${rec.level?.name ? ` at ${rec.level.name} level` : ''}`,
         });

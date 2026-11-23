@@ -928,6 +928,11 @@ export async function calculateStudentSPR(
           };
         });
 
+        // User requirement: Sort collection records in dossier by their names
+        itemizedRecords.sort((a: any, b: any) =>
+          (a.title || a.name || '').localeCompare(b.title || b.name || '')
+        );
+
         recordsCount = itemizedRecords.length;
         earnedPoints = Number(sumPoints.toFixed(2));
         rawInput = `${formatPoints(earnedPoints)} pts`;

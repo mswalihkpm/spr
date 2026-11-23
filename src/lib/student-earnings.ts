@@ -6,6 +6,11 @@ import { getCachedSettings, onInvalidateEngine } from './spr-engine';
 // Default Planned Earnings Start Date: November 1, 2026 00:00:00 IST (2026-10-31T18:30:00.000Z UTC)
 export const DEFAULT_ELIGIBILITY_START_DATE = '2026-10-31T18:30:00.000Z';
 
+// Authoritative Policy Start Date for Strict Category Weightage Monetization:
+// Effective November 23, 2026 00:00:00 IST (2026-11-22T18:30:00.000Z UTC).
+// Any new activity record with a selected date prior to this day receives ₹0 cash.
+export const POLICY_TODAY_START = new Date('2026-11-22T18:30:00.000Z');
+
 // Authoritative list of categories permitted to generate cash earnings
 export const ALLOWED_CASH_CATEGORY_CODES = new Set([
   'ISLAMIC',
@@ -532,16 +537,25 @@ export async function syncStudentEarnings(studentId: string, force = false): Pro
           const recDate = record.date ? new Date(record.date) : null;
           const recCreatedAt = record.createdAt ? new Date(record.createdAt) : null;
           const recUpdatedAt = record.updatedAt ? new Date(record.updatedAt) : null;
-          const isEligible =
+
+          // Check if record was already recognized & credited in earningLedger:
+          const existingEntry = ledgerBySourceId.get(record.id) || ledgerBySourceId.get(`ERN-${record.id}`);
+          const isPreviouslyCredited = Boolean(existingEntry && Number(existingEntry.recognizedAmount) > 0);
+
+          // Policy rule: "from today (if admin selected any previous days, this not for that record), you must allow cash for these categories records according to their weightage"
+          // If the admin selected any previous days (< POLICY_TODAY_START) and it was not previously credited, no cash is allowed.
+          const isSelectedPreviousDay = recDate ? recDate < POLICY_TODAY_START : false;
+          const isEligible = isPreviouslyCredited || (!isSelectedPreviousDay && (
             (recDate && recDate >= eligibilityStartDate) ||
             (recCreatedAt && recCreatedAt >= eligibilityStartDate) ||
-            (recUpdatedAt && recUpdatedAt >= eligibilityStartDate);
+            (recUpdatedAt && recUpdatedAt >= eligibilityStartDate)
+          ));
+
           const recordDate =
-            recDate && recDate >= eligibilityStartDate
-              ? recDate
-              : recCreatedAt && recCreatedAt >= eligibilityStartDate
-              ? recCreatedAt
-              : recUpdatedAt || new Date();
+            recDate ||
+            recCreatedAt ||
+            recUpdatedAt ||
+            new Date();
 
           if (isEligible) {
             const points = record.obtainedScore || 0;
@@ -619,9 +633,20 @@ export async function syncStudentEarnings(studentId: string, force = false): Pro
       });
     }
 
-    // Reconcile and reverse any legacy pre-November or invalid entries in earningLedger
+    // Reconcile and reverse only orphaned entries whose underlying source records were explicitly deleted
     for (const entry of existingLedgers) {
       if (!processedLedgerIds.has(entry.id) && Number(entry.recognizedAmount) > 0) {
+        // If underlying source record still exists, protect student cash and do not reverse
+        const stillExists =
+          performanceRecords.some((r) => r.id === entry.sourceRecordId) ||
+          creativeHubSubmissions.some((s) => s.id === entry.sourceRecordId) ||
+          monthlyAttendances.some((a) => a.id === entry.sourceRecordId);
+
+        if (stillExists) {
+          processedLedgerIds.add(entry.id);
+          continue;
+        }
+
         const previouslyRecognized = Number(entry.recognizedAmount);
         const delta = -previouslyRecognized;
         const deltaDecimal = new Prisma.Decimal(delta);

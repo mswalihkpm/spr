@@ -173,6 +173,11 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
     ? [
         { name: 'Points Adjustment', href: '/admin/points-adjustment', icon: Award },
       ]
+    : isKuthbkhanaAdmin
+    ? [
+        { name: 'Kuthbkhana', href: '/kuthbkhana', icon: BookOpen },
+        { name: 'Leaderboards', href: '/leaderboard', icon: Award },
+      ]
     : allNavItems.filter((item) => !item.adminOnly || isAdmin || isSuperAdmin);
 
   return (

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { clearClientCache } from '@/lib/client-cache';
+import AdminLayout from '@/components/layout/AdminLayout';
 import {
   BookOpen,
   Plus,
@@ -431,61 +432,8 @@ export default function KuthbkhanaPage() {
   }, [records]);
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans selection:bg-blue-600 selection:text-white antialiased">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-xs print:hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-3.5 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Link href="/" className="flex items-center space-x-2.5 group">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white p-1 flex items-center justify-center shrink-0 border border-slate-200 shadow-xs">
-                <img
-                  src="/kuthbkhana-logo.png"
-                  alt="Kuthbkhana Emblem"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <div>
-                <h1 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight leading-none uppercase">
-                  KUTHBKHANA SESSION
-                </h1>
-                <div className="text-[10px] font-bold text-blue-600 tracking-wider uppercase mt-0.5">
-                  Classical Reading & Scholarly Points
-                </div>
-              </div>
-            </Link>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Link
-              href={`/leaderboard?subcategoryId=${subcategoryId || 'cmtx_sub_kuthbkhana'}`}
-              className="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition flex items-center space-x-1.5 border border-blue-200"
-            >
-              <Trophy className="w-3.5 h-3.5 text-amber-500" />
-              <span className="hidden sm:inline">Kuthbkhana Leaderboard</span>
-            </Link>
-
-            <Link
-              href="/auth/change-password"
-              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center space-x-1.5"
-              title="Change My Password"
-            >
-              <Key className="w-3.5 h-3.5 text-slate-500" />
-              <span className="hidden sm:inline">Change Password</span>
-            </Link>
-
-            <button
-              onClick={handleLogout}
-              className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold transition"
-              title="Sign Out"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-7 space-y-5">
+    <AdminLayout user={currentUser}>
+      <div className="space-y-5 max-w-7xl mx-auto pb-16 font-sans">
         {/* Banner Card */}
         <div className="rounded-3xl bg-gradient-to-r from-blue-950 via-indigo-900 to-slate-950 text-white p-5 sm:p-7 shadow-lg relative overflow-hidden">
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -862,10 +810,6 @@ export default function KuthbkhanaPage() {
             </div>
           )}
         </div>
-      </main>
-
-      {/* Footer */}
-      <PublicFooter />
 
       {/* Record Add / Edit Modal */}
       {modalOpen && (
@@ -1170,6 +1114,7 @@ export default function KuthbkhanaPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </AdminLayout>
   );
 }
