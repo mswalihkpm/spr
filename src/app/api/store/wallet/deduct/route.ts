@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { Prisma } from '@prisma/client';
 import { logAuditAction } from '@/lib/audit';
+import { generateStrong8DigitCode } from '@/lib/qr-service';
 
 export async function POST(req: NextRequest) {
   try {
@@ -38,20 +39,32 @@ export async function POST(req: NextRequest) {
     // Resolve student
     let matchedStudent = null;
     if (is8Digit) {
-      const suffix = cleanInput.slice(4);
-      const numVal = parseInt(suffix, 10);
-      matchedStudent = await prisma.student.findFirst({
-        where: {
-          OR: [
-            { sprStudentId: cleanUpper },
-            { sprStudentId: `SPR${suffix}` },
-            { sprStudentId: `SPR${numVal.toString().padStart(4, '0')}` },
-            { sprStudentId: `SPR${numVal}` },
-            { studentId: { contains: suffix } },
-          ],
-        },
+      const allStudentsForLookup = await prisma.student.findMany({
         select: { id: true, fullName: true, sprStudentId: true, studentId: true },
       });
+      const match = allStudentsForLookup.find(
+        (s) => generateStrong8DigitCode(s.id, s.sprStudentId) === cleanInput
+      );
+      if (match) {
+        matchedStudent = match;
+      }
+
+      if (!matchedStudent && cleanInput.startsWith('2026')) {
+        const suffix = cleanInput.slice(4);
+        const numVal = parseInt(suffix, 10);
+        matchedStudent = await prisma.student.findFirst({
+          where: {
+            OR: [
+              { sprStudentId: cleanUpper },
+              { sprStudentId: `SPR${suffix}` },
+              { sprStudentId: `SPR${numVal.toString().padStart(4, '0')}` },
+              { sprStudentId: `SPR${numVal}` },
+              { studentId: { contains: suffix } },
+            ],
+          },
+          select: { id: true, fullName: true, sprStudentId: true, studentId: true },
+        });
+      }
     }
 
     if (!matchedStudent) {

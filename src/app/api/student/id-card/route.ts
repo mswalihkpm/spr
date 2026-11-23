@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateStudentRequest } from '@/lib/auth';
-import { getOrCreateStudentQrToken, generateQrDataUrl, generate8DigitSprId } from '@/lib/qr-service';
+import { getOrCreateStudentQrToken, generateQrDataUrl, generateStrong8DigitCode } from '@/lib/qr-service';
 import { formatGoogleDriveDirectUrl } from '@/lib/google-drive';
 
 export async function GET(req: NextRequest) {
@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
     const rawPhoto = studentRecord.photoUrl || (student as any)?.photoUrl || null;
     const resolvedPhoto = formatGoogleDriveDirectUrl(rawPhoto, 400) || rawPhoto;
     const resolvedSprId = studentRecord.sprStudentId || student.sprStudentId || 'SPR0000';
-    const eightDigitSprId = generate8DigitSprId(resolvedSprId, studentRecord.studentId);
+    const eightDigitSprId = generateStrong8DigitCode(studentRecord.id, resolvedSprId);
 
     const idCardData = {
       sprId: resolvedSprId,

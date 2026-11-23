@@ -634,7 +634,7 @@ export default function StoreQrScannerModal({ isOpen, onClose }: StoreQrScannerM
                     Type 8-Digit SPR Number ID
                   </span>
                   <p className="text-[11px] text-blue-700 dark:text-blue-400">
-                    Enter the student&apos;s 8-digit number (e.g. <strong>20260122</strong>) or SPR ID (e.g. <strong>SPR0122</strong>)
+                    Enter the student&apos;s 8-digit number (e.g. <strong>15762483</strong>) or SPR ID (e.g. <strong>SPR0122</strong>)
                   </p>
                 </div>
 
@@ -646,7 +646,7 @@ export default function StoreQrScannerModal({ isOpen, onClose }: StoreQrScannerM
                     inputMode="numeric"
                     value={manualSprId}
                     onChange={(e) => setManualSprId(e.target.value)}
-                    placeholder="Enter 8-digit SPR ID (e.g. 20260122)..."
+                    placeholder="Enter 8-digit SPR ID (e.g. 15762483)..."
                     className="w-full pl-10 pr-24 py-3 rounded-2xl bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 text-sm font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <button
