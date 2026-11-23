@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
+import {
+  cachedAdminGroups,
+  inFlightAdminGroupsPromise,
+  ADMIN_GROUPS_CACHE_TTL_MS,
+  setCachedAdminGroups,
+  setInFlightAdminGroupsPromise,
+} from '@/lib/server-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,56 +15,76 @@ export async function GET(req: NextRequest) {
   const { user, errorResponse } = await authenticateApiRequest(req, 'TEACHER');
   if (errorResponse || !user) return errorResponse;
 
+  const url = new URL(req.url);
+  const forceFresh = url.searchParams.get('fresh') === '1' || url.searchParams.get('nocache') === '1';
+
   try {
-    // Fetch all active students with responses
-    const responses = await prisma.questionnaireResponse.findMany({
-      include: {
-        questionnaire: {
-          select: { code: true, title: true },
-        },
-        student: {
-          select: {
-            id: true,
-            fullName: true,
-            sprStudentId: true,
-            class: { select: { name: true } },
+    const now = Date.now();
+    if (!forceFresh && cachedAdminGroups && now - cachedAdminGroups.timestamp < ADMIN_GROUPS_CACHE_TTL_MS) {
+      return NextResponse.json(
+        { success: true, groups: cachedAdminGroups.data },
+        { headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' } }
+      );
+    }
+
+    if (!forceFresh && inFlightAdminGroupsPromise) {
+      const groups = await inFlightAdminGroupsPromise;
+      return NextResponse.json(
+        { success: true, groups },
+        { headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' } }
+      );
+    }
+
+    const computePromise = (async () => {
+      // Fetch all active students with responses
+      const responses = await prisma.questionnaireResponse.findMany({
+        include: {
+          questionnaire: {
+            select: { code: true, title: true },
+          },
+          student: {
+            select: {
+              id: true,
+              fullName: true,
+              sprStudentId: true,
+              class: { select: { name: true } },
+            },
           },
         },
-      },
-    });
+      });
 
-    const groupsMap = new Map<string, {
-      id: string;
-      name: string;
-      category: string;
-      description: string;
-      studentCount: number;
-      students: { id: string; name: string; sprStudentId: string; className: string }[];
-    }>();
+      const groupsMap = new Map<string, {
+        id: string;
+        name: string;
+        category: string;
+        description: string;
+        studentCount: number;
+        students: { id: string; name: string; sprStudentId: string; className: string }[];
+      }>();
 
-    const addStudentToGroup = (groupId: string, name: string, category: string, desc: string, student: any) => {
-      let group = groupsMap.get(groupId);
-      if (!group) {
-        group = {
-          id: groupId,
-          name,
-          category,
-          description: desc,
-          studentCount: 0,
-          students: [],
-        };
-        groupsMap.set(groupId, group);
-      }
-      if (!group.students.some((s) => s.id === student.id)) {
-        group.students.push({
-          id: student.id,
-          name: student.fullName,
-          sprStudentId: student.sprStudentId,
-          className: student.class?.name || '',
-        });
-        group.studentCount = group.students.length;
-      }
-    };
+      const addStudentToGroup = (groupId: string, name: string, category: string, desc: string, student: any) => {
+        let group = groupsMap.get(groupId);
+        if (!group) {
+          group = {
+            id: groupId,
+            name,
+            category,
+            description: desc,
+            studentCount: 0,
+            students: [],
+          };
+          groupsMap.set(groupId, group);
+        }
+        if (!group.students.some((s) => s.id === student.id)) {
+          group.students.push({
+            id: student.id,
+            name: student.fullName,
+            sprStudentId: student.sprStudentId,
+            className: student.class?.name || '',
+          });
+          group.studentCount = group.students.length;
+        }
+      };
 
     for (const r of responses) {
       if (!r.student) continue;
@@ -166,11 +193,20 @@ export async function GET(req: NextRequest) {
     }
 
     const groupsList = Array.from(groupsMap.values()).sort((a, b) => b.studentCount - a.studentCount);
+      setCachedAdminGroups({ timestamp: Date.now(), data: groupsList });
+      return groupsList;
+    })();
 
-    return NextResponse.json({
-      success: true,
-      groups: groupsList,
-    });
+    setInFlightAdminGroupsPromise(computePromise);
+    try {
+      const groups = await computePromise;
+      return NextResponse.json(
+        { success: true, groups },
+        { headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' } }
+      );
+    } finally {
+      setInFlightAdminGroupsPromise(null);
+    }
   } catch (err: any) {
     console.error('Error deriving dynamic student groups:', err);
     return NextResponse.json({ error: 'Failed to derive groups' }, { status: 500 });

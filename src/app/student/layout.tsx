@@ -19,7 +19,7 @@ import {
   Bell,
   RefreshCw,
 } from 'lucide-react';
-import { clearClientCache } from '@/lib/client-cache';
+import { clearClientCache, getCachedStudentDashboard, setCachedStudentDashboard } from '@/lib/client-cache';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import { registerForegroundMessageHandler } from '@/lib/firebase-client';
 import { sanitizeStudentDeepLink } from '@/lib/notification-navigation';
@@ -52,7 +52,8 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
     return <>{children}</>;
   }
 
-  const [student, setStudent] = useState<any>(null);
+  const cachedInitial = getCachedStudentDashboard();
+  const [student, setStudent] = useState<any>(cachedInitial?.student || cachedInitial || null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [foregroundAlert, setForegroundAlert] = useState<{
@@ -63,7 +64,13 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
   } | null>(null);
 
   useEffect(() => {
-    fetch('/api/student/auth/me')
+    const cached = getCachedStudentDashboard();
+    const resolved = cached?.student || cached;
+    if (resolved?.fullName && !student) {
+      setStudent(resolved);
+    }
+
+    fetch('/api/student/auth/me?lite=1')
       .then((res) => {
         if (res.status === 401 || res.status === 403) {
           router.push('/student/login');
@@ -74,6 +81,7 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
       .then((data) => {
         if (data?.student) {
           setStudent(data.student);
+          setCachedStudentDashboard(data.student);
 
           // For ordinary web browsers, auto-link existing Web Push token to this authenticated student session.
           // Native Android devices handle token registration through the secure native architecture.

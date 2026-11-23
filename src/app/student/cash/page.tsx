@@ -25,11 +25,13 @@ import {
   Search,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import { getCachedStudentDashboard, setCachedStudentDashboard } from '@/lib/client-cache';
 
 export default function StudentCashPage() {
   const router = useRouter();
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const cached = getCachedStudentDashboard();
+  const [data, setData] = useState<any>(cached);
+  const [loading, setLoading] = useState(!cached?.wallet);
   const [refreshing, setRefreshing] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -73,6 +75,7 @@ export default function StudentCashPage() {
       }
       json.transactions = txList;
       json.recentTransactions = txList;
+      setCachedStudentDashboard(json);
       setData(json);
     } catch (err: any) {
       console.error(err);
@@ -84,7 +87,14 @@ export default function StudentCashPage() {
   };
 
   useEffect(() => {
-    fetchCashData();
+    const cached = getCachedStudentDashboard();
+    if (cached?.wallet) {
+      setData(cached);
+      setLoading(false);
+      fetchCashData(true);
+    } else {
+      fetchCashData(false);
+    }
   }, []);
 
   // Fetch recipients for student-to-student transfer

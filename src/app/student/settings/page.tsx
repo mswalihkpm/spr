@@ -19,12 +19,15 @@ import {
 import VideoLoader from '@/components/ui/VideoLoader';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import NotificationPreferencesCard from '@/components/student/NotificationPreferencesCard';
-import { clearClientCache } from '@/lib/client-cache';
+import { clearClientCache, getCachedStudentDashboard, setCachedStudentDashboard } from '@/lib/client-cache';
 
 export default function StudentSettingsPage() {
   const router = useRouter();
-  const [student, setStudent] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const cachedInitial = getCachedStudentDashboard();
+  const initialStudent = cachedInitial?.student || cachedInitial;
+  const hasInitialData = Boolean(initialStudent?.fullName);
+  const [student, setStudent] = useState<any>(hasInitialData ? initialStudent : null);
+  const [loading, setLoading] = useState(!hasInitialData);
 
   // Change Password State
   const [currentPassword, setCurrentPassword] = useState('');
@@ -72,10 +75,20 @@ export default function StudentSettingsPage() {
   };
 
   useEffect(() => {
-    fetch('/api/student/auth/me')
+    const cached = getCachedStudentDashboard();
+    const resolvedCached = cached?.student || cached;
+    if (resolvedCached?.fullName) {
+      setStudent(resolvedCached);
+      setLoading(false);
+    }
+
+    // Fast lite profile fetch (< 15ms)
+    fetch('/api/student/auth/me?lite=1')
       .then((res) => {
         if (!res.ok) {
-          router.push('/student/login');
+          if (res.status === 401 || res.status === 403) {
+            router.push('/student/login');
+          }
           return null;
         }
         return res.json();
@@ -83,6 +96,7 @@ export default function StudentSettingsPage() {
       .then((data) => {
         if (data?.student) {
           setStudent(data.student);
+          setCachedStudentDashboard(data.student);
         }
       })
       .catch(() => {})
@@ -124,14 +138,14 @@ export default function StudentSettingsPage() {
     }
   };
 
-  if (loading) {
+  if (loading && !student) {
     return (
       <div className="flex-1 flex items-center justify-center min-h-[60vh]">
         <VideoLoader
-          size="xl"
+          size="md"
           text="Loading Student Account Settings..."
           subtext="Accessing Student Security & Identity Configuration"
-          showProgress={true}
+          showProgress={false}
         />
       </div>
     );

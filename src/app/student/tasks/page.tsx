@@ -35,6 +35,7 @@ import {
   CheckCheck,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import { getCachedStudentTasks, setCachedStudentTasks } from '@/lib/client-cache';
 
 export interface TaskTelemetry {
   rewardMode: 'EQUAL' | 'RANK_BASED' | 'TIME_BASED' | 'COMBINED';
@@ -131,12 +132,13 @@ interface HistoryItem {
 
 export default function StudentTasksPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
+  const cachedTasks = getCachedStudentTasks();
+  const [loading, setLoading] = useState(!cachedTasks);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'AVAILABLE' | 'HISTORY'>('AVAILABLE');
-  const [student, setStudent] = useState<any>(null);
-  const [availableTasks, setAvailableTasks] = useState<TaskItem[]>([]);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [student, setStudent] = useState<any>(cachedTasks?.student || null);
+  const [availableTasks, setAvailableTasks] = useState<TaskItem[]>(cachedTasks?.availableTasks || []);
+  const [history, setHistory] = useState<HistoryItem[]>(cachedTasks?.history || []);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Full Task Detail Modal state
@@ -159,6 +161,7 @@ export default function StudentTasksPage() {
       if (!res.ok) {
         throw new Error(data.error || 'Failed to fetch tasks.');
       }
+      setCachedStudentTasks(data);
       setStudent(data.student);
       setAvailableTasks(data.availableTasks || []);
       setHistory(data.history || []);
@@ -172,7 +175,16 @@ export default function StudentTasksPage() {
   };
 
   useEffect(() => {
-    fetchTasks();
+    const cached = getCachedStudentTasks();
+    if (cached) {
+      setStudent(cached.student);
+      setAvailableTasks(cached.availableTasks || []);
+      setHistory(cached.history || []);
+      setLoading(false);
+      fetchTasks(true);
+    } else {
+      fetchTasks(false);
+    }
   }, []);
 
   const handleSubmitReport = async () => {

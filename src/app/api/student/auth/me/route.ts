@@ -5,6 +5,7 @@ import { authenticateStudentRequest } from '@/lib/auth';
 import { syncStudentEarnings } from '@/lib/student-earnings';
 import { calculateStudentSPR, calculateFastStudentRanks } from '@/lib/spr-engine';
 import { prisma } from '@/lib/prisma';
+import { studentMeCache, inFlightStudentMePromises, STUDENT_ME_CACHE_TTL_MS } from '@/lib/server-cache';
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,72 +16,157 @@ export async function GET(req: NextRequest) {
     }
 
     const studentId = student.studentId;
+    const url = new URL(req.url);
+    const isLite = url.searchParams.get('lite') === '1' || url.searchParams.get('profileOnly') === '1';
+    const forceFresh = url.searchParams.get('fresh') === '1' || url.searchParams.get('nocache') === '1';
 
-    // Parallelize all independent database lookups and calculations for maximum speed
-    const [
-      earningsData,
-      recentTransactions,
-      studentRecord,
-      taskRecords,
-      questionnaireResponses,
-      totalQuestionnairesCount,
-      sprProfile,
-    ] = await Promise.all([
-      syncStudentEarnings(studentId),
-      prisma.walletTransaction.findMany({
-        where: { studentId },
-        include: {
-          senderStudent: { select: { fullName: true, sprStudentId: true } },
-          recipientStudent: { select: { fullName: true, sprStudentId: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 100,
-      }),
-      prisma.student.findUnique({
+    // 1. Ultra-fast Lite Profile Path (< 15ms)
+    // Used by StudentLayout, Settings, and navigation bars to eliminate UI stalls
+    if (isLite) {
+      const studentRecord = await prisma.student.findUnique({
         where: { id: studentId },
-        include: {
-          class: true,
-          academicYear: true,
-          performanceRecords: {
-            include: {
-              category: { select: { id: true, name: true, code: true } },
-              subcategory: { select: { id: true, name: true, code: true, weight: true } },
-              exam: { select: { id: true, name: true } },
-              subject: { select: { id: true, name: true, code: true, maxScore: true } },
-              level: { select: { id: true, name: true, code: true, weightMultiplier: true } },
+        select: {
+          id: true,
+          studentId: true,
+          sprStudentId: true,
+          fullName: true,
+          fatherName: true,
+          motherName: true,
+          houseName: true,
+          guardianPhone: true,
+          studentPhone: true,
+          studentEmail: true,
+          place: true,
+          district: true,
+          residentialStatus: true,
+          preferredContact: true,
+          isProfileLocked: true,
+          photoUrl: true,
+          class: { select: { id: true, name: true } },
+          academicYear: { select: { id: true, name: true } },
+        },
+      });
+
+      return NextResponse.json(
+        {
+          student: {
+            ...student,
+            fullName: studentRecord?.fullName || (student as any).name || (student as any).fullName || '',
+            fatherName: studentRecord?.fatherName,
+            motherName: studentRecord?.motherName,
+            houseName: studentRecord?.houseName,
+            guardianPhone: studentRecord?.guardianPhone,
+            studentPhone: studentRecord?.studentPhone,
+            studentEmail: studentRecord?.studentEmail,
+            place: studentRecord?.place,
+            district: studentRecord?.district,
+            residentialStatus: studentRecord?.residentialStatus,
+            preferredContact: studentRecord?.preferredContact,
+            isProfileLocked: studentRecord?.isProfileLocked ?? false,
+            photoUrl: studentRecord?.photoUrl || (student as any)?.photoUrl || null,
+            className: studentRecord?.class?.name || student.className,
+            academicYear: studentRecord?.academicYear?.name,
+          },
+        },
+        {
+          headers: {
+            'Cache-Control': 'private, max-age=15, stale-while-revalidate=60',
+          },
+        }
+      );
+    }
+
+    // 2. Server-side In-Memory Cache Check (< 1ms)
+    const now = Date.now();
+    if (!forceFresh) {
+      const cached = studentMeCache.get(studentId);
+      if (cached && now - cached.timestamp < STUDENT_ME_CACHE_TTL_MS) {
+        return NextResponse.json(cached.data, {
+          headers: {
+            'Cache-Control': 'private, max-age=15, stale-while-revalidate=60',
+            'X-Cache': 'HIT',
+          },
+        });
+      }
+    }
+
+    // 3. In-Flight Request Deduplication to prevent DB connection pool starvation
+    if (!forceFresh && inFlightStudentMePromises.has(studentId)) {
+      const payload = await inFlightStudentMePromises.get(studentId)!;
+      return NextResponse.json(payload, {
+        headers: {
+          'Cache-Control': 'private, max-age=15, stale-while-revalidate=60',
+          'X-Cache': 'DEDUPED',
+        },
+      });
+    }
+
+    const computePromise = (async () => {
+      // Parallelize all independent database lookups and calculations for maximum speed
+      const [
+        earningsData,
+        recentTransactions,
+        studentRecord,
+        taskRecords,
+        questionnaireResponses,
+        totalQuestionnairesCount,
+        sprProfile,
+      ] = await Promise.all([
+        syncStudentEarnings(studentId),
+        prisma.walletTransaction.findMany({
+          where: { studentId },
+          include: {
+            senderStudent: { select: { fullName: true, sprStudentId: true } },
+            recipientStudent: { select: { fullName: true, sprStudentId: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 100,
+        }),
+        prisma.student.findUnique({
+          where: { id: studentId },
+          include: {
+            class: true,
+            academicYear: true,
+            performanceRecords: {
+              include: {
+                category: { select: { id: true, name: true, code: true } },
+                subcategory: { select: { id: true, name: true, code: true, weight: true } },
+                exam: { select: { id: true, name: true } },
+                subject: { select: { id: true, name: true, code: true, maxScore: true } },
+                level: { select: { id: true, name: true, code: true, weightMultiplier: true } },
+              },
+              orderBy: { date: 'desc' },
             },
-            orderBy: { date: 'desc' },
+            monthlyAttendances: {
+              orderBy: [{ year: 'desc' }, { month: 'desc' }],
+            },
+            libraryRecords: {
+              orderBy: { createdAt: 'desc' },
+            },
+            creativeWorks: {
+              orderBy: { createdAt: 'desc' },
+            },
+            pointAdjustments: {
+              include: { reason: true },
+              orderBy: { createdAt: 'desc' },
+            },
           },
-          monthlyAttendances: {
-            orderBy: [{ year: 'desc' }, { month: 'desc' }],
+        }),
+        prisma.studentTaskRecord.findMany({
+          where: { studentId },
+          include: {
+            task: true,
           },
-          libraryRecords: {
-            orderBy: { createdAt: 'desc' },
-          },
-          creativeWorks: {
-            orderBy: { createdAt: 'desc' },
-          },
-          pointAdjustments: {
-            include: { reason: true },
-            orderBy: { createdAt: 'desc' },
-          },
-        },
-      }),
-      prisma.studentTaskRecord.findMany({
-        where: { studentId },
-        include: {
-          task: true,
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 50,
-      }),
-      prisma.questionnaireResponse.findMany({
-        where: { studentId },
-        select: { questionnaireId: true, status: true, progressPercent: true },
-      }),
-      prisma.questionnaire.count(),
-      calculateStudentSPR(studentId),
-    ]);
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+        }),
+        prisma.questionnaireResponse.findMany({
+          where: { studentId },
+          select: { questionnaireId: true, status: true, progressPercent: true },
+        }),
+        prisma.questionnaire.count(),
+        calculateStudentSPR(studentId),
+      ]);
 
     const formattedTransactions = recentTransactions.map((t) => ({
       id: t.id,
@@ -390,8 +476,7 @@ export async function GET(req: NextRequest) {
 
     const completedQuestionnairesCount = questionnaireResponses.filter((q) => q.status === 'SUBMITTED').length;
 
-    return NextResponse.json(
-      {
+      const payload = {
         student: {
           ...student,
           fullName: studentRecord?.fullName || (student as any).name || (student as any).fullName || '',
@@ -426,13 +511,24 @@ export async function GET(req: NextRequest) {
         itemizedPointsLedger,
         weeklyPerformanceTimeline,
         performanceTimeline,
-      },
-      {
+      };
+
+      studentMeCache.set(studentId, { timestamp: Date.now(), data: payload });
+      return payload;
+    })();
+
+    inFlightStudentMePromises.set(studentId, computePromise);
+    try {
+      const payload = await computePromise;
+      return NextResponse.json(payload, {
         headers: {
-          'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+          'Cache-Control': 'private, max-age=15, stale-while-revalidate=60',
+          'X-Cache': 'MISS',
         },
-      }
-    );
+      });
+    } finally {
+      inFlightStudentMePromises.delete(studentId);
+    }
   } catch (error: any) {
     console.error('Student me error:', error);
     return NextResponse.json(

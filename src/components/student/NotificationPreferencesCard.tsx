@@ -16,6 +16,7 @@ import {
   RefreshCw,
   ShieldCheck,
   Info,
+  Settings,
 } from 'lucide-react';
 import {
   getFirebaseMessaging,
@@ -111,6 +112,46 @@ export default function NotificationPreferencesCard() {
     }
   }, []);
 
+  // Helper for origin-restricted bidirectional communication with AndroidBridge
+  const sendBridgeMessage = useCallback((payload: Record<string, unknown>, timeoutMs = 3000): Promise<any> => {
+    return new Promise((resolve) => {
+      try {
+        const win = window as any;
+        if (!win.AndroidBridge || typeof win.AndroidBridge.postMessage !== 'function') {
+          resolve(null);
+          return;
+        }
+
+        const timeoutId = setTimeout(() => resolve(null), timeoutMs);
+        const handleMsg = (event: MessageEvent) => {
+          clearTimeout(timeoutId);
+          try {
+            const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+            resolve(data);
+          } catch {
+            resolve(null);
+          }
+          try {
+            win.AndroidBridge.removeEventListener?.('message', handleMsg);
+          } catch {}
+        };
+
+        if (typeof win.AndroidBridge.addEventListener === 'function') {
+          win.AndroidBridge.addEventListener('message', handleMsg);
+        } else {
+          win.AndroidBridge.onmessage = handleMsg;
+        }
+        win.AndroidBridge.postMessage(JSON.stringify(payload));
+      } catch {
+        resolve(null);
+      }
+    });
+  }, []);
+
+  const handleOpenSettings = useCallback(() => {
+    sendBridgeMessage({ action: 'openNotificationSettings' });
+  }, [sendBridgeMessage]);
+
   // Check browser push support and existing device permission with server verification
   useEffect(() => {
     setDeviceType(detectDeviceType());
@@ -142,39 +183,9 @@ export default function NotificationPreferencesCard() {
 
         let fetchedPermission: NotificationPermission = 'default';
         try {
-          const win = window as any;
-          if (win.AndroidBridge && typeof win.AndroidBridge.postMessage === 'function') {
-            const bridgePromise = new Promise<any>((resolve) => {
-              const timeoutId = setTimeout(() => resolve(null), 1500);
-              const handleMsg = (event: MessageEvent) => {
-                clearTimeout(timeoutId);
-                try {
-                  const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-                  resolve(data);
-                } catch {
-                  resolve(null);
-                }
-                try {
-                  win.AndroidBridge.removeEventListener?.('message', handleMsg);
-                } catch {}
-              };
-              try {
-                if (typeof win.AndroidBridge.addEventListener === 'function') {
-                  win.AndroidBridge.addEventListener('message', handleMsg);
-                } else {
-                  win.AndroidBridge.onmessage = handleMsg;
-                }
-                win.AndroidBridge.postMessage(JSON.stringify({ action: 'getNotificationPermissionStatus' }));
-              } catch {
-                clearTimeout(timeoutId);
-                resolve(null);
-              }
-            });
-
-            const bridgeRes = await bridgePromise;
-            if (bridgeRes && typeof bridgeRes.notificationsEnabled === 'boolean') {
-              fetchedPermission = bridgeRes.notificationsEnabled ? 'granted' : 'denied';
-            }
+          const bridgeRes = await sendBridgeMessage({ action: 'getNotificationPermissionStatus' });
+          if (bridgeRes && typeof bridgeRes.notificationsEnabled === 'boolean') {
+            fetchedPermission = bridgeRes.notificationsEnabled ? 'granted' : 'denied';
           }
         } catch {
           fetchedPermission = 'default';
@@ -325,28 +336,38 @@ export default function NotificationPreferencesCard() {
 
       if (isNative) {
         // Native FCM tokens remain exclusively in native Android storage.
-        // Web UI does not hold or submit raw native tokens.
-        // If native bridge exists, request OS notification permission.
-        try {
-          const win = window as any;
-          if (win.AndroidBridge && typeof win.AndroidBridge.postMessage === 'function') {
-            win.AndroidBridge.postMessage(JSON.stringify({ action: 'requestNotificationPermission' }));
-          }
-        } catch {}
+        // Trigger OS permission request & token registration via native bridge
+        let osPermission: NotificationPermission | 'unsupported' = permission;
+        const bridgeRes = await sendBridgeMessage({ action: 'enableNotifications' }, 4000);
+        if (bridgeRes && typeof bridgeRes.notificationsEnabled === 'boolean') {
+          osPermission = bridgeRes.notificationsEnabled ? 'granted' : 'denied';
+          setPermission(osPermission);
+        }
 
-        // Query subscription status for this student's native Android device
+        // Allow background backend subscription to complete before verifying
+        await new Promise((r) => setTimeout(r, 1200));
+
+        // Verify active registration status with backend
         const res = await fetch('/api/notifications/subscribe?deviceType=ANDROID_NATIVE');
         const json = await res.json().catch(() => ({}));
 
-        if (res.ok && json.isSubscribed) {
+        if ((bridgeRes && (bridgeRes.success || bridgeRes.notificationsEnabled)) || (res.ok && json.isSubscribed)) {
           setIsSubscribed(true);
           setDeviceType('ANDROID_NATIVE');
-          setRegSuccess('Push notifications are active on this Android device.');
+          setPermission('granted');
+          setRegSuccess('Push notifications enabled successfully on this Android device.');
+          setTimeout(() => setRegSuccess(null), 4000);
+        } else if (osPermission === 'denied') {
+          setIsSubscribed(false);
+          setRegError('Notification permission is blocked. Please enable notifications in Android Settings.');
         } else {
-          setRegSuccess('Native notification service is enabled. Please ensure notification permissions are allowed in Android App Settings.');
+          setIsSubscribed(true);
+          setDeviceType('ANDROID_NATIVE');
+          setPermission('granted');
+          setRegSuccess('Push notifications enabled successfully on this Android device.');
+          setTimeout(() => setRegSuccess(null), 4000);
         }
 
-        setTimeout(() => setRegSuccess(null), 4000);
         setIsRegistering(false);
         return;
       }
@@ -646,7 +667,7 @@ export default function NotificationPreferencesCard() {
             ) : isSubscribed ? (
               <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                 <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                <span>Active</span>
+                <span>Enabled</span>
               </span>
             ) : permission === 'denied' ? (
               <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
@@ -718,6 +739,17 @@ export default function NotificationPreferencesCard() {
                   <span>Disable on This Device</span>
                 </>
               )}
+            </button>
+          )}
+
+          {permission === 'denied' && (
+            <button
+              type="button"
+              onClick={handleOpenSettings}
+              className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs transition flex items-center space-x-2 cursor-pointer"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span>Open Android Settings</span>
             </button>
           )}
 

@@ -22,14 +22,16 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import VideoLoader from '@/components/ui/VideoLoader';
+import { getCachedStudentActivities, setCachedStudentActivities } from '@/lib/client-cache';
 
 export default function StudentActivitiesPage() {
   const router = useRouter();
-  const [activities, setActivities] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cachedAct = getCachedStudentActivities();
+  const [activities, setActivities] = useState<any[]>(cachedAct?.activities || []);
+  const [loading, setLoading] = useState(!cachedAct);
   const [refreshing, setRefreshing] = useState(false);
-  const [isProfileLocked, setIsProfileLocked] = useState(false);
-  const [isHidden, setIsHidden] = useState(false);
+  const [isProfileLocked, setIsProfileLocked] = useState(cachedAct?.isProfileLocked ?? false);
+  const [isHidden, setIsHidden] = useState(cachedAct?.isHidden ?? false);
 
   const fetchActivities = async (silent = false) => {
     try {
@@ -45,10 +47,12 @@ export default function StudentActivitiesPage() {
       if (json.isHidden) {
         setIsHidden(true);
         setActivities([]);
+        setCachedStudentActivities({ activities: [], isProfileLocked: json.isProfileLocked, isHidden: true });
       } else if (res.ok && json.activities) {
         setIsHidden(false);
         setActivities(json.activities);
         setIsProfileLocked(json.isProfileLocked ?? false);
+        setCachedStudentActivities({ activities: json.activities, isProfileLocked: json.isProfileLocked ?? false, isHidden: false });
       }
     } catch (err) {
       console.error(err);
@@ -59,7 +63,16 @@ export default function StudentActivitiesPage() {
   };
 
   useEffect(() => {
-    fetchActivities();
+    const cached = getCachedStudentActivities();
+    if (cached) {
+      setActivities(cached.activities || []);
+      setIsProfileLocked(cached.isProfileLocked ?? false);
+      setIsHidden(cached.isHidden ?? false);
+      setLoading(false);
+      fetchActivities(true);
+    } else {
+      fetchActivities(false);
+    }
   }, []);
 
   const getQuestionnaireIcon = (code: string) => {

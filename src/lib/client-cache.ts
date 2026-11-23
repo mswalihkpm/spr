@@ -233,6 +233,14 @@ let cachedStudentData: any = null;
 let lastStudentFetchTime = 0;
 const STUDENT_CACHE_TTL = 60 * 1000; // 60 seconds
 
+let cachedTasksData: any = null;
+let lastTasksFetchTime = 0;
+const TASKS_CACHE_TTL = 60 * 1000;
+
+let cachedActivitiesData: any = null;
+let lastActivitiesFetchTime = 0;
+const ACTIVITIES_CACHE_TTL = 60 * 1000;
+
 export function getCachedStudentDashboard() {
   if (cachedStudentData && Date.now() - lastStudentFetchTime < STUDENT_CACHE_TTL) {
     return cachedStudentData;
@@ -240,14 +248,64 @@ export function getCachedStudentDashboard() {
   return null;
 }
 
+export function getCachedStudentProfile(): any | null {
+  if (cachedStudentData && Date.now() - lastStudentFetchTime < STUDENT_CACHE_TTL) {
+    return cachedStudentData.student || cachedStudentData;
+  }
+  return null;
+}
+
 export function setCachedStudentDashboard(data: any) {
-  cachedStudentData = data;
+  if (!data) return;
+  // If updating with partial or lite student profile, merge into existing cached dashboard if present
+  if (data.student && cachedStudentData && cachedStudentData.wallet) {
+    cachedStudentData = {
+      ...cachedStudentData,
+      ...data,
+      student: { ...cachedStudentData.student, ...data.student },
+    };
+  } else if (!data.student && data.fullName && cachedStudentData && cachedStudentData.wallet) {
+    cachedStudentData = {
+      ...cachedStudentData,
+      student: { ...cachedStudentData.student, ...data },
+    };
+  } else {
+    cachedStudentData = data;
+  }
   lastStudentFetchTime = Date.now();
+}
+
+export function getCachedStudentTasks() {
+  if (cachedTasksData && Date.now() - lastTasksFetchTime < TASKS_CACHE_TTL) {
+    return cachedTasksData;
+  }
+  return null;
+}
+
+export function setCachedStudentTasks(data: any) {
+  cachedTasksData = data;
+  lastTasksFetchTime = Date.now();
+}
+
+export function getCachedStudentActivities() {
+  if (cachedActivitiesData && Date.now() - lastActivitiesFetchTime < ACTIVITIES_CACHE_TTL) {
+    return cachedActivitiesData;
+  }
+  return null;
+}
+
+export function setCachedStudentActivities(data: any) {
+  cachedActivitiesData = data;
+  lastActivitiesFetchTime = Date.now();
 }
 
 export function invalidateStudentClientCache() {
   cachedStudentData = null;
   lastStudentFetchTime = 0;
+  cachedTasksData = null;
+  lastTasksFetchTime = 0;
+  cachedActivitiesData = null;
+  lastActivitiesFetchTime = 0;
 }
 
 /**
@@ -258,6 +316,10 @@ export function clearClientCache(): void {
   inFlightRequests.clear();
   cachedStudentData = null;
   lastStudentFetchTime = 0;
+  cachedTasksData = null;
+  lastTasksFetchTime = 0;
+  cachedActivitiesData = null;
+  lastActivitiesFetchTime = 0;
 
   if (typeof window !== 'undefined') {
     try {

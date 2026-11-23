@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import {
   Users,
@@ -29,10 +29,11 @@ import CustomSelect from '@/components/ui/CustomSelect';
 import VideoLoader from '@/components/ui/VideoLoader';
 
 export default function AdminStudentDetailsPage() {
-  const [students, setStudents] = useState<any[]>([]);
+  const [allStudents, setAllStudents] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedLockFilter, setSelectedLockFilter] = useState('');
@@ -49,23 +50,21 @@ export default function AdminStudentDetailsPage() {
   // Selected Student Drawer
   const [detailStudent, setDetailStudent] = useState<any | null>(null);
 
-  const fetchStudents = async () => {
+  const fetchStudents = async (silent = false) => {
     try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (selectedClass) params.append('classId', selectedClass);
-      if (search.trim()) params.append('q', search.trim());
-      if (selectedLockFilter) params.append('locked', selectedLockFilter);
+      if (!silent && allStudents.length === 0) setLoading(true);
+      else setRefreshing(true);
 
-      const res = await fetch(`/api/admin/student-details?${params.toString()}`);
+      const res = await fetch('/api/admin/student-details');
       if (res.ok) {
         const json = await res.json();
-        setStudents(json.students || []);
+        setAllStudents(json.students || []);
       }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -92,11 +91,8 @@ export default function AdminStudentDetailsPage() {
   useEffect(() => {
     fetchClasses();
     fetchGroups();
-  }, []);
-
-  useEffect(() => {
     fetchStudents();
-  }, [selectedClass, selectedLockFilter]);
+  }, []);
 
   const handleOpenEdit = (st: any) => {
     setEditingStudent(st);
@@ -139,11 +135,19 @@ export default function AdminStudentDetailsPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Failed to apply profile correction');
 
+      if (json.updatedFields) {
+        setAllStudents((prev) =>
+          prev.map((s) => (s.id === editingStudent.id ? { ...s, ...json.updatedFields } : s))
+        );
+        if (detailStudent && detailStudent.id === editingStudent.id) {
+          setDetailStudent((prev: any) => ({ ...prev, ...json.updatedFields }));
+        }
+      }
+
       setCorrectionSuccess('Student profile updated and audit log recorded!');
       setTimeout(() => {
         setEditingStudent(null);
-        fetchStudents();
-      }, 1200);
+      }, 700);
     } catch (err: any) {
       setCorrectionError(err.message || 'Error updating profile');
     } finally {
@@ -153,7 +157,7 @@ export default function AdminStudentDetailsPage() {
 
   // Export CSV
   const handleExportCsv = () => {
-    if (students.length === 0) return;
+    if (displayStudents.length === 0) return;
     const headers = [
       'SPR ID',
       'Name',
@@ -169,7 +173,7 @@ export default function AdminStudentDetailsPage() {
       'Questionnaires Completed',
     ];
 
-    const rows = students.map((s) => [
+    const rows = displayStudents.map((s) => [
       `"${s.sprStudentId || ''}"`,
       `"${s.fullName || ''}"`,
       `"${s.className || ''}"`,
@@ -195,13 +199,41 @@ export default function AdminStudentDetailsPage() {
     document.body.removeChild(link);
   };
 
-  // Filter students by active dynamic group
-  const displayStudents = activeGroup
-    ? students.filter((s) => {
-        const grp = groups.find((g) => g.id === activeGroup);
-        return grp?.students.some((gs: any) => gs.id === s.id);
-      })
-    : students;
+  // Ultra-fast instant client-side filtering (0ms latency, replicates leaderboard responsiveness)
+  const displayStudents = useMemo(() => {
+    let list = allStudents;
+
+    if (selectedClass) {
+      list = list.filter((s) => s.classId === selectedClass);
+    }
+
+    if (selectedLockFilter === 'true') {
+      list = list.filter((s) => s.isProfileLocked === true);
+    } else if (selectedLockFilter === 'false') {
+      list = list.filter((s) => s.isProfileLocked === false);
+    }
+
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter(
+        (s) =>
+          s.fullName?.toLowerCase().includes(q) ||
+          s.sprStudentId?.toLowerCase().includes(q) ||
+          s.studentPhone?.toLowerCase().includes(q) ||
+          s.guardianPhone?.toLowerCase().includes(q) ||
+          s.place?.toLowerCase().includes(q)
+      );
+    }
+
+    if (activeGroup) {
+      const grp = groups.find((g) => g.id === activeGroup);
+      if (grp) {
+        list = list.filter((s) => grp.students?.some((gs: any) => gs.id === s.id));
+      }
+    }
+
+    return list;
+  }, [allStudents, selectedClass, selectedLockFilter, search, activeGroup, groups]);
 
   return (
     <AdminLayout>
@@ -231,11 +263,12 @@ export default function AdminStudentDetailsPage() {
               <span>Export CSV</span>
             </button>
             <button
-              onClick={fetchStudents}
+              onClick={() => fetchStudents(true)}
+              disabled={refreshing}
               className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
               title="Refresh student list"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-blue-600' : ''}`} />
             </button>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
+import { invalidateAdminStudentDetailsCache, invalidateStudentMeCache } from '@/lib/server-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -75,6 +76,9 @@ export async function POST(req: NextRequest) {
         });
       }
     });
+
+    invalidateAdminStudentDetailsCache();
+    invalidateStudentMeCache(studentId);
 
     return NextResponse.json({
       success: true,
