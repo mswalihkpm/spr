@@ -112,7 +112,7 @@ export async function GET(req: NextRequest) {
         totalQuestionnairesCount,
         sprProfile,
       ] = await Promise.all([
-        syncStudentEarnings(studentId),
+        syncStudentEarnings(studentId, true),
         prisma.walletTransaction.findMany({
           where: { studentId },
           include: {

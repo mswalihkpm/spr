@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
 import { invalidateEngineCache } from '@/lib/spr-engine';
+import { syncStudentEarnings, invalidateStudentEarningsCache } from '@/lib/student-earnings';
 
 export async function POST(req: NextRequest) {
   try {
@@ -71,12 +72,14 @@ export async function POST(req: NextRequest) {
       where: whereClause,
       select: {
         id: true,
+        studentId: true,
         remarks: true,
         obtainedScore: true,
       },
     });
 
     let updatedCount = 0;
+    const affectedStudentIds = new Set<string>();
 
     for (const record of records) {
       const remarks = record.remarks || '';
@@ -97,11 +100,23 @@ export async function POST(req: NextRequest) {
             },
           });
           updatedCount++;
+          if (record.studentId) {
+            affectedStudentIds.add(record.studentId);
+          }
         }
       }
     }
 
     invalidateEngineCache();
+
+    for (const sid of Array.from(affectedStudentIds)) {
+      invalidateStudentEarningsCache(sid);
+      try {
+        await syncStudentEarnings(sid, true);
+      } catch (err) {
+        console.warn('Earnings sync error during Kuthbkhana recalculate:', sid, err);
+      }
+    }
 
     logAuditAction({
       userId: user.id,

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { authenticateApiRequest } from '@/lib/auth';
 import { logAuditAction } from '@/lib/audit';
 import { invalidateEngineCache, onInvalidateEngine } from '@/lib/spr-engine';
+import { syncStudentEarnings, invalidateStudentEarningsCache } from '@/lib/student-earnings';
 
 let cachedKuthbkhanaSub: any = null;
 onInvalidateEngine(() => {
@@ -223,6 +224,18 @@ export async function POST(req: NextRequest) {
     });
 
     invalidateEngineCache();
+    invalidateStudentEarningsCache(student.id);
+
+    let walletCashAmount: number | null = null;
+    try {
+      const syncResult = await syncStudentEarnings(student.id, true);
+      const kuthbCat = syncResult.categoryEarnings.find((c) => c.categoryCode === 'KUTHBKHANA');
+      if (kuthbCat) {
+        walletCashAmount = kuthbCat.earnings;
+      }
+    } catch (earnErr) {
+      console.warn('Earnings sync error for Kuthbkhana student:', student.id, earnErr);
+    }
 
     logAuditAction({
       userId: user.id,
@@ -236,12 +249,15 @@ export async function POST(req: NextRequest) {
         kithabName,
         points: numericPoints,
         date: recordDate,
+        walletCash: walletCashAmount,
       },
     });
 
+    const cashMsg = walletCashAmount !== null ? ` (Wallet Kuthbkhana Cash: ₹${walletCashAmount.toFixed(2)})` : '';
+
     return NextResponse.json({
       success: true,
-      message: `Successfully logged ${selectedType} "${kithabName}" (+${numericPoints} pts) for ${student.fullName}!`,
+      message: `Successfully logged ${selectedType} "${kithabName}" (+${numericPoints} pts) for ${student.fullName}!${cashMsg}`,
       record,
     });
   } catch (error: any) {
@@ -297,7 +313,22 @@ export async function PUT(req: NextRequest) {
       },
     });
 
+    const prevStudentId = existing.studentId;
+
     invalidateEngineCache();
+    invalidateStudentEarningsCache(updated.studentId);
+    if (prevStudentId && prevStudentId !== updated.studentId) {
+      invalidateStudentEarningsCache(prevStudentId);
+    }
+
+    try {
+      await syncStudentEarnings(updated.studentId, true);
+      if (prevStudentId && prevStudentId !== updated.studentId) {
+        await syncStudentEarnings(prevStudentId, true);
+      }
+    } catch (earnErr) {
+      console.warn('Earnings sync error for Kuthbkhana update:', updated.studentId, earnErr);
+    }
 
     logAuditAction({
       userId: user.id,
@@ -341,11 +372,25 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Record ID(s) are required for deletion.' }, { status: 400 });
     }
 
+    const existingRecords = await prisma.performanceRecord.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, studentId: true },
+    });
+    const affectedStudentIds = Array.from(new Set(existingRecords.map((r) => r.studentId).filter(Boolean)));
+
     const deleteResult = await prisma.performanceRecord.deleteMany({
       where: { id: { in: ids } },
     });
 
     invalidateEngineCache();
+    for (const sid of affectedStudentIds) {
+      invalidateStudentEarningsCache(sid);
+      try {
+        await syncStudentEarnings(sid, true);
+      } catch (err) {
+        console.warn('Earnings sync error after Kuthbkhana delete:', sid, err);
+      }
+    }
 
     logAuditAction({
       userId: user.id,

@@ -544,7 +544,11 @@ export async function syncStudentEarnings(studentId: string, force = false): Pro
 
           // Policy rule: "from today (if admin selected any previous days, this not for that record), you must allow cash for these categories records according to their weightage"
           // If the admin selected any previous days (< POLICY_TODAY_START) and it was not previously credited, no cash is allowed.
-          const isSelectedPreviousDay = recDate ? recDate < POLICY_TODAY_START : false;
+          let isSelectedPreviousDay = false;
+          if (recDate) {
+            const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(recDate);
+            isSelectedPreviousDay = istDateStr < '2026-11-23' && recDate < POLICY_TODAY_START;
+          }
           const isEligible = isPreviouslyCredited || (!isSelectedPreviousDay && (
             (recDate && recDate >= eligibilityStartDate) ||
             (recCreatedAt && recCreatedAt >= eligibilityStartDate) ||

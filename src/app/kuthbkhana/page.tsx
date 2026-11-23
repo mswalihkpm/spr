@@ -95,6 +95,23 @@ function parseRemarks(remarks: string = '') {
   };
 }
 
+function getTodayDateString(): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+function formatDateString(d: any): string {
+  if (!d) return getTodayDateString();
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(d));
+  } catch {
+    return new Date(d).toISOString().slice(0, 10);
+  }
+}
+
 export default function KuthbkhanaPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<any | null>(null);
@@ -127,7 +144,7 @@ export default function KuthbkhanaPage() {
     kithabName: '',
     pagesRead: '',
     points: '10',
-    date: new Date().toISOString().slice(0, 10),
+    date: getTodayDateString(),
     notes: '',
   });
   const [saving, setSaving] = useState(false);
@@ -211,7 +228,7 @@ export default function KuthbkhanaPage() {
       kithabName: '',
       pagesRead: '',
       points: '10',
-      date: new Date().toISOString().slice(0, 10), // Automatic date selection!
+      date: getTodayDateString(), // Automatic current IST date selection!
       notes: '',
     });
     setModalOpen(true);
@@ -229,7 +246,7 @@ export default function KuthbkhanaPage() {
       kithabName: parsed.title,
       pagesRead: pVal ? String(pVal) : '',
       points: pointsVal,
-      date: rec.date ? new Date(rec.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+      date: formatDateString(rec.date),
       notes: parsed.notes || '',
     });
     setModalOpen(true);
@@ -766,9 +783,19 @@ export default function KuthbkhanaPage() {
                           )}
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <span className="px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-black text-xs font-mono">
+                          <span className="px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-black text-xs font-mono inline-block">
                             +{r.obtainedScore} pts
                           </span>
+                          {(() => {
+                            const recD = r.date ? new Date(r.date) : null;
+                            const isPast = recD ? (new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(recD) < '2026-11-23' && recD < new Date('2026-11-22T18:30:00.000Z')) : false;
+                            const cashVal = Math.round(((r.obtainedScore / 10) * 1.5) * 100) / 100;
+                            return (
+                              <span className={`text-[10px] font-bold block mt-0.5 ${isPast ? 'text-slate-400' : 'text-emerald-700'}`}>
+                                {isPast ? '₹0.00 (past)' : `₹${cashVal.toFixed(2)} (1.5x)`}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="py-3 px-4 text-slate-500 text-[11px]">
                           {r.date ? new Date(r.date).toLocaleDateString() : '—'}
