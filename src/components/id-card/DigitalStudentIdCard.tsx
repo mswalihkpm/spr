@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
 import {
   Download,
   Printer,
@@ -64,13 +64,31 @@ export default function DigitalStudentIdCard({
   // Hidden print & composite container refs
   const printFrontRef = useRef<HTMLDivElement>(null);
   const printBackRef = useRef<HTMLDivElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   const [activeSide, setActiveSide] = useState<'FRONT' | 'BACK'>('FRONT');
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [cardScale, setCardScale] = useState(1);
   const [downloading, setDownloading] = useState(false);
   const [downloadProgressText, setDownloadProgressText] = useState<string>('');
   const [imgLoadFailed, setImgLoadFailed] = useState(false);
   const [imgCandidateIndex, setImgCandidateIndex] = useState(0);
+
+  // Proportional scaling so mobile displays the exact same card layout as desktop & PNG exports
+  useEffect(() => {
+    const el = previewContainerRef.current;
+    if (!el) return;
+    const updateScale = () => {
+      const availableWidth = el.clientWidth;
+      if (availableWidth > 0) {
+        setCardScale(Math.min(1, availableWidth / 620));
+      }
+    };
+    updateScale();
+    const observer = new ResizeObserver(updateScale);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [isFullScreen]);
 
   // Deterministic strong 8-digit code
   const strong8DigitCode = useMemo(() => {
@@ -279,14 +297,18 @@ export default function DigitalStudentIdCard({
     window.print();
   };
 
-  // Reusable Front Card JSX Node (With components in exact requested position)
+  // Reusable Front Card JSX Node (Canonical 620x391 layout for Desktop, Mobile-Scaled, & 300DPI Export)
   const renderFrontCard = (isPrintClone = false) => (
     <div
       ref={isPrintClone ? printFrontRef : frontCardRef}
-      className={`relative w-full aspect-[1.586/1] bg-white rounded-3xl shadow-2xl border border-sky-200/90 overflow-hidden text-slate-900 select-none flex flex-col justify-between ${
-        isPrintClone ? 'print-card-box max-w-[620px]' : 'max-w-[620px]'
+      className={`relative bg-white rounded-3xl shadow-2xl border border-sky-200/90 overflow-hidden text-slate-900 select-none flex flex-col justify-between ${
+        isPrintClone ? 'print-card-box' : ''
       }`}
       style={{
+        width: '620px',
+        height: '391px',
+        minWidth: '620px',
+        minHeight: '391px',
         background: 'linear-gradient(135deg, #F0F9FF 0%, #FFFFFF 50%, #E0F2FE 100%)',
       }}
     >
@@ -307,39 +329,38 @@ export default function DigitalStudentIdCard({
       </div>
 
       {/* -------------------------------------------------------------
-          CARD HEADER (APP NAME TOP, SCHOOL NAME SUBTITLE)
+          CARD HEADER (APP NAME TOP, MA'DIN SCHOOL OF EXCELLENCE SUBTITLE)
           ------------------------------------------------------------- */}
-      <div className="relative z-10 px-5 sm:px-6 pt-3 sm:pt-4 pb-2 border-b border-sky-200/60 flex items-center justify-between">
+      <div className="relative z-10 px-5 pt-3 pb-2 border-b border-sky-200/60 flex items-center justify-between">
         <div className="flex items-center space-x-2.5">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white shadow-xs border border-sky-200 p-1 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-2xl bg-white shadow-xs border border-sky-200 p-1 flex items-center justify-center shrink-0">
             <img src="/logo.png" alt="SPR Logo" className="w-full h-full object-contain" />
           </div>
           <div>
-            <h3 className="text-xs sm:text-sm font-black tracking-tight text-slate-900 leading-tight uppercase font-sans">
+            <h3 className="text-sm font-black tracking-tight text-slate-900 leading-tight uppercase font-sans">
               STUDENT PERFORMANCE RATE
             </h3>
-            <p className="text-[9.5px] sm:text-[10px] font-bold text-sky-700 tracking-wide uppercase">
-              {data.schoolName || "Ma'din School of Excellence"}
+            <p className="text-[10.5px] font-bold text-sky-700 tracking-wide uppercase">
+              MA&apos;DIN SCHOOL OF EXCELLENCE
             </p>
           </div>
         </div>
 
         {/* Academic Session Badge - 2026-27 */}
-        <div className="text-right shrink-0 pr-3 sm:pr-4">
-          <span className="inline-block px-2.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-mono font-black text-white bg-slate-900/90 shadow-2xs">
+        <div className="text-right shrink-0 pr-4">
+          <span className="inline-block px-2.5 py-0.5 rounded-md text-[10px] font-mono font-black text-white bg-slate-900/90 shadow-2xs">
             2026-27
           </span>
         </div>
       </div>
 
       {/* -------------------------------------------------------------
-          CARD BODY: 3-COLUMN LAYOUT (PHOTO | DETAILS | EXTRA LARGE QR)
-          (DETAILS ON LEFT OF IMAGINARY LINE, EXTRA LARGE QR ON RIGHT)
+          CARD BODY: 3-COLUMN LAYOUT (PHOTO | DETAILS + SEAL | LARGE QR)
           ------------------------------------------------------------- */}
-      <div className="relative z-10 px-4 sm:px-5 py-2 sm:py-2.5 flex items-stretch gap-2.5 sm:gap-3.5 flex-1 min-h-0">
-        {/* Column 1 (Far Left): Photograph + STRONG 8-DIGIT NUMBER ID PILL (POSITIONED UPWARD) */}
-        <div className="flex flex-col items-center justify-start shrink-0 w-[24%] sm:w-[25%]">
-          <div className="w-full aspect-[4/5] rounded-xl sm:rounded-2xl overflow-hidden bg-slate-100 border-2 border-sky-400 shadow-md relative">
+      <div className="relative z-10 px-5 py-2 flex items-stretch gap-3.5 flex-1 min-h-0">
+        {/* Column 1 (Far Left): Photograph + STRONG 8-DIGIT NUMBER ID PILL */}
+        <div className="flex flex-col items-center justify-start shrink-0" style={{ width: '140px' }}>
+          <div className="w-full aspect-[4/5] rounded-2xl overflow-hidden bg-slate-100 border-2 border-sky-400 shadow-md relative">
             {currentPhotoSrc && !imgLoadFailed ? (
               <img
                 src={currentPhotoSrc}
@@ -351,7 +372,7 @@ export default function DigitalStudentIdCard({
               />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-sky-600 to-blue-700 text-white font-black">
-                <span className="text-xl sm:text-2xl">
+                <span className="text-2xl">
                   {data.fullName
                     .split(' ')
                     .slice(0, 2)
@@ -365,94 +386,129 @@ export default function DigitalStudentIdCard({
           </div>
 
           {/* STRONG 8-DIGIT NUMBER ID PILL - POSITIONED UPWARD DIRECTLY UNDER PHOTO */}
-          <div className="mt-1.5 sm:mt-2 w-full py-0.5 sm:py-1 px-1 rounded-xl bg-slate-900 text-center shadow-xs border border-slate-800">
-            <div className="text-sky-300 font-mono font-black text-xs sm:text-sm tracking-wider">
+          <div className="mt-2 w-full py-1 px-1 rounded-xl bg-slate-900 text-center shadow-xs border border-slate-800">
+            <div className="text-sky-300 font-mono font-black text-sm tracking-wider leading-tight">
               {strong8DigitCode}
             </div>
-            <div className="text-[7.5px] sm:text-[8px] text-slate-400 font-mono font-bold leading-none">
+            <div className="text-[8.5px] text-slate-400 font-mono font-bold leading-none mt-0.5">
               SPR ID: {data.sprId}
             </div>
           </div>
         </div>
 
-        {/* Column 2 (Middle, Left of Imaginary Line): Student Info & Details */}
-        <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
-          <div>
-            <h2 className="text-xs sm:text-sm lg:text-base font-black text-slate-900 tracking-tight leading-snug truncate uppercase font-sans">
+        {/* Column 2 (Middle, Left of QR): Student Info, Larger Wrapped Details & Official Seal */}
+        <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5 relative">
+          <div className="min-w-0">
+            <h2 className="text-[16px] font-black text-slate-900 tracking-tight leading-tight uppercase font-sans break-words">
               {data.fullName}
             </h2>
 
-            <div className="mt-0.5 inline-flex items-center px-2 py-0.5 rounded-md bg-sky-100/80 border border-sky-300/80 text-[9.5px] sm:text-[10px] font-black text-sky-900">
+            <div className="mt-1 inline-flex items-center px-2 py-0.5 rounded-md bg-sky-100/80 border border-sky-300/80 text-[10.5px] font-black text-sky-900">
               <span>Class: {data.className}</span>
               {data.division && <span className="ml-1">({data.division})</span>}
             </div>
 
-            {/* DETAILS POSITIONED LEFT OF THE LINE */}
-            <div className="mt-1.5 space-y-0.5 sm:space-y-1 text-[9.5px] sm:text-[10.5px] text-slate-700 font-medium leading-tight">
-              <div className="flex items-center space-x-1.5 truncate">
-                <MapPin className="w-3 h-3 text-sky-600 shrink-0" />
-                <span className="text-slate-400 text-[8.5px] sm:text-[9px] uppercase font-bold shrink-0">Place:</span>
-                <span className="font-bold text-slate-800 truncate">{displayLocation}</span>
+            {/* DETAILS: LARGER TEXT SIZE WITH WRAPPING + SCHOOL NAME INCLUDED */}
+            <div className="mt-1.5 space-y-1 text-[11px] text-slate-700 font-medium leading-[1.28]">
+              <div className="flex items-start space-x-1.5">
+                <Building2 className="w-3.5 h-3.5 text-sky-600 shrink-0 mt-0.5" />
+                <div className="min-w-0 break-words whitespace-normal">
+                  <span className="text-slate-400 text-[9.5px] uppercase font-bold mr-1">School:</span>
+                  <span className="font-bold text-slate-800">{data.schoolName || 'GBHSS MALAPPURAM'}</span>
+                </div>
               </div>
 
-              <div className="flex items-center space-x-1.5 truncate">
-                <Phone className="w-3 h-3 text-sky-600 shrink-0" />
-                <span className="text-slate-400 text-[8.5px] sm:text-[9px] uppercase font-bold shrink-0">Phone:</span>
-                <span className="font-bold text-slate-800 font-mono truncate">{displayPhone}</span>
+              <div className="flex items-start space-x-1.5">
+                <MapPin className="w-3.5 h-3.5 text-sky-600 shrink-0 mt-0.5" />
+                <div className="min-w-0 break-words whitespace-normal">
+                  <span className="text-slate-400 text-[9.5px] uppercase font-bold mr-1">Place:</span>
+                  <span className="font-bold text-slate-800">{displayLocation}</span>
+                </div>
               </div>
 
-              <div className="flex items-center space-x-1.5 truncate">
-                <Mail className="w-3 h-3 text-sky-600 shrink-0" />
-                <span className="text-slate-400 text-[8.5px] sm:text-[9px] uppercase font-bold shrink-0">Email:</span>
-                <span className="font-bold text-slate-800 font-mono truncate">{displayEmail}</span>
+              <div className="flex items-start space-x-1.5">
+                <Phone className="w-3.5 h-3.5 text-sky-600 shrink-0 mt-0.5" />
+                <div className="min-w-0 break-words whitespace-normal">
+                  <span className="text-slate-400 text-[9.5px] uppercase font-bold mr-1">Phone:</span>
+                  <span className="font-bold text-slate-800 font-mono">{displayPhone}</span>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-1.5">
+                <Mail className="w-3.5 h-3.5 text-sky-600 shrink-0 mt-0.5" />
+                <div className="min-w-0 break-all whitespace-normal">
+                  <span className="text-slate-400 text-[9.5px] uppercase font-bold mr-1">Email:</span>
+                  <span className="font-bold text-slate-800 font-mono">{displayEmail}</span>
+                </div>
               </div>
 
               {data.fatherName && data.fatherName !== '—' && (
-                <div className="flex items-center space-x-1.5 truncate">
-                  <span className="w-3 h-3 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-[7.5px] font-black shrink-0">
+                <div className="flex items-start space-x-1.5">
+                  <span className="w-3.5 h-3.5 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-[8px] font-black shrink-0 mt-0.5">
                     P
                   </span>
-                  <span className="text-slate-400 text-[8.5px] sm:text-[9px] uppercase font-bold shrink-0">Guardian:</span>
-                  <span className="font-bold text-slate-800 truncate">{data.fatherName}</span>
+                  <div className="min-w-0 break-words whitespace-normal">
+                    <span className="text-slate-400 text-[9.5px] uppercase font-bold mr-1">Guardian:</span>
+                    <span className="font-bold text-slate-800">{data.fatherName}</span>
+                  </div>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Bottom Identity Verification Badge */}
-          <div className="pt-1 mt-1 border-t border-sky-200/60 text-[8px] sm:text-[9px] text-slate-500 font-semibold space-y-0.5">
-            <div className="flex items-center space-x-1 text-sky-700 font-bold">
-              <ShieldCheck className="w-3 h-3" />
-              <span>Verified SPR Identity</span>
+          {/* Bottom Identity Verification Badge + Rotated Official Seal in Circled Position */}
+          <div className="pt-1 mt-1 border-t border-sky-200/60 flex items-end justify-between relative">
+            <div className="text-[8.5px] text-slate-500 font-semibold space-y-0.5 pr-16">
+              <div className="flex items-center space-x-1 text-sky-700 font-bold">
+                <ShieldCheck className="w-3 h-3 shrink-0" />
+                <span>Verified SPR Identity</span>
+              </div>
+              <p className="font-mono text-[8px] text-slate-400 truncate">
+                AUTH-REF: {data.qrToken?.substring(0, 16) || 'SECURE-TOKEN'}
+              </p>
             </div>
-            <p className="font-mono text-[7.5px] sm:text-[8px] text-slate-400 truncate">
-              AUTH-REF: {data.qrToken?.substring(0, 16) || 'SECURE-TOKEN'}
-            </p>
+
+            {/* Official School Seal Stamp (Rotated) */}
+            <img
+              src="/official-seal.png"
+              alt="Official School Seal"
+              className="pointer-events-none select-none"
+              style={{
+                position: 'absolute',
+                right: '2px',
+                bottom: '-2px',
+                width: '74px',
+                height: '74px',
+                objectFit: 'contain',
+                transform: 'rotate(-80deg)',
+                opacity: 0.88,
+              }}
+            />
           </div>
         </div>
 
-        {/* Column 3 (Right of Imaginary Line): EXTRA LARGE QR CODE */}
+        {/* Column 3 (Right): LARGE QR CODE */}
         <div
-          className="shrink-0 flex flex-col items-center justify-center self-center pl-1"
-          style={{ width: '135px', maxWidth: '140px' }}
+          className="shrink-0 flex flex-col items-center justify-center self-center"
+          style={{ width: '186px' }}
         >
           <div
-            className="p-1.5 sm:p-2 rounded-2xl bg-white border-2 border-sky-400 shadow-md flex flex-col items-center justify-center"
-            style={{ width: '100%', boxSizing: 'border-box' }}
+            className="p-2 rounded-2xl bg-white border-2 border-sky-400 shadow-md flex flex-col items-center justify-center"
+            style={{ width: '184px', boxSizing: 'border-box' }}
           >
             <img
               src={data.qrDataUrl}
               alt="Student QR Code"
               className="object-contain"
               style={{
-                width: '105px',
-                height: '105px',
-                maxWidth: '105px',
-                maxHeight: '105px',
+                width: '164px',
+                height: '164px',
+                maxWidth: '164px',
+                maxHeight: '164px',
                 aspectRatio: '1 / 1',
               }}
             />
-            <span className="text-[7.5px] sm:text-[8px] font-black text-sky-950 tracking-tighter mt-1 uppercase">
+            <span className="text-[8.5px] font-black text-sky-950 tracking-wider mt-1 uppercase leading-none">
               Scan for Wallet
             </span>
           </div>
@@ -462,21 +518,25 @@ export default function DigitalStudentIdCard({
       {/* -------------------------------------------------------------
           CARD FOOTER SECURITY STRIP
           ------------------------------------------------------------- */}
-      <div className="relative z-10 px-5 sm:px-6 py-1 bg-slate-900 text-slate-300 text-[7.5px] sm:text-[8.5px] font-semibold flex items-center justify-between tracking-wide">
+      <div className="relative z-10 px-5 py-1 bg-slate-900 text-slate-300 text-[8.5px] font-semibold flex items-center justify-between tracking-wide">
         <span>OFFICIAL INSTITUTIONAL DIGITAL CREDENTIAL</span>
-        <span className="font-mono text-sky-300">MADIN SCHOOL OF EXCELLENCE</span>
+        <span className="font-mono text-sky-300">MA&apos;DIN SCHOOL OF EXCELLENCE</span>
       </div>
     </div>
   );
 
-  // Reusable Back Card JSX Node (FIXED THEME: EXPLICIT #0A192F COLOR + NO HIDDEN ELEMENTS)
+  // Reusable Back Card JSX Node (FIXED THEME: EXPLICIT #0A192F COLOR + CANONICAL 620x391)
   const renderBackCard = (isPrintClone = false) => (
     <div
       ref={isPrintClone ? printBackRef : backCardRef}
-      className={`relative w-full aspect-[1.586/1] text-white rounded-3xl shadow-2xl border border-sky-900 overflow-hidden select-none flex flex-col justify-between ${
-        isPrintClone ? 'print-card-box max-w-[620px]' : 'max-w-[620px]'
+      className={`relative text-white rounded-3xl shadow-2xl border border-sky-900 overflow-hidden select-none flex flex-col justify-between ${
+        isPrintClone ? 'print-card-box' : ''
       }`}
       style={{
+        width: '620px',
+        height: '391px',
+        minWidth: '620px',
+        minHeight: '391px',
         backgroundColor: '#0A192F',
         background: '#0A192F',
         color: '#FFFFFF',
@@ -728,10 +788,11 @@ export default function DigitalStudentIdCard({
       </div>
 
       {/* ---------------------------------------------------------------------
-          VISIBLE INTERACTIVE SCREEN CARD (FRONT OR BACK VIEW)
+          VISIBLE INTERACTIVE SCREEN CARD (SCALED PROPORTIONALLY ON MOBILE)
           --------------------------------------------------------------------- */}
       <div
-        className={`w-full flex justify-center ${
+        ref={previewContainerRef}
+        className={`w-full flex justify-center overflow-hidden ${
           isFullScreen
             ? 'fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md p-4 sm:p-8 flex items-center justify-center overflow-auto'
             : ''
@@ -746,8 +807,25 @@ export default function DigitalStudentIdCard({
           </button>
         )}
 
-        {/* Display Current Active Side (Front or Back) */}
-        {activeSide === 'FRONT' ? renderFrontCard(false) : renderBackCard(false)}
+        {/* Proportional Wrapper so Mobile Displays Exact Same Image as Desktop & Downloads */}
+        <div
+          style={{
+            width: `${620 * cardScale}px`,
+            height: `${391 * cardScale}px`,
+            position: 'relative',
+          }}
+        >
+          <div
+            style={{
+              width: '620px',
+              height: '391px',
+              transform: `scale(${cardScale})`,
+              transformOrigin: 'top left',
+            }}
+          >
+            {activeSide === 'FRONT' ? renderFrontCard(false) : renderBackCard(false)}
+          </div>
+        </div>
       </div>
 
       {/* Flip helper pill below the card */}

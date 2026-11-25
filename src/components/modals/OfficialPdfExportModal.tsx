@@ -515,16 +515,16 @@ export default function OfficialPdfExportModal({
             page-break-after: auto !important;
           }
           .print-id-card-qr-img {
-            width: 100px !important;
-            height: 100px !important;
-            max-width: 100px !important;
-            max-height: 100px !important;
+            width: 154px !important;
+            height: 154px !important;
+            max-width: 154px !important;
+            max-height: 154px !important;
             object-fit: contain !important;
           }
           .print-id-card-qr-box {
-            width: 118px !important;
-            min-width: 118px !important;
-            max-width: 118px !important;
+            width: 174px !important;
+            min-width: 174px !important;
+            max-width: 174px !important;
             box-sizing: border-box !important;
           }
           table {
@@ -1296,8 +1296,8 @@ export default function OfficialPdfExportModal({
                           <h3 className="text-xs font-black tracking-tight text-slate-900 leading-tight uppercase font-sans">
                             STUDENT PERFORMANCE RATE
                           </h3>
-                          <p className="text-[9px] font-bold text-sky-700 tracking-wide uppercase">
-                            {card.schoolName || "GBHSS MALAPPURAM"}
+                          <p className="text-[9.5px] font-bold text-sky-700 tracking-wide uppercase">
+                            MA&apos;DIN SCHOOL OF EXCELLENCE
                           </p>
                         </div>
                       </div>
@@ -1310,10 +1310,10 @@ export default function OfficialPdfExportModal({
                       </div>
                     </div>
 
-                    {/* Front Body: 3-Column Layout (Photo | Details Left of Line | Extra Large QR Right) */}
+                    {/* Front Body: 3-Column Layout (Photo | Details + Seal | Extra Large QR Right) */}
                     <div className="relative z-10 px-5 py-2 flex items-stretch gap-3 flex-1 min-h-0">
                       {/* Column 1 (Far Left): Photograph + Strong 8-Digit ID Pill (POSITIONED UPWARD) */}
-                      <div className="flex flex-col items-center justify-start shrink-0 w-[24%]">
+                      <div className="flex flex-col items-center justify-start shrink-0" style={{ width: '132px' }}>
                         <div className="w-full aspect-[4/5] rounded-xl overflow-hidden bg-slate-100 border-2 border-sky-400 shadow-sm relative">
                           {card.photoUrl ? (
                             <img
@@ -1338,7 +1338,7 @@ export default function OfficialPdfExportModal({
                         </div>
 
                         {/* Strong 8-Digit ID Pill - POSITIONED UPWARD DIRECTLY UNDER PHOTO */}
-                        <div className="mt-1 sm:mt-1.5 w-full py-0.5 px-1 rounded-lg bg-slate-900 text-center shadow-xs border border-slate-800">
+                        <div className="mt-1.5 w-full py-0.5 px-1 rounded-lg bg-slate-900 text-center shadow-xs border border-slate-800">
                           <div className="text-sky-300 font-mono font-black text-xs tracking-wider">
                             {card.eightDigitSprId}
                           </div>
@@ -1348,10 +1348,10 @@ export default function OfficialPdfExportModal({
                         </div>
                       </div>
 
-                      {/* Column 2 (Middle, Left of Imaginary Line): Info & Positioned Details */}
-                      <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
-                        <div>
-                          <h2 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight leading-snug truncate uppercase font-sans">
+                      {/* Column 2 (Middle, Left of QR): Info, Larger Wrapped Details & Official Seal */}
+                      <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5 relative">
+                        <div className="min-w-0">
+                          <h2 className="text-sm font-black text-slate-900 tracking-tight leading-tight uppercase font-sans break-words">
                             {card.fullName}
                           </h2>
 
@@ -1360,73 +1360,106 @@ export default function OfficialPdfExportModal({
                             {card.division && <span className="ml-1">({card.division})</span>}
                           </div>
 
-                          {/* Details Positioned Directly Under Class Badge */}
-                          <div className="mt-1.5 space-y-0.5 text-[9.5px] text-slate-700 font-medium leading-tight">
-                            <div className="flex items-center space-x-1.5 truncate">
-                              <MapPin className="w-2.5 h-2.5 text-sky-600 shrink-0" />
-                              <span className="text-slate-400 text-[8px] uppercase font-bold shrink-0">Place:</span>
-                              <span className="font-bold text-slate-800 truncate">{card.location || card.place || '—'}</span>
+                          {/* Details: Larger Text with Wrapping + School Name */}
+                          <div className="mt-1.5 space-y-0.5 text-[10.5px] text-slate-700 font-medium leading-[1.26]">
+                            <div className="flex items-start space-x-1.5">
+                              <Building className="w-3 h-3 text-sky-600 shrink-0 mt-0.5" />
+                              <div className="min-w-0 break-words whitespace-normal">
+                                <span className="text-slate-400 text-[9px] uppercase font-bold mr-1">School:</span>
+                                <span className="font-bold text-slate-800">{card.schoolName || 'GBHSS MALAPPURAM'}</span>
+                              </div>
                             </div>
 
-                            <div className="flex items-center space-x-1.5 truncate">
-                              <Phone className="w-2.5 h-2.5 text-sky-600 shrink-0" />
-                              <span className="text-slate-400 text-[8px] uppercase font-bold shrink-0">Phone:</span>
-                              <span className="font-bold text-slate-800 font-mono truncate">{card.phone || '—'}</span>
+                            <div className="flex items-start space-x-1.5">
+                              <MapPin className="w-3 h-3 text-sky-600 shrink-0 mt-0.5" />
+                              <div className="min-w-0 break-words whitespace-normal">
+                                <span className="text-slate-400 text-[9px] uppercase font-bold mr-1">Place:</span>
+                                <span className="font-bold text-slate-800">{card.location || card.place || '—'}</span>
+                              </div>
                             </div>
 
-                            <div className="flex items-center space-x-1.5 truncate">
-                              <Mail className="w-2.5 h-2.5 text-sky-600 shrink-0" />
-                              <span className="text-slate-400 text-[8px] uppercase font-bold shrink-0">Email:</span>
-                              <span className="font-bold text-slate-800 font-mono truncate">{card.email || '—'}</span>
+                            <div className="flex items-start space-x-1.5">
+                              <Phone className="w-3 h-3 text-sky-600 shrink-0 mt-0.5" />
+                              <div className="min-w-0 break-words whitespace-normal">
+                                <span className="text-slate-400 text-[9px] uppercase font-bold mr-1">Phone:</span>
+                                <span className="font-bold text-slate-800 font-mono">{card.phone || '—'}</span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-start space-x-1.5">
+                              <Mail className="w-3 h-3 text-sky-600 shrink-0 mt-0.5" />
+                              <div className="min-w-0 break-all whitespace-normal">
+                                <span className="text-slate-400 text-[9px] uppercase font-bold mr-1">Email:</span>
+                                <span className="font-bold text-slate-800 font-mono">{card.email || '—'}</span>
+                              </div>
                             </div>
 
                             {card.fatherName && card.fatherName !== '—' && (
-                              <div className="flex items-center space-x-1.5 truncate">
-                                <span className="w-2.5 h-2.5 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-[7.5px] font-black shrink-0">
+                              <div className="flex items-start space-x-1.5">
+                                <span className="w-3 h-3 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-[7.5px] font-black shrink-0 mt-0.5">
                                   P
                                 </span>
-                                <span className="text-slate-400 text-[8px] uppercase font-bold shrink-0">Guardian:</span>
-                                <span className="font-bold text-slate-800 truncate">{card.fatherName}</span>
+                                <div className="min-w-0 break-words whitespace-normal">
+                                  <span className="text-slate-400 text-[9px] uppercase font-bold mr-1">Guardian:</span>
+                                  <span className="font-bold text-slate-800">{card.fatherName}</span>
+                                </div>
                               </div>
                             )}
                           </div>
                         </div>
 
-                        {/* Verified Identity Badge */}
-                        <div className="pt-1 mt-1 border-t border-sky-100 text-[8px] text-slate-500 font-semibold space-y-0.5">
+                        {/* Verified Identity Badge + Rotated Official Seal */}
+                        <div className="pt-1 mt-1 border-t border-sky-100 text-[8px] text-slate-500 font-semibold space-y-0.5 relative pr-16">
                           <div className="flex items-center space-x-1 text-sky-700 font-bold">
-                            <ShieldCheck className="w-3 h-3" />
+                            <ShieldCheck className="w-3 h-3 shrink-0" />
                             <span>Verified SPR Identity</span>
                           </div>
                           <p className="font-mono text-[7.5px] text-slate-400 truncate">
                             AUTH-REF: {card.qrToken?.substring(0, 16) || 'SECURE-TOKEN'}
                           </p>
+
+                          {/* Official School Seal Stamp (Rotated) */}
+                          <img
+                            src="/official-seal.png"
+                            alt="Official School Seal"
+                            className="pointer-events-none select-none"
+                            style={{
+                              position: 'absolute',
+                              right: '0px',
+                              bottom: '-2px',
+                              width: '68px',
+                              height: '68px',
+                              objectFit: 'contain',
+                              transform: 'rotate(-80deg)',
+                              opacity: 0.88,
+                            }}
+                          />
                         </div>
                       </div>
 
-                      {/* Column 3 (Right of Imaginary Line): Extra Large QR Code */}
+                      {/* Column 3 (Right): Extra Large QR Code */}
                       <div
-                        className="shrink-0 flex flex-col items-center justify-center self-center pl-1 print-id-card-qr-box"
-                        style={{ width: '118px', minWidth: '118px', maxWidth: '118px' }}
+                        className="shrink-0 flex flex-col items-center justify-center self-center print-id-card-qr-box"
+                        style={{ width: '174px', minWidth: '174px', maxWidth: '174px' }}
                       >
                         <div
                           className="p-1.5 rounded-2xl bg-white border-2 border-sky-400 shadow-sm flex flex-col items-center justify-center"
-                          style={{ width: '116px', boxSizing: 'border-box' }}
+                          style={{ width: '172px', boxSizing: 'border-box' }}
                         >
                           <img
                             src={card.qrDataUrl}
                             alt="Student QR Code"
                             className="object-contain print-id-card-qr-img"
                             style={{
-                              width: '100px',
-                              height: '100px',
-                              maxWidth: '100px',
-                              maxHeight: '100px',
+                              width: '154px',
+                              height: '154px',
+                              maxWidth: '154px',
+                              maxHeight: '154px',
                             }}
                           />
                           <span
-                            className="font-black text-sky-950 tracking-tighter uppercase mt-0.5"
-                            style={{ fontSize: '7.5px', lineHeight: '1' }}
+                            className="font-black text-sky-950 tracking-wider uppercase mt-1"
+                            style={{ fontSize: '8px', lineHeight: '1' }}
                           >
                             Scan for Wallet
                           </span>
@@ -1437,7 +1470,7 @@ export default function OfficialPdfExportModal({
                     {/* Front Footer */}
                     <div className="relative z-10 px-5 py-1 text-white flex items-center justify-between text-[7.5px] font-mono tracking-wider uppercase">
                       <span>OFFICIAL INSTITUTIONAL DIGITAL CREDENTIAL</span>
-                      <span className="font-bold text-cyan-300">MADIN SCHOOL OF EXCELLENCE</span>
+                      <span className="font-bold text-cyan-300">MA&apos;DIN SCHOOL OF EXCELLENCE</span>
                     </div>
                   </div>
 
