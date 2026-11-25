@@ -470,7 +470,7 @@ export default function DigitalStudentIdCard({
 
             {/* Official School Seal Stamp (Rotated) */}
             <img
-              src="/official-seal.png"
+              src="/official-seal.png?v=2"
               alt="Official School Seal"
               className="pointer-events-none select-none"
               style={{
