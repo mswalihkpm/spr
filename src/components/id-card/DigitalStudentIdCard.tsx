@@ -509,7 +509,7 @@ export default function DigitalStudentIdCard({
               }}
             />
             <span className="text-[8.5px] font-black text-sky-950 tracking-wider mt-1 uppercase leading-none">
-              Scan for Wallet
+              Scan Here
             </span>
           </div>
         </div>

@@ -1461,7 +1461,7 @@ export default function OfficialPdfExportModal({
                             className="font-black text-sky-950 tracking-wider uppercase mt-1"
                             style={{ fontSize: '8px', lineHeight: '1' }}
                           >
-                            Scan for Wallet
+                            Scan Here
                           </span>
                         </div>
                       </div>
