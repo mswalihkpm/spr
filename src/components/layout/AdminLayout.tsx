@@ -38,6 +38,9 @@ import {
   Coins,
 } from 'lucide-react';
 import GlobalSearchModal from '../search/GlobalSearchModal';
+import AdminCameraPermissionManager, {
+  AdminCameraPermissionButton,
+} from '../admin/AdminCameraPermissionManager';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -185,6 +188,9 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
       {/* Global Search Modal */}
       <GlobalSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} isAdmin={Boolean(user)} />
 
+      {/* Admin Camera Permission Manager (Auto Allow/Deny prompt if not allowed on entry) */}
+      <AdminCameraPermissionManager user={user} />
+
       {/* Mobile Top Header */}
       <header className="md:hidden sticky top-0 z-40 bg-madin-900 text-white px-3 sm:px-4 py-2.5 sm:py-3 pt-[max(0.75rem,env(safe-area-inset-top))] flex items-center justify-between shadow-md">
         <div className="flex items-center space-x-2">
@@ -207,6 +213,7 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
         </div>
 
         <div className="flex items-center space-x-1.5">
+          <AdminCameraPermissionButton compact={true} />
           <button
             onClick={() => setSearchOpen(true)}
             className="p-2 min-h-touch min-w-touch rounded-xl bg-white/10 text-slate-200 hover:text-white flex items-center justify-center cursor-pointer"
@@ -507,6 +514,9 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
                 <span>+ Add Creative Work</span>
               </button>
             )}
+
+            {/* Camera Permission Option (Allow / Deny) */}
+            <AdminCameraPermissionButton />
 
             {/* News & Updates Link Icon */}
             <a

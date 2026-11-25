@@ -25,6 +25,11 @@ import {
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import StudentAvatar from '@/components/ui/StudentAvatar';
+import {
+  CAMERA_CHOICE_STORAGE_KEY,
+  CAMERA_PERMISSION_EVENT,
+  CAMERA_SESSION_DENIED_KEY,
+} from '@/components/admin/AdminCameraPermissionManager';
 
 interface StoreQrScannerModalProps {
   isOpen: boolean;
@@ -76,10 +81,20 @@ export default function StoreQrScannerModal({ isOpen, onClose }: StoreQrScannerM
   };
 
   // Start Camera Scanner with multi-constraint fallback & permission request
-  const startScanner = async () => {
+  const startScanner = async (bypassSavedDeny = false) => {
     await stopScanner();
     setCameraError(null);
     setErrorMsg(null);
+
+    if (!bypassSavedDeny && typeof window !== 'undefined') {
+      const savedChoice = localStorage.getItem(CAMERA_CHOICE_STORAGE_KEY);
+      if (savedChoice === 'denied') {
+        setCameraError(
+          'Camera access is currently set to Deny. Click "Allow Camera Permission & Retry" below to allow camera scanning.'
+        );
+        return;
+      }
+    }
 
     setTimeout(async () => {
       const container = document.getElementById(scannerContainerId);
@@ -142,6 +157,14 @@ export default function StoreQrScannerModal({ isOpen, onClose }: StoreQrScannerM
               () => {}
             );
           }
+        }
+
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(CAMERA_CHOICE_STORAGE_KEY, 'allowed');
+          sessionStorage.removeItem(CAMERA_SESSION_DENIED_KEY);
+          window.dispatchEvent(
+            new CustomEvent(CAMERA_PERMISSION_EVENT, { detail: { status: 'granted' } })
+          );
         }
 
         setScanning(true);
@@ -611,7 +634,7 @@ export default function StoreQrScannerModal({ isOpen, onClose }: StoreQrScannerM
                         {cameraError}
                       </p>
                       <button
-                        onClick={startScanner}
+                        onClick={() => startScanner(true)}
                         className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs transition cursor-pointer"
                       >
                         Allow Camera Permission &amp; Retry
