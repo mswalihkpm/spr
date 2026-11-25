@@ -476,9 +476,9 @@ export default function DigitalStudentIdCard({
               style={{
                 position: 'absolute',
                 right: '2px',
-                bottom: '-2px',
-                width: '74px',
-                height: '74px',
+                bottom: '-4px',
+                width: '92px',
+                height: '92px',
                 objectFit: 'contain',
                 transform: 'rotate(-15deg)',
                 opacity: 0.9,

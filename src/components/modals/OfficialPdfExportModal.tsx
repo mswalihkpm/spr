@@ -1426,9 +1426,9 @@ export default function OfficialPdfExportModal({
                             style={{
                               position: 'absolute',
                               right: '0px',
-                              bottom: '-2px',
-                              width: '68px',
-                              height: '68px',
+                              bottom: '-4px',
+                              width: '86px',
+                              height: '86px',
                               objectFit: 'contain',
                               transform: 'rotate(-15deg)',
                               opacity: 0.9,
