@@ -480,8 +480,8 @@ export default function DigitalStudentIdCard({
                 width: '74px',
                 height: '74px',
                 objectFit: 'contain',
-                transform: 'rotate(-80deg)',
-                opacity: 0.88,
+                transform: 'rotate(-15deg)',
+                opacity: 0.9,
               }}
             />
           </div>

@@ -1430,8 +1430,8 @@ export default function OfficialPdfExportModal({
                               width: '68px',
                               height: '68px',
                               objectFit: 'contain',
-                              transform: 'rotate(-80deg)',
-                              opacity: 0.88,
+                              transform: 'rotate(-15deg)',
+                              opacity: 0.9,
                             }}
                           />
                         </div>
