@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
+import * as XLSX from 'xlsx';
 import {
   FileSpreadsheet,
+  Download,
   Plus,
   Trash2,
   Edit2,
@@ -269,6 +271,88 @@ export default function AdminBriefNotesPage() {
       setStatusMsg({ type: 'error', text: err.message });
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleDownloadExcel = () => {
+    const templateClean = (selectedTemplateForPreview?.name || 'Brief_Note')
+      .replace(/[^A-Za-z0-9]+/g, '_')
+      .replace(/^_|_$/g, '');
+    const dateStr = new Date().toISOString().slice(0, 10);
+
+    if (previewMode === 'ALL') {
+      if (!masterReportData || filteredMasterStudents.length === 0) {
+        setStatusMsg({ type: 'error', text: 'No student records available to export.' });
+        return;
+      }
+
+      const fields = masterReportData.fields || [];
+      const headers = ['#', 'SPR ID', 'Student Name', 'Class', ...fields.map((f: any) => f.label)];
+      const rows = filteredMasterStudents.map((st: any, idx: number) => [
+        idx + 1,
+        st.sprStudentId || '',
+        st.fullName || '',
+        st.className || '',
+        ...fields.map((f: any) => {
+          const val = st.fieldValues?.[f.questionId];
+          return val && val !== '—' ? val : '';
+        }),
+      ]);
+
+      const aoa = [headers, ...rows];
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+      // Compute clean column widths based on header & cell content lengths
+      ws['!cols'] = headers.map((header: string, colIdx: number) => {
+        let maxLen = String(header || '').length;
+        for (const row of rows) {
+          const cellLen = String(row[colIdx] ?? '').length;
+          if (cellLen > maxLen) maxLen = cellLen;
+        }
+        return { wch: Math.min(48, Math.max(8, maxLen + 3)) };
+      });
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Student_Data');
+
+      const classNameRaw =
+        masterClassFilter === 'ALL'
+          ? 'All_Classes'
+          : masterReportData.classes?.find((c: any) => c.id === masterClassFilter)?.name || 'Filtered_Class';
+      const classClean = classNameRaw.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
+      const filename = `SPR_${templateClean}_${classClean}_${dateStr}.xlsx`;
+      XLSX.writeFile(wb, filename);
+    } else {
+      if (!generatedNote) {
+        setStatusMsg({ type: 'error', text: 'No student brief note loaded to export.' });
+        return;
+      }
+
+      const st = generatedNote.student || {};
+      const aoa: any[][] = [
+        ['Madin School of Excellence - Student Brief Note'],
+        ['Template', selectedTemplateForPreview?.name || ''],
+        ['Student Name', st.fullName || ''],
+        ['SPR ID', st.sprStudentId || ''],
+        ['Class', st.className || ''],
+        [],
+        ['Section', 'Field', 'Value'],
+      ];
+
+      (generatedNote.sections || []).forEach((sec: any) => {
+        (sec.fields || []).forEach((f: any) => {
+          aoa.push([sec.title || '', f.label || '', f.value === 'Not specified' ? '' : f.value || '']);
+        });
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws['!cols'] = [{ wch: 28 }, { wch: 30 }, { wch: 45 }];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Student_Brief_Note');
+
+      const studentClean = (st.sprStudentId || st.fullName || 'Student').replace(/[^A-Za-z0-9]+/g, '_');
+      XLSX.writeFile(wb, `SPR_${templateClean}_${studentClean}_${dateStr}.xlsx`);
     }
   };
 
@@ -588,6 +672,20 @@ export default function AdminBriefNotesPage() {
                       All Over Table View
                     </button>
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={handleDownloadExcel}
+                    disabled={
+                      previewMode === 'ALL'
+                        ? loadingMaster || filteredMasterStudents.length === 0
+                        : generating || !generatedNote
+                    }
+                    className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold flex items-center space-x-1.5 shadow-xs transition cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download Excel (.xlsx)</span>
+                  </button>
 
                   <button
                     onClick={() => window.print()}
