@@ -87,6 +87,14 @@ export default function OfficialPdfExportModal({
   const [pickerError, setPickerError] = useState<string | null>(null);
   const [pickerSearch, setPickerSearch] = useState<string>('');
   const [pickerClassFilter, setPickerClassFilter] = useState<string>('ALL');
+  const mountedRef = React.useRef(true);
+  const pickerLoadingRef = React.useRef(false);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   const [idCardPdfUrl, setIdCardPdfUrl] = useState<string | null>(null);
   const [idCardPdfFilename, setIdCardPdfFilename] = useState<string>('');
   const [idCardPdfSummary, setIdCardPdfSummary] = useState<{
@@ -159,38 +167,50 @@ export default function OfficialPdfExportModal({
     }
   }, [initialTab, selectedStudentIds, isOpen]);
 
-  useEffect(() => {
-    if (
-      isOpen &&
-      activeTab === 'ID_CARDS' &&
-      idCardSelectionMode === 'STUDENTS' &&
-      pickerStudents.length === 0 &&
-      !pickerLoading
-    ) {
-      let cancelled = false;
-      setPickerLoading(true);
-      setPickerError(null);
-      fetch('/api/students?all=true&minimal=true&status=ACTIVE')
-        .then(async (res) => {
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error(data.error || 'Failed to load student directory.');
-          if (!cancelled) {
-            setPickerStudents(Array.isArray(data.students) ? data.students : []);
-          }
-        })
-        .catch((err: any) => {
-          if (!cancelled) {
-            setPickerError(err.message || 'Could not load students for selection.');
-          }
-        })
-        .finally(() => {
-          if (!cancelled) setPickerLoading(false);
-        });
-      return () => {
-        cancelled = true;
-      };
+  const loadPickerStudents = React.useCallback(async (force = false) => {
+    if (!force && (pickerLoadingRef.current || pickerStudents.length > 0)) return;
+    pickerLoadingRef.current = true;
+    setPickerLoading(true);
+    setPickerError(null);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    try {
+      const res = await fetch('/api/students?all=true&minimal=true', {
+        signal: controller.signal,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to load student directory.');
+      }
+      const activeList = (Array.isArray(data.students) ? data.students : []).filter(
+        (st: any) => !st.status || st.status === 'ACTIVE'
+      );
+      if (mountedRef.current) {
+        setPickerStudents(activeList);
+      }
+    } catch (err: any) {
+      if (mountedRef.current) {
+        setPickerError(
+          err?.name === 'AbortError'
+            ? 'Student directory request timed out. Please retry.'
+            : err?.message || 'Could not load students for selection.'
+        );
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      pickerLoadingRef.current = false;
+      if (mountedRef.current) {
+        setPickerLoading(false);
+      }
     }
-  }, [isOpen, activeTab, idCardSelectionMode, pickerStudents.length, pickerLoading]);
+  }, [pickerStudents.length]);
+
+  useEffect(() => {
+    if (isOpen && activeTab === 'ID_CARDS' && pickerStudents.length === 0) {
+      loadPickerStudents(false);
+    }
+  }, [isOpen, activeTab, pickerStudents.length, loadPickerStudents]);
 
   const manualSelectedSet = useMemo(() => new Set(manualStudentIds), [manualStudentIds]);
 
@@ -227,8 +247,7 @@ export default function OfficialPdfExportModal({
   };
 
   const handleReloadPickerStudents = () => {
-    setPickerStudents([]);
-    setPickerError(null);
+    loadPickerStudents(true);
   };
 
   useEffect(() => {

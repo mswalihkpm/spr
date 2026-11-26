@@ -80,8 +80,8 @@ export async function GET(req: NextRequest) {
     if (academicYearId) where.academicYearId = academicYearId;
     if (status) where.status = status;
 
-    const [total, students] = await Promise.all([
-      prisma.student.count({ where }),
+    const [countedTotal, students] = await Promise.all([
+      isAll ? Promise.resolve(0) : prisma.student.count({ where }),
       prisma.student.findMany({
         where,
         select: isMinimal
@@ -124,6 +124,8 @@ export async function GET(req: NextRequest) {
         take: isAll ? undefined : limit,
       }),
     ]);
+
+    const total = isAll ? students.length : countedTotal;
 
     const payload = {
       students,
