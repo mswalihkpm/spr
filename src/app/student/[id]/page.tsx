@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Award,
@@ -461,7 +461,7 @@ export default function PublicStudentScorecardPage() {
           <div className="print-banner-section relative rounded-xl sm:rounded-2xl bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-900 text-white overflow-hidden p-2.5 sm:p-5 flex items-center justify-between shadow-md print:p-2.5 print:rounded-xl page-break-avoid">
             <div className="relative z-10 flex items-center space-x-2 sm:space-x-3 print:space-x-2.5">
               <div className="w-7 h-7 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-white p-1 flex items-center justify-center shrink-0 shadow print:w-8 print:h-8 print:rounded-lg">
-                <Image
+                <OptimizedImage
                   src="/logo.png"
                   alt="Madin School of Excellence"
                   width={38}
@@ -626,7 +626,7 @@ export default function PublicStudentScorecardPage() {
                               }`}
                             >
                               {cat.categoryCode === 'FIELD_COLLECTION' ? (
-                                <Image
+                                <OptimizedImage
                                   src="/field-collection-logo.png"
                                   alt="Field Collection"
                                   width={24}
@@ -741,7 +741,7 @@ export default function PublicStudentScorecardPage() {
                     <div className="flex items-center space-x-2.5">
                       <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shrink-0 print:w-7 print:h-7 print:rounded-lg overflow-hidden">
                         {cat.categoryCode === 'FIELD_COLLECTION' ? (
-                          <Image
+                          <OptimizedImage
                             src="/field-collection-logo.png"
                             alt="Field Collection"
                             width={40}

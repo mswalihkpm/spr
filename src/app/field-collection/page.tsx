@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import Image from 'next/image';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 import AdminLayout from '@/components/layout/AdminLayout';
 import VideoLoader from '@/components/ui/VideoLoader';
 import {
@@ -512,7 +512,7 @@ export default function FieldCollectionPage() {
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
             <div className="flex items-center space-x-4 sm:space-x-5">
               <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white p-2 shadow-lg flex items-center justify-center shrink-0 border-2 border-emerald-400/40">
-                <Image
+                <OptimizedImage
                   src="/field-collection-logo.png"
                   alt="Field Collection Logo"
                   width={72}

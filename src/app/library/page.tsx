@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 import {
   Library,
   RefreshCw,
@@ -280,7 +281,7 @@ export default function LibraryPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-subtle">
           <div className="flex items-start space-x-3.5">
             <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-200/80 p-1 flex items-center justify-center shrink-0 shadow-xs">
-              <img
+              <OptimizedImage
                 src="/library-logo.png"
                 alt="Library & Reading"
                 className="w-full h-full object-contain"

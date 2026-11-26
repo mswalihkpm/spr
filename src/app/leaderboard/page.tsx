@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Award,
@@ -1082,7 +1082,7 @@ function deriveCategoryLeaderboard(
           <div className="flex items-center space-x-3 sm:space-x-4 min-w-0">
             <Link href="/" className="flex items-center space-x-2.5 sm:space-x-3 group shrink-0">
               <div className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-105">
-                <Image
+                <OptimizedImage
                   src="/logo.png"
                   alt="Madin SPR"
                   width={44}
@@ -1426,7 +1426,7 @@ function deriveCategoryLeaderboard(
             {/* Fixed Subcategory Logo at Left Top & Name at Left Top */}
             <div className="flex items-start sm:items-center space-x-3 sm:space-x-4">
               <div className="w-11 h-11 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-white p-1 sm:p-1.5 flex items-center justify-center shrink-0 shadow-lg shadow-black/20 border border-white/60 ring-2 ring-white/30 backdrop-blur-sm group-hover:scale-105 transition">
-                <Image
+                <OptimizedImage
                   src={heroTheme.logo}
                   alt={heroTheme.title}
                   width={68}

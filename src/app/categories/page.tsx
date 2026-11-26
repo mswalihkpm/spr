@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 import { useRouter } from 'next/navigation';
 import {
   Layers,
@@ -222,7 +222,7 @@ export default function CategoriesPage() {
             </Link>
             <Link href="/" className="flex items-center space-x-2.5 group">
               <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white dark:bg-slate-900 p-0.5 flex items-center justify-center shrink-0 border border-slate-200 dark:border-slate-800 shadow-xs">
-                <Image
+                <OptimizedImage
                   src="/logo.png"
                   alt="Madin School of Excellence"
                   width={36}
@@ -357,7 +357,7 @@ export default function CategoriesPage() {
                         <div className="flex items-center space-x-1 p-1 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs shrink-0 group-hover:scale-105 transition-transform">
                           {getCategoryDualLogos(cat.code)!.map((logo, idx) => (
                             <div key={idx} className="w-9 h-9 rounded-xl overflow-hidden p-0.5 flex items-center justify-center bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
-                              <img
+                              <OptimizedImage
                                 src={logo}
                                 alt={`${cat.name} emblem ${idx + 1}`}
                                 className="w-full h-full object-contain"
@@ -370,11 +370,11 @@ export default function CategoriesPage() {
                           className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 p-1 border border-slate-200 dark:border-slate-700 shadow-xs flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform overflow-hidden"
                         >
                           {catLogo ? (
-                            <img
+                            <OptimizedImage
                               src={catLogo}
                               alt={cat.name}
                               className="w-full h-full object-contain p-0.5"
-                              onError={(e) => {
+                              onFallbackError={(e) => {
                                 e.currentTarget.style.display = 'none';
                                 const parent = e.currentTarget.parentElement;
                                 if (parent) {
@@ -438,7 +438,7 @@ export default function CategoriesPage() {
                               >
                                 {subEmblem ? (
                                   <div className="w-4 h-4 rounded-full overflow-hidden bg-white shrink-0 border border-slate-200/60 p-0.5 flex items-center justify-center">
-                                    <img src={subEmblem} alt={sub.name} className="w-full h-full object-contain" />
+                                    <OptimizedImage src={subEmblem} alt={sub.name} className="w-full h-full object-contain" />
                                   </div>
                                 ) : (
                                   <Award className="w-3.5 h-3.5 text-blue-600 shrink-0" />

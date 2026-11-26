@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 import {
   Lock,
   ArrowRight,
@@ -248,7 +249,7 @@ export default function StudentLoginPage() {
 
         <div className="sm:mx-auto sm:w-full sm:max-w-md text-center z-10 space-y-4">
           <div className="w-20 h-20 mx-auto rounded-2xl bg-white p-2.5 shadow-2xl flex items-center justify-center animate-pulse">
-            <img src="/logo.png" alt="Madin SPR Logo" className="w-full h-full object-contain" />
+            <OptimizedImage src="/logo.png" alt="Madin SPR Logo" className="w-full h-full object-contain" priority />
           </div>
           <div className="flex flex-col items-center justify-center space-y-2">
             <div className="w-7 h-7 border-3 border-gold-400 border-t-transparent rounded-full animate-spin" />
@@ -289,7 +290,7 @@ export default function StudentLoginPage() {
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center z-10">
         <div className="w-20 h-20 mx-auto rounded-2xl bg-white p-2.5 shadow-2xl flex items-center justify-center">
-          <img src="/logo.png" alt="Madin SPR Logo" className="w-full h-full object-contain" />
+          <OptimizedImage src="/logo.png" alt="Madin SPR Logo" className="w-full h-full object-contain" priority />
         </div>
         <h2 className="mt-4 text-2xl sm:text-3xl font-black text-white tracking-tight">
           Student Portal

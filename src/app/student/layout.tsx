@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
@@ -224,7 +224,7 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
         <div className="h-16 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4">
           <Link href="/student/dashboard" className="flex items-center space-x-3 overflow-hidden">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-600 p-1.5 flex items-center justify-center shrink-0 shadow-md">
-              <Image src="/logo.png" alt="SPR" width={32} height={32} className="object-contain" />
+              <OptimizedImage src="/logo.png" alt="SPR" width={32} height={32} className="object-contain" />
             </div>
             {!collapsed && (
               <div className="truncate">
@@ -314,7 +314,7 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
       <header className="md:hidden sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3.5 h-14 flex items-center justify-between w-full max-w-full">
         <Link href="/student/dashboard" className="flex items-center space-x-2 shrink-0">
           <div className="w-8 h-8 rounded-lg bg-blue-600 p-1 flex items-center justify-center shrink-0">
-            <Image src="/logo.png" alt="SPR" width={24} height={24} className="object-contain" />
+            <OptimizedImage src="/logo.png" alt="SPR" width={24} height={24} className="object-contain" />
           </div>
           <span className="font-black text-xs tracking-tight text-slate-900 dark:text-white uppercase truncate">
             SPR Portal

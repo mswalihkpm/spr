@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import Image from 'next/image';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 import Link from 'next/link';
 import AdminLayout from '@/components/layout/AdminLayout';
 import * as XLSX from 'xlsx';
@@ -819,7 +819,7 @@ export default function LiteraryProgramsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-subtle">
           <div className="flex items-start space-x-3.5">
             <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200/80 p-1 flex items-center justify-center shrink-0 shadow-xs">
-              <img
+              <OptimizedImage
                 src="/literary-logo.png"
                 alt="Literary Programmes"
                 className="w-full h-full object-contain"
@@ -896,7 +896,7 @@ export default function LiteraryProgramsPage() {
             >
               <div className="flex items-start justify-between">
                 <div className="w-16 h-12 rounded-xl bg-rose-50 border border-rose-200 p-1 flex items-center justify-center shrink-0 group-hover:scale-105 transition">
-                  <Image
+                  <OptimizedImage
                     src="/sahityotsav.png"
                     alt="Sahityotsav Logo"
                     width={56}
@@ -929,7 +929,7 @@ export default function LiteraryProgramsPage() {
             >
               <div className="flex items-start justify-between">
                 <div className="w-16 h-12 rounded-xl bg-blue-50 border border-blue-200 p-1 flex items-center justify-center shrink-0 group-hover:scale-105 transition">
-                  <Image
+                  <OptimizedImage
                     src="/kalotsav.png"
                     alt="Kalotsav Logo"
                     width={56}
@@ -962,7 +962,7 @@ export default function LiteraryProgramsPage() {
             >
               <div className="flex items-start justify-between">
                 <div className="w-16 h-12 rounded-xl bg-emerald-50 border border-emerald-200 p-1 flex items-center justify-center shrink-0 group-hover:scale-105 transition">
-                  <Image
+                  <OptimizedImage
                     src="/m-lit.png"
                     alt="M-Lit Fest Logo"
                     width={56}
@@ -995,7 +995,7 @@ export default function LiteraryProgramsPage() {
             >
               <div className="flex items-start justify-between">
                 <div className="w-16 h-12 rounded-xl bg-amber-50 border border-amber-200 p-1 flex items-center justify-center shrink-0 group-hover:scale-105 transition">
-                  <Image
+                  <OptimizedImage
                     src="/jamia-mahrajan.png"
                     alt="Jamia Mahrajan Logo"
                     width={56}
@@ -1452,7 +1452,7 @@ export default function LiteraryProgramsPage() {
                           }`}
                         >
                           <div className="w-3.5 h-3.5 shrink-0 rounded overflow-hidden">
-                            <Image src={getSubIcon(sub.name)} alt={sub.name} width={14} height={14} className="w-full h-full object-contain" />
+                            <OptimizedImage src={getSubIcon(sub.name)} alt={sub.name} width={14} height={14} className="w-full h-full object-contain" />
                           </div>
                           <span className="truncate">{sub.name}</span>
                         </button>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 import { useRouter, useParams } from 'next/navigation';
 import {
   Layers,
@@ -203,10 +203,10 @@ export default function PublicCategorySubcategoriesPage() {
               {dualLogos && dualLogos.length >= 2 ? (
                 <div className="flex items-center space-x-2 bg-white/10 p-2 rounded-2xl border border-white/10 shrink-0 self-start md:self-center">
                   <div className="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center overflow-hidden shadow-xs">
-                    <img src={dualLogos[0]} alt="Logo 1" className="w-full h-full object-contain" />
+                    <OptimizedImage src={dualLogos[0]} alt="Logo 1" className="w-full h-full object-contain" />
                   </div>
                   <div className="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center overflow-hidden shadow-xs">
-                    <img src={dualLogos[1]} alt="Logo 2" className="w-full h-full object-contain" />
+                    <OptimizedImage src={dualLogos[1]} alt="Logo 2" className="w-full h-full object-contain" />
                   </div>
                 </div>
               ) : (
@@ -288,7 +288,7 @@ export default function PublicCategorySubcategoriesPage() {
                       {/* Logo Avatar Badge */}
                       <div className="w-12 h-12 rounded-2xl bg-slate-50 p-1.5 border border-slate-200 shadow-xs flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform overflow-hidden">
                         {subLogo ? (
-                          <img
+                          <OptimizedImage
                             src={subLogo}
                             alt={sub.name}
                             className="w-full h-full object-contain"

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import Image from 'next/image';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 import { usePathname } from 'next/navigation';
 import {
   MoreVertical,
@@ -182,7 +182,7 @@ export default function MobileHeaderMenu({
               <div className="p-4 pt-[max(1rem,env(safe-area-inset-top))] border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/90 dark:bg-slate-950/80 shrink-0">
                 <div className="flex items-center space-x-2.5">
                   <div className="w-9 h-9 rounded-xl bg-madin-900 p-1.5 flex items-center justify-center shrink-0 border border-white/10 shadow-xs">
-                    <Image src="/logo.png" alt="SPR Logo" width={36} height={36} className="w-full h-full object-contain" />
+                    <OptimizedImage src="/logo.png" alt="SPR Logo" width={36} height={36} className="w-full h-full object-contain" />
                   </div>
                   <div>
                     <div className="text-xs font-black text-slate-900 dark:text-white leading-tight tracking-tight uppercase">

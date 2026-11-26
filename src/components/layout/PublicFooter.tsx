@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 import { Lock, Share2 } from 'lucide-react';
 import PublicMobileNav from './PublicMobileNav';
 import { fetchWithDedupe } from '@/lib/client-cache';
@@ -56,7 +56,7 @@ export default function PublicFooter() {
             <div className="md:col-span-5 space-y-3.5 text-left">
               <div className="flex items-center space-x-3.5">
                 <div className="w-12 h-12 rounded-2xl bg-white/10 p-1.5 flex items-center justify-center shrink-0 border border-blue-500/30 shadow-lg shadow-blue-500/10 backdrop-blur-xs">
-                  <Image
+                  <OptimizedImage
                     src="/logo.png"
                     alt="Madin School of Excellence"
                     width={44}

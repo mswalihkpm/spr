@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 import * as XLSX from 'xlsx';
 import {
   GraduationCap,
@@ -698,7 +699,7 @@ export default function SchoolStudiesPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/80 shadow-subtle">
           <div className="flex items-start space-x-3.5">
             <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200/80 p-1 flex items-center justify-center shrink-0 shadow-xs">
-              <img
+              <OptimizedImage
                 src="/school-studies-logo.png"
                 alt="School Studies SCERT"
                 className="w-full h-full object-contain"

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 import {
   Maximize,
   Minimize,
@@ -464,7 +465,7 @@ export default function TvSlideshowPage() {
           </button>
 
           <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-white p-1 shadow-md border border-amber-400/60 overflow-hidden flex items-center justify-center shrink-0">
-            <img src="/logo.png" alt="Madin Logo" className="w-full h-full object-contain" />
+            <OptimizedImage src="/logo.png" alt="Madin Logo" className="w-full h-full object-contain" />
           </div>
 
           <div className="min-w-0">

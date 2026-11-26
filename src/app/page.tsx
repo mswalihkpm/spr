@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 import { useRouter } from 'next/navigation';
 import {
   Search,
@@ -802,7 +803,7 @@ export default function PublicHomePage() {
               {/* Logo & Mobile Branding (EXCELLENCE) */}
               <Link href="/" className="flex items-center space-x-2.5 sm:space-x-3 group shrink-0">
                 <div className="w-9 h-9 sm:w-12 sm:h-12 flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-105">
-                  <Image
+                  <OptimizedImage
                     src="/logo.png"
                     alt="School of Excellence"
                     width={48}
@@ -1104,9 +1105,17 @@ export default function PublicHomePage() {
 
         {/* Rich Sunset Mosque Background Image with High Clarity */}
         <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.70] dark:opacity-[0.62] pointer-events-none select-none transition-opacity duration-500"
-          style={{ backgroundImage: "url('/hero-bg.jpg')", height: '90%' }}
-        />
+          className="absolute inset-0 overflow-hidden opacity-[0.70] dark:opacity-[0.62] pointer-events-none select-none transition-opacity duration-500"
+          style={{ height: '90%' }}
+        >
+          <OptimizedImage
+            src="/hero-bg.jpg"
+            alt=""
+            aria-hidden="true"
+            priority
+            className="w-full h-full object-cover object-center"
+          />
+        </div>
         {/* Light black shadow on the background image in homepage when the app is in dark mode */}
         <div
           className="absolute inset-0 bg-black/0 dark:bg-black/55 pointer-events-none transition-colors duration-500"

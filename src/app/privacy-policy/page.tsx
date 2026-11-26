@@ -1,7 +1,7 @@
 import React from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import Image from 'next/image';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 import {
   ShieldCheck,
   ArrowLeft,
@@ -83,7 +83,7 @@ export default function PrivacyPolicyPage() {
 
             <div className="flex items-center space-x-2.5">
               <div className="w-8 h-8 rounded-xl bg-madin-900 p-1 flex items-center justify-center shrink-0 shadow-xs border border-white/10">
-                <Image
+                <OptimizedImage
                   src="/logo.png"
                   alt="Madin SPR Logo"
                   width={32}

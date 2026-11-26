@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import Image from 'next/image';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 import AdminLayout from '@/components/layout/AdminLayout';
 import * as XLSX from 'xlsx';
 import {
@@ -920,7 +920,7 @@ export default function IslamicStudiesPage() {
                     }`}
                   >
                     <div className="w-3.5 h-3.5 rounded overflow-hidden shrink-0">
-                      <Image src="/jamiathul-hind.png" alt="JH" width={14} height={14} className="w-full h-full object-contain" />
+                      <OptimizedImage src="/jamiathul-hind.png" alt="JH" width={14} height={14} className="w-full h-full object-contain" />
                     </div>
                     <span>Jamiathul Hind</span>
                   </button>
@@ -932,7 +932,7 @@ export default function IslamicStudiesPage() {
                     }`}
                   >
                     <div className="w-3.5 h-3.5 rounded overflow-hidden shrink-0">
-                      <Image src="/madin-academy.png" alt="MA" width={14} height={14} className="w-full h-full object-contain" />
+                      <OptimizedImage src="/madin-academy.png" alt="MA" width={14} height={14} className="w-full h-full object-contain" />
                     </div>
                     <span>Ma'din Academy</span>
                   </button>

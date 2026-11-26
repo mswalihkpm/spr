@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 import { clearClientCache } from '@/lib/client-cache';
 import {
   LayoutDashboard,
@@ -203,7 +204,7 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
           </button>
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 rounded-lg bg-white p-0.5 overflow-hidden shrink-0 shadow-sm">
-              <img src="/logo.png" alt="SPR Logo" className="w-full h-full object-contain" />
+              <OptimizedImage src="/logo.png" alt="SPR Logo" className="w-full h-full object-contain" />
             </div>
             <div>
               <span className="font-bold tracking-tight text-base text-white">SPR</span>
@@ -243,7 +244,7 @@ export default function AdminLayout({ children, user: initialUser }: AdminLayout
         <div className="p-4 pt-[max(1rem,env(safe-area-inset-top))] border-b border-madin-800 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-xl bg-white p-1 shadow-md overflow-hidden shrink-0">
-              <img src="/logo.png" alt="Madin SPR" className="w-full h-full object-contain" />
+              <OptimizedImage src="/logo.png" alt="Madin SPR" className="w-full h-full object-contain" />
             </div>
             <div>
               <div className="font-extrabold text-base tracking-wide text-white flex items-center space-x-1.5">
