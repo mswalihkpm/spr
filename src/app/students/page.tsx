@@ -26,6 +26,8 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  CreditCard,
+  CheckSquare,
 } from 'lucide-react';
 import StudentAvatar from '@/components/ui/StudentAvatar';
 import VideoLoader from '@/components/ui/VideoLoader';
@@ -33,6 +35,7 @@ import ModalLoadingBar from '@/components/ui/ModalLoadingBar';
 import { compressImageClientSide } from '@/lib/image-utils';
 import { getAcademicMasterData } from '@/lib/academic-client';
 import CustomSelect from '@/components/ui/CustomSelect';
+import OfficialPdfExportModal from '@/components/modals/OfficialPdfExportModal';
 
 export default function StudentsPage() {
   const router = useRouter();
@@ -62,11 +65,16 @@ export default function StudentsPage() {
   const [isDraggingPhoto, setIsDraggingPhoto] = useState(false);
   const [deletingStudentId, setDeletingStudentId] = useState<string | null>(null);
 
-  // Bulk selection & deletion state
+  // Bulk selection, deletion & A4 ID card PDF download state
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
   const [modalDeleteError, setModalDeleteError] = useState<string | null>(null);
+  const [idCardModalOpen, setIdCardModalOpen] = useState(false);
+  const [idCardModalStudentIds, setIdCardModalStudentIds] = useState<string[] | undefined>(undefined);
+  const [bulkDownloadingIdCards, setBulkDownloadingIdCards] = useState(false);
+  const [selectingAllMatching, setSelectingAllMatching] = useState(false);
+  const [idCardBanner, setIdCardBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [formData, setFormData] = useState({
     studentId: '',
     sprStudentId: '',
@@ -309,6 +317,87 @@ export default function StudentsPage() {
     );
   };
 
+  const handleSelectAllMatching = async () => {
+    setSelectingAllMatching(true);
+    setIdCardBanner(null);
+    try {
+      const params = new URLSearchParams();
+      params.append('all', 'true');
+      params.append('minimal', 'true');
+      if (search.trim()) params.append('search', search.trim());
+      if (classFilter) params.append('classId', classFilter);
+      if (schoolFilter) params.append('schoolId', schoolFilter);
+      if (statusFilter) params.append('status', statusFilter);
+
+      const res = await fetch(`/api/students?${params.toString()}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch matching student IDs.');
+      const allIds: string[] = (data.students || []).map((s: any) => s.id).filter(Boolean);
+      setSelectedStudentIds(allIds);
+    } catch (err: any) {
+      setIdCardBanner({
+        type: 'error',
+        message: err.message || 'Could not select all matching students.',
+      });
+    } finally {
+      setSelectingAllMatching(false);
+    }
+  };
+
+  const handleBulkDownloadSelectedIdCards = async () => {
+    if (selectedStudentIds.length === 0) return;
+    setBulkDownloadingIdCards(true);
+    setIdCardBanner(null);
+
+    try {
+      const res = await fetch('/api/admin/student-id-cards/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentIds: selectedStudentIds,
+          sortBy: 'CLASS_THEN_NAME',
+          academicYear: '2026-27',
+          batchLabel: `SELECTED (${selectedStudentIds.length})`,
+        }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Failed to generate bulk A4 ID card PDF.');
+      }
+
+      const blob = await res.blob();
+      const totalStudents = parseInt(res.headers.get('X-Total-Students') || String(selectedStudentIds.length), 10);
+      const totalPages = parseInt(res.headers.get('X-Total-Pages') || String(Math.ceil(totalStudents / 5)), 10);
+      const disp = res.headers.get('Content-Disposition') || '';
+      const fnMatch = disp.match(/filename="?([^"]+)"?/i);
+      const filename =
+        fnMatch?.[1] ||
+        `SPR_Bulk_ID_Cards_A4_${totalStudents}_Students_${new Date().toISOString().slice(0, 10)}.pdf`;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+      setIdCardBanner({
+        type: 'success',
+        message: `Downloaded A4 ID Cards PDF: ${totalStudents} student(s) on ${totalPages} page(s) (83.8 x 52.8 mm, 5 per page).`,
+      });
+    } catch (err: any) {
+      setIdCardBanner({
+        type: 'error',
+        message: err.message || 'Failed to download bulk ID cards PDF.',
+      });
+    } finally {
+      setBulkDownloadingIdCards(false);
+    }
+  };
+
   const handleBulkDeleteSubmit = async () => {
     if (selectedStudentIds.length === 0) return;
     setBulkDeleting(true);
@@ -368,7 +457,20 @@ export default function StudentsPage() {
             </p>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => {
+                setIdCardModalStudentIds(
+                  selectedStudentIds.length > 0 ? selectedStudentIds : undefined
+                );
+                setIdCardModalOpen(true);
+              }}
+              className="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold flex items-center space-x-1.5 shadow transition-all hover:scale-105 active:scale-95"
+              title="Download print-ready A4 Bulk Student ID Cards PDF (5 students per page, 83.8 x 52.8 mm)"
+            >
+              <CreditCard className="w-4 h-4 text-sky-200" />
+              <span>Bulk ID Cards (A4 PDF)</span>
+            </button>
             <button
               onClick={() => router.push('/students/bulk-import')}
               className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center space-x-1.5 shadow transition-all hover:scale-105 active:scale-95"
@@ -462,27 +564,93 @@ export default function StudentsPage() {
           </div>
         </div>
 
+        {/* A4 ID Card Export Status Banner */}
+        {idCardBanner && (
+          <div
+            className={`p-3.5 rounded-2xl border flex items-center justify-between text-xs font-semibold shadow-sm ${
+              idCardBanner.type === 'success'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                : 'bg-rose-50 border-rose-200 text-rose-900'
+            }`}
+          >
+            <div className="flex items-center space-x-2">
+              {idCardBanner.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              )}
+              <span>{idCardBanner.message}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIdCardBanner(null)}
+              className="p-1 rounded-lg hover:bg-black/5 transition"
+              title="Dismiss"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* Bulk Action Toolbar */}
         {selectedStudentIds.length > 0 && (
-          <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-2xl flex items-center justify-between shadow-sm animate-fade-in">
+          <div className="bg-sky-50 border border-sky-200 p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-2.5 shadow-sm animate-fade-in">
             <div className="flex items-center space-x-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
-              <span className="text-xs font-bold text-rose-950">
+              <span className="w-2.5 h-2.5 rounded-full bg-sky-600 animate-pulse"></span>
+              <span className="text-xs font-bold text-slate-900">
                 {selectedStudentIds.length} student(s) selected
               </span>
+              <span className="text-[11px] font-medium text-sky-800 bg-white px-2 py-0.5 rounded-full border border-sky-200">
+                {Math.ceil(selectedStudentIds.length / 5)} A4 page{Math.ceil(selectedStudentIds.length / 5) === 1 ? '' : 's'}
+              </span>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {totalStudents > selectedStudentIds.length && (
+                <button
+                  type="button"
+                  disabled={selectingAllMatching || bulkDownloadingIdCards}
+                  onClick={handleSelectAllMatching}
+                  className="px-3 py-1.5 text-xs font-semibold text-sky-800 bg-white border border-sky-200 hover:bg-sky-100 rounded-xl transition flex items-center space-x-1.5 disabled:opacity-50"
+                >
+                  {selectingAllMatching ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <CheckSquare className="w-3.5 h-3.5" />
+                  )}
+                  <span>Select All ({totalStudents})</span>
+                </button>
+              )}
               <button
                 type="button"
+                disabled={bulkDownloadingIdCards}
                 onClick={() => setSelectedStudentIds([])}
-                className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-rose-100 rounded-xl transition"
+                className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-sky-100 rounded-xl transition"
               >
                 Deselect All
               </button>
               <button
                 type="button"
+                disabled={bulkDownloadingIdCards || bulkDeleting}
+                onClick={handleBulkDownloadSelectedIdCards}
+                className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl flex items-center space-x-1.5 shadow-sm transition hover:scale-105 active:scale-95 disabled:opacity-60"
+              >
+                {bulkDownloadingIdCards ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Generating A4 PDF...</span>
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="w-3.5 h-3.5" />
+                    <span>Bulk Download ID Cards ({selectedStudentIds.length})</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                disabled={bulkDownloadingIdCards || bulkDeleting}
                 onClick={() => setConfirmBulkDeleteOpen(true)}
-                className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl flex items-center space-x-1.5 shadow-sm transition hover:scale-105 active:scale-95"
+                className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl flex items-center space-x-1.5 shadow-sm transition hover:scale-105 active:scale-95 disabled:opacity-60"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Delete Selected ({selectedStudentIds.length})</span>
@@ -1068,6 +1236,14 @@ export default function StudentsPage() {
           </div>
         </div>
       )}
+      {/* Print-Ready A4 Bulk ID Card Export Modal */}
+      <OfficialPdfExportModal
+        isOpen={idCardModalOpen}
+        onClose={() => setIdCardModalOpen(false)}
+        classes={classes}
+        initialTab="ID_CARDS"
+        selectedStudentIds={idCardModalStudentIds}
+      />
     </AdminLayout>
   );
 }
