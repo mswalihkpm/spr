@@ -4,12 +4,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { calculateAllLeaderboards, getCachedCategories, onInvalidateEngine } from '@/lib/spr-engine';
 import { fetchOrGetAcademicMasterData } from '@/lib/academic-cache';
+import { onInvalidateBootstrapCache } from '@/lib/cache-invalidation';
 import { sanitizeSubcategoryLogo } from '@/lib/logo-utils';
 
 let cachedBootstrap: { timestamp: number; payload: any } | null = null;
 const BOOTSTRAP_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes in-memory warm cache
 
 onInvalidateEngine(() => {
+  cachedBootstrap = null;
+});
+
+onInvalidateBootstrapCache(() => {
   cachedBootstrap = null;
 });
 

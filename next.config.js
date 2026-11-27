@@ -5,13 +5,21 @@ const nextConfig = {
   swcMinify: true,
   experimental: {
     optimizePackageImports: ['lucide-react', 'recharts', 'xlsx'],
+    outputFileTracingIncludes: {
+      '/api/og/share': [
+        './public/branding/spr-official-banner.jpg',
+        './public/spr-official-banner.jpg',
+      ],
+    },
     outputFileTracingExcludes: {
       '*': [
         './backups/**',
         './scripts/**',
         './src/scratch/**',
         './src/scripts/**',
-        './public/branding/**',
+        './public/branding/generated-previews/**',
+        './public/branding/test-cards/**',
+        './public/branding/phone-mockup-crop.png',
         './node_modules/@swc/**',
         './node_modules/typescript/**',
         './node_modules/@img/sharp-win32-*/**',

@@ -29,21 +29,15 @@ export const CLIENT_CACHE_TTLS: Record<string, number> = {
   '/api/public/student': 2 * 60 * 1000,        // 2 minutes (Public Scorecards)
 };
 
-// Endpoints strictly permitted for shared client caching (all other endpoints have TTL = 0)
-const PUBLIC_CACHEABLE_PREFIXES = [
+// Exact public endpoints permitted for in-memory / persistent caching
+const EXACT_PUBLIC_CACHE_ENDPOINTS = new Set([
   '/api/bootstrap',
   '/api/categories',
   '/api/subcategories',
-  '/api/settings',
   '/api/academic',
-  '/api/news',
-  '/api/notifications',
   '/api/leaderboard',
   '/api/display',
-  '/api/public/student',
-];
-
-const PERSISTENT_CACHE_PREFIX = 'spr_pub_v1:';
+]);
 
 // Endpoints that MUST NEVER be cached under any circumstances (Private / Authenticated)
 const NEVER_CACHE_PREFIXES = [
@@ -55,34 +49,108 @@ const NEVER_CACHE_PREFIXES = [
   '/api/admin',
   '/api/audit-logs',
   '/api/weights',
+  '/api/notifications/preferences',
+  '/api/notifications/subscribe',
+  '/api/notifications/subscribe/status',
+  '/api/notifications/unsubscribe',
 ];
+
+const PERSISTENT_CACHE_PREFIX = 'spr_pub_v1:';
 
 // In-memory module-level storage
 const memoryCache = new Map<string, CacheEntry>();
 const inFlightRequests = new Map<string, Promise<any>>();
 
+export interface EndpointCachePolicy {
+  cacheable: boolean;
+  persistent: boolean;
+  ttl: number;
+}
+
+/**
+ * Resolves strict cacheability and persistence policy using parsed pathname and query parameters.
+ */
+export function getEndpointCachePolicy(url: string): EndpointCachePolicy {
+  let parsed: URL;
+  try {
+    parsed = new URL(url, 'http://localhost');
+  } catch {
+    return { cacheable: false, persistent: false, ttl: 0 };
+  }
+
+  const pathname = parsed.pathname;
+
+  for (const prefix of NEVER_CACHE_PREFIXES) {
+    if (pathname === prefix || pathname.startsWith(prefix + '/')) {
+      return { cacheable: false, persistent: false, ttl: 0 };
+    }
+  }
+
+  if (parsed.searchParams.get('fresh') === 'true' || parsed.searchParams.has('t')) {
+    return { cacheable: false, persistent: false, ttl: 0 };
+  }
+
+  // /api/settings is ONLY cacheable when explicitly requested with ?public=true
+  if (pathname === '/api/settings') {
+    if (parsed.searchParams.get('public') === 'true') {
+      return {
+        cacheable: true,
+        persistent: true,
+        ttl: CLIENT_CACHE_TTLS['/api/settings'],
+      };
+    }
+    return { cacheable: false, persistent: false, ttl: 0 };
+  }
+
+  // /api/notifications is ONLY cacheable on the exact public root endpoint (never sub-routes or ?all=true)
+  if (pathname === '/api/notifications') {
+    if (parsed.searchParams.get('all') === 'true') {
+      return { cacheable: false, persistent: false, ttl: 0 };
+    }
+    return {
+      cacheable: true,
+      persistent: true,
+      ttl: CLIENT_CACHE_TTLS['/api/notifications'],
+    };
+  }
+
+  // /api/news is only cacheable for public active feed (not admin ?all=true)
+  if (pathname === '/api/news') {
+    if (parsed.searchParams.get('all') === 'true') {
+      return { cacheable: false, persistent: false, ttl: 0 };
+    }
+    return {
+      cacheable: true,
+      persistent: true,
+      ttl: CLIENT_CACHE_TTLS['/api/news'],
+    };
+  }
+
+  // /api/public/student/* is in-memory only (NEVER persisted to localStorage)
+  if (pathname === '/api/public/student' || pathname.startsWith('/api/public/student/')) {
+    return {
+      cacheable: true,
+      persistent: false,
+      ttl: CLIENT_CACHE_TTLS['/api/public/student'],
+    };
+  }
+
+  if (EXACT_PUBLIC_CACHE_ENDPOINTS.has(pathname)) {
+    return {
+      cacheable: true,
+      persistent: true,
+      ttl: CLIENT_CACHE_TTLS[pathname] || 0,
+    };
+  }
+
+  return { cacheable: false, persistent: false, ttl: 0 };
+}
+
 /**
  * Determine default TTL for a given URL
  */
 export function getEndpointTTL(url: string): number {
-  const parsedUrl = url.split('?')[0];
-
-  // Strictly enforce never-cache list
-  for (const prefix of NEVER_CACHE_PREFIXES) {
-    if (parsedUrl.startsWith(prefix)) {
-      return 0;
-    }
-  }
-
-  // Check exact configured TTLs
-  for (const [prefix, ttl] of Object.entries(CLIENT_CACHE_TTLS)) {
-    if (parsedUrl === prefix || parsedUrl.startsWith(prefix + '/')) {
-      return ttl;
-    }
-  }
-
-  // Not in public whitelist
-  return 0;
+  return getEndpointCachePolicy(url).ttl;
 }
 
 /**
@@ -101,17 +169,10 @@ function normalizeCacheKey(url: string): string {
 }
 
 /**
- * Check if endpoint is safe for public client caching
+ * Check if endpoint is safe for client caching
  */
 function isCacheableEndpoint(url: string): boolean {
-  const parsedUrl = url.split('?')[0];
-  for (const prefix of NEVER_CACHE_PREFIXES) {
-    if (parsedUrl.startsWith(prefix)) return false;
-  }
-  for (const prefix of PUBLIC_CACHEABLE_PREFIXES) {
-    if (parsedUrl === prefix || parsedUrl.startsWith(prefix + '/')) return true;
-  }
-  return false;
+  return getEndpointCachePolicy(url).cacheable;
 }
 
 export interface FetchOptions extends RequestInit {
@@ -159,17 +220,20 @@ function writePersistentCache(key: string, entry: CacheEntry): void {
 }
 
 export function seedClientCache(url: string, data: any, customTtl?: number): void {
-  if (!isCacheableEndpoint(url)) return;
+  const policy = getEndpointCachePolicy(url);
+  if (!policy.cacheable) return;
   const key = normalizeCacheKey(url);
-  const ttl = customTtl ?? getEndpointTTL(url);
+  const ttl = customTtl ?? policy.ttl;
   if (ttl <= 0) return;
   const entry: CacheEntry = { data, timestamp: Date.now(), ttl };
   memoryCache.set(key, entry);
-  writePersistentCache(key, entry);
+  if (policy.persistent) {
+    writePersistentCache(key, entry);
+  }
 }
 
 /**
- * Deduplicated client fetch with in-memory + persistent localStorage TTL caching (public endpoints only)
+ * Deduplicated client fetch with in-memory + persistent localStorage TTL caching (safe public endpoints only)
  */
 export async function fetchWithDedupe<T = any>(
   url: string,
@@ -190,19 +254,22 @@ export async function fetchWithDedupe<T = any>(
 
   const key = normalizeCacheKey(url);
   const now = Date.now();
-  const configuredTTL = options?.ttl !== undefined ? options.ttl : getEndpointTTL(url);
-  const cacheable = isCacheableEndpoint(url) && configuredTTL > 0;
+  const policy = getEndpointCachePolicy(url);
+  const configuredTTL = options?.ttl !== undefined ? options.ttl : policy.ttl;
+  const cacheable = policy.cacheable && configuredTTL > 0;
 
-  // 1. Return fresh cached data from RAM or persistent localStorage if available
+  // 1. Return fresh cached data from RAM or persistent localStorage (when policy.persistent is true)
   if (!forceRefresh && cacheable) {
     const cached = memoryCache.get(key);
     if (cached && now - cached.timestamp < cached.ttl) {
       return cached.data as T;
     }
-    const persisted = readPersistentCache<T>(key, now);
-    if (persisted) {
-      memoryCache.set(key, persisted);
-      return persisted.data;
+    if (policy.persistent) {
+      const persisted = readPersistentCache<T>(key, now);
+      if (persisted) {
+        memoryCache.set(key, persisted);
+        return persisted.data;
+      }
     }
   }
 
@@ -231,7 +298,7 @@ export async function fetchWithDedupe<T = any>(
 
       const data = await res.json();
 
-      // Store in memory & persistent public cache if cacheable
+      // Store in memory (and persistent public cache only when policy.persistent is true)
       if (cacheable) {
         const entry: CacheEntry = {
           data,
@@ -239,7 +306,9 @@ export async function fetchWithDedupe<T = any>(
           ttl: configuredTTL,
         };
         memoryCache.set(key, entry);
-        writePersistentCache(key, entry);
+        if (policy.persistent) {
+          writePersistentCache(key, entry);
+        }
       }
 
       return data as T;

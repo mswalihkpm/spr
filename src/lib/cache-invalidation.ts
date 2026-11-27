@@ -48,8 +48,26 @@ export function triggerWeightsRevalidation() {
   safeRevalidate('/leaderboard');
 }
 
+const bootstrapInvalidationListeners: Array<() => void> = [];
+
+export function onInvalidateBootstrapCache(cb: () => void) {
+  bootstrapInvalidationListeners.push(cb);
+}
+
+export function invalidateBootstrapCache() {
+  bootstrapInvalidationListeners.forEach((cb) => {
+    try {
+      cb();
+    } catch {
+      // Ignore listener errors
+    }
+  });
+}
+
 export function triggerNewsRevalidation() {
+  invalidateBootstrapCache();
   safeRevalidate('/api/news');
+  safeRevalidate('/api/bootstrap');
   safeRevalidate('/updates');
   safeRevalidate('/');
 }
