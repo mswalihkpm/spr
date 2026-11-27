@@ -159,11 +159,12 @@ export default function TvSlideshowPage() {
     setSlideProgress(0);
   }, [fetchData]);
 
-  // Periodic background refresh based on settings (default 2 minutes) without resetting active slide
+  // Periodic background refresh based on settings (default 5 minutes) only when tab is visible
   useEffect(() => {
-    const intervalMs = (settings.autoRefreshInterval || 2) * 60 * 1000;
+    const intervalMs = Math.max(2, settings.autoRefreshInterval || 5) * 60 * 1000;
     const refreshTimer = setInterval(() => {
-      fetchData(true);
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      fetchData(false);
     }, intervalMs);
     return () => clearInterval(refreshTimer);
   }, [fetchData, settings.autoRefreshInterval]);

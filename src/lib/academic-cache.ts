@@ -72,3 +72,117 @@ export function invalidateAcademicCache() {
   invalidateEngineCache();
   triggerAcademicRevalidation();
 }
+
+export async function fetchOrGetAcademicMasterData(forceRefresh = false) {
+  if (!forceRefresh) {
+    const cached = getCachedAcademicData();
+    if (cached) return cached;
+  }
+
+  const [
+    schools,
+    classes,
+    academicYears,
+    terms,
+    exams,
+    subjects,
+    levels,
+    institutions,
+    boards,
+    categories,
+    programs,
+    competitions,
+    literaryEvents,
+  ] = await Promise.all([
+    prisma.school.findMany({ select: { id: true, name: true, code: true, active: true }, orderBy: { name: 'asc' } }),
+    prisma.academicClass.findMany({ select: { id: true, name: true, numericGrade: true, active: true }, orderBy: { numericGrade: 'asc' } }),
+    prisma.academicYear.findMany({ select: { id: true, name: true, isCurrent: true, startDate: true, endDate: true }, orderBy: { name: 'desc' } }),
+    prisma.term.findMany({ select: { id: true, name: true, code: true, academicYearId: true, isCurrent: true }, orderBy: { name: 'asc' } }),
+    prisma.exam.findMany({
+      select: {
+        id: true,
+        name: true,
+        categoryId: true,
+        termId: true,
+        academicYearId: true,
+        maxScore: true,
+        targetScore: true,
+        category: { select: { id: true, name: true, code: true } },
+        term: { select: { id: true, name: true } },
+      },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.subject.findMany({
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        categoryId: true,
+        institutionId: true,
+        boardId: true,
+        maxScore: true,
+        category: { select: { id: true, name: true, code: true } },
+        institution: { select: { id: true, name: true, code: true } },
+        board: { select: { id: true, name: true, code: true } },
+      },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.level.findMany({ select: { id: true, name: true, code: true, weightMultiplier: true, displayOrder: true, active: true }, orderBy: { displayOrder: 'asc' } }),
+    prisma.academicInstitution.findMany({ select: { id: true, name: true, code: true, active: true }, orderBy: { name: 'asc' } }),
+    prisma.boardSyllabus.findMany({ select: { id: true, name: true, code: true, active: true }, orderBy: { name: 'asc' } }),
+    prisma.category.findMany({ select: { id: true, code: true, name: true, icon: true, isSystem: true, active: true, displayOrder: true, defaultWeight: true, includeInSPR: true }, orderBy: { displayOrder: 'asc' } }),
+    prisma.program.findMany({
+      select: {
+        id: true,
+        name: true,
+        organizer: true,
+        academicYearId: true,
+        levelId: true,
+        date: true,
+        level: { select: { id: true, name: true } },
+        competitions: { select: { id: true, name: true, maxScore: true } },
+      },
+      orderBy: { date: 'desc' },
+    }),
+    prisma.competition.findMany({
+      select: {
+        id: true,
+        name: true,
+        programId: true,
+        maxScore: true,
+        program: { select: { id: true, name: true } },
+      },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.literaryEvent.findMany({
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        academicYearId: true,
+        date: true,
+        competitions: { select: { id: true, name: true, maxScore: true } },
+      },
+      orderBy: { date: 'desc' },
+    }),
+  ]);
+
+  const payload = {
+    schools,
+    classes,
+    academicYears,
+    terms,
+    exams,
+    subjects,
+    levels,
+    institutions,
+    boards,
+    categories,
+    programs,
+    competitions,
+    literaryEvents,
+  };
+
+  setCachedAcademicData(payload);
+  return payload;
+}

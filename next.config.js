@@ -5,6 +5,22 @@ const nextConfig = {
   swcMinify: true,
   experimental: {
     optimizePackageImports: ['lucide-react', 'recharts', 'xlsx'],
+    outputFileTracingExcludes: {
+      '*': [
+        './backups/**',
+        './scripts/**',
+        './src/scratch/**',
+        './src/scripts/**',
+        './public/branding/**',
+        './node_modules/@swc/**',
+        './node_modules/typescript/**',
+        './node_modules/@img/sharp-win32-*/**',
+        './node_modules/@img/sharp-darwin-*/**',
+        './node_modules/@img/sharp-libvips-darwin-*/**',
+        './node_modules/.prisma/client/query_engine-windows.dll.node*',
+        './node_modules/.prisma/client/libquery_engine-darwin*',
+      ],
+    },
   },
   images: {
     unoptimized: true,

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'spr-madin-v5';
+const CACHE_NAME = 'spr-madin-v6';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -11,7 +11,8 @@ const STATIC_ASSETS = [
   '/icon-maskable-512.png',
   '/apple-touch-icon.png',
   '/pwa-logo.png',
-  '/logo.png'
+  '/logo.png',
+  '/optimized/logo.webp'
 ];
 
 // Install: Cache critical assets with individual error resilience
@@ -108,14 +109,40 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Static Assets (icons, fonts, static builds) -> Stale-While-Revalidate
+  // 2. Immutable Hashed Static Bundles & Optimized Assets -> Pure Cache-First (0 CDN calls on repeat visits)
   if (
     url.pathname.startsWith('/_next/static/') ||
+    url.pathname.startsWith('/optimized/') ||
+    url.pathname.endsWith('.webp') ||
+    url.pathname.endsWith('.webm') ||
+    url.pathname.endsWith('.woff2') ||
+    url.pathname.endsWith('.woff')
+  ) {
+    event.respondWith(
+      caches.match(request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        return fetch(request).then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(request, clone).catch(() => {});
+            });
+          }
+          return networkResponse;
+        });
+      })
+    );
+    return;
+  }
+
+  // 3. Mutable Static Assets (icons, manifest) -> Stale-While-Revalidate
+  if (
     url.pathname.endsWith('.png') ||
     url.pathname.endsWith('.jpg') ||
     url.pathname.endsWith('.svg') ||
     url.pathname.endsWith('.ico') ||
-    url.pathname.endsWith('.woff2') ||
     url.pathname === '/manifest.json'
   ) {
     event.respondWith(

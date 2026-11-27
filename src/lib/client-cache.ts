@@ -17,19 +17,21 @@ export interface CacheEntry<T = any> {
 
 // Configured Stale-Time (TTL) in milliseconds
 export const CLIENT_CACHE_TTLS: Record<string, number> = {
+  '/api/bootstrap': 10 * 60 * 1000,            // 10 minutes (unified cold-start bootstrap)
   '/api/categories': 24 * 60 * 60 * 1000,      // 24 hours
   '/api/subcategories': 24 * 60 * 60 * 1000,   // 24 hours
   '/api/settings': 24 * 60 * 60 * 1000,        // 24 hours
   '/api/academic': 24 * 60 * 60 * 1000,        // 24 hours
-  '/api/news': 60 * 60 * 1000,                 // 1 hour
-  '/api/leaderboard': 5 * 60 * 1000,           // 5 minutes
-  '/api/display': 30 * 60 * 1000,              // 30 minutes
-  '/api/notifications': 60 * 1000,             // 1 minute
+  '/api/news': 30 * 60 * 1000,                 // 30 minutes
+  '/api/leaderboard': 10 * 60 * 1000,          // 10 minutes
+  '/api/display': 15 * 60 * 1000,              // 15 minutes
+  '/api/notifications': 5 * 60 * 1000,         // 5 minutes
   '/api/public/student': 2 * 60 * 1000,        // 2 minutes (Public Scorecards)
 };
 
 // Endpoints strictly permitted for shared client caching (all other endpoints have TTL = 0)
 const PUBLIC_CACHEABLE_PREFIXES = [
+  '/api/bootstrap',
   '/api/categories',
   '/api/subcategories',
   '/api/settings',
@@ -40,6 +42,8 @@ const PUBLIC_CACHEABLE_PREFIXES = [
   '/api/display',
   '/api/public/student',
 ];
+
+const PERSISTENT_CACHE_PREFIX = 'spr_pub_v1:';
 
 // Endpoints that MUST NEVER be cached under any circumstances (Private / Authenticated)
 const NEVER_CACHE_PREFIXES = [
@@ -115,8 +119,57 @@ export interface FetchOptions extends RequestInit {
   forceRefresh?: boolean;
 }
 
+function readPersistentCache<T = any>(key: string, now: number): CacheEntry<T> | null {
+  if (typeof window === 'undefined' || !window.localStorage) return null;
+  try {
+    const raw = window.localStorage.getItem(PERSISTENT_CACHE_PREFIX + key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CacheEntry<T>;
+    if (!parsed || typeof parsed.timestamp !== 'number' || typeof parsed.ttl !== 'number') {
+      return null;
+    }
+    if (now - parsed.timestamp >= parsed.ttl) {
+      window.localStorage.removeItem(PERSISTENT_CACHE_PREFIX + key);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writePersistentCache(key: string, entry: CacheEntry): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    window.localStorage.setItem(PERSISTENT_CACHE_PREFIX + key, JSON.stringify(entry));
+  } catch {
+    // Quota exceeded: clear oldest spr_pub_v1 entries and retry once quietly
+    try {
+      for (let i = window.localStorage.length - 1; i >= 0; i--) {
+        const k = window.localStorage.key(i);
+        if (k && k.startsWith(PERSISTENT_CACHE_PREFIX)) {
+          window.localStorage.removeItem(k);
+        }
+      }
+      window.localStorage.setItem(PERSISTENT_CACHE_PREFIX + key, JSON.stringify(entry));
+    } catch {
+      // Ignore storage errors in private/restricted browsers
+    }
+  }
+}
+
+export function seedClientCache(url: string, data: any, customTtl?: number): void {
+  if (!isCacheableEndpoint(url)) return;
+  const key = normalizeCacheKey(url);
+  const ttl = customTtl ?? getEndpointTTL(url);
+  if (ttl <= 0) return;
+  const entry: CacheEntry = { data, timestamp: Date.now(), ttl };
+  memoryCache.set(key, entry);
+  writePersistentCache(key, entry);
+}
+
 /**
- * Deduplicated client fetch with in-memory TTL caching
+ * Deduplicated client fetch with in-memory + persistent localStorage TTL caching (public endpoints only)
  */
 export async function fetchWithDedupe<T = any>(
   url: string,
@@ -140,11 +193,16 @@ export async function fetchWithDedupe<T = any>(
   const configuredTTL = options?.ttl !== undefined ? options.ttl : getEndpointTTL(url);
   const cacheable = isCacheableEndpoint(url) && configuredTTL > 0;
 
-  // 1. Return fresh cached data if available and not forcing refresh
+  // 1. Return fresh cached data from RAM or persistent localStorage if available
   if (!forceRefresh && cacheable) {
     const cached = memoryCache.get(key);
     if (cached && now - cached.timestamp < cached.ttl) {
       return cached.data as T;
+    }
+    const persisted = readPersistentCache<T>(key, now);
+    if (persisted) {
+      memoryCache.set(key, persisted);
+      return persisted.data;
     }
   }
 
@@ -173,13 +231,15 @@ export async function fetchWithDedupe<T = any>(
 
       const data = await res.json();
 
-      // Store in memory cache if cacheable
+      // Store in memory & persistent public cache if cacheable
       if (cacheable) {
-        memoryCache.set(key, {
+        const entry: CacheEntry = {
           data,
           timestamp: Date.now(),
           ttl: configuredTTL,
-        });
+        };
+        memoryCache.set(key, entry);
+        writePersistentCache(key, entry);
       }
 
       return data as T;
@@ -199,6 +259,18 @@ export function invalidateClientCache(pattern?: string | RegExp): void {
   if (!pattern) {
     memoryCache.clear();
     inFlightRequests.clear();
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        for (let i = window.localStorage.length - 1; i >= 0; i--) {
+          const k = window.localStorage.key(i);
+          if (k && k.startsWith(PERSISTENT_CACHE_PREFIX)) {
+            window.localStorage.removeItem(k);
+          }
+        }
+      } catch {
+        // Ignore storage errors
+      }
+    }
   } else {
     Array.from(memoryCache.keys()).forEach((key) => {
       const matches = typeof pattern === 'string' ? key.includes(pattern) : pattern.test(key);
@@ -212,6 +284,25 @@ export function invalidateClientCache(pattern?: string | RegExp): void {
         inFlightRequests.delete(key);
       }
     });
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        for (let i = window.localStorage.length - 1; i >= 0; i--) {
+          const fullKey = window.localStorage.key(i);
+          if (fullKey && fullKey.startsWith(PERSISTENT_CACHE_PREFIX)) {
+            const cacheKey = fullKey.slice(PERSISTENT_CACHE_PREFIX.length);
+            const matches =
+              typeof pattern === 'string'
+                ? cacheKey.includes(pattern) || cacheKey.startsWith('/api/bootstrap')
+                : pattern.test(cacheKey);
+            if (matches) {
+              window.localStorage.removeItem(fullKey);
+            }
+          }
+        }
+      } catch {
+        // Ignore storage errors
+      }
+    }
   }
 
   // Broadcast invalidation event to active mounted components

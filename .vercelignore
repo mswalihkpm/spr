@@ -1,0 +1,9 @@
+# Exclude local backups, scripts, scratch files, and logs from Vercel uploads
+backups/
+scripts/
+src/scratch/
+src/scripts/
+*.log
+.vercel/
+.next/
+node_modules/

@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     if (!includeInactive && !isFresh && cachedPublicNotifications && Date.now() - cachedPublicNotifications.timestamp < NOTIFICATIONS_CACHE_TTL) {
       return NextResponse.json(cachedPublicNotifications.data, {
         headers: {
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+          'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
           'X-SPR-Cache': 'HIT',
         },
       });

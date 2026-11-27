@@ -134,7 +134,7 @@ export async function GET(req: NextRequest) {
       headers: {
         'Cache-Control': forceRefresh
           ? 'no-cache, no-store, must-revalidate'
-          : 'public, s-maxage=900, stale-while-revalidate=1800',
+          : 'public, max-age=300, s-maxage=1800, stale-while-revalidate=3600',
       },
     });
   } catch (error: any) {

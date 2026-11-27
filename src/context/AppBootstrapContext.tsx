@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { getAcademicMasterData, AcademicMasterData } from '@/lib/academic-client';
-import { fetchWithDedupe, invalidateClientCache } from '@/lib/client-cache';
+import { fetchWithDedupe, invalidateClientCache, seedClientCache } from '@/lib/client-cache';
 
 export interface BootstrapState {
   isBootstrapped: boolean;
@@ -85,90 +85,70 @@ export function AppBootstrapProvider({ children }: { children: React.ReactNode }
         setBootstrapStatus('Connecting to SPR services...');
       }
 
-      const weights = {
-        academic: 40,
-        leaderboard: 40,
-        news: 10,
-        subcategories: 10,
-      };
-
-      const completed = {
-        academic: 0,
-        leaderboard: 0,
-        news: 0,
-        subcategories: 0,
-      };
-
-      const calculateTotalProgress = () => {
-        return completed.academic + completed.leaderboard + completed.news + completed.subcategories;
-      };
-
-      // 1. Parallel fetch: Academic Master Data (categories, classes, schools, etc.)
-      const academicPromise = getAcademicMasterData(force)
-        .then((data) => {
-          if (data) {
-            globalAcademicCache = data;
-            setAcademicData(data);
-            if (data.categories && data.categories.length > 0) {
-              globalCategoriesCache = data.categories;
-              setCategories(data.categories);
+      // Single unified cold-start bootstrap (1 edge-cached invocation instead of 4; 0 invocations when cached in localStorage)
+      const bootstrapPromise = fetchWithDedupe<any>('/api/bootstrap', { forceRefresh: force })
+        .then((res) => {
+          if (res?.academic) {
+            globalAcademicCache = res.academic;
+            setAcademicData(res.academic);
+            seedClientCache('/api/academic', res.academic);
+          }
+          if (res?.categories && res.categories.length > 0) {
+            globalCategoriesCache = res.categories;
+            setCategories(res.categories);
+          } else if (res?.academic?.categories && res.academic.categories.length > 0) {
+            globalCategoriesCache = res.academic.categories;
+            setCategories(res.academic.categories);
+          }
+          if (res?.leaderboard) {
+            globalLeaderboardCache = res.leaderboard;
+            setOverviewLeaderboard(res.leaderboard);
+            seedClientCache('/api/leaderboard', {
+              leaderboard: res.leaderboard,
+              categories: res.categories || [],
+              totalStudents: res.leaderboard.length,
+            });
+          }
+          if (res?.news) {
+            globalNewsCache = res.news;
+            setNews(res.news);
+            seedClientCache('/api/news', { news: res.news });
+          }
+          if (res?.subcategories) {
+            globalSubcategoriesCache = res.subcategories;
+            setSubcategories(res.subcategories);
+            seedClientCache('/api/subcategories', { subcategories: res.subcategories });
+          }
+          updateProgress(100, 'SPR data synchronized');
+        })
+        .catch(async () => {
+          // Graceful fallback to individual endpoints if unified bootstrap fails
+          const [academicRes, leaderboardRes, newsRes, subRes] = await Promise.allSettled([
+            getAcademicMasterData(force),
+            fetchWithDedupe<any>('/api/leaderboard', { forceRefresh: force }),
+            fetchWithDedupe<any>('/api/news', { forceRefresh: force }),
+            fetchWithDedupe<any>('/api/subcategories', { forceRefresh: force }),
+          ]);
+          if (academicRes.status === 'fulfilled' && academicRes.value) {
+            globalAcademicCache = academicRes.value;
+            setAcademicData(academicRes.value);
+            if (academicRes.value.categories?.length) {
+              globalCategoriesCache = academicRes.value.categories;
+              setCategories(academicRes.value.categories);
             }
           }
-          completed.academic = weights.academic;
-          updateProgress(calculateTotalProgress(), 'Academic data synchronized');
-        })
-        .catch(() => {
-          completed.academic = weights.academic;
-          updateProgress(calculateTotalProgress());
-        });
-
-      // 2. Parallel fetch: Overall Leaderboard Standings
-      const leaderboardPromise = fetchWithDedupe<any>('/api/leaderboard', { forceRefresh: force })
-        .then((data) => {
-          if (data?.leaderboard) {
-            globalLeaderboardCache = data.leaderboard;
-            setOverviewLeaderboard(data.leaderboard);
-            if (data.categories && globalCategoriesCache.length === 0) {
-              globalCategoriesCache = data.categories;
-              setCategories(data.categories);
-            }
+          if (leaderboardRes.status === 'fulfilled' && leaderboardRes.value?.leaderboard) {
+            globalLeaderboardCache = leaderboardRes.value.leaderboard;
+            setOverviewLeaderboard(leaderboardRes.value.leaderboard);
           }
-          completed.leaderboard = weights.leaderboard;
-          updateProgress(calculateTotalProgress(), 'Leaderboard standings ready');
-        })
-        .catch(() => {
-          completed.leaderboard = weights.leaderboard;
-          updateProgress(calculateTotalProgress());
-        });
-
-      // 3. Parallel fetch: News / Broadcasts
-      const newsPromise = fetchWithDedupe<any>('/api/news', { forceRefresh: force })
-        .then((data) => {
-          if (data?.news) {
-            globalNewsCache = data.news;
-            setNews(data.news);
+          if (newsRes.status === 'fulfilled' && newsRes.value?.news) {
+            globalNewsCache = newsRes.value.news;
+            setNews(newsRes.value.news);
           }
-          completed.news = weights.news;
-          updateProgress(calculateTotalProgress(), 'Announcements synchronized');
-        })
-        .catch(() => {
-          completed.news = weights.news;
-          updateProgress(calculateTotalProgress());
-        });
-
-      // 4. Parallel fetch: Subcategories
-      const subcategoriesPromise = fetchWithDedupe<any>('/api/subcategories', { forceRefresh: force })
-        .then((data) => {
-          if (data?.subcategories) {
-            globalSubcategoriesCache = data.subcategories;
-            setSubcategories(data.subcategories);
+          if (subRes.status === 'fulfilled' && subRes.value?.subcategories) {
+            globalSubcategoriesCache = subRes.value.subcategories;
+            setSubcategories(subRes.value.subcategories);
           }
-          completed.subcategories = weights.subcategories;
-          updateProgress(calculateTotalProgress(), 'Subcategories loaded');
-        })
-        .catch(() => {
-          completed.subcategories = weights.subcategories;
-          updateProgress(calculateTotalProgress());
         });
 
       // Safety timeout: Maximum 1200ms before forcing 100% completion so slow network never blocks user
@@ -176,16 +156,7 @@ export function AppBootstrapProvider({ children }: { children: React.ReactNode }
         setTimeout(() => resolve(), 1200);
       });
 
-      // Wait for all critical parallel requests to complete or timeout
-      await Promise.race([
-        Promise.allSettled([
-          academicPromise,
-          leaderboardPromise,
-          newsPromise,
-          subcategoriesPromise,
-        ]),
-        safetyTimeout,
-      ]);
+      await Promise.race([bootstrapPromise, safetyTimeout]);
 
       // Complete bootstrap
       globalBootstrapped = true;

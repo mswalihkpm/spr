@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
           headers: {
             'Cache-Control': isFresh
               ? 'private, no-cache, no-store, must-revalidate'
-              : 'public, s-maxage=120, stale-while-revalidate=300',
+              : 'public, max-age=60, s-maxage=300, stale-while-revalidate=900',
           },
         }
       );
@@ -113,7 +113,7 @@ export async function GET(req: NextRequest) {
         headers: {
           'Cache-Control': isFresh
             ? 'private, no-cache, no-store, must-revalidate'
-            : 'public, s-maxage=300, stale-while-revalidate=600',
+            : 'public, max-age=60, s-maxage=300, stale-while-revalidate=900',
         },
       }
     );
