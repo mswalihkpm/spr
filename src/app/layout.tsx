@@ -4,6 +4,7 @@ import AppIntro from '@/components/ui/AppIntro';
 import AppUpdateNotification from '@/components/ui/AppUpdateNotification';
 import { AppBootstrapProvider } from '@/context/AppBootstrapContext';
 import { ThemeProvider } from '@/context/ThemeContext';
+import { Analytics } from '@vercel/analytics/next';
 
 export const metadata: Metadata = {
   title: 'SPR — Students Performance Rate | Madin School of Excellence',
@@ -194,6 +195,7 @@ export default function RootLayout({
             <AppUpdateNotification />
           </AppBootstrapProvider>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
